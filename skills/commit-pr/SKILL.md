@@ -1,5 +1,5 @@
 ---
-name: commit-and-workflow-done
+name: commit-pr
 description: "커밋, 브랜치 생성, PR 오픈까지 전체 워크플로우 수행"
 user-invocable: true
 ---
