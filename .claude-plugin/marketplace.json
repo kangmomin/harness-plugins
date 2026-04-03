@@ -9,7 +9,7 @@
       "name": "minmo-s-harness",
       "source": "./",
       "description": "Post-Math 개발 워크플로우를 위한 개인 하네스. 커밋/PR 관리, 컨벤션 검사, Feature Spec 생성, E2E 테스트, Apidog 스키마 생성 등 개발 생산성 도구 모음.",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "author": {
         "name": "kangmomin",
         "url": "https://github.com/kangmomin"
