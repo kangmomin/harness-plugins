@@ -57,6 +57,33 @@ user-invocable: true
 | 7 | 컨벤션 설정 | OK / DEFAULT | convention-check |
 ```
 
+### Step 2.5: 설정 가이드 / 세팅 선택
+
+상태 요약 보고 후, 유저에게 다음 행동을 선택하게 한다:
+
+> "어떻게 진행할까요?"
+>
+> **설정 가이드 보기** — 번호를 입력하면 해당 항목의 설정 방법을 안내합니다.
+> **세팅 시작** — `all`을 입력하면 MISSING 항목을 순서대로 세팅합니다.
+>
+> 예: `1` (Apidog MCP 설정 방법 보기), `1,4` (복수 선택), `all` (바로 세팅 시작)
+
+- **번호 입력 시**: 해당 항목의 설정 방법만 출력하고, 다시 선택 프롬프트로 돌아온다.
+- **`all` 입력 시**: Step 3으로 진행하여 MISSING 항목을 순서대로 세팅한다.
+- **`q` 입력 시**: init을 종료한다.
+
+#### 설정 가이드 내용 (번호 선택 시 표시)
+
+| # | 항목 | 가이드 요약 |
+|---|------|-----------|
+| 1 | Apidog MCP | Apidog 프로젝트 ID를 `.mcp.json`에 등록. ID는 Apidog 프로젝트 Settings에서 확인 |
+| 2 | APIDOG_ACCESS_TOKEN | Apidog → Settings → API Access Token에서 생성 후 `export` |
+| 3 | APIDOG_PROJECT_ID | Apidog 프로젝트 URL에서 확인 후 `export` |
+| 4 | PostgreSQL MCP | DATABASE_URL을 `.mcp.json`에 등록. `secret/.env`에서 자동 추출 가능 |
+| 5 | secret/.env | 프로젝트 담당자에게 요청하거나 `secret/.env.example`에서 복사 |
+| 6 | db-tools 플러그인 | `/plugin marketplace add postmath-plugins/db-tools` 실행 |
+| 7 | 컨벤션 설정 | 적용할 컨벤션을 선택하여 `.convention-check.json` 생성 |
+
 ### Step 3: 세팅 진행
 
 **MISSING인 항목만** 순서대로 세팅을 진행한다. 각 항목마다 유저에게 진행 여부를 확인한다.
