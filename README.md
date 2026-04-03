@@ -44,7 +44,7 @@ Post-Math 개발 워크플로우를 위한 Claude Code 플러그인.
 | 스킬 | 호출 | 설명 |
 |------|------|------|
 | **convention-check** | `/minmo-s-harness:convention-check` | 프로젝트 컨벤션 위반 검사 및 보고 |
-| **simplify-loop** | `/minmo-s-harness:simplify-loop` | `/simplify` 반복 실행 (수정 없을 때까지, 최대 10회) |
+| **simplify-loop** | `/minmo-s-harness:simplify-loop` | 빌트인 `/simplify` 반복 실행 (수정 없을 때까지, 최대 10회) |
 | **e2e-test** | `/minmo-s-harness:e2e-test` | 변경된 API 대상 E2E 테스트 수행 |
 | **e2e-test-loop** | `/minmo-s-harness:e2e-test-loop` | E2E 테스트 → 이슈 수정 → 재테스트 반복 (최대 5회) |
 
