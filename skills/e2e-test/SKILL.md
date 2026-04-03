@@ -8,6 +8,58 @@ user-invocable: true
 
 기능 추가 또는 수정이 완료된 후, 연관된 API들을 실제 요청으로 E2E 테스트한다.
 
+---
+
+## Prerequisites
+
+### 필요 환경
+- **Apidog MCP 서버**: Apidog 스펙 참조/비교용
+- **PostgreSQL MCP 서버** (읽기/쓰기): 테스트 데이터 생성, BASELINE_ID 기록, soft-delete 정리용
+
+### `--init` (초기 세팅)
+
+`$ARGUMENTS`가 `--init`이면 아래 절차를 실행하고 종료한다:
+
+1. **Apidog MCP 확인**: `.mcp.json`에 `apidog` MCP 등록 여부 확인.
+   - 없으면 `/minmo-s-harness:apidog-schema-gen --init`과 동일한 Apidog 세팅을 안내한다.
+2. **PostgreSQL MCP 확인**: `.mcp.json`에 `postgres` MCP 등록 여부 확인.
+   - 없으면 안내:
+     > "PostgreSQL MCP 서버가 설정되어 있지 않습니다. `.mcp.json`에 아래 설정을 추가하세요:"
+     > ```json
+     > {
+     >   "mcpServers": {
+     >     "postgres": {
+     >       "command": "npx",
+     >       "args": ["-y", "@anthropic/postgres-mcp", "<DATABASE_URL>"]
+     >     }
+     >   }
+     > }
+     > ```
+   - `secret/.env`에서 DB 접속 정보를 읽어 DATABASE_URL을 자동 구성할 수 있으면 제안한다.
+   - 유저 동의 시 `.mcp.json`에 자동 추가한다.
+3. 결과를 요약 보고한다.
+
+### `--doctor` (상태 진단)
+
+`$ARGUMENTS`가 `--doctor`이면 아래 항목을 점검하고 결과를 보고한 뒤 종료한다:
+
+```markdown
+## E2E Test — Doctor
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Apidog MCP 등록 | OK / MISSING | .mcp.json 확인 |
+| Apidog MCP 응답 | OK / FAIL | OAS 읽기 시도 |
+| PostgreSQL MCP 등록 | OK / MISSING | .mcp.json 확인 |
+| PostgreSQL MCP 연결 | OK / FAIL | SELECT 1 시도 |
+| secret/.env 존재 | OK / MISSING | JWT_SECRET, DB 접속 정보 |
+| Go 빌드 | OK / FAIL | go build 시도 |
+```
+
+- 문제가 있으면 `--init`을 실행하라고 안내한다.
+
+---
+
 ## 핵심 원칙: 테스트 데이터 격리
 
 **기존 데이터를 절대 수정/삭제하지 않는다.** 모든 테스트 데이터는 E2E 테스트 전용으로 생성하고, 테스트 종료 시 정리한다.

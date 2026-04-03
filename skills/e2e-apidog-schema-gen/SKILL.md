@@ -17,6 +17,34 @@ E2E 테스트에서 수집된 **실제 요청/응답 데이터**를 기반으로
 
 ---
 
+## Prerequisites
+
+### 필요 환경
+- **Apidog MCP 서버**: OAS 읽기/푸시를 위해 필수
+- **환경 변수** (Push 기능 사용 시):
+  - `APIDOG_ACCESS_TOKEN`, `APIDOG_PROJECT_ID`
+
+### `--init` (초기 세팅)
+
+`$ARGUMENTS`가 `--init`이면 `/minmo-s-harness:apidog-schema-gen --init`과 동일한 절차를 실행하고 종료한다.
+
+### `--doctor` (상태 진단)
+
+`$ARGUMENTS`가 `--doctor`이면 아래 항목을 점검하고 결과를 보고한 뒤 종료한다:
+
+```markdown
+## E2E Apidog Schema Gen — Doctor
+
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| Apidog MCP 등록 | OK / MISSING | .mcp.json 확인 |
+| Apidog MCP 응답 | OK / FAIL | OAS 읽기 시도 |
+| APIDOG_ACCESS_TOKEN | SET / UNSET | Push 기능용 |
+| APIDOG_PROJECT_ID | SET / UNSET | Push 기능용 |
+```
+
+---
+
 ## Phase 1: E2E 결과 수집
 
 ### 1.1 대화 컨텍스트에서 수집
