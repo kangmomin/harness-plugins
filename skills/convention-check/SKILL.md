@@ -5,4 +5,4 @@ allowed-tools: Read, Glob, Grep
 user-invocable: true
 ---
 
-/mimo-s-harness:default-conventions 와 /mimo-s-harness:pagenation 를 써서 컨벤션에 위배되는 곳을 찾아서 보고해.
+/minmo-s-harness:default-conventions 와 /minmo-s-harness:pagenation 를 써서 컨벤션에 위배되는 곳을 찾아서 보고해.
