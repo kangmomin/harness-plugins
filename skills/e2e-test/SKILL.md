@@ -165,6 +165,47 @@ user-invocable: true
   ```
 - 이 ID를 `BASELINE_ID`로 저장하여, 테스트 종료 시 이후 생성된 데이터를 식별한다.
 
+#### 테스트 시드 데이터 생성
+
+필터/검색 테스트에 필요한 데이터가 DB에 존재하지 않으면, PostgreSQL MCP를 통해 테스트용 시드 데이터를 직접 생성한다.
+
+**판단 기준:**
+- 필터 대상 테이블에 `SELECT COUNT(*) FROM {table_name} WHERE status != 'removed'`가 0건이면 시드 필요
+- FK 참조 테이블(예: grades, locations, publishers)에 유효 데이터가 없으면 해당 테이블도 시드 필요
+
+**생성 절차:**
+
+1. **스키마 분석**: 대상 테이블의 컬럼, 타입, NOT NULL, FK, CHECK constraint를 확인한다.
+   ```sql
+   SELECT column_name, data_type, is_nullable, column_default
+   FROM information_schema.columns
+   WHERE table_name = '{table_name}' ORDER BY ordinal_position;
+   ```
+
+2. **FK 의존 순서 해결**: FK가 참조하는 부모 테이블부터 순서대로 생성한다.
+   ```
+   예: publishers → grades → textbooks (textbooks가 publishers, grades를 FK 참조)
+   ```
+
+3. **시드 INSERT**: PostgreSQL MCP로 최소한의 테스트 데이터를 삽입한다.
+   - 필터별로 최소 **2종 이상**의 다른 값을 가진 데이터를 생성한다 (대조 테스트를 위해).
+   - `status = 'active'` 등 정상 상태로 생성한다.
+   - 테스트 데이터임을 식별할 수 있도록 `name`이나 `title`에 `[E2E]` 접두사를 붙인다.
+   ```sql
+   -- 예: 2개 grade에 각각 연결된 textbook 생성
+   INSERT INTO grades (name, status) VALUES ('[E2E] Grade A', 'active'), ('[E2E] Grade B', 'active');
+   INSERT INTO textbooks (title, grade_id, status) VALUES
+     ('[E2E] Book 1', {grade_a_id}, 'active'),
+     ('[E2E] Book 2', {grade_b_id}, 'active');
+   ```
+
+4. **시드 BASELINE 기록**: 시드로 생성한 데이터도 `BASELINE_ID` 이후이므로, 테스트 종료 시 함께 정리된다.
+
+**원칙:**
+- 시드 데이터는 **테스트에 필요한 최소 수량**만 생성한다.
+- 기존 데이터와 충돌하지 않도록 유니크 제약이 있는 컬럼은 `[E2E]` 접두사 등으로 구분한다.
+- 시드 생성이 실패하면 (권한 부족, constraint 위반 등) 에러를 보고하고 해당 테스트를 **SKIP** 처리한다.
+
 ### 5. E2E 테스트 실행
 각 엔드포인트에 대해 실제 curl 요청을 수행한다.
 
@@ -184,7 +225,7 @@ user-invocable: true
    -- 예: location 필터 테스트 시
    SELECT DISTINCT location_id FROM {table_name} WHERE status != 'removed' LIMIT 5;
    ```
-   조회된 ID가 없으면 해당 필터 테스트를 **SKIP**으로 표기하고, "유효 데이터 없음"을 명시한다.
+   조회된 ID가 없으면 **테스트용 시드 데이터를 PostgreSQL MCP로 직접 생성**한다 (아래 "테스트 시드 데이터 생성" 참조).
 
 2. **필터 효과 검증 (대조 테스트)**: 필터가 실제로 결과를 좁히는지 확인한다.
    - **A (기준)**: 필터 없이 전체 조회 → `total_count` 기록
