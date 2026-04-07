@@ -2,6 +2,7 @@
 name: workflow-implementer
 description: "확정된 Plan에 따라 코드를 구현하고 논리적 단위별로 커밋하는 에이전트"
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep
+model: sonnet
 ---
 
 # Workflow Implementer
