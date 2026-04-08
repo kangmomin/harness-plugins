@@ -24,6 +24,8 @@ model: sonnet
 
 프롬프트에 아래 정보가 제공됩니다:
 - **대상 API**: 분석할 API 엔드포인트 **1개** (예: `POST /api/v1/books`)
+- **프로토콜** (선택): `REST` (기본값) / `GRPC` / `MIXED` — gRPC 엔드포인트인 경우 proto 기반 분석 활성화
+- **gRPC 서비스 경로** (선택): `{service}.v1.{ServiceName}/{MethodName}` 형태 (프로토콜이 GRPC/MIXED인 경우)
 - **프로젝트 루트**: 코드베이스 경로
 - **추가 컨텍스트** (선택): Technical Spec, 관련 요구사항 등
 - **이미 도출된 엣지 케이스** (선택): 호출자가 이미 분석한 케이스 요약 — 중복 분석 방지용
@@ -45,6 +47,13 @@ model: sonnet
    - **Repository**: 쿼리 조건, JOIN, WHERE 절, 정렬/페이지네이션
 3. **VO 분석**: Request/Response VO의 `New()` 생성자에서 Validation 로직 파악
 4. **에러코드 추적**: 사용되는 errcode 상수들과 각각의 발생 조건 파악
+
+#### gRPC 엔드포인트인 경우 (프로토콜이 `GRPC`인 경우)
+
+1. **gRPC Repository 추적**: `grpc_*_repository.go`에서 대상 RPC 메서드를 찾는다.
+2. **Proto 정의 분석**: `go-grpc-tools`의 `find-proto.sh`로 찾은 `.proto` 파일에서 메시지 구조, oneof, enum, optional 필드를 분석한다.
+3. **VO 분석**: `*_vo.go`에서 proto 타입 → domain 타입 변환 로직을 확인한다.
+4. **gRPC 에러코드 추적**: `status.Errorf(codes.XXX, ...)` 패턴을 Grep하여 에러 경로별 gRPC status code를 추적한다.
 
 ### Phase 2: 서비스 관계 분석
 
@@ -90,12 +99,18 @@ model: sonnet
 - 특수 문자, 유니코드, SQL injection 시도, XSS 페이로드
 - enum 타입에 정의되지 않은 값
 - 날짜/시간: 과거, 미래, 시간대 차이, 윤년, DST
+- **(gRPC)** Proto3 기본값: `0`, `""`, `false`가 명시적 전송인지 미전송인지 구분 불가 — `optional` 마커 없는 필드 테스트
+- **(gRPC)** optional 필드의 null vs 미전송 처리 차이
+- **(gRPC)** oneof 필드: 여러 필드 동시 설정(마지막만 유효), 하나도 설정 안 함
+- **(gRPC)** repeated 필드: 빈 배열, 대량 요소(100+), 단일 요소
+- **(gRPC)** unknown fields: proto에 없는 필드 전송 시 무시 여부
 
 #### 관점 2: 인증/인가 (Auth & Permission)
 - 미인증 요청 (토큰 없음, 만료, 변조)
 - 권한 없는 사용자의 접근 (다른 사용자의 리소스)
 - 역할(Role) 기반 접근 제어 우회 시도
 - 탈퇴/비활성화된 사용자의 토큰 사용
+- **(gRPC)** metadata 기반 인증: `authorization` metadata 누락, Bearer 접두사 없이 토큰만 전송, 잘못된 metadata 키
 
 #### 관점 3: 데이터 상태 (Data State)
 - 대상 데이터가 존재하지 않는 경우 (soft-deleted 포함)
@@ -109,12 +124,15 @@ model: sonnet
 - 읽기 후 쓰기(Read-then-Write) 패턴에서의 TOCTOU
 - 트랜잭션 격리 수준에 따른 팬텀 리드
 - 동일 사용자의 중복 요청 (더블 클릭, 네트워크 재시도)
+- **(gRPC)** deadline/timeout: 매우 짧은 deadline(1ms) 전송 시 DEADLINE_EXCEEDED 처리
+- **(gRPC)** gRPC retry: 클라이언트 자동 재시도 시 멱등성 보장 여부
 
 #### 관점 5: 연쇄 영향 (Cascade Effect)
 - 이 API의 성공/실패가 다른 API의 동작에 미치는 영향
 - 부분 실패 시 데이터 일관성 (트랜잭션 범위 밖의 사이드 이펙트)
 - 외부 서비스 호출 실패 시 롤백 범위
 - 이벤트/알림 발행 실패 시 처리
+- **(gRPC)** gRPC inter-service 호출 실패: 서비스 A가 서비스 B를 gRPC로 호출할 때 B가 UNAVAILABLE/INTERNAL 반환 시 A의 처리
 
 #### 관점 6: 비즈니스 규칙 경계 (Business Rule Boundary)
 - 코드에 구현된 비즈니스 조건의 경계값 (=, >, >= 의 정확한 경계)
@@ -128,12 +146,16 @@ model: sonnet
 - 커서 기반 페이지네이션에서 중간 데이터 삽입/삭제
 - 정렬 기준 컬럼에 NULL 값이 있는 경우
 - 필터 조건 조합으로 결과가 0건이 되는 경우
+- **(gRPC)** Server Streaming RPC에서 페이지네이션 패턴: request에 cursor, response가 stream인 경우 스트림 종료 시점
 
 #### 관점 8: 응답 계약 (Response Contract)
 - nullable 필드가 실제로 null일 때 클라이언트 처리
 - 빈 배열 vs null 배열의 구분
 - 에러 응답의 일관성 (status code + errcode 조합)
 - 대용량 응답 (목록 API에서 수천 건 반환)
+- **(gRPC)** gRPC status code 일관성: 동일 원인의 에러가 항상 같은 gRPC code를 반환하는지
+- **(gRPC)** enum UNSPECIFIED 값(0): 응답에 포함될 때 클라이언트 처리
+- **(gRPC)** 빈 response vs nil response 구분
 
 ## 출력 형식
 

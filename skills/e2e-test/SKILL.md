@@ -13,8 +13,9 @@ user-invocable: true
 ## Prerequisites
 
 ### 필요 환경
-- **Apidog MCP 서버**: Apidog 스펙 참조/비교용
+- **Apidog MCP 서버**: Apidog 스펙 참조/비교용 (REST)
 - **PostgreSQL MCP 서버** (읽기/쓰기): 테스트 데이터 생성, BASELINE_ID 기록, soft-delete 정리용
+- **grpcurl** (선택): gRPC 엔드포인트 테스트용. gRPC 테스트가 필요한 경우에만 필수
 
 ### `--init` (초기 세팅)
 
@@ -41,7 +42,17 @@ user-invocable: true
    - 사용자에게 해당 DB에서 E2E 테스트를 실행해도 되는지 확인한다.
    - 승인하면 `.e2e-allowed-hosts`에 호스트를 등록하고, `.gitignore`에도 추가한다.
    - 거부하면 로컬 DB로 변경하라고 안내한다.
-4. 결과를 요약 보고한다.
+4. **grpcurl 확인** (선택): `which grpcurl`로 설치 여부를 확인한다.
+   - 없으면 안내:
+     > "gRPC E2E 테스트를 사용하려면 grpcurl이 필요합니다:"
+     > ```bash
+     > # macOS
+     > brew install grpcurl
+     > # Linux (Go)
+     > go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
+     > ```
+   - gRPC 테스트가 불필요하면 건너뛸 수 있다.
+5. 결과를 요약 보고한다.
 
 ### `--doctor` (상태 진단)
 
@@ -60,6 +71,8 @@ user-invocable: true
 | Go 빌드 | OK / FAIL | go build 시도 |
 | DB 호스트 (로컬 전용) | OK / **BLOCKED** | DB_HOST가 localhost/127.0.0.1인지 확인 |
 | MCP DB 호스트 (로컬 전용) | OK / **BLOCKED** / SKIP | .mcp.json postgres URL 호스트 확인 |
+| grpcurl 설치 (선택) | OK / MISSING | grpcurl --version |
+| GRPC_PORT (선택) | OK / MISSING / SKIP | secret/.env 확인 |
 ```
 
 - **BLOCKED** 항목이 하나라도 있으면 E2E 테스트를 실행할 수 없다고 경고하고, 해당 DB를 허용할지 사용자에게 질문한다. 승인하면 `.e2e-allowed-hosts`에 등록한다.
@@ -135,10 +148,52 @@ DB 호스트가 허용 목록(기본 + 화이트리스트)에 없으면:
 - 변경된 handler/route를 기반으로 **영향받는 API 엔드포인트 목록**을 도출한다.
 - 직접 변경된 API뿐 아니라, 같은 도메인의 연관 API(예: POST 변경 시 GET 조회도 포함)를 리스트업한다.
 
-### 2. Apidog 문서 참조
+#### 1-1. 프로토콜 분류
+
+변경된 파일 목록에서 프로토콜을 자동 감지한다:
+
+| 감지 패턴 | 프로토콜 |
+|----------|---------|
+| `internal/handler/`, `internal/route/` 변경 | REST |
+| `grpc_*_repository.go` 변경 | gRPC |
+| proto import 경로 변경 (`BE.protobuf-definitions`) | gRPC |
+| `*_vo.go`에 proto 관련 타입 추가/변경 | gRPC |
+| REST + gRPC 모두 감지 | MIXED |
+
+- `$ARGUMENTS`에 `--grpc`가 있으면 gRPC를 강제 지정한다.
+- `$ARGUMENTS`에 `--rest`가 있으면 REST를 강제 지정한다.
+- 감지 결과를 `$PROTOCOL` 변수에 저장한다: `REST` / `GRPC` / `MIXED`
+
+**gRPC 엔드포인트 도출** (`$PROTOCOL`이 `GRPC` 또는 `MIXED`인 경우):
+- `grpc_*_repository.go`에서 변경된 메서드명을 추출한다.
+- 해당 서비스의 proto 정의에서 `{service}.v1.{ServiceName}/{MethodName}` 형태의 완전한 RPC 경로를 도출한다.
+- `go-grpc-tools` 플러그인의 `find-proto.sh`를 사용하여 proto 소스 위치를 확인한다:
+  ```bash
+  bash ${go-grpc-tools plugin root}/skills/proto-gen/scripts/find-proto.sh {service}
+  ```
+
+### 2. 스펙 참조
+
+#### REST 엔드포인트 (`$PROTOCOL`이 `REST` 또는 `MIXED`): Apidog 문서 참조
 - `mcp__apidog__read_project_oas_n7eawf`로 OAS 전체 경로를 확인한다.
 - `mcp__apidog__read_project_oas_ref_resources_n7eawf`로 각 엔드포인트의 상세 스펙(request/response schema)을 읽는다.
 - 코드의 실제 request/response 구조체와 Apidog 스펙을 비교하여 차이점을 보고한다.
+
+#### gRPC 엔드포인트 (`$PROTOCOL`이 `GRPC` 또는 `MIXED`): Proto 스펙 참조
+- Step 1-1에서 확인한 `.proto` 파일에서 서비스/메시지 정의를 읽는다.
+- **메시지 분석**:
+  - 각 필드의 타입, `optional` 여부, `repeated` 여부
+  - `oneof` 그룹과 소속 필드
+  - `enum` 정의와 허용 값 목록
+  - nested message 구조
+- **Go 코드 교차 검증**: `grpc_*_repository.go`와 `*_vo.go`의 실제 구현과 proto 정의를 비교한다.
+- **RPC 유형 분류**:
+  | 유형 | 정의 | 테스트 지원 |
+  |------|------|-----------|
+  | Unary | `rpc Method(Req) returns (Res)` | 지원 |
+  | Server Streaming | `rpc Method(Req) returns (stream Res)` | 지원 |
+  | Client Streaming | `rpc Method(stream Req) returns (Res)` | `[SKIP:STREAMING]` |
+  | Bidirectional | `rpc Method(stream Req) returns (stream Res)` | `[SKIP:STREAMING]` |
 
 ### 3. 엣지 케이스 분석
 코드베이스와 Apidog 스펙을 기반으로 엣지 케이스를 도출한다.
@@ -157,7 +212,7 @@ DB 호스트가 허용 목록(기본 + 화이트리스트)에 없으면:
 - `nullable` 타입(`["string", "null"]`) 식별 → null 전송 테스트
 - `format` (date-time, email 등) → 잘못된 포맷 전송 테스트
 
-**엣지 케이스 카테고리:**
+**엣지 케이스 카테고리 (공통):**
 - **경계값**: 빈 문자열, 0, 음수, 매우 큰 값, 최대 길이 문자열
 - **타입 불일치**: 숫자 필드에 문자열, 배열 필드에 단일 값
 - **Null/Missing**: nullable 필드에 null vs 필드 자체 생략
@@ -166,10 +221,22 @@ DB 호스트가 허용 목록(기본 + 화이트리스트)에 없으면:
 - **상태 전이**: 허용되지 않는 상태 변경 (e.g., removed → active)
 - **관계**: 존재하지 않는 FK 참조, 삭제된 리소스 참조
 
-### 3-1. HTTP Status Code 의미적 정합성 검증
+**gRPC 특화 엣지 케이스** (`$PROTOCOL`이 `GRPC` 또는 `MIXED`인 경우 추가):
+- **Proto3 기본값**: `0`, `""`, `false`가 명시적 전송인지 미전송인지 구분 불가 — `optional` 마커 없는 필드에서 서버가 기본값을 어떻게 처리하는지 확인
+- **optional 필드**: proto에서 `optional`로 선언된 필드의 null vs 미전송 처리 차이
+- **oneof 필드**: 여러 필드 동시 설정(마지막만 유효), 하나도 설정 안 함
+- **repeated 필드**: 빈 배열 `[]`, 대량 요소(100+), 단일 요소
+- **unknown fields**: proto에 정의되지 않은 필드 전송 시 무시 여부
+- **메시지 크기**: gRPC 기본 4MB 제한 초과 시도 (대량 repeated 필드)
+- **deadline/timeout**: 매우 짧은 deadline(1ms) 전송 시 `DEADLINE_EXCEEDED` 반환 여부
+- **metadata 변조**: `authorization` metadata 누락, Bearer 없이 토큰만, 잘못된 형식
 
-모든 에러 응답에 대해 **HTTP 상태 코드가 에러의 원인(클라이언트/서버)과 일치하는지** 검증한다.
+### 3-1. Status Code 의미적 정합성 검증
+
+모든 에러 응답에 대해 **상태 코드가 에러의 원인(클라이언트/서버)과 일치하는지** 검증한다.
 단순히 "에러가 반환되는가"가 아니라 "올바른 종류의 에러가 반환되는가"를 확인하는 단계이다.
+
+#### REST 엔드포인트의 HTTP Status Code (`$PROTOCOL`이 `REST` 또는 `MIXED`)
 
 **분류 기준:**
 
@@ -196,6 +263,29 @@ DB 호스트가 허용 목록(기본 + 화이트리스트)에 없으면:
 - 각 에러 케이스에 대해 **기대 status code**와 **실제 status code**를 비교한다.
 - 4XX가 기대되는데 5XX가 반환되면 **[STATUS_MISMATCH]** 로 표기하고, 발견된 이슈에 별도 보고한다.
 
+#### gRPC 엔드포인트의 gRPC Status Code (`$PROTOCOL`이 `GRPC` 또는 `MIXED`)
+
+| 원인 | 올바른 gRPC Status | 예시 |
+|------|-------------------|------|
+| 정상 처리 | OK (0) | 성공 응답 |
+| 클라이언트 입력 오류 | INVALID_ARGUMENT (3) | 필수 필드 누락, 유효하지 않은 값, 타입 불일치 |
+| 인증 없음 | UNAUTHENTICATED (16) | 토큰 없음, 만료된 토큰 |
+| 권한 없음 | PERMISSION_DENIED (7) | 일반 유저가 ADMIN RPC 호출 |
+| 리소스 없음 | NOT_FOUND (5) | 존재하지 않는 ID로 조회/수정/삭제 |
+| 중복/충돌 | ALREADY_EXISTS (6) | 중복 생성, 이미 처리된 요청 |
+| 서버 내부 오류 | INTERNAL (13) | 예상치 못한 런타임 에러 |
+| 시간 초과 | DEADLINE_EXCEEDED (4) | deadline 초과 |
+
+**검증 방법:**
+1. Go 코드에서 `status.Errorf(codes.XXX, ...)` 또는 `status.Error(codes.XXX, ...)` 패턴을 Grep하여 각 에러 경로의 gRPC 코드를 추적한다.
+2. 클라이언트 입력 오류가 `codes.Internal`로 반환되는 경우를 찾는다.
+3. `domain.ErrNotFound` → 반드시 `codes.NotFound`로 매핑되는지 확인한다.
+
+**E2E 실행 시 검증:**
+- grpcurl 응답에서 gRPC status code를 파싱한다 (에러 시 `ERROR: Code: XXX` 형태로 출력됨).
+- 기대 status와 실제 status를 비교한다.
+- 불일치 시 **[GRPC_STATUS_MISMATCH]** 표기.
+
 ### 3-2. Edge Case Analyzer 에이전트 호출
 
 Step 3, 3-1에서 도출한 엣지 케이스를 **비즈니스 로직 관점에서 보완**하기 위해, `edge-case-analyzer` 에이전트를 **엔드포인트별로 1회씩** 호출한다.
@@ -212,6 +302,13 @@ Agent tool:
 
     ## 대상 API
     {METHOD} {PATH}
+    (gRPC인 경우: {service}.v1.{ServiceName}/{MethodName})
+
+    ## 프로토콜
+    {$PROTOCOL} (REST / GRPC / MIXED)
+
+    ## gRPC 서비스 (GRPC/MIXED인 경우)
+    {service}.v1.{ServiceName}/{MethodName}
 
     ## 프로젝트 루트
     {현재 작업 디렉토리 또는 worktree 경로}
@@ -314,6 +411,40 @@ echo "Allowed hosts:     ${ALLOWED_HOSTS}"
     - `pip install PyJWT`가 필요할 수 있다. 없으면 자동 설치 후 재시도한다.
 - 필요 시 USER 토큰도 생성한다 (`role_id=2`).
 
+#### 4-2. gRPC 환경 준비 (`$PROTOCOL`이 `GRPC` 또는 `MIXED`인 경우)
+
+1. **grpcurl 검증**:
+   ```bash
+   which grpcurl || echo "grpcurl not found — gRPC 테스트를 실행할 수 없습니다"
+   ```
+   없으면 설치 안내 후 gRPC 테스트를 중단한다 (`$PROTOCOL`이 `MIXED`이면 REST 테스트만 계속).
+
+2. **gRPC 포트 확인**:
+   ```bash
+   GRPC_PORT=$(grep -E '^GRPC_PORT=' secret/.env | head -1 | cut -d'=' -f2 | tr -d '[:space:]"'"'"'')
+   echo "GRPC_PORT: ${GRPC_PORT:-50051}"
+   ```
+   `GRPC_PORT`가 없으면 기본값 `50051`을 사용하되, 사용자에게 확인한다.
+
+3. **gRPC Reflection 확인** (서버 실행 후):
+   ```bash
+   grpcurl -plaintext localhost:${GRPC_PORT} list 2>&1
+   ```
+   - 성공 → Reflection 사용. proto import path 불필요.
+   - 실패 → `find-proto.sh`로 proto 경로를 확보하여 grpcurl에 `-import-path` / `-proto` 옵션을 사용한다.
+
+4. **gRPC JWT 전달**: REST과 동일한 JWT 토큰을 생성하되, gRPC에서는 metadata로 전달한다:
+   ```bash
+   -H "authorization: Bearer ${TOKEN}"
+   ```
+
+5. **서버 빌드/실행**: 4-1의 서버와 동일 바이너리를 공유한다 (REST + gRPC 동일 프로세스인 경우).
+   별도 gRPC 서버 바이너리가 필요한 경우:
+   ```bash
+   go build -o /tmp/grpc-test-server ./cmd/grpc/main.go
+   /tmp/grpc-test-server &
+   ```
+
 #### 테스트 데이터 추적 준비
 - 테스트 시작 전, 관련 테이블의 현재 최대 ID를 기록한다.
   ```sql
@@ -391,7 +522,7 @@ echo "Allowed hosts:     ${ALLOWED_HOSTS}"
 
 3. **복합 필터**: 여러 필터를 동시 적용할 때도 위 대조 테스트를 수행한다.
 
-**테스트 케이스 구성:**
+**테스트 케이스 구성 (REST — `$PROTOCOL`이 `REST` 또는 `MIXED`인 경우):**
 
 #### A. Happy Path
 - 생성 → 기대 status code 및 response 구조 확인
@@ -425,11 +556,83 @@ Step 3-1에서 식별한 케이스를 실제 요청으로 검증한다.
 - `domain.ErrNotFound` 경로 → **404** 확인
 - 실제 DB/서버 에러와 구분되는 5XX가 아닌지 확인
 
-**각 요청마다 기록:**
+**각 요청마다 기록 (REST):**
 - HTTP method + path
 - Request body (요약)
 - Response status code
 - Response body (요약)
+- 기대값과 일치 여부
+
+#### gRPC 테스트 실행 (`$PROTOCOL`이 `GRPC` 또는 `MIXED`인 경우)
+
+**도구**: `grpcurl` (curl 대신 사용)
+
+**Reflection 사용 가능 시:**
+```bash
+# Unary RPC
+grpcurl -plaintext \
+  -d '{"field":"value"}' \
+  -H "authorization: Bearer ${TOKEN}" \
+  localhost:${GRPC_PORT} \
+  {service}.v1.{ServiceName}/{MethodName}
+
+# Server Streaming RPC
+grpcurl -plaintext \
+  -d '{"field":"value"}' \
+  -H "authorization: Bearer ${TOKEN}" \
+  localhost:${GRPC_PORT} \
+  {service}.v1.{ServiceName}/{StreamMethodName}
+```
+
+**Reflection 미사용 시 (proto import 필요):**
+```bash
+grpcurl -plaintext \
+  -import-path {proto_dir} \
+  -proto {service}/v1/{service}.proto \
+  -d '{"field":"value"}' \
+  -H "authorization: Bearer ${TOKEN}" \
+  localhost:${GRPC_PORT} \
+  {service}.v1.{ServiceName}/{MethodName}
+```
+
+**gRPC 테스트 케이스 구성:**
+
+##### A. Happy Path
+- Unary RPC 호출 → gRPC OK (0) 및 response 구조 확인
+- 반환된 데이터를 조회 RPC(또는 REST GET)로 반영 확인
+- Server Streaming RPC → 스트림 수신 완료, 응답 구조 확인
+
+##### B. Validation (필수 필드/타입)
+- 필수 필드 누락 → INVALID_ARGUMENT (3)
+- 잘못된 enum 값 → INVALID_ARGUMENT (3)
+- 빈 repeated 필드 (required) → INVALID_ARGUMENT (3)
+- 잘못된 타입 (문자열 → 숫자 필드) → INVALID_ARGUMENT (3)
+
+##### C. gRPC 특화 엣지 케이스
+- Proto3 기본값 전송 (0, "", false) → 서버 처리 확인
+- optional 필드 null vs 미전송 → 서버 구분 확인
+- oneof 다중 설정 → 마지막만 유효 확인
+- 대량 repeated 요소 → 응답 확인 또는 RESOURCE_EXHAUSTED
+- deadline 1ms → DEADLINE_EXCEEDED (4): `grpcurl -max-time 0.001 ...`
+- metadata 없음 → UNAUTHENTICATED (16)
+- metadata 변조 (Bearer 없이 토큰만) → UNAUTHENTICATED (16)
+
+##### D. 인증/권한
+- metadata에 authorization 없이 요청 → UNAUTHENTICATED (16)
+- USER 역할 토큰으로 ADMIN 전용 RPC 호출 → PERMISSION_DENIED (7)
+
+##### E. gRPC Status Code 정합성
+Step 3-1에서 식별한 gRPC status code 케이스를 실제 grpcurl로 검증한다.
+- 존재하지 않는 ID → NOT_FOUND (5) 확인 (INTERNAL이면 [GRPC_STATUS_MISMATCH])
+- 삭제된 리소스 참조 → NOT_FOUND (5) 확인
+- domain.ErrNotFound 경로 → NOT_FOUND (5) 확인
+- Client Streaming / Bidirectional RPC → `[SKIP:STREAMING]` 표기, 실행 생략
+
+**각 요청마다 기록 (gRPC):**
+- RPC 경로 (`{service}.v1.{ServiceName}/{MethodName}`)
+- Request JSON
+- gRPC status code + message
+- Response JSON (성공 시)
 - 기대값과 일치 여부
 
 ### 6. 결과 보고
@@ -485,6 +688,54 @@ Step 3-1에서 식별한 케이스를 실제 요청으로 검증한다.
 - **수정 방향**: [Repository에서 도메인 에러 분리 → Usecase에서 errors.Is()로 분기 등]
 ```
 
+#### gRPC 테스트 결과 (`$PROTOCOL`이 `GRPC` 또는 `MIXED`인 경우)
+
+`$PROTOCOL`이 `MIXED`이면 REST와 gRPC 결과를 **섹션 분리**하여 보고한다.
+
+```markdown
+### gRPC 테스트 결과
+
+#### 테스트 대상 RPC
+- {service}.v1.{ServiceName}/{MethodName} - 설명
+
+#### Happy Path
+| # | 테스트 | gRPC Status | 결과 | 비고 |
+|---|--------|-------------|------|------|
+| 1 | 설명 | OK (0) | 성공/실패 | 상세 |
+
+#### Validation
+| # | 테스트 | gRPC Status | 기대 | 결과 | 비고 |
+|---|--------|-------------|------|------|------|
+| 1 | 설명 | INVALID_ARGUMENT (3) | INVALID_ARGUMENT | 성공/실패 | 상세 |
+
+#### gRPC 특화 Edge Cases
+| # | 테스트 | gRPC Status | 기대 | 결과 | 비고 |
+|---|--------|-------------|------|------|------|
+| 1 | Proto3 기본값 | xxx | xxx | 성공/실패 | 상세 |
+
+#### 인증/권한
+| # | 테스트 | gRPC Status | 결과 | 비고 |
+|---|--------|-------------|------|------|
+| 1 | metadata 없음 | UNAUTHENTICATED (16) | 성공/실패 | 상세 |
+
+#### gRPC Status Code 정합성
+| # | 테스트 시나리오 | 에러 원인 | 기대 Status | 실제 Status | 판정 |
+|---|----------------|----------|------------|------------|------|
+| 1 | 존재하지 않는 ID | 리소스 없음 | NOT_FOUND (5) | NOT_FOUND/INTERNAL | OK / [GRPC_STATUS_MISMATCH] |
+
+#### Streaming RPC (미실행)
+| # | RPC | 유형 | 사유 |
+|---|-----|------|------|
+| 1 | {ServiceName}/{MethodName} | Client Streaming / Bidirectional | [SKIP:STREAMING] grpcurl 미지원 |
+
+### gRPC Status Code 오분류 ([GRPC_STATUS_MISMATCH])
+| # | RPC | 시나리오 | 에러 원인 | 기대 Status | 실제 Status | 위치 (파일:라인) |
+|---|-----|---------|----------|------------|------------|----------------|
+| 1 | [{ServiceName}/{Method}] | [시나리오] | [클라이언트/서버] | [NOT_FOUND] | [INTERNAL] | [파일:라인] |
+
+- **수정 방향**: [gRPC handler에서 도메인 에러를 적절한 gRPC status code로 매핑 등]
+```
+
 ### 7. 테스트 데이터 정리
 
 테스트 종료 시, 테스트 중 생성된 모든 데이터를 정리한다.
@@ -510,3 +761,4 @@ Step 3-1에서 식별한 케이스를 실제 요청으로 검증한다.
 ### 8. 서버 정리
 - 서버 프로세스를 종료한다 (`pkill -f pms-test-server`).
 - 바이너리를 삭제한다 (`rm -f /tmp/pms-test-server`).
+- gRPC 별도 서버를 실행한 경우: `pkill -f grpc-test-server && rm -f /tmp/grpc-test-server`
