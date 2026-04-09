@@ -1,0 +1,18 @@
+{
+  "name": "harness-plugins",
+  "owner": {
+    "name": "kangmomin"
+  },
+  "plugins": [
+    {
+      "name": "mimo-s-harness",
+      "description": "Post-Math 백엔드 개발 워크플로우 하네스. 커밋/PR 관리, 컨벤션 검사, E2E 테스트(REST+gRPC), Apidog 스키마 생성 등.",
+      "source": "./mimo-s-harness"
+    },
+    {
+      "name": "donghyeons-harness",
+      "description": "프론트엔드 개발 워크플로우 하네스. 컴포넌트 생성, 커밋/PR 관리, 단위/E2E 테스트, 코드 품질 검사(ESLint, a11y) 등.",
+      "source": "./donghyeons-harness"
+    }
+  ]
+}
