@@ -31,7 +31,7 @@ for iteration in 1..5:
 
 ### Step 1: 단위 테스트 실행
 
-`.dh-config.json`의 `testRunner`에 따라:
+`.donghyeon-config.json`의 `testRunner`에 따라:
 - **vitest**: `npx vitest run --reporter=verbose`
 - **jest**: `npx jest --verbose`
 
@@ -42,7 +42,7 @@ for iteration in 1..5:
 
 ### Step 2: E2E 테스트 실행
 
-`.dh-config.json`의 `e2eRunner`가 `none`이면 건너뛴다.
+`.donghyeon-config.json`의 `e2eRunner`가 `none`이면 건너뛴다.
 
 - **playwright**: `npx playwright test --reporter=list`
 - **cypress**: `npx cypress run`

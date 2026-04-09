@@ -180,7 +180,7 @@ user-invocable: true
 
 #### Step 2 — 배치 위치
 > "어디에 배치할까요?"
-- `.dh-config.json`의 `componentPattern`에 따라 경로 제안
+- `.donghyeon-config.json`의 `componentPattern`에 따라 경로 제안
 - 기존 디렉토리 구조를 탐색하여 적합한 위치를 제시
 
 #### Step 3 — Props 설계
@@ -321,7 +321,7 @@ ProductCard
 > 3. 직접 fetch + useState
 > 4. 서버 컴포넌트 (Next.js App Router)
 
-`.dh-config.json`의 `stateManagement`를 기본값으로 제안.
+`.donghyeon-config.json`의 `stateManagement`를 기본값으로 제안.
 
 #### Step 5 — 에러/로딩 처리
 > "에러 및 로딩 상태를 어떻게 처리하나요?"

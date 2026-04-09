@@ -18,14 +18,14 @@ user-invocable: true
 ## Prerequisites
 
 ### 필요 환경
-- **테스트 러너**: Vitest 또는 Jest (`.dh-config.json`의 `testRunner` 참조)
+- **테스트 러너**: Vitest 또는 Jest (`.donghyeon-config.json`의 `testRunner` 참조)
 - **Testing Library**: `@testing-library/react`, `@testing-library/jest-dom`
 
 ### `--init` (초기 세팅)
 
 `$ARGUMENTS`가 `--init`이면 아래 절차를 실행하고 종료한다:
 
-1. `.dh-config.json`의 `testRunner` 확인
+1. `.donghyeon-config.json`의 `testRunner` 확인
 2. 설정 파일 존재 확인 (`vitest.config.*` / `jest.config.*`)
 3. 없으면 기본 설정 파일 생성 안내
 4. `@testing-library/react` 설치 여부 확인
@@ -39,7 +39,7 @@ user-invocable: true
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| .dh-config.json | OK / MISSING | testRunner 설정 확인 |
+| .donghyeon-config.json | OK / MISSING | testRunner 설정 확인 |
 | 테스트 러너 설정 | OK / MISSING | vitest.config / jest.config |
 | @testing-library/react | OK / MISSING | package.json 확인 |
 | @testing-library/jest-dom | OK / MISSING | package.json 확인 |
@@ -117,7 +117,7 @@ describe('utilFunction', () => {
 
 ### Step 3: 테스트 실행
 
-`.dh-config.json`의 `testRunner`에 따라 실행:
+`.donghyeon-config.json`의 `testRunner`에 따라 실행:
 
 - **vitest**: `npx vitest run --reporter=verbose {테스트 파일들}`
 - **jest**: `npx jest --verbose {테스트 파일들}`

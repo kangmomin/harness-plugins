@@ -165,7 +165,7 @@ Write tool로 `/tmp/workflow-state.md`를 생성한다:
 [확정된 Plan 전문 그대로 복사]
 
 ## Config
-[.dh-config.json 주요 설정]
+[.donghyeon-config.json 주요 설정]
 ```
 
 출력: **"자율 실행을 시작합니다. Phase 4~8을 서브 에이전트로 순차 실행합니다."**
@@ -211,7 +211,7 @@ for iteration in 1..3:
 
 #### 5.0 Build + Type Check
 
-Bash로 직접 실행. `.dh-config.json`의 `framework`에 따라:
+Bash로 직접 실행. `.donghyeon-config.json`의 `framework`에 따라:
 
 ```bash
 # Next.js

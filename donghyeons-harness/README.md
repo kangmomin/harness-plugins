@@ -11,8 +11,8 @@
 ## 초기 세팅
 
 ```bash
-/donghyeons-harness:dh-init     # 전체 환경 한 번에 세팅
-/donghyeons-harness:dh-doctor   # 전체 환경 한 번에 진단
+/donghyeons-harness:donghyeon-init     # 전체 환경 한 번에 세팅
+/donghyeons-harness:donghyeon-doctor   # 전체 환경 한 번에 진단
 ```
 
 ## 스킬 목록
@@ -21,8 +21,8 @@
 
 | 스킬 | 호출 | 설명 |
 |------|------|------|
-| **dh-init** | `/donghyeons-harness:dh-init` | 모든 의존성 한 번에 세팅 (프레임워크, UI lib, 상태관리, 테스트 도구) |
-| **dh-doctor** | `/donghyeons-harness:dh-doctor` | 모든 의존성 한 번에 진단 (필수/선택 분류) |
+| **donghyeon-init** | `/donghyeons-harness:donghyeon-init` | 모든 의존성 한 번에 세팅 (프레임워크, UI lib, 상태관리, 테스트 도구) |
+| **donghyeon-doctor** | `/donghyeons-harness:donghyeon-doctor` | 모든 의존성 한 번에 진단 (필수/선택 분류) |
 
 ### 자동화 파이프라인
 

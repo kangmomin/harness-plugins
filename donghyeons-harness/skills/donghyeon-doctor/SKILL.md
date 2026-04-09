@@ -1,5 +1,5 @@
 ---
-name: dh-doctor
+name: donghyeon-doctor
 description: "donghyeons-harness 플러그인의 모든 의존성 상태를 한 번에 진단한다."
 allowed-tools: Read, Glob, Grep, Bash
 user-invocable: true
@@ -30,7 +30,7 @@ user-invocable: true
 
 | 항목 | 점검 방법 | 관련 스킬 |
 |------|----------|----------|
-| .dh-config.json | 파일 존재 및 유효한 JSON 확인 | 전체 |
+| .donghyeon-config.json | 파일 존재 및 유효한 JSON 확인 | 전체 |
 | package.json | 파일 존재 확인 | 전체 |
 | TypeScript 설정 | `tsconfig.json` 존재 확인 | lint-check, convention-check |
 | CLAUDE.md | 파일 존재 확인 | convention-check |
@@ -93,7 +93,7 @@ user-invocable: true
 ### 프로젝트 설정
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| .dh-config.json | OK / MISSING | 없으면 /dh-init 실행 필요 |
+| .donghyeon-config.json | OK / MISSING | 없으면 /donghyeon-init 실행 필요 |
 | package.json | OK / MISSING | |
 | tsconfig.json | OK / MISSING | |
 | CLAUDE.md | OK / MISSING | 컨벤션 기준 |
@@ -137,7 +137,7 @@ user-invocable: true
 ### 해결 필요 (ISSUES FOUND인 경우)
 | # | 항목 | 해결 방법 |
 |---|------|----------|
-| 1 | [항목] | `/donghyeons-harness:dh-init` 실행 또는 [구체적 안내] |
+| 1 | [항목] | `/donghyeons-harness:donghyeon-init` 실행 또는 [구체적 안내] |
 ```
 
 ---
@@ -148,14 +148,14 @@ user-invocable: true
 |------|------|------|
 | Node.js 설치/버전 | **필수** | 모든 스킬에서 사용 |
 | package.json | **필수** | 프로젝트 기본 |
-| .dh-config.json | **필수** | 플러그인 설정 |
+| .donghyeon-config.json | **필수** | 플러그인 설정 |
 | TypeScript 설정 | **필수** | 타입 검사 |
 | ESLint 설정 | **필수** | 린트 검사 |
 | 테스트 러너 | **필수** | 단위 테스트 |
 | 빌드 스크립트 | **필수** | 빌드 검증 |
 | CLAUDE.md | **필수** | 컨벤션 기준 |
 | Prettier | 선택 | 포매팅 (ESLint로 대체 가능) |
-| E2E 러너 | 선택 | dh-config에서 none 가능 |
-| Storybook | 선택 | dh-config에서 false 가능 |
+| E2E 러너 | 선택 | donghyeon-config에서 none 가능 |
+| Storybook | 선택 | donghyeon-config에서 false 가능 |
 | Codex | 선택 | 난이도 7+ Plan 리뷰 전용 |
 | Playwright 브라우저 | 선택 | E2E 사용 시만 필수 |

@@ -18,7 +18,7 @@ Playwright 기반으로 사용자 시나리오를 E2E 테스트한다.
 ## Prerequisites
 
 ### 필요 환경
-- **E2E 러너**: Playwright 또는 Cypress (`.dh-config.json`의 `e2eRunner` 참조)
+- **E2E 러너**: Playwright 또는 Cypress (`.donghyeon-config.json`의 `e2eRunner` 참조)
 - **개발 서버**: `package.json`의 `scripts.dev` 존재
 - **Playwright 브라우저**: 설치 완료 상태
 
@@ -26,7 +26,7 @@ Playwright 기반으로 사용자 시나리오를 E2E 테스트한다.
 
 `$ARGUMENTS`가 `--init`이면 아래 절차를 실행하고 종료한다:
 
-1. `.dh-config.json`의 `e2eRunner` 확인. `none`이면 종료.
+1. `.donghyeon-config.json`의 `e2eRunner` 확인. `none`이면 종료.
 2. `playwright.config.ts` 존재 확인.
    - 없으면:
      > "Playwright 설정 파일이 없습니다. 생성할까요? (Y/N)"
@@ -46,7 +46,7 @@ Playwright 기반으로 사용자 시나리오를 E2E 테스트한다.
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| .dh-config.json | OK / MISSING | e2eRunner 설정 확인 |
+| .donghyeon-config.json | OK / MISSING | e2eRunner 설정 확인 |
 | E2E 러너 설정 | OK / MISSING | playwright.config.* |
 | Playwright 설치 | OK / MISSING | npx playwright --version |
 | 브라우저 설치 | OK / MISSING | chromium 확인 |

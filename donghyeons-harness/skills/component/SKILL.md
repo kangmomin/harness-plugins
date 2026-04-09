@@ -1,6 +1,6 @@
 ---
 name: component
-description: "컴포넌트 보일러플레이트를 자동 생성한다. .dh-config.json 설정에 따라 스타일, 테스트, Storybook 파일을 함께 생성."
+description: "컴포넌트 보일러플레이트를 자동 생성한다. .donghyeon-config.json 설정에 따라 스타일, 테스트, Storybook 파일을 함께 생성."
 allowed-tools: Read, Write, Glob, Grep, Bash, AskUserQuestion
 argument-hint: <컴포넌트 이름 또는 설명>
 user-invocable: true
@@ -8,7 +8,7 @@ user-invocable: true
 
 # Component Generator
 
-`.dh-config.json` 설정에 따라 컴포넌트 보일러플레이트를 생성한다.
+`.donghyeon-config.json` 설정에 따라 컴포넌트 보일러플레이트를 생성한다.
 
 ## Language Rule
 
@@ -18,7 +18,7 @@ user-invocable: true
 
 ## Prerequisites
 
-- `.dh-config.json` 필요. 없으면 `/donghyeons-harness:dh-init` 실행을 안내한다.
+- `.donghyeon-config.json` 필요. 없으면 `/donghyeons-harness:donghyeon-init` 실행을 안내한다.
 
 ---
 
@@ -26,7 +26,7 @@ user-invocable: true
 
 ### Step 1: 설정 로드
 
-`.dh-config.json`에서 다음을 읽는다:
+`.donghyeon-config.json`에서 다음을 읽는다:
 - `framework` — 프레임워크 (nextjs, vite 등)
 - `uiLibrary` — UI 라이브러리 (tailwind, styled-components 등)
 - `testRunner` — 테스트 러너 (vitest, jest)

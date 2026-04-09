@@ -1,5 +1,5 @@
 ---
-name: dh-init
+name: donghyeon-init
 description: "donghyeons-harness 플러그인의 모든 사전 세팅을 한 번에 진행한다."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
@@ -38,7 +38,7 @@ user-invocable: true
 
 먼저 모든 항목의 현재 상태를 조용히 점검한다:
 
-- `.dh-config.json` 읽기 → 기존 설정 존재 여부
+- `.donghyeon-config.json` 읽기 → 기존 설정 존재 여부
 - `package.json` 읽기 → 프레임워크, 의존성, 스크립트 확인
 - `tsconfig.json` 존재 여부
 - `.eslintrc.*` / `eslint.config.*` 존재 여부
@@ -148,7 +148,7 @@ user-invocable: true
 
 ### Step 4: 설정 파일 생성
 
-선택 결과를 `.dh-config.json`으로 저장한다:
+선택 결과를 `.donghyeon-config.json`으로 저장한다:
 
 ```json
 {
@@ -186,6 +186,6 @@ user-invocable: true
 | 9 | Storybook | false |
 | 10 | 컨벤션 | default-conventions, CLAUDE.md |
 
-설정 파일: `.dh-config.json`
-다음 단계: `/donghyeons-harness:dh-doctor`로 전체 상태를 검증하세요.
+설정 파일: `.donghyeon-config.json`
+다음 단계: `/donghyeons-harness:donghyeon-doctor`로 전체 상태를 검증하세요.
 ```
