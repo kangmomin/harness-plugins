@@ -6,8 +6,8 @@ user-invocable: true
 
 아래 절차를 따라 Claude Code **빌트인** `/simplify` 스킬을 반복 실행해:
 
-> **주의**: 여기서 `/simplify`는 Claude Code 빌트인 스킬이다. 본 플러그인(minmo-s-harness)의 스킬이 아니다.
-> Skill tool 호출 시 `skill: "simplify"` (빌트인)로 호출해야 하며, `skill: "minmo-s-harness:simplify"`로 호출하면 안 된다.
+> **주의**: 여기서 `/simplify`는 Claude Code 빌트인 스킬이다. 본 플러그인(minmos-harness)의 스킬이 아니다.
+> Skill tool 호출 시 `skill: "simplify"` (빌트인)로 호출해야 하며, `skill: "minmos-harness:simplify"`로 호출하면 안 된다.
 
 ## 절차
 

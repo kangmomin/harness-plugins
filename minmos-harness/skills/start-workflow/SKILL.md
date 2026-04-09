@@ -64,7 +64,7 @@ user-invocable: true
 
 ### 기본: /request 호출
 
-위 조건을 충족하지 않으면 `/minmo-s-harness:request`를 호출하여 Technical Spec을 생성한다.
+위 조건을 충족하지 않으면 `/minmos-harness:request`를 호출하여 Technical Spec을 생성한다.
 
 - `$ARGUMENTS`가 있으면 request 스킬에 전달한다.
 - request 스킬이 완료되면 생성된 **Technical Spec** 전문을 보관한다.
@@ -191,7 +191,7 @@ Write tool로 `/tmp/workflow-state.md`를 생성한다:
 
 ```
 Agent tool:
-  subagent_type: minmo-s-harness:workflow-implementer
+  subagent_type: minmos-harness:workflow-implementer
   prompt: |
     상태 파일 `/tmp/workflow-state.md`를 읽고 Plan에 따라 코드를 구현하세요.
     프로젝트 루트: {현재 작업 디렉토리}
@@ -237,7 +237,7 @@ go build ./cmd/main.go && go test ./internal/...
 Agent tool:
   subagent_type: general-purpose
   prompt: |
-    프로젝트 루트 {CWD}에서 Skill tool로 /minmo-s-harness:simplify-loop 를 실행하세요.
+    프로젝트 루트 {CWD}에서 Skill tool로 /minmos-harness:simplify-loop 를 실행하세요.
     완료 후 "수정: Y/N, N건" 형식으로 보고하세요.
 ```
 결과에 "수정: Y"가 포함되면 `modified = true`.
@@ -248,7 +248,7 @@ Agent tool:
 Agent tool:
   subagent_type: general-purpose
   prompt: |
-    프로젝트 루트 {CWD}에서 Skill tool로 /minmo-s-harness:convention-check 를 실행하세요.
+    프로젝트 루트 {CWD}에서 Skill tool로 /minmos-harness:convention-check 를 실행하세요.
     위반 사항이 있으면 수정하세요.
     완료 후 "위반: N건, 수정: Y/N" 형식으로 보고하세요.
 ```
@@ -260,7 +260,7 @@ Agent tool:
 Agent tool:
   subagent_type: general-purpose
   prompt: |
-    프로젝트 루트 {CWD}에서 Skill tool로 /minmo-s-harness:e2e-test-loop 를 실행하세요.
+    프로젝트 루트 {CWD}에서 Skill tool로 /minmos-harness:e2e-test-loop 를 실행하세요.
     완료 후 "이슈: N건, 수정: Y/N" 형식으로 보고하세요.
 ```
 결과에 "수정: Y"가 포함되면 `modified = true`.
@@ -269,7 +269,7 @@ Agent tool:
 
 ```
 Agent tool:
-  subagent_type: minmo-s-harness:scope-reviewer
+  subagent_type: minmos-harness:scope-reviewer
   prompt: |
     상태 파일 `/tmp/workflow-state.md`의 Technical Spec을 기준으로
     현재 구현된 코드를 검증하세요.
@@ -310,7 +310,7 @@ MCP tool이나 외부 서비스를 호출하기 전, **1회 호출로 read/write
 
 ```
 Agent tool:
-  subagent_type: minmo-s-harness:workflow-doc-sync
+  subagent_type: minmos-harness:workflow-doc-sync
   prompt: |
     상태 파일 `/tmp/workflow-state.md`를 읽고 API 문서를 동기화하세요.
     작업 유형: {Task Type}
@@ -325,7 +325,7 @@ Agent tool:
 
 ```
 Agent tool:
-  subagent_type: minmo-s-harness:workflow-pr
+  subagent_type: minmos-harness:workflow-pr
   prompt: |
     상태 파일 `/tmp/workflow-state.md`를 읽고 PR을 생성하세요.
     프로젝트 루트: {현재 작업 디렉토리}
@@ -336,7 +336,7 @@ Agent tool:
 
 ```
 Agent tool:
-  subagent_type: minmo-s-harness:workflow-reflection
+  subagent_type: minmos-harness:workflow-reflection
   prompt: |
     상태 파일 `/tmp/workflow-state.md`를 읽고 워크플로우 성찰을 수행하세요.
     프로젝트 루트: {현재 작업 디렉토리}

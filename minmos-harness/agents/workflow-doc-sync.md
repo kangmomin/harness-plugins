@@ -22,7 +22,7 @@ API 변경 작업인 경우, Apidog 스키마를 동기화한다.
 
 ## 실행 절차
 
-**우선**: Skill tool로 `/minmo-s-harness:e2e-apidog-schema-gen` 실행을 시도한다.
+**우선**: Skill tool로 `/minmos-harness:e2e-apidog-schema-gen` 실행을 시도한다.
 
 **Skill 불가 시 직접 수행**:
 

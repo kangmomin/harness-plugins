@@ -5,9 +5,9 @@
   },
   "plugins": [
     {
-      "name": "mimo-s-harness",
+      "name": "minmos-harness",
       "description": "Post-Math 백엔드 개발 워크플로우 하네스. 커밋/PR 관리, 컨벤션 검사, E2E 테스트(REST+gRPC), Apidog 스키마 생성 등.",
-      "source": "./mimo-s-harness"
+      "source": "./minmos-harness"
     },
     {
       "name": "donghyeons-harness",

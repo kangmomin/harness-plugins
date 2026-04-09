@@ -1,11 +1,11 @@
 ---
 name: minmo-init
-description: "minmo-s-harness 플러그인의 모든 사전 세팅을 한 번에 진행한다."
+description: "minmos-harness 플러그인의 모든 사전 세팅을 한 번에 진행한다."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 ---
 
-# minmo-s-harness Init
+# minmos-harness Init
 
 플러그인에서 사용하는 모든 외부 의존성을 한 번에 세팅한다.
 
@@ -45,7 +45,7 @@ user-invocable: true
 스캔 결과를 유저에게 보여준다:
 
 ```markdown
-## minmo-s-harness 환경 스캔 결과
+## minmos-harness 환경 스캔 결과
 
 | # | 항목 | 상태 | 필요한 스킬 |
 |---|------|------|-----------|
@@ -192,5 +192,5 @@ user-invocable: true
 | 5 | 컨벤션 선택 | 설정 완료 / 이미 설정됨 / 기본값 사용 |
 | 6 | grpcurl | 설치됨 / 안내 완료 / 건너뜀 |
 
-다음 단계: `/minmo-s-harness:minmo-doctor`로 전체 상태를 검증하세요.
+다음 단계: `/minmos-harness:minmo-doctor`로 전체 상태를 검증하세요.
 ```

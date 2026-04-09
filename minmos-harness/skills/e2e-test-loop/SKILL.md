@@ -6,23 +6,23 @@ user-invocable: true
 
 ## Prerequisites
 
-e2e-test와 동일한 환경이 필요하다. 세팅 확인: `/minmo-s-harness:e2e-test --doctor`
+e2e-test와 동일한 환경이 필요하다. 세팅 확인: `/minmos-harness:e2e-test --doctor`
 
 ### `--init`
 
-`$ARGUMENTS`가 `--init`이면 `/minmo-s-harness:e2e-test --init`을 실행하고 종료한다.
+`$ARGUMENTS`가 `--init`이면 `/minmos-harness:e2e-test --init`을 실행하고 종료한다.
 
 ### `--doctor`
 
-`$ARGUMENTS`가 `--doctor`이면 `/minmo-s-harness:e2e-test --doctor`를 실행하고 종료한다.
+`$ARGUMENTS`가 `--doctor`이면 `/minmos-harness:e2e-test --doctor`를 실행하고 종료한다.
 
 ---
 
-/minmo-s-harness:e2e-test 를 실행하고, 발견된 이슈를 수정한 뒤 재테스트하는 과정을 반복해:
+/minmos-harness:e2e-test 를 실행하고, 발견된 이슈를 수정한 뒤 재테스트하는 과정을 반복해:
 
 ## 절차
 
-1. `/minmo-s-harness:e2e-test` 를 실행한다.
+1. `/minmos-harness:e2e-test` 를 실행한다.
 2. 결과를 확인한다:
    - **이슈 없음** (모든 테스트 통과, STATUS_MISMATCH 없음) → 루프를 종료한다.
    - **이슈 발견** → 3번으로 진행한다.

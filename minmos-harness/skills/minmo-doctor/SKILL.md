@@ -1,11 +1,11 @@
 ---
 name: minmo-doctor
-description: "minmo-s-harness 플러그인의 모든 의존성 상태를 한 번에 진단한다."
+description: "minmos-harness 플러그인의 모든 의존성 상태를 한 번에 진단한다."
 allowed-tools: Read, Glob, Grep, Bash
 user-invocable: true
 ---
 
-# minmo-s-harness Doctor
+# minmos-harness Doctor
 
 플러그인이 정상 동작하기 위한 모든 의존성을 한 번에 점검하고, 문제가 있으면 해결 방법을 안내한다.
 
@@ -70,7 +70,7 @@ user-invocable: true
 ## 출력 형식
 
 ```markdown
-## minmo-s-harness Doctor Report
+## minmos-harness Doctor Report
 
 ### MCP 서버
 | 항목 | 상태 | 비고 |
@@ -118,7 +118,7 @@ user-invocable: true
 ### 해결 필요 (ISSUES FOUND인 경우)
 | # | 항목 | 해결 방법 |
 |---|------|----------|
-| 1 | [항목] | `/minmo-s-harness:minmo-init` 실행 또는 [구체적 안내] |
+| 1 | [항목] | `/minmos-harness:minmo-init` 실행 또는 [구체적 안내] |
 ```
 
 ---

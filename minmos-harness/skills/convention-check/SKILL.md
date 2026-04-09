@@ -34,8 +34,8 @@ user-invocable: true
    ```json
    {
      "conventions": [
-       { "name": "default-conventions", "source": "plugin", "skill": "minmo-s-harness:default-conventions" },
-       { "name": "pagenation", "source": "plugin", "skill": "minmo-s-harness:pagenation" },
+       { "name": "default-conventions", "source": "plugin", "skill": "minmos-harness:default-conventions" },
+       { "name": "pagenation", "source": "plugin", "skill": "minmos-harness:pagenation" },
        { "name": "CLAUDE.md", "source": "project", "path": "CLAUDE.md" }
      ]
    }

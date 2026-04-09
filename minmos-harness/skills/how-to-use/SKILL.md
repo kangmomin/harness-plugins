@@ -7,7 +7,7 @@ user-invocable: true
 
 # How to Use — 스킬 사용법 안내
 
-이 플러그인(minmo-s-harness)에 포함된 스킬의 사용법을 안내한다.
+이 플러그인(minmos-harness)에 포함된 스킬의 사용법을 안내한다.
 
 ## 실행 흐름
 
