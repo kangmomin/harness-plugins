@@ -248,7 +248,29 @@ echo "TOKEN=${APIDOG_ACCESS_TOKEN:+set}" "PROJECT=${APIDOG_PROJECT_ID:+set}"
 > export APIDOG_PROJECT_ID='your-project-id'
 > ```"
 
-#### 6.2 OpenAPI Spec 생성
+#### 6.2 대상 폴더 결정
+
+Push 전에 Apidog 프로젝트에서 해당 API 경로의 **기존 존재 여부**를 확인하고 폴더를 결정한다.
+
+**판정 로직:**
+
+1. `mcp__apidog__read_project_oas_*`로 OAS 전체를 읽어 기존 경로 목록을 확인한다.
+2. **경로가 이미 존재** → `updateFolderOfChangedEndpoint: false`로 기존 위치에서 수정 (폴더 이동 안 함).
+3. **경로가 없음 (신규 API)** → 유사 경로를 탐색하여 가장 가까운 폴더에 배치한다:
+   - `/v1/products/{id}` 추가 시 → 기존 `/v1/products` 목록 API가 있는 폴더를 찾아 `targetFolderId`로 지정
+   - 유사 경로 판별 기준: **경로 prefix가 가장 많이 일치하는 기존 엔드포인트의 폴더**
+   - 유사 경로도 없으면 Root 폴더에 배치 (기본값)
+
+**유사 경로 탐색 예시:**
+
+| 신규 경로 | 기존 경로 | prefix 일치 | 폴더 |
+|----------|----------|------------|------|
+| `POST /v1/reviews` | `GET /v1/reviews` | `/v1/reviews` (완전 일치) | 같은 폴더 |
+| `GET /v1/products/{id}/options` | `GET /v1/products/{id}` | `/v1/products/{id}` | 같은 폴더 |
+| `POST /v1/cart/items` | `GET /v1/cart` | `/v1/cart` | 같은 폴더 |
+| `POST /v1/notifications` | (없음) | 없음 | Root |
+
+#### 6.3 OpenAPI Spec 생성
 
 코드 기준 최종 스키마를 단일 엔드포인트 OpenAPI 3.0 YAML로 변환한다.
 
@@ -263,7 +285,7 @@ echo "TOKEN=${APIDOG_ACCESS_TOKEN:+set}" "PROJECT=${APIDOG_PROJECT_ID:+set}"
 
 **파일 저장**: `/tmp/apidog-push-{endpoint-slug}.yaml`
 
-#### 6.3 Apidog Import API 호출
+#### 6.4 Apidog Import API 호출
 
 ```bash
 curl -s -X POST \
@@ -277,12 +299,15 @@ curl -s -X POST \
       \"endpointOverwriteBehavior\": \"OVERWRITE_EXISTING\",
       \"schemaOverwriteBehavior\": \"OVERWRITE_EXISTING\",
       \"updateFolderOfChangedEndpoint\": false,
-      \"prependBasePath\": false
+      \"prependBasePath\": false,
+      \"targetFolderId\": {folderId 또는 생략}
     }
   }"
 ```
 
-#### 6.4 결과 보고
+- `targetFolderId`: 6.2에서 결정한 폴더 ID. 기존 경로 수정 시에는 생략한다.
+
+#### 6.5 결과 보고
 
 API 응답의 `data.counters`를 파싱하여 유저에게 보고:
 
@@ -296,7 +321,7 @@ API 응답의 `data.counters`를 파싱하여 유저에게 보고:
 
 `errors` 배열이 비어있지 않으면 에러 내용도 함께 출���한다.
 
-#### 6.5 Push 옵션
+#### 6.6 Push 옵션
 
 유저가 커스텀 옵션을 지정할 수 있다:
 
