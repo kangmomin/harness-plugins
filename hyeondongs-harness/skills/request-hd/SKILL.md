@@ -330,6 +330,17 @@ ProductCard
 > "이 API를 사용하는 컴포넌트/페이지는 어디인가요?"
 > 예: "ProductList 컴포넌트에서 사용", "/products 페이지에서 사용"
 
+#### Step 3.5 — 권한 확인 (/admin/ 엔드포인트)
+
+API 경로에 `/admin/`이 포함되어 있으면 반드시 질문한다:
+
+> "이 API는 관리자 전용 엔드포인트(`/admin/`)입니다.
+> 1. 어떤 권한/역할이 필요한가요? (예: `ADMIN`, `SUPER_ADMIN`)
+> 2. 권한 없는 사용자가 접근하면 어떻게 처리하나요? (리다이렉트/에러 페이지/숨김)
+> 3. 프론트에서 권한 체크를 어디서 하나요? (미들웨어/레이아웃/컴포넌트 내부)"
+
+`/admin/`이 아니어도 코드베이스에서 `role`, `permission`, `isAdmin` 등의 패턴이 발견되면 권한 확인을 질문한다.
+
 #### Step 4 — 상태 관리 전략
 > "데이터 페칭 방식을 선택해주세요:"
 > 1. TanStack Query (서버 상태 캐싱, 자동 리페칭)
@@ -512,6 +523,8 @@ styles/                → 전역 스타일
 - [ ] 컴포넌트 파일 (.tsx)
 - [ ] Props 인터페이스 정의
 - [ ] 스타일 적용
+- [ ] 비동기 핸들러 stale closure 점검 (데이터 페칭이 있는 경우)
+- [ ] 에러 메시지 `getApiErrorMessage()` 래핑 (API 연동이 있는 경우)
 - [ ] 단위 테스트
 - [ ] Storybook (해당 시)
 - [ ] 접근성 (a11y) 확인
@@ -599,7 +612,15 @@ styles/                → 전역 스타일
 - [ ] 커스텀 훅 (hooks/)
 - [ ] 컴포넌트 연동
 - [ ] 로딩/에러 상태 처리
+- [ ] 에러 메시지 `getApiErrorMessage()` 래핑 (프로젝트 공통 유틸리티 사용)
+- [ ] 비동기 핸들러 stale closure 점검 (아래 체크리스트 참조)
 - [ ] 단위 테스트
+
+### Stale Closure 체크리스트
+비동기 콜백(onSuccess, onError, setTimeout, 이벤트 핸들러) 내에서 참조하는 상태가 최신값인지 점검:
+- [ ] `onSuccess`/`onError` 콜백에서 참조하는 state가 클로저 시점의 값이 아닌지 확인
+- [ ] 필요 시 `useRef`로 최신값 참조하거나 콜백 내에서 함수형 업데이트(`setState(prev => ...)`) 사용
+- [ ] `useEffect` cleanup에서 stale 값 참조하지 않는지 확인
 ```
 
 ### 유형 F (API 연동 수정) — API Change Spec

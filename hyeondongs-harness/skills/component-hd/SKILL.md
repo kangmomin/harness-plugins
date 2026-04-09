@@ -72,6 +72,32 @@ export function {ComponentName}({ }: {ComponentName}Props) {
 }
 ```
 
+**인터랙티브 요소가 포함되는 경우**, 보일러플레이트에 `aria-label`을 기본 포함한다:
+
+```tsx
+// 버튼이 포함되는 컴포넌트
+export function {ComponentName}({ }: {ComponentName}Props) {
+  return (
+    <div>
+      <button aria-label="{ComponentName} 동작 설명">
+        {/* 아이콘 버튼이면 aria-label 필수 */}
+      </button>
+    </div>
+  );
+}
+
+// 입력 필드가 포함되는 컴포넌트
+export function {ComponentName}({ }: {ComponentName}Props) {
+  return (
+    <div>
+      <label htmlFor="{componentName}-input">레이블</label>
+      <input id="{componentName}-input" aria-describedby="{componentName}-help" />
+      <p id="{componentName}-help">도움말 텍스트</p>
+    </div>
+  );
+}
+```
+
 #### 3.2 스타일 파일 (uiLibrary에 따라 분기)
 
 | uiLibrary | 파일 | 형식 |
