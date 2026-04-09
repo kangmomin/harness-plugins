@@ -142,7 +142,20 @@ Codex 사용 가능 시 Architect 관점으로 Plan 리뷰를 위임한다.
 
 ---
 
-## Phase 3.5: 상태 파일 생성 + 자율 실행 시작
+## Phase 3.5: Feature 브랜치 생성 + 상태 파일 생성 + 자율 실행 시작
+
+### 브랜치 생성 (MANDATORY)
+
+구현 시작 전 **반드시** feature 브랜치를 생성한다. main/master에 직접 커밋하지 않는다.
+
+```bash
+# 현재 브랜치가 main/master/dev면 반드시 새 브랜치 생성
+git checkout -b feat/{작업 요약 kebab-case}
+```
+
+이미 feature 브랜치(`feat/**`, `hotfix/**`)에 있으면 건너뛴다.
+
+### 상태 파일 생성
 
 Write tool로 `/tmp/workflow-state.md`를 생성한다:
 
@@ -188,6 +201,10 @@ Agent tool:
     [Assumption 규칙]
     Spec에 명시되지 않은 동작 변경을 수행한 경우,
     해당 항목에 반드시 [Assumption] 태그를 붙여 보고하세요.
+    
+    [커밋 단위 규칙]
+    컴포넌트 1개 = 커밋 1개를 원칙으로 합니다.
+    관련 없는 컴포넌트 변경을 하나의 커밋에 묶지 마세요.
     
     구현 완료 후 변경 파일 목록, 커밋 수, Plan 대비 차이점, [Assumption] 목록을 보고하세요.
 ```

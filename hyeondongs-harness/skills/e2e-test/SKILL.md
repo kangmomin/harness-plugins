@@ -37,6 +37,16 @@ Playwright 기반으로 사용자 시나리오를 E2E 테스트한다.
    ```
 4. `e2e/` 디렉토리 존재 확인. 없으면 생성.
 
+### Playwright-Vitest 충돌 사전 진단
+
+E2E 테스트 실행 전, Playwright와 Vitest 간 충돌 가능성을 점검한다:
+
+1. `vitest.config.*`에 `globals: true`가 있으면 Playwright의 `expect`와 충돌 가능 → 경고
+2. `tsconfig.json`의 `types`에 `vitest/globals`와 `@playwright/test`가 동시에 있으면 → 경고
+3. 동일 파일에서 `import { expect } from 'vitest'`와 `import { expect } from '@playwright/test'`가 혼재하면 → 에러 보고
+4. 충돌 감지 시 해결 방법 안내:
+   > "Playwright와 Vitest의 `expect` 충돌이 감지되었습니다. `vitest.config.ts`에서 E2E 테스트 파일을 exclude하거나, tsconfig에서 types를 분리하세요."
+
 ### `--doctor` (상태 진단)
 
 `$ARGUMENTS`가 `--doctor`이면 아래 항목을 점검하고 결과를 보고한 뒤 종료한다:
