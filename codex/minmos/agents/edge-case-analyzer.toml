@@ -1,0 +1,7 @@
+name = "edge-case-analyzer"
+description = "API 엔드포인트의 비즈니스 로직을 코드베이스에서 분석하여 다양한 관점의 엣지 케이스를 도출하는 에이전트"
+model = "o3"
+sandbox_mode = "write"
+developer_instructions = """
+
+"""

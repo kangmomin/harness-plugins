@@ -1,0 +1,7 @@
+name = "workflow-doc-sync"
+description = "E2E 테스트 결과 기반 API 문서(Apidog 스키마) 동기화 에이전트"
+model = "o3"
+sandbox_mode = "write"
+developer_instructions = """
+
+"""

@@ -1,0 +1,7 @@
+name = "workflow-reflection"
+description = "워크플로우 성찰 및 스킬 보완점 도출 에이전트"
+model = "o3"
+sandbox_mode = "write"
+developer_instructions = """
+
+"""
