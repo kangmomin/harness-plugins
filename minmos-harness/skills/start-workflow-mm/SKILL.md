@@ -11,6 +11,24 @@ user-invocable: true
 전체 개발 라이프사이클을 **오케스트레이션 패턴**으로 실행한다.
 각 자율 실행 Phase를 전용 서브 에이전트에 위임하여, 단일 컨텍스트 소진 없이 전 단계를 완주한다.
 
+## Flags
+
+| 플래그 | 단축 | 효과 |
+|--------|------|------|
+| `--hard` | `-h` | 브랜치 생성/검증을 건너뛰고 현재 브랜치에서 바로 push. `commit-hard-push-mm` 사용. |
+
+`$ARGUMENTS`에 `--hard` 또는 `-h`가 포함되어 있으면 `$HARD_MODE = true`로 설정한다.
+
+### --hard 모드 영향
+
+| Phase | 일반 모드 | --hard 모드 |
+|-------|----------|------------|
+| Phase 3.5 | feature 브랜치 생성 필수 | **건너뜀** (현재 브랜치 유지) |
+| Phase 4 커밋 | 동일 | 동일 |
+| Phase 7 PR | workflow-pr (브랜치 생성 + PR) | **commit-hard-push-mm** (현재 브랜치에서 바로 push, PR 생략) |
+
+---
+
 ```
 [유저 대화] Phase 0~3  : 직접 실행 (Spec, Plan, 리뷰)
 [상태 저장] Phase 3.5  : 상태 파일 생성
@@ -168,7 +186,19 @@ Codex 사용 가능 시 Architect 관점으로 Plan 리뷰를 위임한다.
 
 ---
 
-## Phase 3.5: 상태 파일 생성 + 자율 실행 시작
+## Phase 3.5: Feature 브랜치 생성 + 상태 파일 생성 + 자율 실행 시작
+
+### 브랜치 생성
+
+- **`$HARD_MODE = false`** (일반): 구현 시작 전 반드시 feature 브랜치를 생성한다. main/master에 직접 커밋하지 않는다.
+  ```bash
+  git checkout -b feat/{작업 요약 kebab-case}
+  ```
+  이미 feature 브랜치(`feat/**`, `hotfix/**`)에 있으면 건너뛴다.
+
+- **`$HARD_MODE = true`** (`--hard`): 브랜치 생성을 **건너뛴다**. 현재 브랜치가 무엇이든 그대로 사용한다.
+
+### 상태 파일 생성
 
 Write tool로 `/tmp/workflow-state.md`를 생성한다:
 
@@ -335,16 +365,24 @@ Agent tool:
     지원하지 않는 기능은 시도하지 말고 수동 가이드를 제공하세요.
 ```
 
-### Phase 7: PR
+### Phase 7: PR / Push
 
-```
-Agent tool:
-  subagent_type: minmos-harness:workflow-pr
-  prompt: |
-    상태 파일 `/tmp/workflow-state.md`를 읽고 PR을 생성하세요.
-    프로젝트 루트: {현재 작업 디렉토리}
-    PR URL을 반드시 보고하세요.
-```
+- **`$HARD_MODE = false`** (일반):
+  ```
+  Agent tool:
+    subagent_type: minmos-harness:workflow-pr
+    prompt: |
+      상태 파일 `/tmp/workflow-state.md`를 읽고 PR을 생성하세요.
+      프로젝트 루트: {현재 작업 디렉토리}
+      PR URL을 반드시 보고하세요.
+  ```
+
+- **`$HARD_MODE = true`** (`--hard`):
+  PR 생성을 건너뛰고, 현재 브랜치에서 바로 push만 수행한다.
+  ```bash
+  git push origin $(git branch --show-current)
+  ```
+  출력: "Phase 7 완료: `{브랜치명}`에 push 완료 (--hard 모드, PR 생략)"
 
 ### Phase 8: 성찰
 

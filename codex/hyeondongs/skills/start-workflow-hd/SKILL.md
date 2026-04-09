@@ -1,12 +1,31 @@
 ---
 name: start-workflow-hd
 description: "전체 프론트엔드 개발 워크플로우를 자동화. 요청 분석 → 난이도 산정 → Plan 리뷰 → 구현 → 품질 루프 → 컴포넌트/접근성 리뷰 → PR → 성찰까지 일관된 파이프라인으로 실행한다."
+argument-hint: <작업 설명 또는 빈 값>
 ---
 
 # Start Workflow — Orchestrator
 
 전체 프론트엔드 개발 라이프사이클을 **오케스트레이션 패턴**으로 실행한다.
 각 자율 실행 Phase를 전용 서브 에이전트에 위임하여, 단일 컨텍스트 소진 없이 전 단계를 완주한다.
+
+## Flags
+
+| 플래그 | 단축 | 효과 |
+|--------|------|------|
+| `--hard` | `-h` | 브랜치 생성/검증을 건너뛰고 현재 브랜치에서 바로 push. PR 생략. |
+
+`$ARGUMENTS`에 `--hard` 또는 `-h`가 포함되어 있으면 `$HARD_MODE = true`로 설정한다.
+
+### --hard 모드 영향
+
+| Phase | 일반 모드 | --hard 모드 |
+|-------|----------|------------|
+| Phase 3.5 | feature 브랜치 생성 필수 | **건너뜀** (현재 브랜치 유지) |
+| Phase 4 커밋 | 동일 | 동일 |
+| Phase 7 PR | workflow-pr (브랜치 생성 + PR) | **현재 브랜치에서 바로 push, PR 생략** |
+
+---
 
 ```
 [유저 대화] Phase 0~3  : 직접 실행 (Spec, Plan, 리뷰)
@@ -90,7 +109,7 @@ Phase 5에서 사용할 scope-reviewer 정보를 메모한다:
 
 ### 3.1 Plan 작성
 
-Plan을 작성한다. Plan 포함 내용:
+Plan 시작 활성화. Plan 포함 내용:
 - 구현 순서 (파일 단위)
 - 각 파일 변경 내용 요약
 - **최종 코드 구조**: 컴포넌트 분리, 훅 추출, 상태 설계를 Plan 단계에서 확정한다.
@@ -135,18 +154,19 @@ Codex 사용 가능 시 Architect 관점으로 Plan 리뷰를 위임한다.
 
 ### 3.4 Plan 확정
 
-Plan을 확정한다.
+Plan 확정 실행.
 
 ---
 
 ## Phase 3.5: Feature 브랜치 생성 + 상태 파일 생성 + 자율 실행 시작
 
-### 브랜치 생성 (MANDATORY)
+### 브랜치 생성
 
-구현 시작 전 **반드시** feature 브랜치를 생성한다. main/master에 직접 커밋하지 않는다.
+- **`$HARD_MODE = false`** (일반): 구현 시작 전 반드시 feature 브랜치를 생성한다. main/master에 직접 커밋하지 않는다.
+- **`$HARD_MODE = true`** (`--hard`): 브랜치 생성을 **건너뛴다**. 현재 브랜치가 무엇이든 그대로 사용한다.
 
 ```bash
-# 현재 브랜치가 main/master/dev면 반드시 새 브랜치 생성
+# 일반 모드: 현재 브랜치가 main/master/dev면 반드시 새 브랜치 생성
 git checkout -b feat/{작업 요약 kebab-case}
 ```
 
@@ -246,7 +266,7 @@ npm run build && npx tsc --noEmit
 서브에이전트:
   agent: general
   prompt: |
-    프로젝트 루트 {CWD}에서 $simplify-loop-hd 스킬을 실행하세요.
+    프로젝트 루트 {CWD}에서 Skill tool로 $simplify-loop-hd 를 실행하세요.
     완료 후 "수정: Y/N, N건" 형식으로 보고하세요.
 ```
 
@@ -256,7 +276,7 @@ npm run build && npx tsc --noEmit
 서브에이전트:
   agent: general
   prompt: |
-    프로젝트 루트 {CWD}에서 $convention-check-hd 스킬을 실행하세요.
+    프로젝트 루트 {CWD}에서 Skill tool로 $convention-check-hd 를 실행하세요.
     위반 사항이 있으면 수정하세요.
     완료 후 "위반: N건, 수정: Y/N" 형식으로 보고하세요.
 ```
@@ -267,7 +287,7 @@ npm run build && npx tsc --noEmit
 서브에이전트:
   agent: general
   prompt: |
-    프로젝트 루트 {CWD}에서 $test-loop-hd 스킬을 실행하세요.
+    프로젝트 루트 {CWD}에서 Skill tool로 $test-loop-hd 를 실행하세요.
     완료 후 "이슈: N건, 수정: Y/N" 형식으로 보고하세요.
 ```
 
@@ -288,7 +308,7 @@ npm run build && npx tsc --noEmit
 서브에이전트:
   agent: general
   prompt: |
-    프로젝트 루트 {CWD}에서 $lint-check-hd 스킬을 실행하세요.
+    프로젝트 루트 {CWD}에서 Skill tool로 $lint-check-hd 를 실행하세요.
     이슈가 있으면 수정하세요.
     완료 후 "이슈: N건, 수정: Y/N" 형식으로 보고하세요.
 ```
@@ -321,16 +341,24 @@ Agent tool (병렬 2):
 
 Critical 이슈가 있으면 general-purpose 에이전트로 수정을 위임한다.
 
-### Phase 7: PR
+### Phase 7: PR / Push
 
-```
-서브에이전트:
-  agent: workflow-pr
-  prompt: |
-    상태 파일 `/tmp/workflow-state.md`를 읽고 PR을 생성하세요.
-    프로젝트 루트: {현재 작업 디렉토리}
-    PR URL을 반드시 보고하세요.
-```
+- **`$HARD_MODE = false`** (일반):
+  ```
+  서브에이전트:
+    agent: workflow-pr
+    prompt: |
+      상태 파일 `/tmp/workflow-state.md`를 읽고 PR을 생성하세요.
+      프로젝트 루트: {현재 작업 디렉토리}
+      PR URL을 반드시 보고하세요.
+  ```
+
+- **`$HARD_MODE = true`** (`--hard`):
+  PR 생성을 건너뛰고, 현재 브랜치에서 바로 push만 수행한다.
+  ```bash
+  git push origin $(git branch --show-current)
+  ```
+  출력: "Phase 7 완료: `{브랜치명}`에 push 완료 (--hard 모드, PR 생략)"
 
 ### Phase 8: 성찰
 
