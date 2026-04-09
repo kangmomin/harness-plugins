@@ -1,0 +1,6 @@
+{
+  "name": "hyeondongs-harness",
+  "version": "1.0.0",
+  "description": "프론트엔드 개발 워크플로우를 위한 개인 하네스. 컴포넌트 생성, 커밋/PR 관리, 단위/E2E 테스트, 코드 품질 검사(ESLint, a11y), 컨벤션 관리 등 프론트엔드 생산성 도구 모음.",
+  "keywords": ["frontend", "react", "nextjs", "component", "testing", "workflow", "conventions"]
+}

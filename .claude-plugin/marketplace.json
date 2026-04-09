@@ -10,9 +10,9 @@
       "source": "./minmos-harness"
     },
     {
-      "name": "donghyeons-harness",
+      "name": "hyeondongs-harness",
       "description": "프론트엔드 개발 워크플로우 하네스. 컴포넌트 생성, 커밋/PR 관리, 단위/E2E 테스트, 코드 품질 검사(ESLint, a11y) 등.",
-      "source": "./donghyeons-harness"
+      "source": "./hyeondongs-harness"
     }
   ]
 }

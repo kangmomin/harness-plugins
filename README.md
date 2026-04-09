@@ -12,7 +12,7 @@
 /plugin install minmos-harness@harness-plugins
 
 # 프론트엔드 플러그인 설치
-/plugin install donghyeons-harness@harness-plugins
+/plugin install hyeondongs-harness@harness-plugins
 ```
 
 ## 플러그인 목록
@@ -20,4 +20,4 @@
 | 플러그인 | 대상 | 설명 |
 |---------|------|------|
 | **minmos-harness** | Go 백엔드 | 커밋/PR, 컨벤션 검사, E2E 테스트(REST+gRPC), Apidog 스키마 생성 |
-| **donghyeons-harness** | React 프론트엔드 | 컴포넌트 생성, 커밋/PR, 단위/E2E 테스트, 코드 품질 검사(ESLint, a11y) |
+| **hyeondongs-harness** | React 프론트엔드 | 컴포넌트 생성, 커밋/PR, 단위/E2E 테스트, 코드 품질 검사(ESLint, a11y) |
