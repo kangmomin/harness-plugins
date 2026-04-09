@@ -228,6 +228,40 @@ Agent tool:
     구현 완료 후 변경 파일 목록, 커밋 수, Plan 대비 차이점, [Assumption] 목록을 보고하세요.
 ```
 
+### Phase 4.5: 빌드 체크 (MANDATORY — 구현 직후 강제 실행)
+
+구현 에이전트 완료 즉시, 품질 루프 진입 전에 **반드시 빌드 + 타입 체크를 실행**한다.
+컴파일 오류(미사용 변수, import 누락, 타입 에러, 무한 루프 등)를 조기에 잡아 핫픽스를 방지한다.
+
+`.hyeondong-config.json`의 `framework`에 따라:
+```bash
+# Next.js
+npx next build 2>&1 | tail -30
+
+# Vite
+npx vite build 2>&1 | tail -30
+
+# 공통 타입 체크
+npx tsc --noEmit 2>&1
+```
+
+- **성공** → Phase 5로 진행.
+- **실패** → general-purpose 에이전트를 생성하여 빌드 에러를 수정한다:
+  ```
+  Agent tool:
+    subagent_type: general-purpose
+    prompt: |
+      프로젝트 루트 {CWD}에서 빌드/타입 체크 에러를 수정하세요.
+      에러 메시지: {빌드 에러 출력}
+      수정 후 빌드가 성공하는지 확인하세요.
+  ```
+  수정 후 커밋:
+  ```bash
+  git add [수정 파일들]
+  git commit -m "Fix: 빌드 에러 수정 (Phase 4.5)"
+  ```
+  빌드 재시도 → 성공하면 Phase 5로 진행. **최대 3회 시도** 후에도 실패하면 유저에게 보고하고 중단.
+
 ### Phase 5: 품질 루프 (오케스트레이터 직접 관리)
 
 최대 3회 반복.
