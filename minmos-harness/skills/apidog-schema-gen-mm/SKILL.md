@@ -309,6 +309,96 @@ API 응답의 `data.counters`를 파싱하여 유저에게 보고:
 | `--branch {id}` | 대상 브랜치 ID | main |
 | `--dry-run` | YAML만 생성하고 실제 푸시하지 않음 | false |
 
+---
+
+## Apidog REST API Push 레퍼런스
+
+MCP에 write 기능이 없을 때 사용하는 Apidog REST API 스펙. 매번 검색하지 않도록 여기에 기록한다.
+
+### 엔드포인트
+
+```
+POST https://api.apidog.com/v1/projects/{projectId}/import-openapi
+```
+
+### 헤더
+
+| Header | 값 |
+|--------|----|
+| `Authorization` | `Bearer ${APIDOG_ACCESS_TOKEN}` |
+| `X-Apidog-Api-Version` | `2024-03-28` |
+| `Content-Type` | `application/json` |
+
+### Request Body
+
+```json
+{
+  "input": "<OpenAPI YAML 문자열 (JSON escaped)>",
+  "options": {
+    "endpointOverwriteBehavior": "OVERWRITE_EXISTING",
+    "schemaOverwriteBehavior": "OVERWRITE_EXISTING",
+    "updateFolderOfChangedEndpoint": false,
+    "prependBasePath": false
+  }
+}
+```
+
+### options 필드
+
+| 필드 | 값 | 설명 |
+|------|----|------|
+| `endpointOverwriteBehavior` | `OVERWRITE_EXISTING` / `KEEP_EXISTING` / `AUTO_MERGE` / `CREATE_NEW` | 기존 엔드포인트 처리 방식 |
+| `schemaOverwriteBehavior` | `OVERWRITE_EXISTING` / `KEEP_EXISTING` / `AUTO_MERGE` / `CREATE_NEW` | 기존 스키마 처리 방식 |
+| `updateFolderOfChangedEndpoint` | `false` | 변경된 엔드포인트의 폴더 이동 여부 |
+| `prependBasePath` | `false` | basePath를 경로 앞에 추가할지 |
+| `targetBranchId` | `number` (선택) | 대상 브랜치 ID |
+| `targetFolderId` | `number` (선택) | 대상 폴더 ID |
+
+### Response 구조
+
+```json
+{
+  "success": true,
+  "data": {
+    "counters": {
+      "endpoint": { "created": 0, "updated": 1, "failed": 0, "ignored": 0 },
+      "schema": { "created": 0, "updated": 1, "failed": 0, "ignored": 0 }
+    },
+    "errors": []
+  }
+}
+```
+
+### 실행 예시 (bash)
+
+```bash
+curl -s -X POST \
+  "https://api.apidog.com/v1/projects/${APIDOG_PROJECT_ID}/import-openapi" \
+  -H "Authorization: Bearer ${APIDOG_ACCESS_TOKEN}" \
+  -H "X-Apidog-Api-Version: 2024-03-28" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"input\": $(cat /tmp/apidog-push-{slug}.yaml | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))'),
+    \"options\": {
+      \"endpointOverwriteBehavior\": \"OVERWRITE_EXISTING\",
+      \"schemaOverwriteBehavior\": \"OVERWRITE_EXISTING\",
+      \"updateFolderOfChangedEndpoint\": false,
+      \"prependBasePath\": false
+    }
+  }"
+```
+
+### 트러블슈팅
+
+| 증상 | 원인 | 해결 |
+|------|------|------|
+| 302 Redirect | URL 오타 또는 프로젝트 ID 오류 | URL/ID 재확인. 반복 디버깅 금지, 즉시 수동 안내로 전환 |
+| 401 Unauthorized | 토큰 만료/잘못됨 | `APIDOG_ACCESS_TOKEN` 재생성 안내 |
+| 400 Bad Request | YAML 포맷 오류 | `python3 -c 'import yaml; yaml.safe_load(open(f))'`로 검증 |
+| `errors` 배열 비어있지 않음 | 스키마 충돌 | 에러 메시지 확인 후 options 조정 |
+
+---
+
 ## Key Rules
 
 | 항목 | 규칙 |
