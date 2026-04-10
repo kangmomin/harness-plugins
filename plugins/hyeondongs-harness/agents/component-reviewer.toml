@@ -1,0 +1,7 @@
+name = "component-reviewer"
+description = "Props 설계, 재사용성, 렌더링 성능, 관심사 분리를 검증하는 컴포넌트 품질 리뷰 에이전트"
+model = "o3"
+sandbox_mode = "read-only"
+developer_instructions = """
+
+"""

@@ -2,6 +2,11 @@
 
 Claude Code 하네스를 OpenAI Codex CLI용으로 변환한 버전.
 
+## repo-local marketplace
+
+이 repo를 연 상태에서 `/plugins` 를 열면 `minmos-harness`, `hyeondongs-harness` 가 바로 노출된다.
+정의 파일은 `../.agents/plugins/marketplace.json` 이고, 실제 plugin root 는 `../plugins/` 아래에 있다.
+
 ## 설치 (백엔드: minmos)
 
 ```bash

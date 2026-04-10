@@ -1,0 +1,42 @@
+{
+  "name": "minmos-harness",
+  "version": "1.5.5",
+  "description": "Post-Math 백엔드 개발 워크플로우 하네스. 커밋/PR 관리, 컨벤션 검사, E2E 테스트(REST+gRPC), Apidog 스키마 생성 등을 지원한다.",
+  "author": {
+    "name": "kangmomin",
+    "url": "https://github.com/kangmomin"
+  },
+  "homepage": "https://github.com/kangmomin/harness-plugins/tree/main/minmos-harness",
+  "repository": "https://github.com/kangmomin/harness-plugins",
+  "keywords": [
+    "workflow",
+    "backend",
+    "go",
+    "conventions",
+    "commit",
+    "testing",
+    "apidog",
+    "grpc"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "minmos-harness",
+    "shortDescription": "Go 백엔드 워크플로우를 Codex CLI에서 실행",
+    "longDescription": "Post-Math 백엔드 개발용 Codex CLI 하네스. request, commit/PR, convention-check, E2E 테스트, Apidog schema sync, workflow 에이전트를 포함한다.",
+    "developerName": "kangmomin",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/kangmomin/harness-plugins/tree/main/minmos-harness",
+    "defaultPrompt": [
+      "현재 백엔드 작업을 Technical Spec으로 정리하고 구현 계획을 세워줘",
+      "변경사항을 컨벤션 검사하고 논리 단위로 커밋해줘",
+      "API 변경 후 E2E와 Apidog 스키마 동기화까지 진행해줘"
+    ],
+    "brandColor": "#0F766E",
+    "screenshots": []
+  }
+}

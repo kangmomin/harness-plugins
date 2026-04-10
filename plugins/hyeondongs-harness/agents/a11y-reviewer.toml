@@ -1,0 +1,7 @@
+name = "a11y-reviewer"
+description = "WAI-ARIA, 키보드 네비게이션, 색상 대비 등 접근성을 검증하는 리뷰 에이전트"
+model = "o3"
+sandbox_mode = "read-only"
+developer_instructions = """
+
+"""

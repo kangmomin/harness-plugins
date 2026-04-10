@@ -1,0 +1,7 @@
+name = "workflow-pr"
+description = "브랜치 생성, 커밋 push, Draft PR 오픈 에이전트"
+model = "o3"
+sandbox_mode = "write"
+developer_instructions = """
+
+"""

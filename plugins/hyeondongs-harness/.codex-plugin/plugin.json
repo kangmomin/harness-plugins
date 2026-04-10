@@ -1,0 +1,42 @@
+{
+  "name": "hyeondongs-harness",
+  "version": "1.0.4",
+  "description": "프론트엔드 개발 워크플로우 하네스. 컴포넌트 생성, 커밋/PR, 단위/E2E 테스트, ESLint와 a11y 기반 코드 품질 검사를 지원한다.",
+  "author": {
+    "name": "kangmomin",
+    "url": "https://github.com/kangmomin"
+  },
+  "homepage": "https://github.com/kangmomin/harness-plugins/tree/main/hyeondongs-harness",
+  "repository": "https://github.com/kangmomin/harness-plugins",
+  "keywords": [
+    "frontend",
+    "react",
+    "nextjs",
+    "component",
+    "testing",
+    "workflow",
+    "conventions",
+    "a11y"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "hyeondongs-harness",
+    "shortDescription": "React 프론트엔드 워크플로우를 Codex CLI에서 실행",
+    "longDescription": "프론트엔드 개발용 Codex CLI 하네스. component 생성, request, commit/PR, unit/E2E 테스트, lint/a11y 검사, workflow 리뷰 에이전트를 포함한다.",
+    "developerName": "kangmomin",
+    "category": "Coding",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/kangmomin/harness-plugins/tree/main/hyeondongs-harness",
+    "defaultPrompt": [
+      "현재 프론트엔드 작업을 Technical Spec으로 정리하고 구현 계획을 세워줘",
+      "컴포넌트를 생성하고 테스트와 린트까지 점검해줘",
+      "변경사항을 컨벤션 검사하고 논리 단위로 커밋해줘"
+    ],
+    "brandColor": "#C2410C",
+    "screenshots": []
+  }
+}

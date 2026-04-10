@@ -1,0 +1,7 @@
+name = "scope-reviewer"
+description = "작업 범위(Spec)를 기반으로 구현 결과의 비즈니스 로직 정합성과 엣지 케이스 대응을 검증하는 리뷰 에이전트"
+model = "o3"
+sandbox_mode = "read-only"
+developer_instructions = """
+
+"""
