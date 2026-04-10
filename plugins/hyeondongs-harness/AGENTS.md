@@ -42,12 +42,12 @@ React 프론트엔드 개발 워크플로우 자동화 지침.
 
 | 에이전트 | 역할 |
 |---------|------|
-| **scope-reviewer** | Spec 기반 UI 구현/엣지 케이스 검증 |
+| **scope-reviewer** | 읽기 전용 advisor. Spec 기반 UI 구현/엣지 케이스 검증 후 `Verdict/Next Action` 보고 |
 | **workflow-implementer** | Plan 기반 코드 구현 + 논리적 단위 커밋 |
 | **workflow-pr** | 브랜치 생성, push, draft PR |
-| **workflow-reflection** | 커밋 로그 분석 → 성찰 + 스킬 보완점 |
-| **a11y-reviewer** | WAI-ARIA, 키보드, 색상 대비 접근성 검증 |
-| **component-reviewer** | Props 설계, 재사용성, 렌더링 성능 검증 |
+| **workflow-reflection** | 읽기 전용 advisor. 워크플로우 성찰 + 스킬 보완점 제안 |
+| **a11y-reviewer** | 읽기 전용 advisor. WAI-ARIA, 키보드, 색상 대비 접근성 검증 |
+| **component-reviewer** | 읽기 전용 advisor. Props 설계, 재사용성, 렌더링 성능 검증 |
 
 ## 커밋 컨벤션
 

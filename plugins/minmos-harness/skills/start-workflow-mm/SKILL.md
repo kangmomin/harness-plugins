@@ -38,6 +38,13 @@ argument-hint: <작업 설명 또는 빈 값>
 
 유저와의 모든 대화는 **한국어**로 진행한다.
 
+## Advisor / Executor 원칙
+
+- `workflow-implementer`만 코드 수정, 커밋, push를 수행한다.
+- `scope-reviewer`, Plan reviewer, Codex Architect 리뷰, `workflow-reflection`은 **읽기 전용 advisor**로 동작한다.
+- advisor는 방향, 누락, 위험만 판단한다. 직접 파일을 수정하거나 커밋 전략을 실행하지 않는다.
+- advisor 결과는 항상 오케스트레이터가 해석해서 다음 액션으로 변환한다.
+
 ## 자율 실행 규칙
 
 - Phase 0~3: 유저와 대화하며 Spec 확인, Plan 리뷰 피드백 반영
@@ -119,7 +126,17 @@ Technical Spec을 분석하여 1~10 난이도를 산정한다.
 
 > 종합 난이도 = max(A, B). 코드는 쉽지만 리스크가 높으면 전체 난이도가 올라간다.
 
-> 난이도 7+: Phase 3에서 Codex 리뷰 추가.
+### Advisor 에스컬레이션 트리거
+
+다음 중 **하나라도** 만족하면 Phase 3 또는 Phase 5에서 advisor 에스컬레이션을 강제한다:
+- 종합 난이도 7+
+- 기존 API 계약, 응답 구조, 스키마 변경
+- DB schema 변경 또는 migration 포함
+- Presentation/Service/Repository 중 3개 레이어를 모두 수정
+- 품질 루프 2회차에도 `modified == true`
+- 롤백 비용이 높은 데이터 정합성 리스크 존재
+
+> 에스컬레이션 시 advisor는 "설계를 다시 짜는 역할"이 아니라, 현재 Plan/구현의 위험 신호만 좁혀서 판단한다.
 
 ---
 
@@ -128,6 +145,17 @@ Technical Spec을 분석하여 1~10 난이도를 산정한다.
 Phase 5에서 사용할 scope-reviewer 정보를 메모한다:
 - Technical Spec 전문
 - 엣지 케이스 목록
+- Plan 요약 (10줄 이내)
+- 변경 파일 / 의도 중심 diff 요약
+- `[Assumption]` 목록
+- 실패 로그 발췌본 (마지막 20~30줄, 있을 때만)
+
+### Advisor 입력 축약 원칙
+
+- advisor에게 전체 대화나 전체 로그를 그대로 넘기지 않는다.
+- 필요한 것만 묶어서 전달한다: `Spec`, `Plan 요약`, `diff 요약`, `엣지 케이스`, `실패 로그 일부`
+- 로그는 원인 파악에 필요한 마지막 구간만 전달한다.
+- advisor는 입력이 좁을수록 일관성이 높다. 정보가 많다고 품질이 올라간다고 가정하지 않는다.
 
 ---
 
@@ -167,15 +195,25 @@ Batch 2 (병렬): 데이터 정합성 + 보안 + 기존 코드 영향
 **Verdict**: APPROVE / CONCERN / REJECT
 **Issues**: [문제 목록 또는 "없음"]
 **Suggestions**: [개선 제안 또는 "없음"]
+**Next Action**: [오케스트레이터가 바로 수행할 1개 액션]
 ```
 
 리뷰 종합:
 - **REJECT 1개+**: Plan 수정 → 해당 관점 재리뷰
 - **CONCERN만**: 타당한 것 자동 반영
 
-### 3.3 Codex 리뷰 (난이도 7+)
+### 3.3 Codex Architect 리뷰 (에스컬레이션 시)
 
-Codex 사용 가능 시 Architect 관점으로 Plan 리뷰를 위임한다.
+Advisor 에스컬레이션 트리거를 만족하면, Codex 사용 가능 시 Architect 관점으로 Plan 리뷰를 위임한다.
+Codex advisor 입력은 아래로 제한한다:
+- Technical Spec 전문
+- Plan 전문
+- 가장 큰 리스크 3개
+
+출력 형식은 반드시 다음을 따른다:
+`APPROVE / CONCERN / REJECT + Next Action`
+
+Codex advisor는 직접 구현하지 않는다.
 불가 시 건너뛴다.
 
 ### 3.4 Plan 확정
@@ -291,6 +329,18 @@ for iteration in 1..3:
   수정 없음? → 루프 탈출
 ```
 
+#### 품질 루프 Advisor 에스컬레이션
+
+- iteration 2 이상인데도 `modified == true`이면 advisor 에스컬레이션을 수행한다.
+- 동일 단계에서 같은 유형의 실패가 2회 반복되면 advisor 에스컬레이션을 수행한다.
+- 이때 advisor 입력은 전체 로그가 아니라 아래만 전달한다:
+  - 현재 iteration
+  - 실패한 단계 이름
+  - 최근 수정 파일 요약
+  - 마지막 실패 로그 20~30줄
+  - 오케스트레이터가 추정한 원인 3개 이하
+- advisor 출력은 반드시 `Verdict / Issues / Suggestions / Next Action` 형식으로 받는다.
+
 #### 5.0 Go 빌드 + 테스트
 
 Bash로 직접 실행:
@@ -342,6 +392,13 @@ go build ./cmd/main.go && go test ./internal/...
     상태 파일 `/tmp/workflow-state.md`의 Technical Spec을 기준으로
     현재 구현된 코드를 검증하세요.
     프로젝트 루트: {CWD}
+
+    리뷰 입력은 Spec, Edge Cases, diff 요약까지만 사용하세요.
+    직접 수정하지 말고 아래 형식으로만 답하세요.
+    **Verdict**: APPROVE / CONCERN / REJECT
+    **Issues**: [문제 목록 또는 "없음"]
+    **Suggestions**: [개선 제안 또는 "없음"]
+    **Next Action**: [오케스트레이터가 바로 수행할 1개 액션]
 ```
 FAIL이면 general-purpose 에이전트를 생성하여 누락 항목을 수정한다. 수정 발생 시 `modified = true`.
 
@@ -486,7 +543,7 @@ rm -f /tmp/workflow-state.md
 Phase 0: /request → Technical Spec (유저 확인)
 Phase 1: 난이도 산정 (1-10)
 Phase 2: scope-reviewer 메모
-Phase 3: Plan 작성 → 6관점 리뷰 (3+3 병렬) → [난이도 7+: Codex] → Plan 확정
+Phase 3: Plan 작성 → 6관점 리뷰 (3+3 병렬) → [에스컬레이션 시: Codex Advisor] → Plan 확정
 Phase 3.5: 상태 파일 생성 → "자율 실행 시작"
 
 [자율 실행 — 유저 확인 없이 완주]
