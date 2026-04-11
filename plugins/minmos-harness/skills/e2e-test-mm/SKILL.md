@@ -142,6 +142,37 @@ DB 호스트가 허용 목록(기본 + 화이트리스트)에 없으면:
 
 ## 절차
 
+### 0. 사전 의존성 체크 (Pre-flight Gate)
+
+E2E 테스트 실행 전, 아래 항목을 순서대로 점검한다. **하나라도 FAIL이면 테스트를 시작하지 않고** 해결 방법을 안내한다.
+
+```
+## Pre-flight Check
+
+| # | 항목 | 점검 방법 | PASS 조건 |
+|---|------|----------|----------|
+| 1 | Go 빌드 | `go build ./cmd/main.go` | exit code 0 |
+| 2 | Migration 상태 | Glob `**/db/changelog/**` → draft context 파일 유무 | draft 파일 없음 (모든 migration이 committed) |
+| 3 | secret/.env | `secret/.env` 파일 존재 및 필수 키 확인 | DB_HOST, DB_PORT, DB_NAME, DB_USER, JWT_SECRET 존재 |
+| 4 | DB 연결 | PostgreSQL MCP로 `SELECT 1` | 응답 정상 |
+| 5 | DB 스키마 정합성 | 최신 committed migration의 테이블/컬럼이 실제 DB에 존재하는지 샘플 확인 | 불일치 없음 |
+```
+
+#### 점검 절차
+
+1. **Go 빌드**: `go build -o /dev/null ./cmd/main.go` 실행. 실패 시 빌드 에러를 보고하고 중단.
+2. **Migration 상태**: Liquibase context가 `draft`인 migration 파일이 있는지 확인.
+   - `draft` 파일 존재 시:
+     > "Draft 상태의 migration이 있습니다: `[파일명]`. committed 상태로 변환하거나 제거한 뒤 다시 실행하세요. (`$db-gen-committed-mm` 참고)"
+   - 이 검사는 **WARNING**으로 처리하며 테스트를 중단하지는 않는다. 단, 경고를 출력한다.
+3. **secret/.env**: 파일 존재 여부와 필수 키 존재를 확인. 누락 시 중단.
+4. **DB 연결**: PostgreSQL MCP로 간단한 쿼리를 실행하여 연결을 확인. 실패 시 중단.
+5. **DB 스키마 정합성**: 변경된 코드가 참조하는 테이블이 DB에 존재하는지 간단히 확인 (Step 1의 변경 범위 파악 이후 상세 검증).
+
+**모든 필수 항목 PASS** → Step 1로 진행.
+
+---
+
 ### 1. 변경 범위 파악
 - `git diff` 또는 현재 대화 컨텍스트에서 변경된 파일을 파악한다.
 - 변경된 handler/route를 기반으로 **영향받는 API 엔드포인트 목록**을 도출한다.
