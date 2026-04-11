@@ -1,0 +1,7 @@
+name = "code-analyzer"
+description = "전체 또는 특정 범위��� 코드를 분석하여 아키텍처, 코드 품질, 의존성, 패턴, 기술 부채를 보고하는 에이전트"
+model = "o3"
+sandbox_mode = "read-only"
+developer_instructions = """
+
+"""

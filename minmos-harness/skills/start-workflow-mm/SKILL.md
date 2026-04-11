@@ -1,8 +1,8 @@
 ---
 name: start-workflow-mm
-description: "전체 개발 워크플로우를 자동화. 요청 분석 → 난이도 산정 → Plan 리뷰 → 구현 → 품질 루프 → 문서 동기화 → PR → 성찰까지 일관된 파이프라인으로 실행한다."
+description: "전체 개발 워크플로우를 자동화. Build 모드(기본): 요청 분석 → 구현 → 품질 루프 → PR. Analyze 모드(--analyze): 코드 분석 보고서. Verify 모드(--verify): 보안·성능·버그·안정성 검증."
 allowed-tools: AskUserQuestion, Read, Write, Edit, Glob, Grep, Bash, Agent, EnterPlanMode, ExitPlanMode, Skill
-argument-hint: <작업 설명 또는 빈 값>
+argument-hint: <작업 설명> | --analyze [경로] | --verify [경로]
 user-invocable: true
 ---
 
@@ -16,6 +16,8 @@ user-invocable: true
 | 플래그 | 단축 | 효과 |
 |--------|------|------|
 | `--hard` | `-h` | 브랜치 생성/검증을 건너뛰고 현재 브랜치에서 바로 push. `commit-hard-push-mm` 사용. |
+| `--analyze` | `-a` | **Analyze 모드**. 전체 또는 특정 범위의 코드를 분석하여 보고서를 생성한다. |
+| `--verify` | `-v` | **Verify 모드**. 보안·성능·잠재 버그·안정성을 검증하고 Pass/Fail 판정한다. |
 
 `$ARGUMENTS`에 `--hard` 또는 `-h`가 포함되어 있으면 `$HARD_MODE = true`로 설정한다.
 
@@ -26,6 +28,25 @@ user-invocable: true
 | Phase 3.5 | feature 브랜치 생성 필수 | **건너뜀** (현재 브랜치 유지) |
 | Phase 4 커밋 | 동일 | 동일 |
 | Phase 7 PR | workflow-pr (브랜치 생성 + PR) | **commit-hard-push-mm** (현재 브랜치에서 바로 push, PR 생략) |
+
+### 모드 판별
+
+`$ARGUMENTS`를 파싱하여 실행 모드를 결정한다:
+
+| 조건 | 모드 | 실행 경로 |
+|------|------|----------|
+| `--analyze` 또는 `-a` 포함 | **Analyze** | Phase A0 → A3 |
+| `--verify` 또는 `-v` 포함 | **Verify** | Phase V0 → V4 |
+| 위 플래그 없음 | **Build** (기본) | Phase 0 → 9 |
+
+> `--analyze`와 `--verify`는 상호 배타적이다. 동시 지정 시 유저에게 하나를 선택하도록 안내한다.
+> `--hard`는 Build 모드에서만 유효하다. Analyze/Verify 모드에서 `--hard`가 포함되면 무시한다.
+
+**범위 지정**: 플래그 뒤에 경로가 있으면 분석/검증 **범위**로 사용한다.
+- `--analyze internal/book` → `internal/book` 디렉토리 분석
+- `--verify internal/book/usecase` → 해당 디렉토리 검증
+- `--analyze` (경로 없음) → 전체 코드베이스
+- `--verify internal/book/handler.go` → 특정 파일만 검증
 
 ---
 
@@ -68,6 +89,243 @@ user-invocable: true
 - 유일한 정지 지점은 **Phase 9 (최종 보고)** 뿐이다
 
 ---
+
+## Analyze Mode (`--analyze`)
+
+> 코드를 분석하여 아키텍처·품질·의존성·패턴·기술 부채를 보고한다. **코드 수정은 하지 않는다.**
+
+### Phase A0: 범위 및 초점 수집
+
+1. **범위 확인**: `$ARGUMENTS`에서 플래그 뒤 경로가 지정되었으면 해당 범위를 사용. 없으면 유저에게 확인한다.
+   > "분석 범위를 지정해주세요. (전체 / 디렉토리 경로 / 파일 경로)"
+
+2. **초점 선택**: 유저에게 분석 초점을 묻는다 (복수 선택 가능).
+   > "분석 초점을 선택해주세요:"
+   > 1. 아키텍처 (레이어 구조, 모듈 결합도, 인터페이스)
+   > 2. 코드 품질 (복잡도, 중복, Dead Code, 코드 스멜)
+   > 3. 의존성 (외부 패키지, 내부 의존 그래프, 순환 의존)
+   > 4. 패턴 & 기술 부채 (안티패턴, TODO/FIXME, 일관성)
+   > 5. 전체 (기본값)
+   >
+   > 예: `5` (전체) 또는 `1,2` (아키텍처 + 품질)
+
+3. **추가 컨텍스트**: `$ARGUMENTS`나 대화에 특정 관심사가 포함되어 있으면 함께 전달한다.
+
+### Phase A1: 상태 파일 생성
+
+Write tool로 `/tmp/workflow-state.md`를 생성한다:
+
+```markdown
+# Workflow State — Analyze Mode
+
+## Mode
+analyze
+
+## Scope
+{범위}
+
+## Focus
+{선택된 초점 목록}
+
+## Context
+{추가 컨텍스트 또는 "없음"}
+```
+
+출력: **"코드 분석을 시작합니다."**
+
+### Phase A2: 코드 분석
+
+```
+Agent tool:
+  subagent_type: minmos-harness:code-analyzer
+  prompt: |
+    상태 파일 `/tmp/workflow-state.md`를 읽고 코드 분석을 수행하세요.
+    프로젝트 루트: {현재 작업 디렉토리}
+    
+    분석 범위: {scope}
+    분석 초점: {focus}
+    추가 컨텍스트: {context}
+    
+    분석 완료 후 출력 형식에 따라 보고서를 작성하세요.
+```
+
+### Phase A3: 분석 보고서
+
+code-analyzer 에이전트의 결과를 종합하여 유저에게 보고한다.
+
+```markdown
+## Code Analysis Report
+
+### 분석 개요
+- **모드**: Analyze
+- **범위**: {scope}
+- **초점**: {focus}
+
+{code-analyzer 보고서 전문}
+
+### 추가 조치
+```
+
+> "발견된 이슈를 수정할까요? (전체/선택/건너뛰기)"
+
+- **전체**: general-purpose 에이전트를 생성하여 즉시 수정 가능한 모든 이슈를 수정한다.
+- **선택**: 유저가 번호로 선택한 항목만 수정한다.
+- **건너뛰기**: 보고서만 출력하고 종료한다.
+
+수정 후 커밋 여부를 유저에게 확인한다.
+
+정리:
+```bash
+rm -f /tmp/workflow-state.md
+```
+
+---
+
+## Verify Mode (`--verify`)
+
+> 코드를 검증하여 보안·성능·잠재 버그·안정성 관점에서 **Pass/Fail 판정**을 내린다.
+
+### Phase V0: 범위 및 초점 수집
+
+1. **범위 확인**: `$ARGUMENTS`에서 플래그 뒤 경로가 지정되었으면 해당 범위를 사용. 없으면 유저에게 확인한다.
+   > "검증 범위를 지정해주세요. (전체 / 디렉토리 경로 / 파일 경로)"
+
+2. **초점 선택**: 유저에게 검증 초점을 묻는다 (복수 선택 가능).
+   > "검증 초점을 선택해주세요:"
+   > 1. 보안 (SQL Injection, XSS, 인증/인가, 데이터 노출)
+   > 2. 성능 (N+1 쿼리, 메모리 누수, 리소스 관리)
+   > 3. 잠재 버그 (Nil 역참조, 동시성, 에러 처리, 로직 결함)
+   > 4. 안정성 (리소스 관리, 장애 복원력, 테스트 커버리지)
+   > 5. 전체 (기본값)
+   >
+   > 예: `5` (전체) 또는 `1,3` (보안 + 잠재 버그)
+
+### Phase V1: 상태 파일 생성 + 정적 분석
+
+#### 상태 파일 생성
+
+Write tool로 `/tmp/workflow-state.md`를 생성한다:
+
+```markdown
+# Workflow State — Verify Mode
+
+## Mode
+verify
+
+## Scope
+{범위}
+
+## Focus
+{선택된 초점 목록}
+```
+
+#### 정적 분석 도구 실행
+
+Bash로 Go 내장 정적 분석을 먼저 실행한다:
+
+```bash
+go vet ./... 2>&1
+go build ./cmd/main.go 2>&1
+```
+
+테스트 커버리지가 초점에 포함된 경우 (`전체` 또는 `안정성`):
+```bash
+go test -cover ./internal/... 2>&1
+```
+
+결과를 상태 파일에 append한다.
+
+출력: **"코드 검증을 시작합니다."**
+
+### Phase V2: 코드 검증
+
+```
+Agent tool:
+  subagent_type: minmos-harness:code-verifier
+  prompt: |
+    상태 파일 `/tmp/workflow-state.md`를 읽고 코드 검증을 수행하세요.
+    프로젝트 루트: {현재 작업 디렉토리}
+    
+    검증 범위: {scope}
+    검증 초점: {focus}
+    정적 분석 결과:
+    [go vet 결과]
+    [go build 결과]
+    [go test -cover 결과 (실행한 경우)]
+    
+    검증 완료 후 출력 형식에 따라 보고서를 작성하세요.
+```
+
+### Phase V3: 컨벤션 검사 (선택적)
+
+검증 초점에 `전체`가 포함되어 있을 때만 실행한다.
+
+```
+Agent tool:
+  subagent_type: general-purpose
+  prompt: |
+    프로젝트 루트 {CWD}에서 Skill tool로 /minmos-harness:convention-check-mm 를 실행하세요.
+    결과를 "위반: N건" 형식으로 보고하세요.
+```
+
+### Phase V4: 종합 검증 보고서
+
+code-verifier 에이전트 결과 + 정적 분석 결과 + 컨벤션 검사 결과를 종합하여 보고한다.
+
+```markdown
+## Code Verification Report
+
+### 검증 개요
+- **모드**: Verify
+- **범위**: {scope}
+- **초점**: {focus}
+
+### 정적 분석 결과
+| 도구 | 판정 | 비고 |
+|------|------|------|
+| go vet | PASS/FAIL | {요약} |
+| go build | PASS/FAIL | {요약} |
+| go test -cover | {커버리지 %}% | 실행한 경우만 |
+
+### 코드 검증 결과
+{code-verifier 보고서 전문}
+
+### 컨벤션 검사 결과
+{convention-check 결과 또는 "미실행"}
+
+### 종합 판정
+| 항목 | 판정 |
+|------|------|
+| 정적 분석 | PASS/FAIL |
+| 보안 | PASS/WARN/FAIL |
+| 성능 | PASS/WARN/FAIL |
+| 잠재 버그 | PASS/WARN/FAIL |
+| 안정성 | PASS/WARN/FAIL |
+| 컨벤션 | PASS/WARN/FAIL (실행 시) |
+| **종합** | **PASS/WARN/FAIL** |
+
+### 즉시 수정 권고 (Critical + High)
+{이슈 목록}
+```
+
+> "발견된 이슈를 수정할까요? (Critical+High 전체 / 선택 / 건너뛰기)"
+
+- **전체**: general-purpose 에이전트를 생성하여 Critical+High 이슈를 모두 수정한다.
+- **선택**: 유저가 번호로 선택한 항목만 수정한다.
+- **건너뛰기**: 보고서만 출력하고 종료한다.
+
+수정 후 커밋 여부를 유저에게 확인한다.
+
+정리:
+```bash
+rm -f /tmp/workflow-state.md
+```
+
+---
+
+## Build Mode (기본)
+
+> 플래그 없이 실행하거나 `--hard`만 지정하면 기본 Build 모드로 동작한다.
 
 ## Phase 0: 작업 범위 수집
 
@@ -483,6 +741,46 @@ rm -f /tmp/workflow-state.md
 
 ## 흐름 요약
 
+### 모드 판별
+
+```
+$ARGUMENTS 파싱
+  ├─ --analyze / -a  → Analyze Mode
+  ├─ --verify  / -v  → Verify Mode
+  └─ (없음)          → Build Mode (기본)
+```
+
+### Analyze Mode (`--analyze`)
+
+```
+[유저 대화]
+Phase A0: 범위 + 초점 수집
+Phase A1: 상태 파일 생성
+
+[자율 실행]
+Phase A2: code-analyzer 에이전트        → 코드 분석
+
+[유저 대화]
+Phase A3: 분석 보고서 → 수정 여부 (유저 선택) → 정리
+```
+
+### Verify Mode (`--verify`)
+
+```
+[유저 대화]
+Phase V0: 범위 + 초점 수집
+Phase V1: 상태 파일 생성 + 정적 분석 (go vet, go build)
+
+[자율 실행]
+Phase V2: code-verifier 에이전트        → 코드 검증
+Phase V3: convention-check              → 컨벤션 검사 (전체 초점 시만)
+
+[유저 대화]
+Phase V4: 종합 검증 보고서 → 수정 여부 (유저 선택) → 정리
+```
+
+### Build Mode (기본)
+
 ```
 [유저 대화]
 Phase 0: /request → Technical Spec (유저 확인)
@@ -493,6 +791,7 @@ Phase 3.5: 상태 파일 생성 → "자율 실행 시작"
 
 [자율 실행 — 유저 확인 없이 완주]
 Phase 4: workflow-implementer          → 구현 + 커밋
+Phase 4.5: go build                    → 빌드 체크 (필수)
 Phase 5: 품질 루프 (오케스트레이터 관리, 최대 3회)
   5.0 go build + go test               → Bash 직접
   5.1 simplify-loop                    → general-purpose 에이전트

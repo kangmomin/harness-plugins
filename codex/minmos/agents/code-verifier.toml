@@ -1,0 +1,7 @@
+name = "code-verifier"
+description = "코드의 보안 취약점, 성능 이슈, 잠재 버그, ���정성을 검증하고 Pass/Fail 판정을 내리는 에이��트"
+model = "o3"
+sandbox_mode = "read-only"
+developer_instructions = """
+
+"""
