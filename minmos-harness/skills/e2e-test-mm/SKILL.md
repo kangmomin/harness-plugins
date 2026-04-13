@@ -16,6 +16,7 @@ user-invocable: true
 - **Apidog MCP 서버**: Apidog 스펙 참조/비교용 (REST)
 - **PostgreSQL MCP 서버** (읽기/쓰기): 테스트 데이터 생성, BASELINE_ID 기록, soft-delete 정리용
 - **grpcurl** (선택): gRPC 엔드포인트 테스트용. gRPC 테스트가 필요한 경우에만 필수
+- **Dev PubSub CLI** (선택): PubSub 메시지 발행/검증용. PubSub 연동 테스트가 필요한 경우에만 필수. `dev-pubsub-cli` 명령 또는 로컬 clone의 `uv run dev-pubsub-cli`로 사용
 
 ### `--init` (초기 세팅)
 
@@ -52,7 +53,21 @@ user-invocable: true
      > go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
      > ```
    - gRPC 테스트가 불필요하면 건너뛸 수 있다.
-5. 결과를 요약 보고한다.
+5. **Dev PubSub CLI 확인** (선택): `which dev-pubsub-cli`로 글로벌 설치 여부를 확인한다.
+   - 글로벌 설치되어 있으면 OK.
+   - 없으면 `which uv`로 uv 설치 여부를 먼저 확인한 뒤 안내:
+     > "PubSub E2E 테스트를 사용하려면 Dev PubSub CLI가 필요합니다:"
+     > ```bash
+     > # Global 설치 (추천)
+     > uv tool install git+https://github.com/Jiyong-Jeon/dev_pubsub_emulator.git
+     >
+     > # Local 설치 (프로젝트별)
+     > git clone https://github.com/Jiyong-Jeon/dev_pubsub_emulator.git
+     > cd dev_pubsub_emulator && uv sync
+     > # 실행: uv run dev-pubsub-cli
+     > ```
+   - PubSub 테스트가 불필요하면 건너뛸 수 있다.
+6. 결과를 요약 보고한다.
 
 ### `--doctor` (상태 진단)
 
@@ -73,6 +88,8 @@ user-invocable: true
 | MCP DB 호스트 (로컬 전용) | OK / **BLOCKED** / SKIP | .mcp.json postgres URL 호스트 확인 |
 | grpcurl 설치 (선택) | OK / MISSING | grpcurl --version |
 | GRPC_PORT (선택) | OK / MISSING / SKIP | secret/.env 확인 |
+| Dev PubSub CLI (선택) | OK (Global) / OK (Local) / MISSING | which dev-pubsub-cli |
+| PubSub Emulator (선택) | RUNNING / STOPPED | curl localhost:8086/api/stats |
 ```
 
 - **BLOCKED** 항목이 하나라도 있으면 E2E 테스트를 실행할 수 없다고 경고하고, 해당 DB를 허용할지 사용자에게 질문한다. 승인하면 `.e2e-allowed-hosts`에 등록한다.

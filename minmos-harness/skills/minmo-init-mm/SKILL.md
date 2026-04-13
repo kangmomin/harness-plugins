@@ -25,6 +25,7 @@ user-invocable: true
 | 4 | db-tools 플러그인 | db-gen-committed |
 | 5 | 컨벤션 선택 | convention-check |
 | 6 | grpcurl (선택) | e2e-test (gRPC) |
+| 7 | Dev PubSub CLI (선택) | e2e-test (PubSub) |
 
 ---
 
@@ -39,6 +40,7 @@ user-invocable: true
 - `secret/.env` 존재 여부 → DB 접속 정보 추출 가능 여부
 - db-tools 플러그인 설치 여부
 - `.convention-check.json` 존재 여부
+- `dev-pubsub-cli` 설치 여부 → `which dev-pubsub-cli` 또는 `uv tool list` 확인
 
 ### Step 2: 상태 요약 보고
 
@@ -57,6 +59,7 @@ user-invocable: true
 | 6 | db-tools 플러그인 | OK / MISSING | db-gen-committed |
 | 7 | 컨벤션 설정 | OK / DEFAULT | convention-check |
 | 8 | grpcurl | OK / MISSING | e2e-test (gRPC, 선택) |
+| 9 | Dev PubSub CLI | OK / MISSING | e2e-test (PubSub, 선택) |
 ```
 
 ### Step 2.5: 설정 가이드 / 세팅 선택
@@ -86,6 +89,7 @@ user-invocable: true
 | 6 | db-tools 플러그인 | `/plugin marketplace add postmath-plugins/db-tools` 실행 |
 | 7 | 컨벤션 설정 | 적용할 컨벤션을 선택하여 `.convention-check.json` 생성 |
 | 8 | grpcurl | `grpcurl --version` 확인. 없으면 설치 안내 |
+| 9 | Dev PubSub CLI | `dev-pubsub-cli --help` 확인. 없으면 global/local 설치 안내 |
 
 ### Step 3: 세팅 진행
 
@@ -165,6 +169,36 @@ user-invocable: true
   > ```
 - 건너뛰기: REST 테스트만으로도 e2e-test 사용 가능하다고 안내.
 
+#### 3.7 Dev PubSub CLI (MISSING인 경우, 선택)
+
+> "PubSub E2E 테스트를 사용하려면 Dev PubSub CLI가 필요합니다. 설치할까요? (Y/건너뛰기)"
+
+- Y: 먼저 `uv` 설치 여부를 확인한다 (`which uv`).
+  - `uv`가 없으면:
+    > "uv가 설치되어 있지 않습니다. 먼저 uv를 설치하세요:"
+    > ```bash
+    > curl -LsSf https://astral.sh/uv/install.sh | sh
+    > ```
+  - `uv`가 있으면 설치 방식을 선택하게 한다:
+    > "설치 방식을 선택하세요:"
+    > 1. **Global** — 시스템 전역에 설치 (어디서든 `dev-pubsub-cli` 사용 가능)
+    > 2. **Local** — 프로젝트 디렉토리에 클론하여 `uv run`으로 사용
+    >
+    > 추천: PubSub E2E 테스트를 여러 프로젝트에서 사용하면 Global, 단일 프로젝트면 Local
+  - **Global 선택 시**: 아래 명령을 실행한다:
+    ```bash
+    uv tool install git+https://github.com/Jiyong-Jeon/dev_pubsub_emulator.git
+    ```
+    설치 후 `dev-pubsub-cli --help`로 정상 설치를 확인한다.
+  - **Local 선택 시**: 아래 절차를 안내한다:
+    > ```bash
+    > git clone https://github.com/Jiyong-Jeon/dev_pubsub_emulator.git
+    > cd dev_pubsub_emulator
+    > uv sync
+    > # 실행: uv run dev-pubsub (에뮬레이터) / uv run dev-pubsub-cli (CLI)
+    > ```
+- 건너뛰기: PubSub 테스트 없이 REST/gRPC E2E 테스트만 사용 가능하다고 안내.
+
 #### 3.5 컨벤션 선택 (DEFAULT인 경우)
 
 > "convention-check에서 사용할 컨벤션을 설정합니다.
@@ -191,6 +225,7 @@ user-invocable: true
 | 4 | db-tools 플러그인 | 안내 완료 / 이미 설치됨 |
 | 5 | 컨벤션 선택 | 설정 완료 / 이미 설정됨 / 기본값 사용 |
 | 6 | grpcurl | 설치됨 / 안내 완료 / 건너뜀 |
+| 7 | Dev PubSub CLI | 설치됨 (Global/Local) / 안내 완료 / 건너뜀 |
 
 다음 단계: `/minmos-harness:minmo-doctor-mm`로 전체 상태를 검증하세요.
 ```

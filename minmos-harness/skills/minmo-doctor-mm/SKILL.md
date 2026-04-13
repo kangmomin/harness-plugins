@@ -58,6 +58,14 @@ user-invocable: true
 | grpcurl 설치 (선택) | `grpcurl --version` | e2e-test (gRPC) |
 | GRPC_PORT (선택) | `secret/.env` 확인 | e2e-test (gRPC) |
 
+### 6. PubSub 환경 (선택)
+
+| 항목 | 점검 방법 | 관련 스킬 |
+|------|----------|----------|
+| uv 설치 | `uv --version` | Dev PubSub 설치/실행 |
+| dev-pubsub-cli 설치 | `which dev-pubsub-cli` (Global) 또는 로컬 clone 존재 확인 | e2e-test (PubSub) |
+| PubSub Emulator 상태 | `curl -s http://localhost:8086/api/stats` 응답 여부 | e2e-test (PubSub) |
+
 ---
 
 ## 실행 흐름
@@ -108,6 +116,13 @@ user-invocable: true
 | grpcurl 설치 | OK / MISSING | 선택 (gRPC 전용) |
 | GRPC_PORT | OK / MISSING / SKIP | 선택 (gRPC 전용) |
 
+### PubSub 환경 (선택)
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| uv 설치 | OK / MISSING | uv --version |
+| dev-pubsub-cli | OK (Global) / OK (Local) / MISSING | which dev-pubsub-cli |
+| PubSub Emulator | RUNNING / STOPPED / MISSING | localhost:8086 응답 확인 |
+
 ---
 
 ### 종합
@@ -139,3 +154,6 @@ user-invocable: true
 | .convention-check.json | 선택 | 없으면 기본값 사용 |
 | grpcurl | 선택 | gRPC E2E 테스트 전용 |
 | GRPC_PORT | 선택 | gRPC E2E 테스트 전용 |
+| uv | 선택 | Dev PubSub 설치/실행 전제 |
+| dev-pubsub-cli | 선택 | PubSub E2E 테스트 전용 |
+| PubSub Emulator | 선택 | PubSub E2E 테스트 시 실행 필요 (STOPPED은 경고만) |
