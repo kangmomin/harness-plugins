@@ -11,6 +11,7 @@ React 프론트엔드 개발 워크플로우 자동화 지침.
 | 스킬 | 호출 | 설명 |
 |------|------|------|
 | **start-workflow-hd** | `$start-workflow-hd` | 전체 워크플로우 자동화 (request→구현→품질 루프→PR→성찰) |
+| **start-workflow-fs** | `$start-workflow-fs` | 풀스택 애자일 워크플로우 (기능 정의→통신 계약→교차 리뷰→FE/BE 병렬 구현→통합 검증→PR) |
 | **request-hd** | `$request-hd` | 작업 유형별 질문 + 레이아웃 컨펌 → Technical Spec 생성 |
 | **commit-hd** | `$commit-hd` | 변경사항을 논리적 단위별로 나눠서 커밋 |
 | **commit-push-hd** | `$commit-push-hd` | commit + push |

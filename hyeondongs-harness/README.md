@@ -29,6 +29,7 @@
 | 스킬 | 호출 | 설명 |
 |------|------|------|
 | **start-workflow** | `/hyeondongs-harness:start-workflow-hd` | **전체 워크플로우 자동화** — 요청→난이도→Plan 리뷰→구현→품질 루프→PR→성찰 |
+| **start-workflow-fs** | `/hyeondongs-harness:start-workflow-fs` | **풀스택 애자일 워크플로우** — 기능 정의→통신 계약→교차 리뷰→FE/BE 병렬 구현→통합 검증→PR |
 
 ### 워크플로우
 
@@ -97,6 +98,20 @@ Phase 6: component-reviewer + a11y-reviewer (컴포넌트 변경 시)
 Phase 7: commit-pr → PR
 Phase 8: 성찰 (커밋 로그 분석)
 Phase 9: 최종 보고 + 보완점 스킬 반영
+```
+
+### 풀스택 자동화 (`/hyeondongs-harness:start-workflow-fs`)
+
+```
+Phase 0: 백엔드/프론트 Spec 수집 → Feature Matrix
+Phase 1: Integration Contract 정의
+Phase 2: 계약 교차 리뷰 (BE 관점 + FE 관점)
+Phase 3: 백엔드 Plan / 프론트 Plan / shared ownership 확정
+Phase 4: FE workflow-implementer + BE workflow-implementer 병렬 구현
+Phase 5: 도메인별 품질 루프 병렬 실행
+Phase 6: contract diff / scope / a11y / component 통합 검증
+Phase 7: 단일 PR 생성
+Phase 8: 회고 + 정리
 ```
 
 ### 수동 실행 (개별 스킬)

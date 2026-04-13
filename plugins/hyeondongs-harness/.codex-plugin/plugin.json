@@ -1,6 +1,6 @@
 {
   "name": "hyeondongs-harness",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "프론트엔드 개발 워크플로우 하네스. 컴포넌트 생성, 커밋/PR, 단위/E2E 테스트, ESLint와 a11y 기반 코드 품질 검사를 지원한다.",
   "author": {
     "name": "kangmomin",
