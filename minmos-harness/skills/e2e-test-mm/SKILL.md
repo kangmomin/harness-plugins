@@ -192,6 +192,8 @@ DB 호스트가 허용 목록(기본 + 화이트리스트)에 없으면:
 
 변경된 파일 목록에서 프로토콜을 자동 감지한다:
 
+**직접 감지 (파일 경로 기반)**:
+
 | 감지 패턴 | 프로토콜 |
 |----------|---------|
 | `internal/handler/`, `internal/route/` 변경 | REST |
@@ -200,12 +202,28 @@ DB 호스트가 허용 목록(기본 + 화이트리스트)에 없으면:
 | `*_vo.go`에 proto 관련 타입 추가/변경 | gRPC |
 | REST + gRPC 모두 감지 | MIXED |
 
+**역추적 감지 (usecase/repository/domain 변경 시)**:
+
+직접 감지에서 handler/route/grpc_repository 변경이 **0건**이지만, usecase/repository/domain 등 내부 로직이 변경된 경우:
+
+1. **변경된 함수/메서드 식별**: `git diff`에서 변경된 함수명을 추출한다.
+2. **호출자 역추적**: 변경된 함수를 호출하는 handler 또는 grpc_repository를 Grep으로 추적한다:
+   ```bash
+   # 변경된 함수명으로 호출자 검색
+   grep -rn '{변경된함수명}' internal/handler/ internal/route/ --include='*.go'
+   grep -rn '{변경된함수명}' internal/*/infra/grpc_*_repository.go
+   ```
+3. **엔드포인트 도출**: 호출자가 발견되면 해당 handler/grpc_repository에서 엔드포인트를 역으로 도출한다.
+4. **프로토콜 결정**: 호출자가 REST handler이면 REST, grpc_repository이면 gRPC, 둘 다이면 MIXED.
+
+> **핵심**: usecase만 변경해도 그 usecase를 호출하는 엔드포인트는 E2E 테스트 대상이다. "handler 변경이 없으니 테스트 불필요"가 아니라, "비즈니스 로직이 바뀌었으므로 해당 로직을 사용하는 엔드포인트를 테스트"해야 한다.
+
 - `$ARGUMENTS`에 `--grpc`가 있으면 gRPC를 강제 지정한다.
 - `$ARGUMENTS`에 `--rest`가 있으면 REST를 강제 지정한다.
 - 감지 결과를 `$PROTOCOL` 변수에 저장한다: `REST` / `GRPC` / `MIXED`
 
 **gRPC 엔드포인트 도출** (`$PROTOCOL`이 `GRPC` 또는 `MIXED`인 경우):
-- `grpc_*_repository.go`에서 변경된 메서드명을 추출한다.
+- `grpc_*_repository.go`에서 변경된 메서드명을 추출하거나, 역추적으로 발견된 grpc_repository의 메서드명을 사용한다.
 - 해당 서비스의 proto 정의에서 `{service}.v1.{ServiceName}/{MethodName}` 형태의 완전한 RPC 경로를 도출한다.
 - `go-grpc-tools` 플러그인의 `find-proto.sh`를 사용하여 proto 소스 위치를 확인한다:
   ```bash
