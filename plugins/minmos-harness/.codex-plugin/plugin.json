@@ -1,6 +1,6 @@
 {
   "name": "minmos-harness",
-  "version": "1.5.7",
+  "version": "1.5.8",
   "description": "Post-Math 백엔드 개발 워크플로우 하네스. 커밋/PR 관리, 컨벤션 검사, E2E 테스트(REST+gRPC), Apidog 스키마 생성 등을 지원한다.",
   "author": {
     "name": "kangmomin",
