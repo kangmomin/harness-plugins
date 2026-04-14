@@ -51,9 +51,10 @@ user-invocable: true
 ---
 
 ```
-[유저 대화] Phase 0~3  : 직접 실행 (Spec, Plan, 리뷰)
+[유저 대화] Phase 0~1.5: 직접 실행 (Spec, 난이도, 실행 전략)
+[유저 대화] Phase 2~3  : 직접 실행 (Plan, 리뷰)
 [상태 저장] Phase 3.5  : 상태 파일 생성
-[자율 실행] Phase 4~8  : 서브 에이전트 순차 위임
+[자율 실행] Phase 4~8  : 서브 에이전트 순차/병렬 위임
 [유저 대화] Phase 9    : 최종 보고 + 보완점 적용
 ```
 
@@ -419,6 +420,41 @@ Technical Spec을 분석하여 1~10 난이도를 산정한다.
 
 ---
 
+## Phase 1.5: 실행 전략 판정 (Batch Eligibility Gate)
+
+Technical Spec을 분석하여 구현 병렬화 가능 여부를 판정한다.
+
+### 판정 기준
+
+아래 **5가지 조건을 모두 충족**해야 `parallel-slices`로 판정한다:
+
+| # | 조건 | 확인 방법 |
+|---|------|----------|
+| 1 | Spec이 2~3개의 **수직 슬라이스**를 포함 | 각 슬라이스가 독립된 endpoint/feature이며, 각각 handler+usecase+repository를 가짐 |
+| 2 | 슬라이스 간 **파일 겹침 없음** | 공유 VO, DTO, middleware, DI wiring 변경이 없음 |
+| 3 | **DB migration/공통 계약 변경 없음** | 신규 테이블은 가능하나, 기존 테이블 수정·공유 인터페이스 변경은 불가 |
+| 4 | 각 슬라이스가 **독립 빌드·테스트 가능** | 한 슬라이스만 구현해도 빌드가 깨지지 않음 |
+| 5 | **순서 의존 없음** | 슬라이스 A가 완료되어야 B를 시작할 수 있는 관계가 없음 |
+
+### 판정 결과
+
+| 전략 | 조건 | 동작 |
+|------|------|------|
+| `sequential` | 위 조건 미충족 (기본값) | 기존 Phase 4 순차 실행 |
+| `parallel-slices` | 5가지 조건 모두 충족, 슬라이스 2~3개 | Phase 4에서 슬라이스별 병렬 구현 |
+| `fullstack` | FE+BE 동시 변경 | `/start-workflow-fs`로 리다이렉트 후 종료 |
+
+> **대부분의 작업은 `sequential`이다.** `parallel-slices`는 명확히 독립적인 수직 슬라이스가 존재할 때만 적용한다.
+> 판단이 애매하면 `sequential`을 선택한다 — 병렬화의 이점보다 잘못된 분리의 비용이 훨씬 크다.
+
+출력: `실행 전략: [sequential/parallel-slices/fullstack] — [근거]`
+
+`fullstack` 판정 시:
+> "FE+BE 동시 변경이 필요합니다. `/start-workflow-fs`로 전환합니다."
+> → `Skill tool`로 `/minmos-harness:start-workflow-fs`를 호출하고 현재 워크플로우를 종료한다.
+
+---
+
 ## Phase 2: Scope Reviewer 준비
 
 Phase 5에서 사용할 scope-reviewer 정보를 메모한다:
@@ -437,6 +473,26 @@ Phase 5에서 사용할 scope-reviewer 정보를 메모한다:
 - **최종 코드 구조**: 중복 로직이 예상되면 최종 구조(e.g. 테이블 드리븐, 공통 함수 추출)를 Plan 단계에서 확정한다. 구현 후 리팩토링 커밋이 발생하지 않도록 한다.
 - 의존 관계
 - 예상 리스크
+
+#### parallel-slices 추가 요구사항
+
+실행 전략이 `parallel-slices`인 경우, Plan에 아래를 **추가로** 명시한다:
+
+```markdown
+## Slices
+
+### Slice 1: [제목]
+- **파일 범위**: [이 슬라이스가 수정하는 파일 목록]
+- **설명**: [한 줄 설명]
+
+### Slice 2: [제목]
+- **파일 범위**: [이 슬라이스가 수정하는 파일 목록]
+- **설명**: [한 줄 설명]
+
+(최대 3개)
+```
+
+> 슬라이스 간 파일 범위가 겹치면 안 된다. 겹치는 파일이 발견되면 `sequential`로 전략을 변경한다.
 
 ### 3.2 다관점 Plan 리뷰
 
@@ -508,6 +564,9 @@ Write tool로 `/tmp/workflow-state.md`를 생성한다:
 ## Difficulty
 [N]/10
 
+## Execution Strategy
+[sequential/parallel-slices]
+
 ## Edge Cases
 [엣지 케이스 목록]
 
@@ -515,7 +574,16 @@ Write tool로 `/tmp/workflow-state.md`를 생성한다:
 [확정된 Plan 전문 그대로 복사]
 ```
 
-출력: **"자율 실행을 시작합니다. Phase 4~8을 서브 에이전트로 순차 실행합니다."**
+`parallel-slices`인 경우, 상태 파일에 아래를 추가한다:
+
+```markdown
+## Slices
+[Plan에서 정의한 Slice 정보 그대로 복사]
+```
+
+출력:
+- `sequential`: **"자율 실행을 시작합니다. Phase 4~8을 서브 에이전트로 순차 실행합니다."**
+- `parallel-slices`: **"자율 실행을 시작합니다. [N]개 슬라이스를 병렬 구현합니다."**
 
 ---
 
@@ -526,6 +594,8 @@ Write tool로 `/tmp/workflow-state.md`를 생성한다:
 각 에이전트의 반환 결과를 기록해 둔다 (Phase 9 보고서에 사용).
 
 ### Phase 4: 구현
+
+#### sequential 모드 (기본)
 
 ```
 Agent tool:
@@ -542,6 +612,57 @@ Agent tool:
 ```
 
 완료 후 유저에게 간략 보고: "Phase 4 완료: [변경 파일 수]개 파일, [커밋 수]개 커밋"
+
+#### parallel-slices 모드
+
+상태 파일의 Slices에 정의된 2~3개 슬라이스를 **동시에 병렬 구현**한다.
+같은 브랜치에서 파일 소유권을 분리하여 충돌을 방지한다.
+
+**중요**: 병렬 에이전트는 **커밋하지 않는다**. 구현만 수행하고, 커밋은 모든 에이전트 완료 후 오케스트레이터가 일괄 처리한다.
+
+> `workflow-implementer`는 커밋/빌드가 내장되어 있어 커밋 유보 지시와 충돌한다.
+> 병렬 모드에서는 `general-purpose` 에이전트를 사용한다.
+
+슬라이스 수만큼 Agent를 **하나의 메시지에서 동시에** 호출한다:
+
+```
+# 모든 슬라이스를 동일 메시지에서 병렬 호출
+Agent tool:  (× 슬라이스 수)
+  subagent_type: general-purpose
+  prompt: |
+    상태 파일 `/tmp/workflow-state.md`를 읽고, 아래 슬라이스만 구현하세요.
+    프로젝트 루트: {현재 작업 디렉토리}
+    
+    ## 담당 슬라이스
+    제목: {Slice N 제목}
+    파일 범위: {Slice N 파일 목록}
+    설명: {Slice N 설명}
+    
+    ## 제한사항 (CRITICAL)
+    - **위 파일 범위에 해당하는 파일만 수정하세요.** 범위 밖 파일은 절대 수정하지 않습니다.
+    - **git commit을 하지 마세요.** 코드 구현만 수행합니다. 커밋은 오케스트레이터가 처리합니다.
+    - **go build를 실행하지 마세요.** 빌드 검증은 오케스트레이터가 처리합니다.
+    
+    [Assumption 규칙]
+    Spec에 명시되지 않은 동작 변경을 수행한 경우,
+    해당 항목에 반드시 [Assumption] 태그를 붙여 보고하세요.
+    
+    구현 완료 후 변경 파일 목록, Plan 대비 차이점, [Assumption] 목록을 보고하세요.
+```
+
+모든 슬라이스 에이전트 완료 후, 오케스트레이터가 일괄 커밋:
+
+```bash
+git add [전체 변경 파일]
+git commit -m "$(cat <<'EOF'
+Add: [작업 요약] (parallel-slices 구현)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
+EOF
+)"
+```
+
+완료 후 유저에게 간략 보고: "Phase 4 완료: [N]개 슬라이스 병렬 구현, [변경 파일 수]개 파일"
 
 ### Phase 4.5: 빌드 체크 (MANDATORY — 구현 직후 강제 실행)
 
@@ -821,12 +942,17 @@ Phase V4: 종합 검증 보고서 → 수정 여부 (유저 선택) → 정리
 [유저 대화]
 Phase 0: /request → Technical Spec (유저 확인)
 Phase 1: 난이도 산정 (1-10)
+Phase 1.5: 실행 전략 판정 (sequential / parallel-slices / fullstack)
+           fullstack → /start-workflow-fs로 전환 후 종료
 Phase 2: scope-reviewer 메모
 Phase 3: Plan 작성 → 6관점 리뷰 (3+3 병렬) → [난이도 7+: Codex] → Plan 확정
+         parallel-slices → Plan에 Slice 정의 추가
 Phase 3.5: 상태 파일 생성 → "자율 실행 시작"
 
 [자율 실행 — 유저 확인 없이 완주]
-Phase 4: workflow-implementer          → 구현 + 커밋
+Phase 4: 구현
+  sequential:       workflow-implementer 1개   → 구현 + 커밋
+  parallel-slices:  general-purpose 2~3개      → 병렬 구현 (커밋 유보) → 일괄 커밋
 Phase 4.5: go build                    → 빌드 체크 (필수)
 Phase 5: 품질 루프 (오케스트레이터 관리, 최대 3회)
   5.0 go build + go test               → Bash 직접
