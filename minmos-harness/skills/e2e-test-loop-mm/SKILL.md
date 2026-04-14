@@ -16,11 +16,27 @@ e2e-test와 동일한 환경이 필요하다. 세팅 확인: `/minmos-harness:e2
 
 `$ARGUMENTS`가 `--doctor`이면 `/minmos-harness:e2e-test-mm --doctor`를 실행하고 종료한다.
 
+### 플래그
+
+| 플래그 | 단축 | 효과 |
+|--------|------|------|
+| `--init` | | 초기 세팅 후 종료 |
+| `--doctor` | | 상태 진단 후 종료 |
+| `--skip-doctor` | `-sd` | 실행 전 자동 doctor 점검을 건너뜀 |
+
 ---
 
 /minmos-harness:e2e-test-mm 를 실행하고, 발견된 이슈를 수정한 뒤 재테스트하는 과정을 반복해:
 
 ## 절차
+
+### 0. Pre-flight Doctor
+
+`$ARGUMENTS`에 `--skip-doctor` 또는 `-sd`가 **없으면**, `/minmos-harness:e2e-test-mm --doctor`와 동일한 점검을 자동 실행한다.
+
+- 모두 OK → 한 줄 요약 후 Step 1로 진행
+- **BLOCKED** 있음 → 누락 항목 안내 후 진행 여부를 사용자에게 질문
+- `--skip-doctor` / `-sd` 지정 시 → 건너뛰고 바로 Step 1로 진행
 
 1. `/minmos-harness:e2e-test-mm` 를 실행한다.
 2. 결과를 확인한다:

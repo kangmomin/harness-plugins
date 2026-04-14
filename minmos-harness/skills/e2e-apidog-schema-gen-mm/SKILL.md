@@ -43,6 +43,26 @@ E2E 테스트에서 수집된 **실제 요청/응답 데이터**를 기반으로
 | APIDOG_PROJECT_ID | SET / UNSET | Push 기능용 |
 ```
 
+### 플래그
+
+| 플래그 | 단축 | 효과 |
+|--------|------|------|
+| `--init` | | 초기 세팅 후 종료 |
+| `--doctor` | | 상태 진단 후 종료 |
+| `--skip-doctor` | `-sd` | 실행 전 자동 doctor 점검을 건너뜀 |
+
+---
+
+## 절차
+
+### 0. Pre-flight Doctor
+
+`$ARGUMENTS`에 `--skip-doctor` 또는 `-sd`가 **없으면**, 위 `--doctor`와 동일한 점검을 자동 실행한다.
+
+- 모두 OK → 한 줄 요약 후 Phase 1로 진행
+- **BLOCKED** 있음 → 누락 항목 안내 후 진행 여부를 사용자에게 질문
+- `--skip-doctor` / `-sd` 지정 시 → 건너뛰고 바로 Phase 1로 진행
+
 ---
 
 ## Phase 1: E2E 결과 수집
