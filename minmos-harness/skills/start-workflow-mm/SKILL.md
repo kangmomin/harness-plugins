@@ -109,6 +109,21 @@ user-invocable: true
 
 실행 확인 후 다음 단계로 진행한다.
 
+### 3. 프로젝트 환경 점검
+
+아래 항목을 Bash/Glob으로 빠르게 확인한다. **BLOCKED 항목이 있으면 진행 전 사용자에게 안내**한다.
+
+| 점검 항목 | 확인 방법 | BLOCKED 조건 |
+|----------|----------|-------------|
+| `secret/.env` | 파일 존재 확인 | 파일 없음 |
+| `.mcp.json` | 파일 존재 확인 | 파일 없음 |
+| Apidog MCP | `.mcp.json` 내 `apidog` 키 존재 | 키 없음 |
+| PostgreSQL MCP | `.mcp.json` 내 `postgres` 키 존재 | 키 없음 |
+
+**처리 규칙**:
+- 모두 OK → 점검 결과 한 줄 요약 후 다음 단계 진행
+- BLOCKED 있음 → 누락 항목을 안내하고 `/minmos-harness:minmo-doctor-mm`으로 상세 진단을 권장. 사용자가 무시하고 진행할지 선택할 수 있다
+
 ---
 
 ## Analyze Mode (`--analyze`)
