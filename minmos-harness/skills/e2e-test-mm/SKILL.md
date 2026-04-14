@@ -18,6 +18,16 @@ user-invocable: true
 - **grpcurl** (선택): gRPC 엔드포인트 테스트용. gRPC 테스트가 필요한 경우에만 필수
 - **Dev PubSub CLI** (선택): PubSub 메시지 발행/검증용. PubSub 연동 테스트가 필요한 경우에만 필수. `dev-pubsub-cli` 명령 또는 로컬 clone의 `uv run dev-pubsub-cli`로 사용
 
+### 플래그
+
+| 플래그 | 단축 | 효과 |
+|--------|------|------|
+| `--init` | | 초기 세팅 후 종료 |
+| `--doctor` | | 상태 진단 후 종료 |
+| `--skip-doctor` | `-sd` | 실행 전 자동 doctor 점검을 건너뜀 |
+| `--grpc` | | gRPC 프로토콜 강제 지정 |
+| `--rest` | | REST 프로토콜 강제 지정 |
+
 ### `--init` (초기 세팅)
 
 `$ARGUMENTS`가 `--init`이면 아래 절차를 실행하고 종료한다:
@@ -158,6 +168,18 @@ DB 호스트가 허용 목록(기본 + 화이트리스트)에 없으면:
 - 기존 데이터의 ID를 하드코딩하여 수정/삭제하지 않는다.
 
 ## 절차
+
+### 0. Pre-flight Doctor
+
+`$ARGUMENTS`에 `--skip-doctor` 또는 `-sd`가 **없으면**, 테스트 실행 전 `--doctor`와 동일한 점검을 자동 실행한다.
+
+**점검 항목** (위 `--doctor` 섹션과 동일):
+- `secret/.env`, `.mcp.json`, Apidog MCP, PostgreSQL MCP, Go 빌드, DB 호스트, grpcurl, Dev PubSub CLI
+
+**처리 규칙**:
+- 모두 OK → 점검 결과 한 줄 요약 출력 후 Step 1로 진행
+- **BLOCKED** 있음 → 누락 항목을 안내하고 진행 여부를 사용자에게 질문. 사용자가 무시하고 진행하거나, `--init`으로 세팅할 수 있다
+- `--skip-doctor` / `-sd` 지정 시 → 이 단계를 건너뛰고 바로 Step 1로 진행
 
 ### 1. 변경 범위 파악
 - `git diff` 또는 현재 대화 컨텍스트에서 변경된 파일을 파악한다.
