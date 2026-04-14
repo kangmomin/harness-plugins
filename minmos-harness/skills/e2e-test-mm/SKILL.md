@@ -99,6 +99,7 @@ user-invocable: true
 | grpcurl 설치 (선택) | OK / MISSING | grpcurl --version |
 | GRPC_PORT (선택) | OK / MISSING / SKIP | secret/.env 확인 |
 | gRPC Docker 연결 (선택) | OK / FAIL / SKIP | Docker 환경에서 `{service}-grpc.{service}.svc.cluster.local:9032` 접근 가능 여부 |
+| gRPC 외부 서비스 의존성 (선택) | OK / FAIL / SKIP | 코드에서 외부 gRPC 서비스 호출 여부 감지, 해당 서비스 접근 가능 여부 |
 | Dev PubSub CLI (선택) | OK (Global) / OK (Local) / MISSING | which dev-pubsub-cli |
 | PubSub Emulator (선택) | RUNNING / STOPPED | curl localhost:8086/api/stats |
 ```
@@ -497,19 +498,36 @@ echo "Allowed hosts:     ${ALLOWED_HOSTS}"
    - Docker 환경에서 다른 서비스의 gRPC를 호출하는 경우 → `{service}-grpc.{service}.svc.cluster.local:9032` 사용
    - 어느 주소를 사용할지는 테스트 대상 서비스가 로컬인지 Docker인지에 따라 결정한다. 불확실하면 사용자에게 질문한다.
 
-4. **gRPC Reflection 확인** (서버 실행 후):
+4. **외부 gRPC 서비스 의존성 점검**:
+
+   로컬 서버가 다른 서비스를 gRPC로 호출하는 경우(예: BMS → MIM, TMS → CMS), 해당 서비스가 접근 가능해야 E2E 테스트가 정상 동작한다.
+
+   **감지 방법**: `grpc_*_repository.go`에서 연결 대상 주소를 Grep한다:
+   ```bash
+   grep -rn 'svc.cluster.local\|grpc.Dial\|grpc.NewClient' internal/ --include='*.go'
+   ```
+
+   **Docker 환경 gRPC 주소 형식**: `{service}-grpc.{service}.svc.cluster.local:9032`
+
+   **점검 절차**:
+   - 의존 서비스가 발견되면 → Docker 환경이 실행 중이고 해당 서비스에 접근 가능한지 확인
+   - 접근 불가 시 → 사용자에게 안내:
+     > "이 서비스는 `{service}` gRPC에 의존합니다. Docker 환경 재시작이 필요할 수 있습니다. 담당자에게 문의하거나 Docker 환경을 재시작해주세요."
+   - 의존 서비스가 없으면 → 건너뜀
+
+5. **gRPC Reflection 확인** (서버 실행 후):
    ```bash
    grpcurl -plaintext ${GRPC_TARGET} list 2>&1
    ```
    - 성공 → Reflection 사용. proto import path 불필요.
    - 실패 → `find-proto.sh`로 proto 경로를 확보하여 grpcurl에 `-import-path` / `-proto` 옵션을 사용한다.
 
-4. **gRPC JWT 전달**: REST과 동일한 JWT 토큰을 생성하되, gRPC에서는 metadata로 전달한다:
+6. **gRPC JWT 전달**: REST과 동일한 JWT 토큰을 생성하되, gRPC에서는 metadata로 전달한다:
    ```bash
    -H "authorization: Bearer ${TOKEN}"
    ```
 
-5. **서버 빌드/실행**: 4-1의 서버와 동일 바이너리를 공유한다 (REST + gRPC 동일 프로세스인 경우).
+7. **서버 빌드/실행**: 4-1의 서버와 동일 바이너리를 공유한다 (REST + gRPC 동일 프로세스인 경우).
    별도 gRPC 서버 바이너리가 필요한 경우:
    ```bash
    go build -o /tmp/grpc-test-server ./cmd/grpc/main.go
