@@ -98,6 +98,7 @@ user-invocable: true
 | MCP DB 호스트 (로컬 전용) | OK / **BLOCKED** / SKIP | .mcp.json postgres URL 호스트 확인 |
 | grpcurl 설치 (선택) | OK / MISSING | grpcurl --version |
 | GRPC_PORT (선택) | OK / MISSING / SKIP | secret/.env 확인 |
+| gRPC Docker 연결 (선택) | OK / FAIL / SKIP | Docker 환경에서 `{service}-grpc.{service}.svc.cluster.local:9032` 접근 가능 여부 |
 | Dev PubSub CLI (선택) | OK (Global) / OK (Local) / MISSING | which dev-pubsub-cli |
 | PubSub Emulator (선택) | RUNNING / STOPPED | curl localhost:8086/api/stats |
 ```
@@ -483,9 +484,22 @@ echo "Allowed hosts:     ${ALLOWED_HOSTS}"
    ```
    `GRPC_PORT`가 없으면 기본값 `50051`을 사용하되, 사용자에게 확인한다.
 
-3. **gRPC Reflection 확인** (서버 실행 후):
+3. **gRPC 대상 주소 결정**:
+
+   로컬 서버와 Docker 환경 gRPC 서비스 두 가지 대상이 있다:
+
+   | 환경 | 주소 형식 | 예시 |
+   |------|----------|------|
+   | 로컬 서버 | `localhost:${GRPC_PORT}` | `localhost:50051` |
+   | Docker 내부 (dev gRPC) | `{service}-grpc.{service}.svc.cluster.local:9032` | `mim-grpc.mim.svc.cluster.local:9032` |
+
+   - 로컬 서버를 직접 실행하는 경우 → `localhost:${GRPC_PORT}` 사용
+   - Docker 환경에서 다른 서비스의 gRPC를 호출하는 경우 → `{service}-grpc.{service}.svc.cluster.local:9032` 사용
+   - 어느 주소를 사용할지는 테스트 대상 서비스가 로컬인지 Docker인지에 따라 결정한다. 불확실하면 사용자에게 질문한다.
+
+4. **gRPC Reflection 확인** (서버 실행 후):
    ```bash
-   grpcurl -plaintext localhost:${GRPC_PORT} list 2>&1
+   grpcurl -plaintext ${GRPC_TARGET} list 2>&1
    ```
    - 성공 → Reflection 사용. proto import path 불필요.
    - 실패 → `find-proto.sh`로 proto 경로를 확보하여 grpcurl에 `-import-path` / `-proto` 옵션을 사용한다.
@@ -715,14 +729,14 @@ Step 3-1에서 식별한 케이스를 실제 요청으로 검증한다.
 grpcurl -plaintext \
   -d '{"field":"value"}' \
   -H "authorization: Bearer ${TOKEN}" \
-  localhost:${GRPC_PORT} \
+  ${GRPC_TARGET} \
   {service}.v1.{ServiceName}/{MethodName}
 
 # Server Streaming RPC
 grpcurl -plaintext \
   -d '{"field":"value"}' \
   -H "authorization: Bearer ${TOKEN}" \
-  localhost:${GRPC_PORT} \
+  ${GRPC_TARGET} \
   {service}.v1.{ServiceName}/{StreamMethodName}
 ```
 
@@ -733,7 +747,7 @@ grpcurl -plaintext \
   -proto {service}/v1/{service}.proto \
   -d '{"field":"value"}' \
   -H "authorization: Bearer ${TOKEN}" \
-  localhost:${GRPC_PORT} \
+  ${GRPC_TARGET} \
   {service}.v1.{ServiceName}/{MethodName}
 ```
 
