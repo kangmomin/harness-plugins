@@ -171,17 +171,35 @@ DB 호스트가 허용 목록(기본 + 화이트리스트)에 없으면:
 
 ## 절차
 
-### 0. Pre-flight Doctor
+### 0. Pre-flight Probe (Fast SKIP Gate)
 
-`$ARGUMENTS`에 `--skip-doctor` 또는 `-sd`가 **없으면**, 테스트 실행 전 `--doctor`와 동일한 점검을 자동 실행한다.
+`$ARGUMENTS`에 `--skip-doctor` 또는 `-sd`가 **없으면**, 테스트 실행 전 빠른 환경 probe를 실행한다.
+**실패가 확정된 환경에서는 테스트를 시도하지 않고 즉시 `SKIPPED`를 반환한다** — 부분 실행 후 실패 판정이 아니라, 진입 게이트에서 끊어낸다.
 
-**점검 항목** (위 `--doctor` 섹션과 동일):
-- `secret/.env`, `.mcp.json`, Apidog MCP, PostgreSQL MCP, Go 빌드, DB 호스트, grpcurl, Dev PubSub CLI
+**Probe 순서 (실패 시 즉시 SKIP):**
+
+| # | 확인 항목 | 확인 방법 | 결과가 FAIL이면 반환 |
+|---|----------|----------|---------------------|
+| 1 | `secret/.env` 존재 | 파일 존재 확인 | `[SKIPPED:ENV_MISSING]` — secret/.env 없음. 서버 부팅 불가 |
+| 2 | `.mcp.json` 존재 | 파일 존재 확인 | `[SKIPPED:MCP_CONFIG_MISSING]` — .mcp.json 없음 |
+| 3 | PostgreSQL MCP 등록 | `.mcp.json` 내 `postgres` 키 | `[SKIPPED:POSTGRES_MCP_MISSING]` — DB 시드/정리 불가 |
+| 4 | DB 호스트 로컬 전용 | `DB_HOST` 및 MCP URL 호스트 | `[SKIPPED:REMOTE_DB_BLOCKED]` — 원격 DB (화이트리스트 승인 필요) |
+| 5 | Go 빌드 | `go build ./cmd/main.go` | `[FAIL:BUILD]` — 진행 불가, 빌드 에러 보고 |
 
 **처리 규칙**:
 - 모두 OK → 점검 결과 한 줄 요약 출력 후 Step 1로 진행
-- **BLOCKED** 있음 → 누락 항목을 안내하고 진행 여부를 사용자에게 질문. 사용자가 무시하고 진행하거나, `--init`으로 세팅할 수 있다
-- `--skip-doctor` / `-sd` 지정 시 → 이 단계를 건너뛰고 바로 Step 1로 진행
+- **#1~#3 중 하나라도 FAIL** → **즉시 SKIP 반환하고 종료**. 아래 형식으로 보고:
+  ```
+  ## E2E Test — SKIPPED
+  사유: [SKIPPED:ENV_MISSING / MCP_CONFIG_MISSING / POSTGRES_MCP_MISSING]
+  누락 항목: {항목}
+  복구 방법: `/minmos-harness:e2e-test-mm --init`
+  ```
+  이 경우 Step 1 이후를 실행하지 않는다. **테스트 실패 판정이 아니라 환경 미충족에 의한 SKIP이다.**
+- **#4 FAIL (원격 DB)** → 화이트리스트 승인 절차로 이동 (기존 "위반 시 처리" 규칙 재사용). 승인 없으면 `[SKIPPED:REMOTE_DB_BLOCKED]` 반환.
+- **#5 FAIL (빌드 실패)** → SKIP이 아닌 **FAIL**로 반환 (이건 코드 문제로 고쳐야 할 대상).
+- 선택 항목 (Apidog MCP, grpcurl, Dev PubSub CLI)은 probe에서 SKIP 트리거로 쓰지 않고, 해당 프로토콜 테스트 시작 시 개별 판정한다.
+- `--skip-doctor` / `-sd` 지정 시 → probe를 건너뛰고 바로 Step 1로 진행 (사용자 책임).
 
 ### 1. 변경 범위 파악
 - `git diff` 또는 현재 대화 컨텍스트에서 변경된 파일을 파악한다.

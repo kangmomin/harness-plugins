@@ -112,18 +112,26 @@ user-invocable: true
 
 ### 3. 프로젝트 환경 점검
 
-아래 항목을 Bash/Glob으로 빠르게 확인한다. **BLOCKED 항목이 있으면 진행 전 사용자에게 안내**한다.
+아래 항목을 Bash/Glob으로 빠르게 확인한다. **누락 항목이 있으면 어떤 Phase가 SKIP될 것인지 사전 경고**한다.
 
-| 점검 항목 | 확인 방법 | BLOCKED 조건 |
+| 점검 항목 | 확인 방법 | 누락 시 영향 |
 |----------|----------|-------------|
-| `secret/.env` | 파일 존재 확인 | 파일 없음 |
-| `.mcp.json` | 파일 존재 확인 | 파일 없음 |
-| Apidog MCP | `.mcp.json` 내 `apidog` 키 존재 | 키 없음 |
-| PostgreSQL MCP | `.mcp.json` 내 `postgres` 키 존재 | 키 없음 |
+| `secret/.env` | 파일 존재 확인 | **Phase 5.3 (e2e-test-loop) SKIP 예정** — 서버 부팅/JWT 발급 불가 |
+| `.mcp.json` | 파일 존재 확인 | **Phase 5.3, Phase 6 (문서 동기화) SKIP 예정** |
+| Apidog MCP | `.mcp.json` 내 `apidog` 키 존재 | **Phase 6 (Apidog 동기화) SKIP 예정** |
+| PostgreSQL MCP | `.mcp.json` 내 `postgres` 키 존재 | **Phase 5.3 (e2e-test-loop) 부분 SKIP 예정** — DB 시드/정리 경로 제한 |
 
 **처리 규칙**:
 - 모두 OK → 점검 결과 한 줄 요약 후 다음 단계 진행
-- BLOCKED 있음 → 누락 항목을 안내하고 `/minmos-harness:minmo-doctor-mm`으로 상세 진단을 권장. 사용자가 무시하고 진행할지 선택할 수 있다
+- 누락 있음 → 아래 사전 경고를 출력한다:
+
+  > ⚠️ 환경 누락 감지: `{누락 항목}` 없음. 이번 워크플로우에서 **{영향받는 Phase 목록}**는 SKIP됩니다.
+  > 정상 실행을 원하면 `/minmos-harness:minmo-doctor-mm`으로 진단 후 재시작하세요. 이대로 진행하시겠습니까?
+
+  - 사용자가 진행하면 해당 Phase에서는 `SKIPPED` 플래그를 붙여 넘긴다.
+  - 사용자가 중단하면 여기서 종료한다.
+
+> 이 사전 경고는 Phase 5.3 / Phase 6 내부에서 실패 후 판정하지 않고, Phase 0에서 **미리 SKIP 예정 스테이지를 확정**하기 위함이다.
 
 ---
 
@@ -690,85 +698,123 @@ go build ./cmd/main.go 2>&1
   ```
   빌드 재시도 → 성공하면 Phase 5로 진행. **최대 3회 시도** 후에도 실패하면 유저에게 보고하고 중단.
 
-### Phase 5: 품질 루프 (오케스트레이터 직접 관리)
+### Phase 5: 품질 루프 (병렬 스캔 → 통합 수정)
 
 **단일 에이전트가 아닌, 각 품질 단계를 개별 에이전트로 분리하여 실행한다.**
 오케스트레이터가 루프를 직접 관리한다. 최대 3회 반복.
 
+루프 1회는 **3단계**로 구성된다:
+
 ```
 for iteration in 1..3:
-  5.0 go build + go test        → Bash 직접 실행
-  5.1 simplify-loop             → 서브 에이전트 (general-purpose)
-  5.2 convention-check          → 서브 에이전트 (general-purpose)
-  5.3 e2e-test-loop             → 서브 에이전트 (general-purpose)
-  5.4 scope-reviewer            → 서브 에이전트 (scope-reviewer)
-  5.5 make test                 → Bash 직접 실행
+  [Batch A — 병렬 스캔] 5.0 + 5.1 + 5.2 + 5.4 동시 실행 (읽기/분석, 파일 수정 금지)
+      └─ 모든 이슈를 수집 → 통합 수정 단계에서 일괄 반영
+
+  [통합 수정] Batch A에서 수집된 이슈를 일괄 수정 (단일 general-purpose 에이전트)
+
+  [Batch B — 순차] 5.3 e2e-test-loop → 5.5 make test
+      └─ 서버 점유 / 환경 자원이 걸리므로 순차 유지
 
   수정 있음? → 커밋 후 다음 iteration
   수정 없음? → 루프 탈출
 ```
 
-#### 5.0 Go 빌드 + 테스트
+#### Batch A: 병렬 스캔 (5.0 + 5.1 + 5.2 + 5.4)
 
-Bash로 직접 실행:
-```bash
-go build ./cmd/main.go && go test ./internal/...
+네 단계를 **하나의 메시지에서 동시에 호출**한다. 모든 서브 에이전트는 **이슈 목록만 반환하며 파일을 수정하지 않는다**.
+파일 수정은 다음 단계인 "통합 수정"에서 일괄 처리하여 에이전트 간 파일 편집 경합을 제거한다.
+
 ```
-실패 시 general-purpose 에이전트를 생성하여 에러 수정을 위임한다. 수정 발생 시 `modified = true`.
+# 같은 메시지에서 4개 병렬 호출
 
-#### 5.1 Simplify
+[1] 5.0 Go 빌드 + 테스트 — Bash로 직접 실행 (에이전트 아님)
+    go build ./cmd/main.go && go test ./internal/... 2>&1
+    → 에러 로그를 Batch A 결과에 수집. 파일 수정 없음.
+
+[2] 5.1 Simplify Scan
+    Agent tool:
+      subagent_type: general-purpose
+      prompt: |
+        프로젝트 루트 {CWD}에서 /minmos-harness:simplify-loop-mm 를 **dry-run** 관점으로 실행하세요.
+        **파일을 수정하지 말고** 단순화 후보 목록만 반환하세요.
+        각 항목: {file:line, 현재 코드 요약, 제안 변경, 근거}.
+        완료 후 "후보: N건" 형식으로 보고하세요.
+
+[3] 5.2 Convention Check Scan
+    Agent tool:
+      subagent_type: general-purpose
+      prompt: |
+        프로젝트 루트 {CWD}에서 /minmos-harness:convention-check-mm 를 실행하세요.
+        **파일을 수정하지 말고** 위반 목록만 반환하세요.
+        각 항목: {file:line, 위반 규칙, 제안 수정}.
+        완료 후 "위반: N건" 형식으로 보고하세요.
+
+[4] 5.4 Scope Review
+    Agent tool:
+      subagent_type: minmos-harness:scope-reviewer
+      prompt: |
+        상태 파일 `/tmp/workflow-state.md`의 Technical Spec을 기준으로
+        현재 구현된 코드를 검증하세요. 프로젝트 루트: {CWD}.
+        누락/불일치 항목만 반환하고 파일은 수정하지 마세요.
+```
+
+> **CRITICAL**: Batch A의 에이전트는 모두 읽기/분석만 수행한다. 같은 메시지에서 병렬 실행해도 편집 충돌이 발생하지 않는다.
+> 만약 에이전트가 파일을 수정했다면 해당 변경을 **무시**하고 이슈 목록만 채택한다 (오케스트레이터가 일괄 수정 시 기준 상태에서 다시 편집).
+
+#### 통합 수정
+
+Batch A에서 수집된 이슈(빌드/테스트 에러 + simplify 후보 + convention 위반 + scope 누락)가 하나라도 있으면, **단일 `general-purpose` 에이전트**에 일괄 위임한다:
 
 ```
 Agent tool:
   subagent_type: general-purpose
   prompt: |
-    프로젝트 루트 {CWD}에서 Skill tool로 /minmos-harness:simplify-loop-mm 를 실행하세요.
-    완료 후 "수정: Y/N, N건" 형식으로 보고하세요.
-```
-결과에 "수정: Y"가 포함되면 `modified = true`.
+    프로젝트 루트 {CWD}에서 아래 이슈 목록을 순서대로 수정하세요.
 
-#### 5.2 Convention Check
+    ## 이슈 목록
+    ### 빌드/테스트 에러 (최우선)
+    {go build / go test 로그}
+
+    ### Scope 누락
+    {scope-reviewer 보고서}
+
+    ### Convention 위반
+    {convention-check 보고서}
+
+    ### Simplify 후보
+    {simplify 후보 목록 — 안전한 변경만 적용, 의심스러우면 생략}
+
+    같은 파일에 여러 이슈가 있으면 한 번의 편집으로 합쳐 처리하세요.
+    수정 후 `go build ./cmd/main.go`로 빌드가 통과하는지 확인하세요.
+    완료 후 "수정: N건, 파일: [목록]" 형식으로 보고하세요.
+```
+
+수정 발생 시 `modified = true`.
+
+#### Batch B: 순차 실행 (5.3 → 5.5)
+
+서버/테스트 프로세스가 포트·DB·바이너리를 점유하므로 순차로 실행한다.
+
+##### 5.3 E2E Test
 
 ```
 Agent tool:
   subagent_type: general-purpose
   prompt: |
-    프로젝트 루트 {CWD}에서 Skill tool로 /minmos-harness:convention-check-mm 를 실행하세요.
-    위반 사항이 있으면 수정하세요.
-    완료 후 "위반: N건, 수정: Y/N" 형식으로 보고하세요.
+    프로젝트 루트 {CWD}에서 /minmos-harness:e2e-test-loop-mm 를 실행하세요.
+    결과가 `[SKIPPED:*]`이면 스킵 사유를 그대로 보고하세요.
+    완료 후 "이슈: N건, 수정: Y/N, 스킵 사유: {있으면}" 형식으로 보고하세요.
 ```
-결과에 "수정: Y"가 포함되면 `modified = true`.
+- `SKIPPED` 반환 시 → `modified`에 영향 주지 않고 다음 단계 진행 (루프 재시작 트리거 아님)
+- "수정: Y" → `modified = true`
 
-#### 5.3 E2E Test
-
-```
-Agent tool:
-  subagent_type: general-purpose
-  prompt: |
-    프로젝트 루트 {CWD}에서 Skill tool로 /minmos-harness:e2e-test-mm-loop-mm 를 실행하세요.
-    완료 후 "이슈: N건, 수정: Y/N" 형식으로 보고하세요.
-```
-결과에 "수정: Y"가 포함되면 `modified = true`.
-
-#### 5.4 Scope Review
-
-```
-Agent tool:
-  subagent_type: minmos-harness:scope-reviewer
-  prompt: |
-    상태 파일 `/tmp/workflow-state.md`의 Technical Spec을 기준으로
-    현재 구현된 코드를 검증하세요.
-    프로젝트 루트: {CWD}
-```
-FAIL이면 general-purpose 에이전트를 생성하여 누락 항목을 수정한다. 수정 발생 시 `modified = true`.
-
-#### 5.5 Make Test
+##### 5.5 Make Test
 
 Bash로 직접 실행:
 ```bash
 make test
 ```
-실패 시 general-purpose 에이전트를 생성하여 수정을 위임한다. 수정 발생 시 `modified = true`.
+실패 시 `general-purpose` 에이전트로 수정 위임. 수정 발생 시 `modified = true`.
 
 #### 루프 판정
 
@@ -954,13 +1000,17 @@ Phase 4: 구현
   sequential:       workflow-implementer 1개   → 구현 + 커밋
   parallel-slices:  general-purpose 2~3개      → 병렬 구현 (커밋 유보) → 일괄 커밋
 Phase 4.5: go build                    → 빌드 체크 (필수)
-Phase 5: 품질 루프 (오케스트레이터 관리, 최대 3회)
-  5.0 go build + go test               → Bash 직접
-  5.1 simplify-loop                    → general-purpose 에이전트
-  5.2 convention-check                 → general-purpose 에이전트
-  5.3 e2e-test-loop                    → general-purpose 에이전트
-  5.4 scope-reviewer                   → scope-reviewer 에이전트
-  5.5 make test                        → Bash 직접
+Phase 5: 품질 루프 (병렬 스캔 → 통합 수정 → 순차 실행, 최대 3회)
+  Batch A [병렬 스캔, 읽기 전용]:
+    5.0 go build + go test             → Bash 직접
+    5.1 simplify (dry-run 후보)         → general-purpose 에이전트
+    5.2 convention-check (위반 목록)    → general-purpose 에이전트
+    5.4 scope-reviewer                 → scope-reviewer 에이전트
+  통합 수정 [모인 이슈 일괄 반영]:
+    general-purpose 1개                → 빌드/scope/convention/simplify 순서로 수정
+  Batch B [순차 실행, 서버 점유]:
+    5.3 e2e-test-loop                  → general-purpose 에이전트
+    5.5 make test                      → Bash 직접
   → 수정 있으면 커밋 후 재시작, 없으면 탈출
 Phase 6: workflow-doc-sync             → 문서 동기화 (API 변경 시만)
 Phase 7: workflow-pr                   → PR 생성

@@ -41,6 +41,59 @@ user-invocable: true
 유형이 확정되면, 해당 유형의 질문 흐름을 순서대로 진행한다.
 **각 단계에서 코드베이스를 탐색하고, 발견한 내용을 공유하면서 질문한다.**
 
+### 공통 체크: 날짜 범위 기반 비즈니스 상태 판정 (해당 시 자동 적용)
+
+요청이 날짜/시간 범위 필드(`startAt`, `endAt`, `validFrom`, `publishFrom`, `expiresAt`, `scheduledAt` 등)를 다루거나,
+"예정 / 진행 중 / 종료 / 활성 / 비활성" 같은 상태 표현이 등장하면, **질문하기 전에 코드베이스에서 기존 패턴을 먼저 탐색**한다.
+
+#### 자동 탐색 절차
+
+1. `Grep`으로 프로젝트 내 날짜 기반 상태 함수/enum 패턴을 수집한다:
+   ```
+   # 상태 분기 키워드
+   grep -rn 'start_at\|end_at\|startAt\|endAt\|validFrom\|expiresAt' internal/ --include='*.go'
+   # 파생 상태 계산
+   grep -rn 'ComputeStatus\|DeriveStatus\|Now()\|time\.Now()' internal/ --include='*.go' | grep -i 'status\|state\|phase'
+   # 상태 enum
+   grep -rn 'const (\|type .*Status' internal/ --include='*.go' -A 8 | grep -i 'scheduled\|ongoing\|expired\|active\|inactive'
+   ```
+2. 발견된 패턴을 **분류**한다:
+   - **저장형**: DB 컬럼으로 status를 명시 저장하고 배치/트리거로 전이
+   - **파생형**: 날짜만 저장하고 조회 시점에 `now` 기준으로 상태를 계산 (`if now < startAt → SCHEDULED` 등)
+   - **혼합형**: status 컬럼 + 날짜 범위 동시 관리
+3. 경계값 처리 규칙을 찾는다: `startAt` 경계 포함/미포함, `endAt` 경계 포함/미포함, 동일 시각 처리, 타임존.
+
+#### 사용자 제안 (표준 제안 포맷)
+
+탐색 결과가 있으면, **질문 대신 아래 포맷으로 제안**하고 확인만 받는다.
+
+> 코드베이스에서 날짜 범위 상태 패턴을 확인했습니다:
+>
+> - **형태**: {저장형 / 파생형 / 혼합형}
+> - **참조 구현**: `{file:line}` — `{함수/enum명}`
+> - **상태 값**: {SCHEDULED / ONGOING / EXPIRED / ...}
+> - **경계 규칙**: `startAt <= now < endAt` (start 포함, end 미포함) 등
+>
+> 이번 기능도 같은 패턴을 따르는 게 맞나요? 다르게 가야 하면 어떤 부분이 다른지 알려주세요.
+
+탐색 결과가 없으면 아래 순서로 질문한다:
+1. 상태를 DB에 저장할지(저장형) 조회 시점에 계산할지(파생형)
+2. 상태 값 목록
+3. 경계 포함/미포함 규칙과 타임존
+
+#### Spec 반영
+
+확정된 규칙은 Phase 3 출력의 **엣지 케이스** 섹션에 아래 케이스를 자동 포함한다:
+
+| 케이스 | 기대 동작 |
+|--------|----------|
+| `now == startAt` | 경계 규칙대로 (포함/미포함) |
+| `now == endAt` | 경계 규칙대로 |
+| `startAt > endAt` | 400 또는 도메인 거부 |
+| `startAt == endAt` | 0 길이 처리 방식 명시 |
+| 타임존 불일치 요청 | 서버 기준 저장/비교 |
+
+
 ### 유형 A: API 생성
 
 #### Step 1 — 대상 도메인
