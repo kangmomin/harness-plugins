@@ -298,6 +298,33 @@ curl -s -X POST \
 **필요 환경 변수**: `APIDOG_ACCESS_TOKEN`, `APIDOG_PROJECT_ID`
 미설정 시 유저에게 설정 안내 후 수동 가이드를 제공한다.
 
+#### 시도 2.5: MCP Scraping Fallback (REST API 실패 시)
+
+REST API 호출이 실패하면 (302, 401, 400, 빈 응답 등), MCP에서 프로젝트 정보를 스크래핑하여 **1회 재시도**한다.
+
+**스크래핑 절차:**
+
+1. **MCP config 파싱** — `.mcp.json`에서 apidog MCP 설정을 읽어 인증 정보를 추출한다.
+   - **Project ID**: `args`의 `--project-id=` 인자에서 추출 → `APIDOG_PROJECT_ID`와 대조, 불일치 시 MCP 값 사용
+   - **Access Token**: 아래 우선순위로 탐색:
+     1. `args`에 `--api-key=` 또는 `--access-token=` 인자가 있으면 추출
+     2. MCP 설정의 `env` 섹션에 `APIDOG_ACCESS_TOKEN`이 있으면 추출
+     3. 둘 다 없으면 현재 셸의 `APIDOG_ACCESS_TOKEN` 환경 변수 유지
+
+2. **OAS 구조 확인** — `mcp__apidog__read_project_oas_w9of5k`를 호출하여:
+   - 프로젝트 접근 가능 여부 확인
+   - 대상 경로 존재 여부 및 기존 엔드포인트 경로 목록 확인
+   - 유사 경로의 path prefix 매칭으로 folder 배치 후보 파악 (Phase 5.0 로직 재사용)
+
+3. **교정된 파라미터로 1회 재시도:**
+   - 교정된 Project ID 및 Access Token 적용
+   - 올바른 targetFolderId 지정
+   - YAML 호환성 검증 (기존 OAS 구조 참조)
+
+> **핵심**: MCP가 OAS를 정상 조회하고 있다면, `.mcp.json`에 유효한 인증 정보가 반드시 존재한다. 이를 추출하여 REST API 호출에 재사용한다.
+
+재시도도 실패하면 **반복 시도 없이** 즉시 시도 3으로 전환한다.
+
 #### 시도 3: 수동 안내 (REST API도 실패 시 — 최후 수단)
 
 REST API 호출이 실패(302/redirect, 인증 에러 등)하면 수동 가이드를 제공한다:

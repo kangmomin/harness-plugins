@@ -323,6 +323,40 @@ curl -s -X POST \
 
 - `targetFolderId`: 6.2에서 결정한 폴더 ID. 기존 경로 수정 시에는 생략한다.
 
+#### 6.4.1 MCP Scraping Fallback (REST API 실패 시)
+
+REST API 호출이 실패하면 (302, 401, 400, 빈 응답, timeout 등), MCP에서 프로젝트 정보를 스크래핑하여 **1회 재시도**한다.
+
+**실패 감지:**
+- HTTP status가 2xx가 아닌 경우
+- `"success": false` 응답
+- curl 자체 에러 (timeout, connection refused 등)
+
+**스크래핑 절차:**
+
+1. **MCP config 파싱** — `.mcp.json`에서 apidog MCP 설정을 읽어 인증 정보를 추출한다.
+   - **Project ID**: `args`의 `--project-id=` 인자에서 추출 → `APIDOG_PROJECT_ID`와 대조, 불일치 시 MCP 값 사용
+   - **Access Token**: 아래 우선순위로 탐색:
+     1. `args`에 `--api-key=` 또는 `--access-token=` 인자가 있으면 추출
+     2. MCP 설정의 `env` 섹션에 `APIDOG_ACCESS_TOKEN`이 있으면 추출
+     3. 둘 다 없으면 현재 셸의 `APIDOG_ACCESS_TOKEN` 환경 변수 유지
+
+2. **OAS 구조 확인** — `mcp__apidog__read_project_oas_w9of5k`를 호출하여:
+   - 프로젝트 접근 가능 여부 확인
+   - 대상 경로의 존재 여부 재확인
+   - 기존 엔드포인트 경로 목록으로 folder 배치 후보 파악 (Phase 6.2의 prefix 매칭 로직 재사용)
+
+3. **교정된 파라미터로 1회 재시도:**
+   - 교정된 Project ID 및 Access Token 적용
+   - 올바른 targetFolderId 지정 (path prefix 기반)
+   - YAML 포맷은 기존 OAS 엔드포인트 구조를 참고하여 호환성 검증
+
+> **핵심**: MCP가 OAS를 정상 조회하고 있다면, `.mcp.json`에 유효한 인증 정보가 반드시 존재한다. 이를 추출하여 REST API 호출에 재사용한다.
+
+재시도도 실패하면 즉시 수동 안내로 전환한다. **2회 이상 반복 시도하지 않는다.**
+
+> 수동 안내: "자동 Push가 실패했습니다. 아래 YAML 파일을 Apidog에서 수동으로 Import 해주세요: `/tmp/apidog-push-{endpoint-slug}.yaml`"
+
 #### 6.5 결과 보고
 
 API 응답의 `data.counters`를 파싱하여 유저에게 보고:
@@ -433,9 +467,9 @@ curl -s -X POST \
 
 | 증상 | 원인 | 해결 |
 |------|------|------|
-| 302 Redirect | URL 오타 또는 프로젝트 ID 오류 | URL/ID 재확인. 반복 디버깅 금지, 즉시 수동 안내로 전환 |
-| 401 Unauthorized | 토큰 만료/잘못됨 | `APIDOG_ACCESS_TOKEN` 재생성 안내 |
-| 400 Bad Request | YAML 포맷 오류 | `python3 -c 'import yaml; yaml.safe_load(open(f))'`로 검증 |
+| 302 Redirect | URL 오타 또는 프로젝트 ID 오류 | 6.4.1 MCP Fallback 실행 → `.mcp.json`에서 project ID 추출 후 1회 재시도. 재실패 시 수동 안내 |
+| 401 Unauthorized | 토큰 만료/잘못됨 | 6.4.1 MCP Fallback 실행 → `.mcp.json`에서 토큰 추출 후 1회 재시도. 재실패 시 `APIDOG_ACCESS_TOKEN` 재생성 안내 |
+| 400 Bad Request | YAML 포맷 오류 | 6.4.1 MCP Fallback 실행 → 기존 OAS 구조 참조하여 YAML 검증 후 1회 재시도 |
 | `errors` 배열 비어있지 않음 | 스키마 충돌 | 에러 메시지 확인 후 options 조정 |
 
 ---
