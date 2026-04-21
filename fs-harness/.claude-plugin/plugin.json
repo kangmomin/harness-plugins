@@ -1,0 +1,6 @@
+{
+  "name": "fs-harness",
+  "version": "0.1.0",
+  "description": "풀스택 오케스트레이터 하네스. be-harness와 fe-harness를 병렬 사용하여 기능 정의 → 통신 계약 → 교차 리뷰 → FE/BE 병렬 구현 → 통합 검증 → 단일 PR 파이프라인을 실행한다.",
+  "keywords": ["fullstack", "orchestration", "workflow", "contract", "parallel"]
+}
