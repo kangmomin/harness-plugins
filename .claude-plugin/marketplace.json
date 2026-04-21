@@ -13,6 +13,21 @@
       "name": "hyeondongs-harness",
       "description": "프론트엔드 개발 워크플로우 하네스. 컴포넌트 생성, 커밋/PR 관리, 단위/E2E 테스트, 코드 품질 검사(ESLint, a11y) 등.",
       "source": "./hyeondongs-harness"
+    },
+    {
+      "name": "be-harness",
+      "description": "범용 백엔드 개발 워크플로우 하네스. Technical Spec→Plan→구현→품질 루프→PR. Go/Node 프리셋 내장.",
+      "source": "./be-harness"
+    },
+    {
+      "name": "fe-harness",
+      "description": "범용 프론트엔드 개발 워크플로우 하네스. 컴포넌트 중심 Spec→Plan→구현→품질/접근성/E2E 루프→PR.",
+      "source": "./fe-harness"
+    },
+    {
+      "name": "fs-harness",
+      "description": "풀스택 오케스트레이터 하네스. be-harness와 fe-harness를 병렬 사용하는 풀스택 워크플로우.",
+      "source": "./fs-harness"
     }
   ]
 }
