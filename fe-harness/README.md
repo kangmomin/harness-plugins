@@ -73,6 +73,21 @@
 
 모든 스킬이 `.claude/fe-harness.local.md` (YAML frontmatter) 에서 framework/testRunner/e2eRunner/packageManager 등을 읽는다.
 
+## Project Overrides
+
+플러그인 원본을 수정하지 않고 프로젝트별로 스킬/에이전트 동작을 조정할 수 있다:
+
+```
+.claude/fe-harness/
+├── common.md                 # 모든 스킬/에이전트 공통
+├── skills/{name}.md          # 특정 스킬 전용
+└── agents/{name}.md          # 특정 에이전트 전용
+```
+
+- 각 파일은 선택. 존재하면 플러그인 기본 동작에 **추가 규칙/예외/변경점** 으로 흡수됨.
+- `start-workflow` Phase 9 의 보완점이 자동으로 이곳에 append 된다.
+- 상세 규약: `OVERRIDES.md`.
+
 ## 파생 관계
 
 - `hyeondongs-harness` → 팀 내부용

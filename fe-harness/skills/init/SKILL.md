@@ -5,6 +5,16 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 ---
 
+## Project Overrides
+
+실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
+
+- `.claude/fe-harness/common.md` — 플러그인 공통 (모든 스킬/에이전트에 적용)
+- `.claude/fe-harness/skills/init.md` — 본 스킬 전용
+
+존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+
 # fe-harness Init
 
 플러그인에서 사용하는 모든 환경 설정을 한 번에 세팅한다.
@@ -193,6 +203,32 @@ projectConventions: ["CLAUDE.md"]
 ```
 
 필요한 스크립트(`pnpm dev`, `pnpm test` 등)는 `package.json` 의 실제 스크립트 키를 감지하여 기본값을 조정한다.
+
+### Step 4.5: 프로젝트 오버라이드 디렉토리 생성
+
+fe-harness는 플러그인 원본을 수정하지 않고 프로젝트별 스킬/에이전트 동작을 조정할 수 있는 **오버라이드 레이어**를 제공한다 (상세: 플러그인 루트 `OVERRIDES.md`).
+
+디렉토리만 먼저 만든다 (파일은 필요할 때 생성):
+
+```bash
+mkdir -p .claude/fe-harness/skills .claude/fe-harness/agents
+```
+
+안내용 README를 두되, 이미 존재하면 덮어쓰지 않는다:
+
+```markdown
+<!-- .claude/fe-harness/README.md -->
+# fe-harness project overrides
+
+이 디렉토리는 프로젝트별 fe-harness 스킬/에이전트 오버라이드를 담는다.
+상세 규약은 플러그인 루트 `OVERRIDES.md` 참조.
+
+- `common.md` — 모든 스킬/에이전트에 공통
+- `skills/{skill-name}.md` — 특정 스킬 전용
+- `agents/{agent-name}.md` — 특정 에이전트 전용
+
+파일은 전부 선택. start-workflow Phase 9 의 보완점이 자동으로 append 된다.
+```
 
 ### Step 5: 최종 결과
 

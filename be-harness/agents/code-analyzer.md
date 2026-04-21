@@ -5,6 +5,16 @@ allowed-tools: Read, Glob, Grep, Bash
 model: sonnet
 ---
 
+## Project Overrides
+
+프롬프트 실행 전에 아래 파일을 Read로 확인한다:
+
+- `.claude/be-harness/common.md` — 플러그인 공통
+- `.claude/be-harness/agents/code-analyzer.md` — 본 에이전트 전용
+
+존재하면 내용을 추가 규칙/예외/변경점으로 흡수한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+
 # Code Analyzer
 
 전체 코드베이스 또는 지정된 범위의 코드를 체계적으로 분석하여, 아키텍처 구조·코드 품질·의존성 관계·패턴 사용 현황·기술 부채를 보고하는 에이전트.

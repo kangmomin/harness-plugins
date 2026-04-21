@@ -5,6 +5,16 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
 ---
 
+## Project Overrides
+
+프롬프트 실행 전에 아래 파일을 Read로 확인한다:
+
+- `.claude/fe-harness/common.md` — 플러그인 공통
+- `.claude/fe-harness/agents/workflow-implementer.md` — 본 에이전트 전용
+
+존재하면 내용을 추가 규칙/예외/변경점으로 흡수한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+
 # Workflow Implementer
 
 확정된 Plan에 따라 코드를 구현하고, 논리적 단위별로 커밋하는 에이전트.

@@ -5,6 +5,16 @@ allowed-tools: Read, Glob, Grep, Bash
 user-invocable: true
 ---
 
+## Project Overrides
+
+실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
+
+- `.claude/fe-harness/common.md` — 플러그인 공통 (모든 스킬/에이전트에 적용)
+- `.claude/fe-harness/skills/doctor.md` — 본 스킬 전용
+
+존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+
 # fe-harness Doctor
 
 플러그인이 정상 동작하기 위한 모든 의존성을 한 번에 점검하고, 문제가 있으면 해결 방법을 안내한다.
@@ -67,6 +77,17 @@ user-invocable: true
 | 항목 | 점검 방법 | 관련 스킬 |
 |------|----------|----------|
 | Codex MCP | `mcp__codex__codex` 호출 가능 여부 | start-workflow (난이도 7+) |
+
+### 7. 프로젝트 오버라이드 (선택)
+
+| 항목 | 점검 방법 | 관련 스킬 |
+|------|----------|----------|
+| `.claude/fe-harness/` 디렉토리 | `test -d` | 전체 |
+| `.claude/fe-harness/common.md` | `test -f` | 전체 |
+| `.claude/fe-harness/skills/*.md` 개수 | Glob | 전체 |
+| `.claude/fe-harness/agents/*.md` 개수 | Glob | 전체 |
+
+없어도 OK — 프로젝트 오버라이드는 전부 선택 사항.
 
 ---
 

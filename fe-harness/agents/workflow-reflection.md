@@ -5,6 +5,16 @@ allowed-tools: Read, Bash, Glob, Grep
 model: sonnet
 ---
 
+## Project Overrides
+
+프롬프트 실행 전에 아래 파일을 Read로 확인한다:
+
+- `.claude/fe-harness/common.md` — 플러그인 공통
+- `.claude/fe-harness/agents/workflow-reflection.md` — 본 에이전트 전용
+
+존재하면 내용을 추가 규칙/예외/변경점으로 흡수한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+
 # Workflow Reflection
 
 PR의 커밋 로그를 분석하여 워크플로우 성찰과 스킬 보완점을 도출한다.
@@ -41,12 +51,21 @@ git diff --stat main..HEAD
 
 ### 보완점 도출
 
-성찰에서 **스킬 개선 가능한 보완점**을 도출한다.
+성찰에서 **스킬/에이전트 개선 가능한 보완점**을 도출하고, 각 보완점마다 **저장할 오버라이드 파일 경로**를 함께 결정한다.
+
+| 대상 유형 | 저장 경로 |
+|----------|----------|
+| 특정 스킬 | `.claude/fe-harness/skills/{skill-name}.md` |
+| 특정 에이전트 | `.claude/fe-harness/agents/{agent-name}.md` |
+| 여러 스킬/에이전트에 공통 | `.claude/fe-harness/common.md` |
+
+> **중요**: 플러그인 원본(`fe-harness/skills/...`, `fe-harness/agents/...`)은 수정 대상이 아니다. 프로젝트 오버라이드 레이어에만 반영. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
 예시:
-- "convention-check에서 같은 패턴 반복 → 자동 수정 규칙 추가"
-- "request에서 반응형 요구사항 질문 누락 → 질문 항목 추가"
-- "component에서 접근성 기본 속성 누락 → 템플릿에 aria 기본값 추가"
+- "convention-check에서 같은 패턴 반복 → 자동 수정 규칙 추가" → `.claude/fe-harness/skills/convention-check.md`
+- "request에서 반응형 요구사항 질문 누락" → `.claude/fe-harness/skills/request.md`
+- "component에서 접근성 기본 속성 누락 → aria 기본값 추가" → `.claude/fe-harness/skills/component.md`
+- "모든 스킬에 TypeScript strict 모드 강제 체크 추가" → `.claude/fe-harness/common.md`
 
 ## 출력
 
@@ -63,6 +82,7 @@ git diff --stat main..HEAD
 - 접근성: [평가]
 
 ### 보완점
-| # | 대상 스킬 | 보완 내용 |
-|---|----------|----------|
+| # | 대상 (스킬/에이전트/공통) | 보완 내용 | 저장 경로 |
+|---|------|----------|----------|
+| 1 | skill:component | ... | `.claude/fe-harness/skills/component.md` |
 ```

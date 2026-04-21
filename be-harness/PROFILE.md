@@ -3,6 +3,8 @@
 모든 be-harness 스킬은 프로젝트 루트의 **`.claude/be-harness.local.md`** 를 읽어 빌드/테스트/소스 경로 등을 결정한다.
 이 파일이 없으면 기본값으로 동작한다 (언어 자동 탐지 후 Go/Node 프리셋 fallback).
 
+> profile 은 **값(settings)** 을 담는다. 스킬/에이전트 **동작**을 프로젝트별로 조정하려면 별도의 **Project Overrides** 레이어를 쓴다 → `OVERRIDES.md` 참조.
+
 ## 파일 위치
 
 ```

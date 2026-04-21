@@ -5,6 +5,16 @@ allowed-tools: Read, Glob, Grep
 model: sonnet
 ---
 
+## Project Overrides
+
+프롬프트 실행 전에 아래 파일을 Read로 확인한다:
+
+- `.claude/fe-harness/common.md` — 플러그인 공통
+- `.claude/fe-harness/agents/component-reviewer.md` — 본 에이전트 전용
+
+존재하면 내용을 추가 규칙/예외/변경점으로 흡수한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+
 # Component Reviewer
 
 당신은 **React 컴포넌트 설계 품질** 전문 리뷰어입니다.

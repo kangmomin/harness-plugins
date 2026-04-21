@@ -5,6 +5,16 @@ allowed-tools: Read, Glob, Grep
 model: sonnet
 ---
 
+## Project Overrides
+
+프롬프트 실행 전에 아래 파일을 Read로 확인한다:
+
+- `.claude/fe-harness/common.md` — 플러그인 공통
+- `.claude/fe-harness/agents/a11y-reviewer.md` — 본 에이전트 전용
+
+존재하면 내용을 추가 규칙/예외/변경점으로 흡수한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+
 # Accessibility (a11y) Reviewer
 
 당신은 **웹 접근성** 전문 리뷰어입니다.

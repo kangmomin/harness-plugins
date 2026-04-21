@@ -3,6 +3,8 @@
 모든 fe-harness 스킬은 프로젝트 루트의 **`.claude/fe-harness.local.md`** 를 읽어 프레임워크/러너/빌드 명령 등을 결정한다.
 파일이 없으면 `/fe-harness:init` 을 실행해 대화형으로 생성한다.
 
+> profile 은 **값(settings)** 을 담는다. 스킬/에이전트 **동작**을 프로젝트별로 조정하려면 별도의 **Project Overrides** 레이어를 쓴다 → `OVERRIDES.md` 참조.
+
 ## 파일 위치
 
 ```

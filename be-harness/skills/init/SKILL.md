@@ -5,6 +5,16 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 ---
 
+## Project Overrides
+
+실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
+
+- `.claude/be-harness/common.md` — 플러그인 공통 (모든 스킬/에이전트에 적용)
+- `.claude/be-harness/skills/init.md` — 본 스킬 전용
+
+존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+
 # be-harness Init
 
 프로젝트 profile(`.claude/be-harness.local.md`)을 생성/갱신한다.
@@ -144,7 +154,33 @@ projectConventions: {projectConventions}
 
 - `CLAUDE.md`가 없으면 `project` 엔트리는 제외한다.
 
-## Step 7: 최종 결과
+## Step 7: 프로젝트 오버라이드 디렉토리 생성
+
+be-harness는 플러그인 원본을 수정하지 않고 프로젝트별로 스킬/에이전트 동작을 조정할 수 있는 **오버라이드 레이어**를 제공한다 (상세: 플러그인 루트 `OVERRIDES.md`).
+
+디렉토리 구조만 미리 만들어둔다 (파일은 필요할 때 생성):
+
+```bash
+mkdir -p .claude/be-harness/skills .claude/be-harness/agents
+```
+
+그리고 안내용 README를 해당 디렉토리에 두되, 이미 존재하면 덮어쓰지 않는다:
+
+```markdown
+<!-- .claude/be-harness/README.md -->
+# be-harness project overrides
+
+이 디렉토리는 프로젝트별 be-harness 스킬/에이전트 오버라이드를 담는다.
+상세 규약은 플러그인 루트 `OVERRIDES.md` 참조.
+
+- `common.md` — 모든 스킬/에이전트에 공통 적용
+- `skills/{skill-name}.md` — 특정 스킬 전용
+- `agents/{agent-name}.md` — 특정 에이전트 전용
+
+파일은 전부 선택. start-workflow Phase 9 의 보완점이 자동으로 이곳에 append 된다.
+```
+
+## Step 8: 최종 결과
 
 ```markdown
 ## Init 완료
@@ -153,6 +189,7 @@ projectConventions: {projectConventions}
 |------|------|
 | profile | 생성 / 갱신 / 건너뜀 |
 | convention-check 설정 | 생성 / 건너뜀 / 이미 존재 |
+| .claude/be-harness/ 오버라이드 디렉토리 | 생성 / 이미 존재 |
 
 다음 단계:
 - `/be-harness:doctor` — 상태 검증

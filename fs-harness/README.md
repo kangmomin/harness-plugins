@@ -56,3 +56,23 @@ Phase 8: 회고
 
 - 백엔드만 바뀌는 작업 → `/be-harness:start-workflow`
 - 프론트엔드만 바뀌는 작업 → `/fe-harness:start-workflow`
+
+## Project Overrides
+
+fs-harness는 be-harness/fe-harness 에이전트를 병렬 호출하므로 **세 플러그인의 오버라이드가 모두 적용된다**:
+
+```
+.claude/
+├── be-harness/                # be-harness 오버라이드 (Phase 4 BE 구현, Phase 5 BE 루프)
+├── fe-harness/                # fe-harness 오버라이드 (Phase 4 FE 구현, Phase 5 FE 루프)
+└── fs-harness/
+    ├── common.md              # fs-harness 공통 (Phase 0~8 풀스택 조정)
+    └── skills/start-workflow.md
+```
+
+- `be-harness:workflow-implementer` 실행 시 → `.claude/be-harness/agents/workflow-implementer.md` 가 적용됨
+- `fe-harness:workflow-implementer` 실행 시 → `.claude/fe-harness/agents/workflow-implementer.md` 가 적용됨
+- Integration Contract / Feature Matrix 등 풀스택 규약은 → `.claude/fs-harness/skills/start-workflow.md`
+
+start-workflow Phase 8 의 보완점은 대상 도메인에 따라 각 디렉토리에 분산 append 된다.
+상세 규약: `OVERRIDES.md`.

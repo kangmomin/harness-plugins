@@ -6,6 +6,17 @@ argument-hint: <작업 설명 또는 빈 값>
 user-invocable: true
 ---
 
+## Project Overrides
+
+실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
+
+- `.claude/fs-harness/common.md` — 플러그인 공통
+- `.claude/fs-harness/skills/start-workflow.md` — 본 스킬 전용
+- 또한 이 스킬이 be/fe 에이전트를 호출할 때 각 에이전트는 **자기 플러그인의 오버라이드** 를 별도 로드한다 (`.claude/be-harness/...`, `.claude/fe-harness/...`)
+
+존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+
 # Start Workflow Full Stack — Agile Orchestrator
 
 프론트엔드와 백엔드를 하나의 큰 구현 덩어리로 취급하지 않는다.
@@ -355,6 +366,11 @@ Agent tool:
 ## Phase 8: 회고 + 정리
 
 - `workflow-reflection`으로 회고를 남긴다.
+- 회고에서 도출된 보완점은 **각 도메인의 프로젝트 오버라이드 파일**에 append 한다:
+  - 백엔드 스킬/에이전트 대상 → `.claude/be-harness/skills/{name}.md` 또는 `.claude/be-harness/agents/{name}.md`
+  - 프론트엔드 스킬/에이전트 대상 → `.claude/fe-harness/skills/{name}.md` 또는 `.claude/fe-harness/agents/{name}.md`
+  - 풀스택 워크플로우 자체(계약, Feature Matrix 등) → `.claude/fs-harness/skills/start-workflow.md` 또는 `.claude/fs-harness/common.md`
+- 플러그인 원본(`be-harness/...`, `fe-harness/...`, `fs-harness/...`)은 **수정하지 않는다**. 상세 규약: 각 플러그인의 `OVERRIDES.md`.
 - 임시 상태 파일을 삭제한다.
 
 ```bash

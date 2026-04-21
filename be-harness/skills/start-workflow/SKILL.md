@@ -6,6 +6,16 @@ argument-hint: <작업 설명> | --analyze [경로] | --verify [경로]
 user-invocable: true
 ---
 
+## Project Overrides
+
+실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
+
+- `.claude/be-harness/common.md` — 플러그인 공통 (모든 스킬/에이전트에 적용)
+- `.claude/be-harness/skills/start-workflow.md` — 본 스킬 전용
+
+존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+
 # Start Workflow — Orchestrator
 
 전체 개발 라이프사이클을 **오케스트레이션 패턴**으로 실행한다.
@@ -936,18 +946,53 @@ Phase 4~8 에이전트들의 결과를 종합하여 보고서를 작성한다.
 ### 6. 성찰
 [성찰 에이전트 결과]
 
-### 7. 보완점
-| # | 대상 스킬 | 보완 내용 | 적용 여부 |
-|---|----------|----------|----------|
+### 7. 보완점 (프로젝트 오버라이드로 반영)
+| # | 대상 스킬/에이전트 | 보완 내용 | 저장 경로 | 적용 여부 |
+|---|----------|----------|----------|----------|
+| 1 | /be-harness:commit | [내용] | `.claude/be-harness/skills/commit.md` | Y/N |
+| 2 | be-harness:workflow-implementer | [내용] | `.claude/be-harness/agents/workflow-implementer.md` | Y/N |
 ```
 
-### 보완점 적용
+### 보완점 적용 (프로젝트 오버라이드에 append)
 
-> "위 보완점을 해당 스킬에 반영할까요? (전체/선택/건너뛰기)"
+플러그인 원본(`be-harness/skills/...` 아래 파일)은 **절대 수정하지 않는다**. 보완점은 모두 프로젝트 저장소의 **오버라이드 파일**에 append 한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
-- **전체**: 모든 보완점을 해당 스킬 파일에 반영한다.
-- **선택**: 유저가 번호로 선택한 항목만 반영한다.
-- **건너뛰기**: 보고서만 출력하고 종료한다.
+> "위 보완점을 프로젝트 오버라이드에 반영할까요? (전체/선택/건너뛰기)"
+
+- **전체**: 모든 보완점을 각각의 오버라이드 파일에 append.
+- **선택**: 유저가 번호로 선택한 항목만 append.
+- **건너뛰기**: 보고서만 출력하고 종료.
+
+#### append 규칙
+
+대상이 스킬이면: `.claude/be-harness/skills/{skill-name}.md`
+대상이 에이전트면: `.claude/be-harness/agents/{agent-name}.md`
+공통(여러 스킬에 적용)이면: `.claude/be-harness/common.md`
+
+파일이 없으면 새로 생성하고 frontmatter를 헤더로 넣는다:
+
+```markdown
+---
+scope: skill:{name}          # 또는 agent:{name} / common
+applies-to: be-harness@{버전}+
+updated: {YYYY-MM-DD}
+---
+
+# Project Override: {대상}
+
+## 보완점 (auto-appended {YYYY-MM-DD HH:mm})
+- [보완 내용 1]
+- [보완 내용 2]
+```
+
+파일이 이미 있으면 기존 `## 보완점 (auto-appended ...)` 뒤에 새 섹션을 append (중복 판단은 내용 일치 여부로, 동일 내용이면 건너뜀).
+
+추가 후 해당 파일 경로를 유저에게 보고한다:
+
+> "프로젝트 오버라이드 업데이트 완료:
+>  - `.claude/be-harness/skills/commit.md` (+2줄)
+>  - `.claude/be-harness/agents/workflow-implementer.md` (신규 생성)
+> 다음 워크플로우 실행 시 자동으로 로드됩니다. Git에 커밋을 권장합니다."
 
 ### 정리
 
