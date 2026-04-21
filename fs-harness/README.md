@@ -76,3 +76,17 @@ fs-harness는 be-harness/fe-harness 에이전트를 병렬 호출하므로 **세
 
 start-workflow Phase 8 의 보완점은 대상 도메인에 따라 각 디렉토리에 분산 append 된다.
 상세 규약: `OVERRIDES.md`.
+
+## Community Feedback (플러그인 레포 PR)
+
+범용성 있는 보완점은 각 플러그인 레포의 `community-feedback/` 영역에 PR로 제출할 수 있다:
+
+- 제출 스킬:
+  - `/be-harness:submit-feedback` (BE 스킬/에이전트 피드백)
+  - `/fe-harness:submit-feedback` (FE 스킬/에이전트 피드백)
+  - `/fs-harness:submit-feedback` (풀스택 계약/오케스트레이션 피드백)
+- `start-workflow` Phase 8 에서 "로컬 저장 + PR" 을 선택하면 각 도메인의 submit-feedback 이 병렬로 호출됨
+- 각 도메인 PR은 독립적: 한쪽이 실패/SKIP 해도 다른 쪽 진행
+- 전제: `gh` CLI 설치 및 인증
+
+상세: 각 플러그인의 `community-feedback/README.md`.

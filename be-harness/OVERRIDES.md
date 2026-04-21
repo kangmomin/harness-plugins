@@ -72,13 +72,16 @@ updated: 2026-04-21
 
 자유 markdown만 있어도 된다. 스킬이 읽어서 문맥에 맞게 반영한다.
 
-## 보완점 자동 반영
+## 보완점 자동 반영 (2-Tier 경로)
 
-`/be-harness:start-workflow` Phase 9 에서 워크플로우 성찰로 도출된 보완점을 **해당 스킬의 오버라이드 파일**에 append 한다:
+`/be-harness:start-workflow` Phase 9 에서 워크플로우 성찰로 도출된 보완점은 두 가지 경로 중 하나로 반영된다. 유저가 Phase 9 에서 선택한다.
 
-- 스킬 `X` 에 대한 보완점 → `.claude/be-harness/skills/X.md` 하단에 타임스탬프와 함께 추가
-- 플러그인 원본은 **건드리지 않음**
-- 파일이 없으면 생성
+### Tier 1: 로컬 오버라이드 (기본값)
+
+- 적용 범위: **현 프로젝트에만**
+- 경로: `.claude/be-harness/{skills,agents,common}/{name}.md`
+- 모든 프로젝트 특화 규칙 / 사내 도메인 한정 규칙은 이 경로 필수
+- 플러그인 원본은 건드리지 않음
 
 예:
 ```markdown
@@ -86,6 +89,21 @@ updated: 2026-04-21
 - 해당 프로젝트에서는 커밋 본문에 JIRA 티켓 번호를 반드시 포함
 - git push 전 `make verify` 를 통과해야 함
 ```
+
+### Tier 2: 플러그인 레포 community-feedback PR (선택)
+
+- 적용 범위: **모든 be-harness 사용자** (단, 유지보수자 큐레이션 후)
+- 경로: 플러그인 레포(`kangmomin/harness-plugins`) 의 `be-harness/community-feedback/{skills,agents,common}/...`
+- 제출: `/be-harness:submit-feedback` 스킬이 `gh` CLI 로 fork/clone → append → PR 생성 을 자동 수행
+- **범용성 있는 피드백**에만 권장 (사내 용어/경로/티켓 포함 금지)
+- 원본 SKILL.md 는 이 PR 로도 변경되지 않음. community-feedback 은 수집 레이어일 뿐, 유지보수자가 별도 검토 후 범용 규칙으로 승격 여부를 결정
+
+Phase 9 에서 유저 선택:
+1. **로컬만** (default) — Tier 1 만
+2. **로컬 + PR** — Tier 1 먼저 + Tier 2 로 범용 항목만 PR
+3. **건너뛰기**
+
+선택 2 에서 gh 미설치/미인증/네트워크 실패 시 `[SKIPPED:*]` 반환 후 Tier 1 만 유지하여 정상 종료.
 
 ## 전역 컨벤션 파일과의 차이
 

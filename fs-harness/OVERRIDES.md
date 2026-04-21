@@ -72,20 +72,37 @@ updated: 2026-04-21
 
 자유 markdown만 있어도 된다. 스킬이 읽어서 문맥에 맞게 반영한다.
 
-## 보완점 자동 반영
+## 보완점 자동 반영 (2-Tier 경로 + 도메인 라우팅)
 
-`/fs-harness:start-workflow` Phase 9 에서 워크플로우 성찰로 도출된 보완점을 **해당 스킬의 오버라이드 파일**에 append 한다:
+Phase 8 회고에서 도출된 보완점은 **대상 도메인별로 분류**된 뒤, 유저가 선택한 경로로 반영된다.
 
-- 스킬 `X` 에 대한 보완점 → `.claude/fs-harness/skills/X.md` 하단에 타임스탬프와 함께 추가
-- 플러그인 원본은 **건드리지 않음**
-- 파일이 없으면 생성
+### 도메인 라우팅
 
-예:
-```markdown
-## 보완점 (auto-appended 2026-04-21)
-- 해당 프로젝트에서는 커밋 본문에 JIRA 티켓 번호를 반드시 포함
-- git push 전 `make verify` 를 통과해야 함
-```
+| 보완점 대상 | 저장 경로 | submit-feedback |
+|-----------|----------|-----------------|
+| BE 스킬/에이전트 | `.claude/be-harness/...` | `/be-harness:submit-feedback` |
+| FE 스킬/에이전트 | `.claude/fe-harness/...` | `/fe-harness:submit-feedback` |
+| 풀스택 계약/오케스트레이션 | `.claude/fs-harness/...` | `/fs-harness:submit-feedback` |
+
+### Tier 1: 로컬 오버라이드 (기본값)
+
+- 적용 범위: 현 프로젝트만
+- 경로: 도메인별 로컬 오버라이드 파일
+- 플러그인 원본은 건드리지 않음
+
+### Tier 2: 플러그인 레포 community-feedback PR (선택)
+
+- 적용 범위: 모든 사용자 (단, 유지보수자 큐레이션 후)
+- 경로: 각 플러그인의 `community-feedback/{skills,agents,common}/...`
+- 제출: 도메인별 `submit-feedback` 이 gh CLI로 fork/clone → append → PR
+- **범용성 있는 피드백**에만 권장
+
+Phase 8 옵션:
+1. **로컬만** (default) — 각 도메인의 Tier 1 에만 저장
+2. **로컬 + PR** — 도메인별로 독립 PR (be/fe/fs 병렬 가능)
+3. **건너뛰기**
+
+각 submit-feedback 은 독립 동작. 한쪽이 `[SKIPPED:*]` 나 FAILED 여도 다른 도메인 PR은 계속 진행.
 
 ## 전역 컨벤션 파일과의 차이
 

@@ -366,11 +366,32 @@ Agent tool:
 ## Phase 8: 회고 + 정리
 
 - `workflow-reflection`으로 회고를 남긴다.
-- 회고에서 도출된 보완점은 **각 도메인의 프로젝트 오버라이드 파일**에 append 한다:
-  - 백엔드 스킬/에이전트 대상 → `.claude/be-harness/skills/{name}.md` 또는 `.claude/be-harness/agents/{name}.md`
-  - 프론트엔드 스킬/에이전트 대상 → `.claude/fe-harness/skills/{name}.md` 또는 `.claude/fe-harness/agents/{name}.md`
-  - 풀스택 워크플로우 자체(계약, Feature Matrix 등) → `.claude/fs-harness/skills/start-workflow.md` 또는 `.claude/fs-harness/common.md`
-- 플러그인 원본(`be-harness/...`, `fe-harness/...`, `fs-harness/...`)은 **수정하지 않는다**. 상세 규약: 각 플러그인의 `OVERRIDES.md`.
+- 회고에서 도출된 보완점은 **대상 도메인별로** 분류한다:
+  - 백엔드 스킬/에이전트 대상 → `.claude/be-harness/...`
+  - 프론트엔드 스킬/에이전트 대상 → `.claude/fe-harness/...`
+  - 풀스택 워크플로우 자체(계약, Feature Matrix 등) → `.claude/fs-harness/...`
+- 플러그인 원본은 **수정하지 않는다**. 상세 규약: 각 플러그인의 `OVERRIDES.md`.
+
+### 보완점 반영 방식 선택
+
+> "보완점 반영 방식을 선택하세요:"
+>
+> 1. **로컬에만 저장** (기본값) — 각 도메인의 로컬 오버라이드 파일에 append.
+> 2. **로컬 저장 + 플러그인 레포 PR** — 도메인별 `submit-feedback` 을 호출하여 community-feedback 영역에 PR.
+> 3. **건너뛰기**.
+
+#### 옵션 2 세부 흐름
+
+1. 로컬 저장 먼저 수행 (모든 도메인).
+2. 도메인별로 PR 후보를 분리:
+   - BE 후보 → `/be-harness:submit-feedback`
+   - FE 후보 → `/fe-harness:submit-feedback`
+   - FS 후보(풀스택 계약 관련) → `/fs-harness:submit-feedback`
+3. 각 submit-feedback 은 독립적으로 동작. 한쪽이 `[SKIPPED:*]` 나 FAILED 여도 다른 쪽은 계속 진행.
+4. 각 PR URL 과 SKIP 사유를 모두 수집해 최종 보고서에 병기.
+
+### 정리
+
 - 임시 상태 파일을 삭제한다.
 
 ```bash

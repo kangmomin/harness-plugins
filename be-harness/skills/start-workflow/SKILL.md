@@ -953,15 +953,33 @@ Phase 4~8 에이전트들의 결과를 종합하여 보고서를 작성한다.
 | 2 | be-harness:workflow-implementer | [내용] | `.claude/be-harness/agents/workflow-implementer.md` | Y/N |
 ```
 
-### 보완점 적용 (프로젝트 오버라이드에 append)
+### 보완점 적용
 
-플러그인 원본(`be-harness/skills/...` 아래 파일)은 **절대 수정하지 않는다**. 보완점은 모두 프로젝트 저장소의 **오버라이드 파일**에 append 한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+플러그인 원본(`be-harness/skills/...` 아래 파일)은 **절대 수정하지 않는다**. 보완점 반영 경로는 두 가지가 있다:
 
-> "위 보완점을 프로젝트 오버라이드에 반영할까요? (전체/선택/건너뛰기)"
+| 경로 | 대상 | 적용 범위 |
+|------|------|----------|
+| **로컬 오버라이드** | `.claude/be-harness/{common,skills,agents}/...` | 현 프로젝트에만 |
+| **커뮤니티 피드백 PR** | 플러그인 레포 `be-harness/community-feedback/...` | 큐레이션 후 모든 사용자에게 |
 
-- **전체**: 모든 보완점을 각각의 오버라이드 파일에 append.
-- **선택**: 유저가 번호로 선택한 항목만 append.
-- **건너뛰기**: 보고서만 출력하고 종료.
+상세 규약: 플러그인 루트 `OVERRIDES.md` + `community-feedback/README.md`.
+
+> "보완점 반영 방식을 선택하세요:"
+>
+> 1. **로컬에만 저장** (기본값) — `.claude/be-harness/...` 에 append. 이 프로젝트에만 적용.
+> 2. **로컬 저장 + 플러그인 레포에 PR** — 로컬 저장 후 `/be-harness:submit-feedback` 을 호출하여 `kangmomin/harness-plugins` 레포의 community-feedback 영역에 PR 제출. 범용성 있는 피드백에 권장.
+> 3. **건너뛰기** — 보고서만 출력하고 종료.
+
+- 전체/선택 세부 반영 여부는 먼저 위 옵션 선택 후 각 보완점마다 Y/N 선택.
+- 옵션 2 선택 시, 각 보완점에 대해 `generality` 필드(범용 / 특정 조건 / 프로젝트 한정)를 함께 수집. `프로젝트 한정`은 로컬 저장만 하고 PR 대상에서 제외.
+
+#### 옵션 2 세부 흐름
+
+1. 로컬 오버라이드에 append 먼저 수행 (옵션 1과 동일).
+2. PR 제출 대상 후보(generality: 범용 / 특정 조건)를 정리.
+3. `Skill tool` 로 `/be-harness:submit-feedback` 을 호출하며 후보 리스트 전달.
+4. submit-feedback 이 `[SKIPPED:*]` 반환 시(gh 미설치/미인증/네트워크 실패 등) 로컬 저장만 완료된 상태로 워크플로우 정상 종료, 유저에게 fallback 사유를 보고.
+5. 성공 시 PR URL 을 최종 보고서에 포함.
 
 #### append 규칙
 

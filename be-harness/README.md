@@ -73,7 +73,7 @@
 모든 스킬이 `.claude/be-harness.local.md` (YAML frontmatter) 에서 빌드/테스트/소스 경로를 읽는다.
 구체 스펙은 `PROFILE.md` 참조.
 
-## Project Overrides
+## Project Overrides (로컬 피드백)
 
 플러그인 원본을 수정하지 않고 프로젝트별로 스킬/에이전트 동작을 조정할 수 있다:
 
@@ -87,6 +87,18 @@
 - 각 파일은 선택. 존재하면 플러그인 기본 동작에 **추가 규칙/예외/변경점** 으로 흡수됨.
 - `start-workflow` Phase 9 의 보완점이 자동으로 이곳에 append 된다.
 - 상세 규약: `OVERRIDES.md`.
+
+## Community Feedback (플러그인 레포 PR)
+
+범용성 있는 보완점은 플러그인 레포에 PR로 제출해 다른 사용자와 공유할 수 있다:
+
+- 제출 스킬: `/be-harness:submit-feedback`
+- 대상: `kangmomin/harness-plugins` 의 `be-harness/community-feedback/{skills,agents,common}/...`
+- `start-workflow` Phase 9 에서 "로컬 저장 + PR" 옵션을 선택하면 자동 호출됨
+- 플러그인 원본 SKILL.md 는 PR 로도 변경되지 않음 (수집 레이어만 커짐, 유지보수자 큐레이션 후 별도 PR 로 승격)
+- 전제: `gh` CLI 설치 및 인증. 실패 시 로컬 저장으로 fallback
+
+상세: `community-feedback/README.md`.
 
 ## 파생 관계
 
