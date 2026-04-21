@@ -1,6 +1,6 @@
 {
   "name": "be-harness",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "범용 백엔드 개발 워크플로우 하네스. Technical Spec → Plan → 구현 → 품질 루프 → PR 파이프라인. Go/Node 프리셋 내장, 프로젝트 profile로 확장 가능.",
   "keywords": ["backend", "workflow", "conventions", "commit", "testing", "orchestration"]
 }
