@@ -128,12 +128,12 @@ user-invocable: true
 이 파일은 `--init` 또는 게이트 차단 시 **사용자가 명시적으로 승인한 경우에만** 자동 생성/추가된다.
 
 ```
-# .e2e-allowed-hosts 예시 (주석 및 빈 줄 무시)
+# secret/.e2e-allowed-hosts 예시 (주석 및 빈 줄 무시)
 dev-db.internal.example.com
 10.0.1.50
 ```
 
-- 이 파일은 `.gitignore`에 추가하여 커밋되지 않도록 한다.
+- `secret/` 디렉토리는 이미 gitignore 처리되어 있으므로 별도 등록은 불필요하다.
 - Claude가 스스로 이 파일을 생성하거나 수정하지 않는다. 반드시 사용자 승인 절차를 거친다.
 
 ### 절대 금지 사항

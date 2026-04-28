@@ -40,7 +40,7 @@ description: "기능 추가/수정 후 연관 API E2E 테스트 수행"
    - 유저 동의 시 `.mcp.json`에 자동 추가한다.
 3. **DB 호스트 검증**: `secret/.env`의 `DB_HOST`가 로컬이 아닌 경우:
    - 사용자에게 해당 DB에서 E2E 테스트를 실행해도 되는지 확인한다.
-   - 승인하면 `.e2e-allowed-hosts`에 호스트를 등록하고, `.gitignore`에도 추가한다.
+   - 승인하면 `secret/.e2e-allowed-hosts`에 호스트를 등록한다 (`secret/`는 이미 gitignore 처리됨).
    - 거부하면 로컬 DB로 변경하라고 안내한다.
 4. **grpcurl 확인** (선택): `which grpcurl`로 설치 여부를 확인한다.
    - 없으면 안내:
@@ -91,7 +91,7 @@ description: "기능 추가/수정 후 연관 API E2E 테스트 수행"
 | PubSub Emulator (선택) | RUNNING / STOPPED | curl localhost:8086/api/stats |
 ```
 
-- **BLOCKED** 항목이 하나라도 있으면 E2E 테스트를 실행할 수 없다고 경고하고, 해당 DB를 허용할지 사용자에게 질문한다. 승인하면 `.e2e-allowed-hosts`에 등록한다.
+- **BLOCKED** 항목이 하나라도 있으면 E2E 테스트를 실행할 수 없다고 경고하고, 해당 DB를 허용할지 사용자에게 질문한다. 승인하면 `secret/.e2e-allowed-hosts`에 등록한다.
 - 문제가 있으면 `--init`을 실행하라고 안내한다.
 
 ---
@@ -107,20 +107,20 @@ description: "기능 추가/수정 후 연관 API E2E 테스트 수행"
 - `127.0.0.1`
 - `0.0.0.0`
 - `host.docker.internal` (Docker 내부에서 로컬 접근)
-- `.e2e-allowed-hosts` 파일에 사용자가 등록한 호스트 (아래 "사용자 승인 화이트리스트" 참조)
+- `secret/.e2e-allowed-hosts` 파일에 사용자가 등록한 호스트 (아래 "사용자 승인 화이트리스트" 참조)
 
 ### 사용자 승인 화이트리스트
 
-프로젝트 루트의 `.e2e-allowed-hosts` 파일에 호스트를 한 줄에 하나씩 등록하면 해당 호스트도 허용된다.
+프로젝트의 `secret/.e2e-allowed-hosts` 파일에 호스트를 한 줄에 하나씩 등록하면 해당 호스트도 허용된다.
 이 파일은 `--init` 또는 게이트 차단 시 **사용자가 명시적으로 승인한 경우에만** 자동 생성/추가된다.
 
 ```
-# .e2e-allowed-hosts 예시 (주석 및 빈 줄 무시)
+# secret/.e2e-allowed-hosts 예시 (주석 및 빈 줄 무시)
 dev-db.internal.example.com
 10.0.1.50
 ```
 
-- 이 파일은 `.gitignore`에 추가하여 커밋되지 않도록 한다.
+- `secret/` 디렉토리는 이미 gitignore 처리되어 있으므로 별도 등록은 불필요하다.
 - Claude가 스스로 이 파일을 생성하거나 수정하지 않는다. 반드시 사용자 승인 절차를 거친다.
 
 ### 절대 금지 사항
@@ -129,7 +129,7 @@ dev-db.internal.example.com
 2. **PostgreSQL MCP를 통한 우회 금지**: PostgreSQL MCP 서버가 원격 DB에 연결되어 있더라도, 화이트리스트에 없으면 E2E 테스트 목적의 INSERT/UPDATE/DELETE SQL을 실행하지 않는다.
 3. **"테스트 데이터니까 괜찮다"는 논리 금지**: 테스트 데이터라도 승인되지 않은 DB에 생성/수정/삭제하는 것은 금지다.
 4. **.env 외 DB 접속 정보 사용 금지**: `secret/.env`에 정의된 DB 접속 정보만 사용한다.
-5. **자동 화이트리스트 등록 금지**: Claude가 사용자 승인 없이 `.e2e-allowed-hosts`에 호스트를 추가하지 않는다.
+5. **자동 화이트리스트 등록 금지**: Claude가 사용자 승인 없이 `secret/.e2e-allowed-hosts`에 호스트를 추가하지 않는다.
 
 ### 위반 시 처리 (차단 → 승인 요청 → 화이트리스트 등록)
 
@@ -140,10 +140,9 @@ DB 호스트가 허용 목록(기본 + 화이트리스트)에 없으면:
    > ⚠️ **E2E 테스트 차단**: DB 호스트 `{호스트}`는 허용 목록에 없습니다.
    > 이 DB에서 E2E 테스트를 실행하면 테스트 데이터가 생성/수정/삭제됩니다.
    >
-   > 이 DB를 E2E 테스트 대상으로 허용하시겠습니까? (허용하면 `.e2e-allowed-hosts`에 등록됩니다)
+   > 이 DB를 E2E 테스트 대상으로 허용하시겠습니까? (허용하면 `secret/.e2e-allowed-hosts`에 등록됩니다)
 3. **사용자가 승인하면**:
-   - `.e2e-allowed-hosts` 파일에 해당 호스트를 추가한다 (파일이 없으면 생성).
-   - `.gitignore`에 `.e2e-allowed-hosts`가 없으면 추가한다.
+   - `secret/.e2e-allowed-hosts` 파일에 해당 호스트를 추가한다 (파일이 없으면 생성, `secret/` 디렉토리도 없으면 함께 생성).
    - 게이트 검증을 재실행하여 통과시킨다.
 4. **사용자가 거부하면**: 어떤 SQL도 실행하지 않고 종료한다.
 
@@ -391,8 +390,8 @@ MCP_DB_HOST=$(grep -oP '(?<=@)[^:/]+' .mcp.json 2>/dev/null | head -1)
 
 # 3. 사용자 승인 화이트리스트 로드
 ALLOWED_HOSTS="localhost 127.0.0.1 0.0.0.0 host.docker.internal"
-if [ -f .e2e-allowed-hosts ]; then
-  EXTRA_HOSTS=$(grep -v '^\s*#' .e2e-allowed-hosts | grep -v '^\s*$' | tr '\n' ' ')
+if [ -f secret/.e2e-allowed-hosts ]; then
+  EXTRA_HOSTS=$(grep -v '^\s*#' secret/.e2e-allowed-hosts | grep -v '^\s*$' | tr '\n' ' ')
   ALLOWED_HOSTS="$ALLOWED_HOSTS $EXTRA_HOSTS"
 fi
 
@@ -405,7 +404,7 @@ echo "Allowed hosts:     ${ALLOWED_HOSTS}"
 
 | 값 | 허용 | 차단 |
 |----|------|------|
-| `DB_HOST` | 기본 허용 목록 + `.e2e-allowed-hosts` + 빈 값(기본=localhost) | 그 외 모든 값 |
+| `DB_HOST` | 기본 허용 목록 + `secret/.e2e-allowed-hosts` + 빈 값(기본=localhost) | 그 외 모든 값 |
 | `MCP_DB_HOST` | 위와 동일 | 그 외 모든 값 |
 
 - 하나라도 허용 목록에 없으면 **즉시 중단**하고 "위반 시 처리" 절차(승인 요청)를 실행한다.
