@@ -51,8 +51,8 @@ user-invocable: true
 ---
 
 ```
-[유저 대화] Phase 0~1.5: 직접 실행 (Spec, 난이도, 실행 전략)
-[유저 대화] Phase 2~3  : 직접 실행 (Plan, 리뷰)
+[유저 대화] Phase 0~1.5: 직접 실행 (Spec, Codex Spec 리뷰, 난이도, 실행 전략)
+[유저 대화] Phase 2~3  : 직접 실행 (Plan, 리뷰, Codex Plan 리뷰)
 [상태 저장] Phase 3.5  : 상태 파일 생성
 [자율 실행] Phase 4~8  : 서브 에이전트 순차/병렬 위임
 [유저 대화] Phase 9    : 최종 보고 + 보완점 적용
@@ -349,6 +349,20 @@ rm -f /tmp/workflow-state.md
 
 > 어느 경우든 Spec을 유저에게 보여주고 확인을 받는다.
 
+### Phase 0.5: Codex Spec 리뷰 (항상)
+
+Technical Spec 확정 직후, 구현 전략을 세우기 전에 **반드시 Codex 리뷰**를 받는다.
+Codex가 사용 불가한 환경이면 그 사실을 기록하고, 누락을 숨기지 않는다.
+
+리뷰 관점:
+- 비즈니스 요구사항 누락
+- 레이어 책임 경계
+- 데이터 정합성 및 API 계약 위험
+- 과잉 구현 가능성
+- `[Assumption]`으로 표기해야 할 유추 사항
+
+리뷰 결과에서 타당한 지적은 Technical Spec에 반영하고, 반영/미반영 사유를 기록한다.
+
 ---
 
 ## Phase 1: 난이도 산정
@@ -380,7 +394,7 @@ Technical Spec을 분석하여 1~10 난이도를 산정한다.
 
 > 종합 난이도 = max(A, B). 코드는 쉽지만 리스크가 높으면 전체 난이도가 올라간다.
 
-> 난이도 7+: Phase 3에서 Codex 리뷰 추가.
+> 난이도와 무관하게 Phase 3에서 Codex Plan 리뷰를 항상 수행한다.
 
 ---
 
@@ -489,10 +503,25 @@ Batch 2 (병렬): 데이터 정합성 + 보안 + 기존 코드 영향
 - **REJECT 1개+**: Plan 수정 → 해당 관점 재리뷰
 - **CONCERN만**: 타당한 것 자동 반영
 
-### 3.3 Codex 리뷰 (난이도 7+)
+### 3.3 Codex Plan 리뷰 (항상)
 
-Codex 사용 가능 시 Architect 관점으로 Plan 리뷰를 위임한다.
-불가 시 건너뛴다.
+Codex 사용 가능 시 Architect 관점으로 Plan 리뷰를 반드시 위임한다.
+불가 시 건너뛰되, Phase 9 보고서에 "Codex Plan 리뷰 미수행"과 사유를 남긴다.
+
+리뷰 입력:
+- Technical Spec 전문
+- Plan 전문
+- 실행 전략(sequential/parallel-slices)
+- 난이도 및 리스크 산정 근거
+
+리뷰 관점:
+- Spec과 Plan의 추적 가능성
+- 레이어별 책임 분리
+- 병렬 작업 시 파일 소유권 충돌
+- 테스트/검증 누락
+- 더 단순한 구현 경로
+
+REJECT 또는 타당한 CONCERN이 있으면 Plan을 수정하고, 필요한 관점만 재리뷰한다.
 
 ### 3.4 Plan 확정
 
@@ -748,6 +777,30 @@ git commit -m "Fix: 품질 루프 수정 (iteration N)"
 
 완료 후: "Phase 5 완료: [루프 횟수]회, 총 [수정 건수]건 수정"
 
+### Phase 5.6: Codex 품질 리뷰 (항상)
+
+품질 루프가 완료되면 Phase 6으로 넘어가기 전에 **반드시 Codex 리뷰**를 받는다.
+Codex가 사용 불가한 환경이면 Phase 9 보고서에 사유를 기록한다.
+
+리뷰 입력:
+- Technical Spec
+- 확정 Plan
+- 변경 파일 목록
+- Phase 4 구현 결과
+- Phase 5 품질 루프 결과 및 남은 이슈
+
+리뷰 관점:
+- Spec/Plan 대비 구현 누락
+- 비즈니스 로직 결함
+- 레이어 구조 위반
+- 테스트 및 검증 공백
+- 품질 루프가 놓친 단순화/컨벤션 이슈
+
+결과 처리:
+- **APPROVE**: Phase 6으로 진행
+- **CONCERN**: 타당한 항목만 수정 후 필요한 검증 재실행
+- **REJECT**: 수정 후 Phase 5 관련 검증을 재실행하고 Codex 품질 리뷰를 다시 받음
+
 ### Phase 6: 문서 동기화 (조건부)
 
 **작업 유형이 API 생성/수정/삭제인 경우만 실행. 그 외는 건너뛴다.**
@@ -837,7 +890,14 @@ Phase 4~8 에이전트들의 결과를 종합하여 보고서를 작성한다.
 ### 6. 성찰
 [성찰 에이전트 결과]
 
-### 7. 보완점
+### 7. Codex 리뷰 기록
+| 시점 | 수행 여부 | 핵심 피드백 | 반영 여부 |
+|------|----------|------------|----------|
+| Spec | Y/N | 요약 | Y/N/사유 |
+| Plan | Y/N | 요약 | Y/N/사유 |
+| 품질 리뷰 | Y/N | 요약 | Y/N/사유 |
+
+### 8. 보완점
 | # | 대상 스킬 | 보완 내용 | 적용 여부 |
 |---|----------|----------|----------|
 ```
@@ -905,11 +965,12 @@ Phase V4: 종합 검증 보고서 → 수정 여부 (유저 선택) → 정리
 ```
 [유저 대화]
 Phase 0: /request → Technical Spec (유저 확인)
+Phase 0.5: Codex Spec 리뷰 → Spec 보완
 Phase 1: 난이도 산정 (1-10)
 Phase 1.5: 실행 전략 판정 (sequential / parallel-slices / fullstack)
            fullstack → /start-workflow-fs로 전환 후 종료
 Phase 2: scope-reviewer 메모
-Phase 3: Plan 작성 → 6관점 리뷰 (3+3 병렬) → [난이도 7+: Codex] → Plan 확정
+Phase 3: Plan 작성 → 6관점 리뷰 (3+3 병렬) → Codex Plan 리뷰 → Plan 확정
          parallel-slices → Plan에 Slice 정의 추가
 Phase 3.5: 상태 파일 생성 → "자율 실행 시작"
 
@@ -926,6 +987,7 @@ Phase 5: 품질 루프 (오케스트레이터 관리, 최대 3회)
   5.4 scope-reviewer                   → scope-reviewer 에이전트
   5.5 make test                        → Bash 직접
   → 수정 있으면 커밋 후 재시작, 없으면 탈출
+Phase 5.6: Codex 품질 리뷰             → APPROVE까지 보완
 Phase 6: workflow-doc-sync             → 문서 동기화 (API 변경 시만)
 Phase 7: workflow-pr                   → PR 생성
 Phase 8: workflow-reflection           → 성찰

@@ -61,11 +61,12 @@ argument-hint: <작업 설명 또는 빈 값>
 | Phase | 담당 | 목적 |
 |-------|------|------|
 | 0 | 오케스트레이터 + `request-mm` + `request-hd` | 기능 정의 및 도메인 분리 |
+| 0.5 | Codex 리뷰 | Feature Matrix / Technical Spec 사전 검토 |
 | 1 | 오케스트레이터 | 통신 계약 초안 작성 |
 | 2 | 읽기 전용 리뷰 에이전트 2개 이상 | 계약/분업 리뷰 |
-| 3 | 오케스트레이터 | 프론트/백엔드 Plan 분리 |
+| 3 | 오케스트레이터 + Codex 리뷰 | 프론트/백엔드 Plan 분리 및 Codex Plan 리뷰 |
 | 4 | 백엔드 구현 에이전트 + 프론트 구현 에이전트 | 병렬 구현 |
-| 5 | 각 도메인 품질 루프 | 영역별 안정화 |
+| 5 | 각 도메인 품질 루프 + Codex 리뷰 | 영역별 안정화 및 품질 리뷰 |
 | 6 | 읽기 전용 리뷰 에이전트 | 통합 검증 |
 | 7 | 오케스트레이터 + PR 스킬 | 최종 커밋/PR |
 | 8 | `workflow-reflection` | 회고 및 정리 |
@@ -104,6 +105,20 @@ Spec 또는 계약에 없는 변경이 필요하면:
 - 테스트 완료 조건
 
 이 결과가 한쪽 도메인만 필요하면 풀스택 워크플로우를 중단하고 단일 도메인 스킬로 전환한다.
+
+## Phase 0.5: Codex Spec 리뷰 (항상)
+
+Feature Matrix와 합쳐진 Technical Spec이 정리되면 통신 계약을 작성하기 전에 **반드시 Codex 리뷰**를 받는다.
+Codex가 사용 불가한 환경이면 그 사실을 상태와 최종 보고에 기록한다.
+
+리뷰 관점:
+- 사용자 흐름과 프론트/백엔드 책임 누락
+- 한쪽 도메인만 필요한 작업인지 여부
+- 인증/권한, 상태, 에러 처리의 초기 누락
+- shared artifact owner가 필요한 지점
+- `[Assumption]`으로 표기해야 할 유추 사항
+
+타당한 지적은 Feature Matrix 또는 Technical Spec에 반영하고, 반영/미반영 사유를 남긴다.
 
 ## Phase 1: 통신 계약 정의
 
@@ -211,6 +226,21 @@ Plan은 아래를 지켜야 한다:
 
 리뷰가 끝나면 Plan을 확정한다.
 
+### 3.4 Codex Plan 리뷰 (항상)
+
+Plan 확정 전에 통신 계약, 백엔드 Plan, 프론트엔드 Plan, 공용 Plan에 대해 **반드시 Codex 리뷰**를 받는다.
+Codex가 사용 불가하면 그 사유를 상태 파일과 최종 보고에 남긴다.
+
+리뷰 관점:
+- 계약과 양쪽 Plan의 추적 가능성
+- 파일 소유권 충돌
+- shared artifact owner 명확성
+- 프론트/백엔드 책임 전가 여부
+- 통합 테스트 및 롤백 조건 누락
+- 더 단순한 구현 경로
+
+REJECT 또는 타당한 CONCERN이 있으면 Plan 또는 계약을 수정하고 필요한 리뷰를 다시 거친 뒤 확정한다.
+
 ## Phase 3.5: 브랜치 + 상태 파일
 
 `--hard`가 아니면 feature 브랜치를 만든다.
@@ -294,6 +324,30 @@ git checkout -b feat/{작업-요약-kebab-case}
 - 한쪽 루프 결과가 계약을 흔들면 둘 다 멈추고 Phase 1로 복귀한다.
 - 최대 3회까지 반복한다.
 
+## Phase 5.5: Codex 품질 리뷰 (항상)
+
+도메인별 품질 루프가 완료되면 통합 검증으로 넘어가기 전에 **반드시 Codex 리뷰**를 받는다.
+Codex가 사용 불가한 환경이면 Phase 8 최종 보고에 사유를 기록한다.
+
+리뷰 입력:
+- Feature Matrix
+- Integration Contract
+- 백엔드/프론트엔드/공용 Plan
+- 변경 파일 목록
+- 양쪽 품질 루프 결과 및 남은 이슈
+
+리뷰 관점:
+- frozen contract와 실제 구현의 불일치
+- 프론트/백엔드 책임 경계 위반
+- 상태/에러/권한/캐시 무효화 누락
+- 테스트 및 검증 공백
+- 품질 루프가 놓친 단순화/컨벤션 이슈
+
+결과 처리:
+- **APPROVE**: Phase 6으로 진행
+- **CONCERN**: 타당한 항목만 수정 후 필요한 검증 재실행
+- **REJECT**: 수정 후 관련 도메인 품질 루프와 Codex 품질 리뷰를 다시 수행
+
 ## Phase 6: 통합 검증
 
 구현이 끝나면 frozen contract와 실제 코드를 다시 맞춘다.
@@ -365,6 +419,7 @@ rm -f /tmp/fullstack-workflow-state.md
 
 ### 4. Status
 - Verification: ...
+- Codex Quality Review: ...
 - Cleanup: ...
 ```
 

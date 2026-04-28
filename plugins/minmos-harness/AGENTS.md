@@ -41,6 +41,16 @@ Go 백엔드 개발 워크플로우 자동화 지침.
 | **workflow-doc-sync** | API 문서 동기화 |
 | **edge-case-analyzer** | 다관점 엣지 케이스 분석 |
 
+## Codex 리뷰 게이트
+
+`start-workflow-mm`와 `start-workflow-fs` 실행 시 아래 시점에는 난이도와 무관하게 매번 Codex 리뷰를 받는다.
+
+- Technical Spec 또는 Feature Matrix 확정 직후
+- Plan 확정 전
+- 품질 루프 완료 직후, 문서 동기화/통합 검증/PR 단계 진입 전
+
+Codex 리뷰를 수행할 수 없는 환경이면 최종 보고에 미수행 사유를 명시한다.
+
 ## 커밋 컨벤션
 
 | Prefix | 사용 시점 |
