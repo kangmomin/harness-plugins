@@ -18,7 +18,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prepublishOnly": "npm run typecheck && npm run build",
+    "prepublishOnly": "npm ci && node ./node_modules/typescript/bin/tsc -p tsconfig.json --noEmit && node ./node_modules/typescript/bin/tsc -p tsconfig.json",
+    "publish:npm": "npm ci && npm run typecheck && npm run build && npm publish --access public",
     "start": "node ./dist/index.js",
     "dev": "tsx ./src/index.ts"
   },
