@@ -63,6 +63,7 @@ export interface FileChange {
   to: string;
   reason?: string;
   hash?: string;
+  content?: string;
 }
 
 export interface SyncResult {

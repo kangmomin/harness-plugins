@@ -28,6 +28,15 @@ export class FileSystem {
     await fs.writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, "utf8");
   }
 
+  async writeText(filePath: string, value: string): Promise<void> {
+    await this.ensureDir(path.dirname(filePath));
+    await fs.writeFile(filePath, value, "utf8");
+  }
+
+  async readFile(filePath: string): Promise<Buffer> {
+    return fs.readFile(filePath);
+  }
+
   async appendFile(filePath: string, value: string): Promise<void> {
     await this.ensureDir(path.dirname(filePath));
     await fs.appendFile(filePath, value, "utf8");
@@ -58,6 +67,10 @@ export class FileSystem {
   async hashFile(filePath: string): Promise<string> {
     const buffer = await fs.readFile(filePath);
     return createHash("sha256").update(buffer).digest("hex");
+  }
+
+  hashText(value: string): string {
+    return createHash("sha256").update(value).digest("hex");
   }
 
   async hashFiles(filePaths: string[]): Promise<string> {

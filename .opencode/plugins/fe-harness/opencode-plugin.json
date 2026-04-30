@@ -1,0 +1,39 @@
+{
+  "name": "fe-harness",
+  "target": "opencode",
+  "generatedBy": "plugin-manager-mcp",
+  "layout": {
+    "instructions": "instructions/",
+    "skills": "skills/",
+    "agents": "agents/",
+    "profiles": "profiles/"
+  },
+  "files": [
+    "agents/a11y-reviewer.md",
+    "agents/component-reviewer.md",
+    "agents/scope-reviewer.md",
+    "agents/workflow-implementer.md",
+    "agents/workflow-pr.md",
+    "agents/workflow-reflection.md",
+    "instructions/README.md",
+    "profiles/default.md",
+    "profiles/overrides.md",
+    "skills/commit-pr/SKILL.md",
+    "skills/commit-push/SKILL.md",
+    "skills/commit/SKILL.md",
+    "skills/component/SKILL.md",
+    "skills/convention-check/SKILL.md",
+    "skills/default-conventions/SKILL.md",
+    "skills/doctor/SKILL.md",
+    "skills/e2e-test/SKILL.md",
+    "skills/how-to-use/SKILL.md",
+    "skills/init/SKILL.md",
+    "skills/lint-check/SKILL.md",
+    "skills/request/SKILL.md",
+    "skills/simplify-loop/SKILL.md",
+    "skills/start-workflow/SKILL.md",
+    "skills/submit-feedback/SKILL.md",
+    "skills/test-loop/SKILL.md",
+    "skills/unit-test/SKILL.md"
+  ]
+}

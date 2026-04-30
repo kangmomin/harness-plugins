@@ -1,0 +1,42 @@
+{
+  "name": "minmos-harness",
+  "target": "opencode",
+  "generatedBy": "plugin-manager-mcp",
+  "layout": {
+    "instructions": "instructions/",
+    "skills": "skills/",
+    "agents": "agents/",
+    "profiles": "profiles/"
+  },
+  "files": [
+    "agents/code-analyzer.md",
+    "agents/code-verifier.md",
+    "agents/edge-case-analyzer.md",
+    "agents/scope-reviewer.md",
+    "agents/workflow-doc-sync.md",
+    "agents/workflow-implementer.md",
+    "agents/workflow-pr.md",
+    "agents/workflow-reflection.md",
+    "instructions/README.md",
+    "skills/apidog-schema-gen-mm/SKILL.md",
+    "skills/apidog-schema-gen-mm/references/extraction-patterns.md",
+    "skills/commit-hard-push-mm/SKILL.md",
+    "skills/commit-mm/SKILL.md",
+    "skills/commit-pr-mm/SKILL.md",
+    "skills/commit-push-mm/SKILL.md",
+    "skills/convention-check-mm/SKILL.md",
+    "skills/db-gen-committed-mm/SKILL.md",
+    "skills/default-conventions-mm/SKILL.md",
+    "skills/e2e-apidog-schema-gen-mm/SKILL.md",
+    "skills/e2e-test-loop-mm/SKILL.md",
+    "skills/e2e-test-mm/SKILL.md",
+    "skills/how-to-use-mm/SKILL.md",
+    "skills/minmo-doctor-mm/SKILL.md",
+    "skills/minmo-init-mm/SKILL.md",
+    "skills/pagenation-mm/SKILL.md",
+    "skills/request-mm/SKILL.md",
+    "skills/simplify-loop-mm/SKILL.md",
+    "skills/start-workflow-fs/SKILL.md",
+    "skills/start-workflow-mm/SKILL.md"
+  ]
+}

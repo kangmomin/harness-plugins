@@ -1,0 +1,37 @@
+{
+  "name": "hyeondongs-harness",
+  "target": "opencode",
+  "generatedBy": "plugin-manager-mcp",
+  "layout": {
+    "instructions": "instructions/",
+    "skills": "skills/",
+    "agents": "agents/",
+    "profiles": "profiles/"
+  },
+  "files": [
+    "agents/a11y-reviewer.md",
+    "agents/component-reviewer.md",
+    "agents/scope-reviewer.md",
+    "agents/workflow-implementer.md",
+    "agents/workflow-pr.md",
+    "agents/workflow-reflection.md",
+    "instructions/README.md",
+    "skills/commit-hd/SKILL.md",
+    "skills/commit-pr-hd/SKILL.md",
+    "skills/commit-push-hd/SKILL.md",
+    "skills/component-hd/SKILL.md",
+    "skills/convention-check-hd/SKILL.md",
+    "skills/default-conventions-hd/SKILL.md",
+    "skills/e2e-test-hd/SKILL.md",
+    "skills/how-to-use-hd/SKILL.md",
+    "skills/hyeondong-doctor-hd/SKILL.md",
+    "skills/hyeondong-init-hd/SKILL.md",
+    "skills/lint-check-hd/SKILL.md",
+    "skills/request-hd/SKILL.md",
+    "skills/simplify-loop-hd/SKILL.md",
+    "skills/start-workflow-fs/SKILL.md",
+    "skills/start-workflow-hd/SKILL.md",
+    "skills/test-loop-hd/SKILL.md",
+    "skills/unit-test-hd/SKILL.md"
+  ]
+}

@@ -14,6 +14,12 @@ npm install -g plugin-manager-mcp
 HARNESS_PLUGINS_ROOT=/path/to/harness-plugins plugin-manager-mcp
 ```
 
+For a direct readiness check:
+
+```bash
+HARNESS_PLUGINS_ROOT=/path/to/harness-plugins plugin-manager-mcp --health
+```
+
 The server uses stdio transport and exposes these MCP tools:
 
 - `list_plugins`
@@ -25,6 +31,27 @@ The server uses stdio transport and exposes these MCP tools:
 - `sync_to_claude`
 - `sync_to_opencode`
 - `sync_to_codex`
+
+## OpenCode layout
+
+`sync_to_opencode` writes repo-local plugins to:
+
+```text
+<harness-plugins>/.opencode/plugins/<plugin-name>/
+├── agents/
+├── instructions/
+├── profiles/
+├── skills/
+└── opencode-plugin.json
+```
+
+The sync keeps the harness source as the authority and maps:
+
+- `skills/` to `skills/`
+- `agents/` to `agents/`
+- `README.md` and other top-level markdown files to `instructions/`
+- `PROFILE.md` to `profiles/default.md`
+- `OVERRIDES.md` to `profiles/overrides.md`
 
 ## Update checks
 

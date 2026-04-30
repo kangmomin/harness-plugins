@@ -1,0 +1,17 @@
+{
+  "name": "fs-harness",
+  "target": "opencode",
+  "generatedBy": "plugin-manager-mcp",
+  "layout": {
+    "instructions": "instructions/",
+    "skills": "skills/",
+    "agents": "agents/",
+    "profiles": "profiles/"
+  },
+  "files": [
+    "instructions/README.md",
+    "profiles/overrides.md",
+    "skills/start-workflow/SKILL.md",
+    "skills/submit-feedback/SKILL.md"
+  ]
+}
