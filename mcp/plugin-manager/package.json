@@ -9,7 +9,7 @@
     "directory": "mcp/plugin-manager"
   },
   "bin": {
-    "plugin-manager-mcp": "./dist/index.js"
+    "plugin-manager-mcp": "dist/index.js"
   },
   "files": [
     "dist",
