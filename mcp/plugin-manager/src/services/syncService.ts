@@ -11,11 +11,15 @@ type SourceEntry =
       kind: "file";
       absolutePath: string;
       relativePath: string;
+      adapterPath?: string;
+      adapterContent?: string;
+      adapterSkillName?: string;
     }
   | {
       kind: "generated";
       relativePath: string;
       content: string;
+      adapterPath?: string;
     };
 
 export class SyncService {
@@ -34,7 +38,8 @@ export class SyncService {
     assertInsideRoot(this.repoRoot, source);
     assertInsideRoot(this.repoRoot, destination);
 
-    const changes = await this.planSync(plugin.name, source, destination, target, overwrite);
+    const syncPlan = await this.planSync(plugin.name, source, destination, target, overwrite);
+    const changes = syncPlan.changes;
     if (!dryRun) {
       for (const change of changes) {
         if (change.action === "mkdir") {
@@ -66,9 +71,13 @@ export class SyncService {
       for (const target of plugin.availableTargets) {
         const source = this.sourceForTarget(plugin, target);
         const destination = this.destinationFor(plugin.name, target);
-        const installed = await this.fs.exists(destination);
+        const installed = await this.isInstalled(plugin.name, target);
         const sourceHash = await this.hashSourceForTarget(plugin, target);
-        const destinationHash = installed ? await this.fs.hashTree(destination) : undefined;
+        const destinationHash = installed
+          ? target === "opencode"
+            ? await this.hashOpenCodeDestination(destination, await this.collectSourceEntries(source, target, plugin.name))
+            : await this.fs.hashTree(destination)
+          : undefined;
         targets[target] = {
           source,
           destination,
@@ -106,19 +115,31 @@ export class SyncService {
     return path.join(this.repoRoot, ".agents", "plugins", "installed", pluginName);
   }
 
+  private async isInstalled(pluginName: string, target: Target): Promise<boolean> {
+    if (target !== "opencode") {
+      return this.fs.exists(this.destinationFor(pluginName, target));
+    }
+    return (await this.fs.exists(path.join(this.repoRoot, ".opencode", "plugins", pluginName))) &&
+      (await this.fs.exists(path.join(this.repoRoot, ".opencode", "skills"))) &&
+      (await this.fs.exists(path.join(this.repoRoot, ".opencode", "commands")));
+  }
+
   private async planSync(
     pluginName: string,
     source: string,
     destination: string,
     target: Target,
     overwrite: boolean
-  ): Promise<FileChange[]> {
+  ): Promise<{ changes: FileChange[]; sourceEntries: SourceEntry[] }> {
     const sourceEntries = await this.collectSourceEntries(source, target, pluginName);
     const destinationExists = await this.fs.exists(destination);
 
     if (destinationExists && !overwrite) {
       const sourceHash = await this.hashEntries(sourceEntries);
-      const destinationHash = await this.fs.hashTree(destination);
+      const destinationHash =
+        target === "opencode"
+          ? await this.hashOpenCodeDestination(destination, sourceEntries)
+          : await this.fs.hashTree(destination);
       if (sourceHash !== destinationHash) {
         throw new UserFacingError(`Destination already exists at ${destination}. Re-run with overwrite=true to replace it.`);
       }
@@ -129,24 +150,16 @@ export class SyncService {
     for (const entry of sourceEntries) {
       const to = path.join(destination, entry.relativePath);
       assertInsideRoot(this.repoRoot, to);
-      const hash = await this.hashEntry(entry);
-      const existingHash = (await this.fs.exists(to)) ? await this.fs.hashFile(to) : undefined;
-      if (existingHash === hash) {
-        changes.push({
-          action: "skip",
-          from: entry.kind === "file" ? entry.absolutePath : undefined,
-          to,
-          reason: "unchanged",
-          hash
-        });
-      } else if (entry.kind === "generated") {
-        changes.push({ action: "write", to, hash, content: entry.content });
-      } else {
-        changes.push({ action: "copy", from: entry.absolutePath, to, hash });
+      changes.push(await this.planEntryWrite(entry, to));
+
+      if (target === "opencode" && entry.adapterPath) {
+        const adapterTo = path.join(this.repoRoot, entry.adapterPath);
+        assertInsideRoot(this.repoRoot, adapterTo);
+        changes.push(await this.planAdapterWrite(entry, adapterTo));
       }
     }
 
-    return changes;
+    return { changes, sourceEntries };
   }
 
   private async collectSourceEntries(source: string, target: Target, pluginName?: string): Promise<SourceEntry[]> {
@@ -160,7 +173,17 @@ export class SyncService {
     const entries: SourceEntry[] = [];
     const skillsPath = path.join(source, "skills");
     if (await this.fs.exists(skillsPath)) {
-      entries.push(...(await this.fs.listFiles(skillsPath, "skills")).map((entry) => ({ kind: "file" as const, ...entry })));
+      const skillFiles = await this.fs.listFiles(skillsPath, "skills");
+      for (const entry of skillFiles) {
+        const adapterSkillName = this.openCodeSkillAdapterName(pluginName, entry.relativePath);
+        entries.push({
+          kind: "file",
+          ...entry,
+          adapterPath: adapterSkillName ? path.join(".opencode", "skills", adapterSkillName, "SKILL.md") : undefined,
+          adapterContent: adapterSkillName ? await this.openCodeSkillAdapterContent(entry.absolutePath, adapterSkillName) : undefined,
+          adapterSkillName
+        });
+      }
     }
 
     const agentsPath = path.join(source, "agents");
@@ -185,6 +208,15 @@ export class SyncService {
       throw new UserFacingError(`OpenCode sync found no skills or markdown instruction files under ${source}.`);
     }
 
+    for (const skillName of this.openCodeSkillNames(entries)) {
+      entries.push({
+        kind: "generated",
+        relativePath: path.join("commands", `${skillName}.md`),
+        adapterPath: path.join(".opencode", "commands", `${skillName}.md`),
+        content: this.openCodeCommand(skillName, pluginName)
+      });
+    }
+
     entries.push({
       kind: "generated",
       relativePath: "opencode-plugin.json",
@@ -192,6 +224,84 @@ export class SyncService {
     });
 
     return entries.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+  }
+
+  private async planEntryWrite(entry: SourceEntry, to: string): Promise<FileChange> {
+    const hash = await this.hashEntry(entry);
+    const existingHash = (await this.fs.exists(to)) ? await this.fs.hashFile(to) : undefined;
+    if (existingHash === hash) {
+      return {
+        action: "skip",
+        from: entry.kind === "file" ? entry.absolutePath : undefined,
+        to,
+        reason: "unchanged",
+        hash
+      };
+    }
+    if (entry.kind === "generated") {
+      return { action: "write", to, hash, content: entry.content };
+    }
+    return { action: "copy", from: entry.absolutePath, to, hash };
+  }
+
+  private async planAdapterWrite(entry: SourceEntry, to: string): Promise<FileChange> {
+    if (entry.kind !== "file" || !entry.adapterContent) {
+      return this.planEntryWrite(entry, to);
+    }
+
+    const hash = this.fs.hashText(entry.adapterContent);
+    const existingHash = (await this.fs.exists(to)) ? await this.fs.hashFile(to) : undefined;
+    if (existingHash === hash) {
+      return {
+        action: "skip",
+        from: entry.kind === "file" ? entry.absolutePath : undefined,
+        to,
+        reason: "unchanged",
+        hash
+      };
+    }
+    return { action: "write", from: entry.absolutePath, to, hash, content: entry.adapterContent };
+  }
+
+  private openCodeSkillAdapterName(pluginName: string, relativePath: string): string | undefined {
+    const parts = relativePath.split(path.sep);
+    if (parts.length >= 3 && parts[0] === "skills" && parts[2] === "SKILL.md") {
+      return `${pluginName}__${parts[1]}`;
+    }
+    return undefined;
+  }
+
+  private async openCodeSkillAdapterContent(absolutePath: string, skillName: string): Promise<string> {
+    const content = (await this.fs.readFile(absolutePath)).toString("utf8");
+    if (!content.startsWith("---\n")) {
+      return `---\nname: ${skillName}\n---\n\n${content}`;
+    }
+
+    const endIndex = content.indexOf("\n---", 4);
+    if (endIndex === -1) {
+      return `---\nname: ${skillName}\n---\n\n${content}`;
+    }
+
+    const frontmatter = content.slice(4, endIndex);
+    const body = content.slice(endIndex);
+    const nextFrontmatter = frontmatter.match(/^name:\s*.+$/m)
+      ? frontmatter.replace(/^name:\s*.+$/m, `name: ${skillName}`)
+      : `name: ${skillName}\n${frontmatter}`;
+    return `---\n${nextFrontmatter}${body}`;
+  }
+
+  private openCodeSkillNames(entries: SourceEntry[]): string[] {
+    const names = new Set<string>();
+    for (const entry of entries) {
+      if (entry.kind === "file" && entry.adapterSkillName) {
+        names.add(entry.adapterSkillName);
+      }
+    }
+    return [...names].sort();
+  }
+
+  private openCodeCommand(skillName: string, pluginName: string): string {
+    return `---\ndescription: Use the ${skillName} skill from ${pluginName}\n---\n\nUse the \`${skillName}\` skill.\n`;
   }
 
   private openCodeMarkdownDestination(fileName: string): string {
@@ -211,10 +321,13 @@ export class SyncService {
       target: "opencode",
       generatedBy: "plugin-manager-mcp",
       layout: {
+        commands: "commands/",
         instructions: "instructions/",
         skills: "skills/",
         agents: "agents/",
-        profiles: "profiles/"
+        profiles: "profiles/",
+        openCodeSkills: "../skills/",
+        openCodeCommands: "../commands/"
       },
       files: relativePaths
     };
@@ -228,17 +341,49 @@ export class SyncService {
     return this.hashEntries(await this.collectSourceEntries(source, target, plugin.name));
   }
 
-  private async hashEntries(entries: SourceEntry[]): Promise<string> {
+  private async hashOpenCodeDestination(destination: string, entries: SourceEntry[]): Promise<string> {
     const hash = createHash("sha256");
-    const sortedEntries = [...entries].sort((left, right) => left.relativePath.localeCompare(right.relativePath));
-    for (const entry of sortedEntries) {
+    const destinations: Array<{ absolutePath: string; relativePath: string }> = [];
+
+    for (const entry of entries) {
+      destinations.push({
+        absolutePath: path.join(destination, entry.relativePath),
+        relativePath: entry.relativePath
+      });
+      if (entry.adapterPath) {
+        destinations.push({
+          absolutePath: path.join(this.repoRoot, entry.adapterPath),
+          relativePath: entry.adapterPath
+        });
+      }
+    }
+
+    for (const entry of destinations.sort((left, right) => left.relativePath.localeCompare(right.relativePath))) {
       hash.update(entry.relativePath);
       hash.update("\0");
-      if (entry.kind === "generated") {
-        hash.update(entry.content);
-      } else {
+      if (await this.fs.exists(entry.absolutePath)) {
         hash.update(await this.fs.readFile(entry.absolutePath));
       }
+      hash.update("\0");
+    }
+    return hash.digest("hex");
+  }
+
+  private async hashEntries(entries: SourceEntry[]): Promise<string> {
+    const hash = createHash("sha256");
+    const hashes: Array<{ relativePath: string; content: Buffer | string }> = [];
+    for (const entry of entries) {
+      const content = entry.kind === "generated" ? entry.content : await this.fs.readFile(entry.absolutePath);
+      hashes.push({ relativePath: entry.relativePath, content });
+      if (entry.adapterPath) {
+        hashes.push({ relativePath: entry.adapterPath, content: entry.kind === "file" ? entry.adapterContent ?? content : content });
+      }
+    }
+
+    for (const entry of hashes.sort((left, right) => left.relativePath.localeCompare(right.relativePath))) {
+      hash.update(entry.relativePath);
+      hash.update("\0");
+      hash.update(entry.content);
       hash.update("\0");
     }
     return hash.digest("hex");
@@ -263,7 +408,10 @@ export class SyncService {
           target === "opencode"
             ? await this.hashEntries(await this.collectSourceEntries(source, target, pluginName))
             : await this.fs.hashTree(source),
-        destinationHash: await this.fs.hashTree(destination),
+        destinationHash:
+          target === "opencode"
+            ? await this.hashOpenCodeDestination(destination, await this.collectSourceEntries(source, target, pluginName))
+            : await this.fs.hashTree(destination),
         syncedAt: new Date().toISOString()
       }
     };

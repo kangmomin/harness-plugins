@@ -37,12 +37,16 @@ The server uses stdio transport and exposes these MCP tools:
 `sync_to_opencode` writes repo-local plugins to:
 
 ```text
-<harness-plugins>/.opencode/plugins/<plugin-name>/
-├── agents/
-├── instructions/
-├── profiles/
-├── skills/
-└── opencode-plugin.json
+<harness-plugins>/.opencode/
+├── commands/<skill-name>.md
+├── skills/<skill-name>/SKILL.md
+└── plugins/<plugin-name>/
+    ├── agents/
+    ├── commands/
+    ├── instructions/
+    ├── profiles/
+    ├── skills/
+    └── opencode-plugin.json
 ```
 
 The sync keeps the harness source as the authority and maps:
@@ -52,6 +56,16 @@ The sync keeps the harness source as the authority and maps:
 - `README.md` and other top-level markdown files to `instructions/`
 - `PROFILE.md` to `profiles/default.md`
 - `OVERRIDES.md` to `profiles/overrides.md`
+
+OpenCode slash commands are thin wrappers that say `Use the <skill-name> skill.` so the original `SKILL.md` remains the source of truth.
+
+Generated OpenCode skill and command names are namespaced as `<plugin-name>__<skill-name>` to avoid collisions across harnesses.
+
+Example:
+
+```text
+/minmos-harness__commit-mm
+```
 
 ## Update checks
 

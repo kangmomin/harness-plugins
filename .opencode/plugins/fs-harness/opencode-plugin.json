@@ -3,12 +3,17 @@
   "target": "opencode",
   "generatedBy": "plugin-manager-mcp",
   "layout": {
+    "commands": "commands/",
     "instructions": "instructions/",
     "skills": "skills/",
     "agents": "agents/",
-    "profiles": "profiles/"
+    "profiles": "profiles/",
+    "openCodeSkills": "../skills/",
+    "openCodeCommands": "../commands/"
   },
   "files": [
+    "commands/fs-harness__start-workflow.md",
+    "commands/fs-harness__submit-feedback.md",
     "instructions/README.md",
     "profiles/overrides.md",
     "skills/start-workflow/SKILL.md",
