@@ -21,10 +21,12 @@ user-invocable: true
 
 | 항목 | 점검 방법 | 관련 스킬 |
 |------|----------|----------|
-| Apidog MCP 등록 | `.mcp.json`에 `apidog` 키 존재 확인 | apidog-schema-gen, e2e-test |
-| Apidog MCP 응답 | `mcp__apidog__read_project_oas_*` 호출 시도 | apidog-schema-gen |
-| PostgreSQL MCP 등록 | `.mcp.json`에 `postgres` 키 존재 확인 | e2e-test |
-| PostgreSQL MCP 연결 | `SELECT 1` 쿼리 시도 | e2e-test |
+| Apidog MCP 연결 | `mcp__apidog__read_project_oas_*` 호출 시도 | apidog-schema-gen, e2e-test |
+| Apidog MCP 응답 | OAS 읽기 응답 확인 | apidog-schema-gen |
+| PostgreSQL MCP 연결 | PostgreSQL MCP로 `SELECT 1` 쿼리 시도 | e2e-test |
+| PostgreSQL MCP DB 호스트 | PostgreSQL MCP로 `SELECT inet_server_addr()` 쿼리 시도 | e2e-test |
+
+**판정 원칙**: `.mcp.json`은 설정 안내용 참고 자료일 뿐, 연결 여부의 단독 기준으로 쓰지 않는다. OpenCode처럼 MCP를 다른 위치에 설정하는 클라이언트도 있으므로 실제 MCP tool 호출이 성공하면 `.mcp.json` 존재 여부와 무관하게 OK로 판정한다.
 
 ### 2. 환경 변수
 
@@ -83,10 +85,10 @@ user-invocable: true
 ### MCP 서버
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| Apidog MCP 등록 | OK / MISSING | |
-| Apidog MCP 응답 | OK / FAIL / SKIP | MISSING이면 SKIP |
-| PostgreSQL MCP 등록 | OK / MISSING | |
-| PostgreSQL MCP 연결 | OK / FAIL / SKIP | MISSING이면 SKIP |
+| Apidog MCP 연결 | OK / MISSING / FAIL | 실제 MCP 호출 기준 |
+| Apidog MCP 응답 | OK / FAIL / SKIP | 연결 MISSING이면 SKIP |
+| PostgreSQL MCP 연결 | OK / MISSING / FAIL | `SELECT 1` 기준 |
+| PostgreSQL MCP DB 호스트 | OK / BLOCKED / UNKNOWN / SKIP | `inet_server_addr()` 기준 |
 
 ### 환경 변수
 | 항목 | 상태 | 비고 |

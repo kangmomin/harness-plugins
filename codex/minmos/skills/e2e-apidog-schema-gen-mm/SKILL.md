@@ -34,11 +34,13 @@ E2E 테스트에서 수집된 **실제 요청/응답 데이터**를 기반으로
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| Apidog MCP 등록 | OK / MISSING | .mcp.json 확인 |
-| Apidog MCP 응답 | OK / FAIL | OAS 읽기 시도 |
+| Apidog MCP 연결 | OK / MISSING / FAIL | 실제 MCP 호출 기준 |
+| Apidog MCP 응답 | OK / FAIL / SKIP | OAS 읽기 시도 |
 | APIDOG_ACCESS_TOKEN | SET / UNSET | Push 기능용 |
 | APIDOG_PROJECT_ID | SET / UNSET | Push 기능용 |
 ```
+
+**MCP 판정 원칙**: `.mcp.json`은 연결 실패 시 참고하는 fallback일 뿐이다. OpenCode 등 다른 클라이언트 설정으로 MCP가 연결되어 있을 수 있으므로, 실제 `mcp__apidog__read_project_oas_*` 호출이 성공하면 OK로 판정한다.
 
 ---
 

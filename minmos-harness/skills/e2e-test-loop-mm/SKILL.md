@@ -37,9 +37,10 @@ e2e-test와 동일한 환경이 필요하다. 세팅 확인: `/minmos-harness:e2
 
 **Probe 항목 (e2e-test-mm Step 0과 동일):**
 - `secret/.env` 존재 → 없으면 `[SKIPPED:ENV_MISSING]`
-- `.mcp.json` 존재 → 없으면 `[SKIPPED:MCP_CONFIG_MISSING]`
-- PostgreSQL MCP 등록 → 없으면 `[SKIPPED:POSTGRES_MCP_MISSING]`
+- PostgreSQL MCP 연결 → `SELECT 1` 실패 또는 tool 미사용이면 `[SKIPPED:POSTGRES_MCP_UNAVAILABLE]`
 - DB 호스트 로컬 전용 → 위반이면 `[SKIPPED:REMOTE_DB_BLOCKED]` (화이트리스트 승인 없으면)
+
+**MCP 판정 원칙**: `.mcp.json` 없음만으로 MCP를 MISSING 처리하지 않는다. OpenCode 등 다른 클라이언트 설정으로 MCP가 연결되어 있을 수 있으므로 실제 PostgreSQL MCP 호출 결과를 기준으로 판정한다.
 
 **처리 규칙:**
 - 모두 OK → Step 1로 진행

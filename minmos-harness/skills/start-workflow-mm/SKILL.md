@@ -117,9 +117,10 @@ user-invocable: true
 | 점검 항목 | 확인 방법 | 누락 시 영향 |
 |----------|----------|-------------|
 | `secret/.env` | 파일 존재 확인 | **Phase 5.3 (e2e-test-loop) SKIP 예정** — 서버 부팅/JWT 발급 불가 |
-| `.mcp.json` | 파일 존재 확인 | **Phase 5.3, Phase 6 (문서 동기화) SKIP 예정** |
-| Apidog MCP | `.mcp.json` 내 `apidog` 키 존재 | **Phase 6 (Apidog 동기화) SKIP 예정** |
-| PostgreSQL MCP | `.mcp.json` 내 `postgres` 키 존재 | **Phase 5.3 (e2e-test-loop) 부분 SKIP 예정** — DB 시드/정리 경로 제한 |
+| Apidog MCP 연결 | `mcp__apidog__read_project_oas_*` 호출 가능 여부 | **Phase 6 (Apidog 동기화) SKIP 예정** |
+| PostgreSQL MCP 연결 | PostgreSQL MCP로 `SELECT 1` 실행 | **Phase 5.3 (e2e-test-loop) 부분 SKIP 예정** — DB 시드/정리 경로 제한 |
+
+**MCP 판정 원칙**: `.mcp.json`은 설정 안내용 fallback으로만 확인한다. OpenCode 등 클라이언트별 MCP 설정 위치가 다를 수 있으므로 실제 MCP tool 호출이 성공하면 OK로 판정한다.
 
 **처리 규칙**:
 - 모두 OK → 점검 결과 한 줄 요약 후 다음 단계 진행

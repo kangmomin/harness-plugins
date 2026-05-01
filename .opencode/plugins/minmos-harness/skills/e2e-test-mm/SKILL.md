@@ -32,11 +32,11 @@ user-invocable: true
 
 `$ARGUMENTS`가 `--init`이면 아래 절차를 실행하고 종료한다:
 
-1. **Apidog MCP 확인**: `.mcp.json`에 `apidog` MCP 등록 여부 확인.
-   - 없으면 `/minmos-harness:apidog-schema-gen-mm --init`과 동일한 Apidog 세팅을 안내한다.
-2. **PostgreSQL MCP 확인**: `.mcp.json`에 `postgres` MCP 등록 여부 확인.
-   - 없으면 안내:
-     > "PostgreSQL MCP 서버가 설정되어 있지 않습니다. `.mcp.json`에 아래 설정을 추가하세요:"
+1. **Apidog MCP 연결 확인**: `mcp__apidog__read_project_oas_*` 호출 가능 여부와 응답을 확인한다.
+   - 연결할 수 없으면 `/minmos-harness:apidog-schema-gen-mm --init`과 동일한 Apidog 세팅을 안내한다.
+2. **PostgreSQL MCP 연결 확인**: PostgreSQL MCP로 `SELECT 1`을 실행한다.
+   - 연결할 수 없으면 안내:
+     > "PostgreSQL MCP 서버에 연결할 수 없습니다. 사용하는 MCP 클라이언트 설정에 아래 서버를 등록하세요. Claude/Codex는 `.mcp.json`, OpenCode는 사용하는 MCP 설정 위치에 등록합니다:"
      > ```json
      > {
      >   "mcpServers": {
@@ -48,7 +48,7 @@ user-invocable: true
      > }
      > ```
    - `secret/.env`에서 DB 접속 정보를 읽어 DATABASE_URL을 자동 구성할 수 있으면 제안한다.
-   - 유저 동의 시 `.mcp.json`에 자동 추가한다.
+   - `.mcp.json`을 쓰는 환경이면 유저 동의 시 자동 추가한다. OpenCode처럼 별도 MCP 설정을 쓰는 환경이면 해당 설정 위치에 등록하도록 안내한다.
 3. **DB 호스트 검증**: `secret/.env`의 `DB_HOST`가 로컬이 아닌 경우:
    - 사용자에게 해당 DB에서 E2E 테스트를 실행해도 되는지 확인한다.
    - 승인하면 `secret/.e2e-allowed-hosts`에 호스트를 등록한다.
@@ -88,14 +88,13 @@ user-invocable: true
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| Apidog MCP 등록 | OK / MISSING | .mcp.json 확인 |
-| Apidog MCP 응답 | OK / FAIL | OAS 읽기 시도 |
-| PostgreSQL MCP 등록 | OK / MISSING | .mcp.json 확인 |
-| PostgreSQL MCP 연결 | OK / FAIL | SELECT 1 시도 |
+| Apidog MCP 연결 | OK / MISSING / FAIL | 실제 MCP 호출 기준 |
+| Apidog MCP 응답 | OK / FAIL / SKIP | OAS 읽기 시도 |
+| PostgreSQL MCP 연결 | OK / MISSING / FAIL | `SELECT 1` 시도 |
 | secret/.env 존재 | OK / MISSING | JWT_SECRET, DB 접속 정보 |
 | Go 빌드 | OK / FAIL | go build 시도 |
 | DB 호스트 (로컬 전용) | OK / **BLOCKED** | DB_HOST가 localhost/127.0.0.1인지 확인 |
-| MCP DB 호스트 (로컬 전용) | OK / **BLOCKED** / SKIP | .mcp.json postgres URL 호스트 확인 |
+| MCP DB 호스트 (로컬 전용) | OK / **BLOCKED** / UNKNOWN / SKIP | PostgreSQL MCP `inet_server_addr()` 확인 |
 | grpcurl 설치 (선택) | OK / MISSING | grpcurl --version |
 | GRPC_PORT (선택) | OK / MISSING / SKIP | secret/.env 확인 |
 | gRPC Docker 연결 (선택) | OK / FAIL / SKIP | Docker 환경에서 `{service}-grpc.{service}.svc.cluster.local:9032` 접근 가능 여부 |
@@ -106,6 +105,8 @@ user-invocable: true
 
 - **BLOCKED** 항목이 하나라도 있으면 E2E 테스트를 실행할 수 없다고 경고하고, 해당 DB를 허용할지 사용자에게 질문한다. 승인하면 `secret/.e2e-allowed-hosts`에 등록한다.
 - 문제가 있으면 `--init`을 실행하라고 안내한다.
+
+**MCP 판정 원칙**: `.mcp.json` 없음만으로 MCP를 MISSING 처리하지 않는다. OpenCode 등 클라이언트별 MCP 설정 위치가 다를 수 있으므로, 실제 MCP tool 호출이 성공하면 설정 파일 위치와 무관하게 OK로 판정한다.
 
 ---
 
@@ -181,23 +182,22 @@ DB 호스트가 허용 목록(기본 + 화이트리스트)에 없으면:
 | # | 확인 항목 | 확인 방법 | 결과가 FAIL이면 반환 |
 |---|----------|----------|---------------------|
 | 1 | `secret/.env` 존재 | 파일 존재 확인 | `[SKIPPED:ENV_MISSING]` — secret/.env 없음. 서버 부팅 불가 |
-| 2 | `.mcp.json` 존재 | 파일 존재 확인 | `[SKIPPED:MCP_CONFIG_MISSING]` — .mcp.json 없음 |
-| 3 | PostgreSQL MCP 등록 | `.mcp.json` 내 `postgres` 키 | `[SKIPPED:POSTGRES_MCP_MISSING]` — DB 시드/정리 불가 |
-| 4 | DB 호스트 로컬 전용 | `DB_HOST` 및 MCP URL 호스트 | `[SKIPPED:REMOTE_DB_BLOCKED]` — 원격 DB (화이트리스트 승인 필요) |
-| 5 | Go 빌드 | `go build ./cmd/main.go` | `[FAIL:BUILD]` — 진행 불가, 빌드 에러 보고 |
+| 2 | PostgreSQL MCP 연결 | PostgreSQL MCP로 `SELECT 1` | `[SKIPPED:POSTGRES_MCP_UNAVAILABLE]` — DB 시드/정리 불가 |
+| 3 | DB 호스트 로컬 전용 | `DB_HOST` 및 PostgreSQL MCP `inet_server_addr()` | `[SKIPPED:REMOTE_DB_BLOCKED]` — 원격 DB (화이트리스트 승인 필요) |
+| 4 | Go 빌드 | `go build ./cmd/main.go` | `[FAIL:BUILD]` — 진행 불가, 빌드 에러 보고 |
 
 **처리 규칙**:
 - 모두 OK → 점검 결과 한 줄 요약 출력 후 Step 1로 진행
-- **#1~#3 중 하나라도 FAIL** → **즉시 SKIP 반환하고 종료**. 아래 형식으로 보고:
+- **#1~#2 중 하나라도 FAIL** → **즉시 SKIP 반환하고 종료**. 아래 형식으로 보고:
   ```
   ## E2E Test — SKIPPED
-  사유: [SKIPPED:ENV_MISSING / MCP_CONFIG_MISSING / POSTGRES_MCP_MISSING]
+  사유: [SKIPPED:ENV_MISSING / POSTGRES_MCP_UNAVAILABLE]
   누락 항목: {항목}
   복구 방법: `/minmos-harness:e2e-test-mm --init`
   ```
   이 경우 Step 1 이후를 실행하지 않는다. **테스트 실패 판정이 아니라 환경 미충족에 의한 SKIP이다.**
-- **#4 FAIL (원격 DB)** → 화이트리스트 승인 절차로 이동 (기존 "위반 시 처리" 규칙 재사용). 승인 없으면 `[SKIPPED:REMOTE_DB_BLOCKED]` 반환.
-- **#5 FAIL (빌드 실패)** → SKIP이 아닌 **FAIL**로 반환 (이건 코드 문제로 고쳐야 할 대상).
+- **#3 FAIL (원격 DB)** → 화이트리스트 승인 절차로 이동 (기존 "위반 시 처리" 규칙 재사용). 승인 없으면 `[SKIPPED:REMOTE_DB_BLOCKED]` 반환.
+- **#4 FAIL (빌드 실패)** → SKIP이 아닌 **FAIL**로 반환 (이건 코드 문제로 고쳐야 할 대상).
 - 선택 항목 (Apidog MCP, grpcurl, Dev PubSub CLI)은 probe에서 SKIP 트리거로 쓰지 않고, 해당 프로토콜 테스트 시작 시 개별 판정한다.
 - `--skip-doctor` / `-sd` 지정 시 → probe를 건너뛰고 바로 Step 1로 진행 (사용자 책임).
 
@@ -446,8 +446,11 @@ Agent tool:
 # 1. secret/.env에서 DB_HOST 추출
 DB_HOST=$(grep -E '^DB_HOST=' secret/.env | head -1 | cut -d'=' -f2 | tr -d '[:space:]"'"'"'')
 
-# 2. PostgreSQL MCP 서버의 연결 URL에서도 호스트 추출 (이중 검증)
-MCP_DB_HOST=$(grep -oP '(?<=@)[^:/]+' .mcp.json 2>/dev/null | head -1)
+# 2. PostgreSQL MCP 실제 연결에서도 호스트 확인 (이중 검증)
+# PostgreSQL MCP tool로 실행:
+# SELECT inet_server_addr()::text AS host, inet_server_port() AS port;
+# 결과 host를 MCP_DB_HOST로 기록한다. Unix socket/로컬 연결로 NULL이면 빈 값으로 둔다.
+MCP_DB_HOST="<postgresql-mcp-inet-server-addr-result>"
 
 # 3. 사용자 승인 화이트리스트 로드
 ALLOWED_HOSTS="localhost 127.0.0.1 0.0.0.0 host.docker.internal"
@@ -466,10 +469,11 @@ echo "Allowed hosts:     ${ALLOWED_HOSTS}"
 | 값 | 허용 | 차단 |
 |----|------|------|
 | `DB_HOST` | 기본 허용 목록 + `secret/.e2e-allowed-hosts` + 빈 값(기본=localhost) | 그 외 모든 값 |
-| `MCP_DB_HOST` | 위와 동일 | 그 외 모든 값 |
+| `MCP_DB_HOST` | 위와 동일 + 빈 값(Unix socket/로컬 연결) | 그 외 모든 값 |
 
 - 하나라도 허용 목록에 없으면 **즉시 중단**하고 "위반 시 처리" 절차(승인 요청)를 실행한다.
-- `.mcp.json`이 없거나 postgres MCP가 미등록이면 MCP 검증은 건너뛴다 (MCP 없이 curl만으로 테스트하는 경우).
+- PostgreSQL MCP에 연결할 수 없으면 테스트 데이터 생성/정리를 할 수 없으므로 `[SKIPPED:POSTGRES_MCP_UNAVAILABLE]`로 종료한다.
+- MCP host 쿼리가 지원되지 않아 호스트를 확인할 수 없으면 `UNKNOWN`으로 보고하고, 사용자 승인을 받아 `secret/.e2e-allowed-hosts`에 기록하기 전까지 쓰기 SQL을 실행하지 않는다.
 - **이 게이트를 우회하는 어떤 논리("읽기만 하겠다", "테스트 데이터만 건드리겠다" 등)도 허용하지 않는다. 반드시 사용자 승인을 거쳐 화이트리스트에 등록해야 한다.**
 
 #### 4-1. 환경 파일 및 서버 준비

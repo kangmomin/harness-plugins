@@ -33,12 +33,15 @@ description: "minmos-harness 플러그인의 모든 사전 세팅을 한 번에 
 
 먼저 모든 항목의 현재 상태를 조용히 점검한다:
 
-- `.mcp.json` 읽기 → Apidog MCP, PostgreSQL MCP 등록 여부
+- 실제 MCP 연결 probe 실행 → Apidog MCP OAS 읽기, PostgreSQL MCP `SELECT 1`
+- MCP tool 호출이 불가할 때만 `.mcp.json` 등 현재 클라이언트의 설정 파일을 참고하여 설정 안내
 - 환경 변수 확인 → `APIDOG_ACCESS_TOKEN`, `APIDOG_PROJECT_ID`
 - `secret/.env` 존재 여부 → DB 접속 정보 추출 가능 여부
 - db-tools 플러그인 설치 여부
 - `.convention-check.json` 존재 여부
 - `dev-pubsub-cli` 설치 여부 → `which dev-pubsub-cli` 또는 `uv tool list` 확인
+
+**MCP 판정 원칙**: `.mcp.json` 없음만으로 MISSING 처리하지 않는다. OpenCode 등 클라이언트별 MCP 설정 위치가 다를 수 있으므로, 실제 MCP tool 호출이 성공하면 설정 파일 위치와 무관하게 OK로 본다.
 
 ### Step 2: 상태 요약 보고
 
@@ -79,10 +82,10 @@ description: "minmos-harness 플러그인의 모든 사전 세팅을 한 번에 
 
 | # | 항목 | 가이드 요약 |
 |---|------|-----------|
-| 1 | Apidog MCP | Apidog 프로젝트 ID를 `.mcp.json`에 등록. ID는 Apidog 프로젝트 Settings에서 확인 |
+| 1 | Apidog MCP | Apidog 프로젝트 ID로 현재 MCP 클라이언트에 등록. Claude/Codex는 `.mcp.json`, OpenCode는 사용하는 MCP 설정 위치에 등록 |
 | 2 | APIDOG_ACCESS_TOKEN | Apidog → Settings → API Access Token에서 생성 후 `export` |
 | 3 | APIDOG_PROJECT_ID | Apidog 프로젝트 URL에서 확인 후 `export` |
-| 4 | PostgreSQL MCP | DATABASE_URL을 `.mcp.json`에 등록. `secret/.env`에서 자동 추출 가능 |
+| 4 | PostgreSQL MCP | DATABASE_URL을 현재 MCP 클라이언트에 등록. `secret/.env`에서 자동 추출 가능 |
 | 5 | secret/.env | 프로젝트 담당자에게 요청하거나 `secret/.env.example`에서 복사 |
 | 6 | db-tools 플러그인 | `/plugin marketplace add postmath-plugins/db-tools` 실행 |
 | 7 | 컨벤션 설정 | 적용할 컨벤션을 선택하여 `.convention-check.json` 생성 |
@@ -97,7 +100,8 @@ description: "minmos-harness 플러그인의 모든 사전 세팅을 한 번에 
 
 > "Apidog MCP를 설정합니다. Apidog 프로젝트 ID를 알려주세요:"
 
-- 유저 입력을 받아 `.mcp.json`에 추가:
+- 현재 클라이언트의 MCP 설정 방식에 맞게 등록한다.
+- Claude/Codex처럼 `.mcp.json`을 쓰는 환경이면 유저 입력을 받아 아래 설정을 추가한다:
   ```json
   {
     "mcpServers": {
@@ -108,7 +112,8 @@ description: "minmos-harness 플러그인의 모든 사전 세팅을 한 번에 
     }
   }
   ```
-- `.mcp.json`이 없으면 새로 생성, 있으면 기존 내용에 병합
+- `.mcp.json`이 없으면 새로 생성, 있으면 기존 내용에 병합한다.
+- OpenCode처럼 별도 MCP 설정을 쓰는 환경이면 `.mcp.json` 자동 추가 대신 해당 클라이언트의 MCP 설정 위치에 같은 command/args를 등록하도록 안내한다.
 
 #### 3.2 Apidog 환경 변수 (UNSET인 경우)
 
@@ -131,7 +136,7 @@ description: "minmos-harness 플러그인의 모든 사전 세팅을 한 번에 
    > 이 정보로 PostgreSQL MCP를 설정할까요?"
 2. `secret/.env`가 없으면 직접 입력을 요청:
    > "DATABASE_URL을 입력해주세요 (예: `postgres://user:pass@localhost:5432/dbname`):"
-3. `.mcp.json`에 추가:
+3. 현재 클라이언트의 MCP 설정 방식에 맞게 추가한다. `.mcp.json`을 쓰는 환경이면 아래 설정을 추가한다:
    ```json
    {
      "mcpServers": {
@@ -142,6 +147,7 @@ description: "minmos-harness 플러그인의 모든 사전 세팅을 한 번에 
      }
    }
    ```
+   OpenCode처럼 별도 MCP 설정을 쓰는 환경이면 `.mcp.json` 자동 추가 대신 해당 클라이언트의 MCP 설정 위치에 같은 command/args를 등록하도록 안내한다.
 
 #### 3.4 db-tools 플러그인 (MISSING인 경우)
 
