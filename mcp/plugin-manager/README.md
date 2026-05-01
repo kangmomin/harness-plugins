@@ -32,12 +32,14 @@ The server uses stdio transport and exposes these MCP tools:
 - `sync_to_opencode`
 - `sync_to_codex`
 
+For OpenCode, set `OPENCODE_CONFIG_ROOT` to the OpenCode config directory if you do not want the default `~/.config/opencode`.
+
 ## OpenCode layout
 
-`sync_to_opencode` writes repo-local plugins to:
+`sync_to_opencode` writes global OpenCode plugins to `~/.config/opencode` by default:
 
 ```text
-<harness-plugins>/.opencode/
+~/.config/opencode/
 ├── commands/<skill-name>.md
 ├── skills/<skill-name>/SKILL.md
 └── plugins/<plugin-name>/

@@ -49,6 +49,7 @@ Runs the plugin manager MCP server over stdio.
 
 Environment:
   HARNESS_PLUGINS_ROOT  Path to the harness-plugins repository.
+  OPENCODE_CONFIG_ROOT  OpenCode config root. Defaults to ~/.config/opencode.
   PLUGIN_MANAGER_DISABLE_UPDATE_CHECK=1 disables hourly npm update checks.
 
 Examples:

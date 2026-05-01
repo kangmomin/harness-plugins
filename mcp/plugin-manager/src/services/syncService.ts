@@ -26,6 +26,7 @@ export class SyncService {
   constructor(
     private readonly fs: FileSystem,
     private readonly repoRoot: string,
+    private readonly openCodeRoot: string,
     private readonly logger: OperationLogger
   ) {}
 
@@ -36,7 +37,7 @@ export class SyncService {
     const overwrite = options.overwrite ?? false;
 
     assertInsideRoot(this.repoRoot, source);
-    assertInsideRoot(this.repoRoot, destination);
+    this.assertInsideManagedRoot(destination, target);
 
     const syncPlan = await this.planSync(plugin.name, source, destination, target, overwrite);
     const changes = syncPlan.changes;
@@ -110,7 +111,7 @@ export class SyncService {
       return path.join(this.repoRoot, ".claude-plugin", "plugins", pluginName);
     }
     if (target === "opencode") {
-      return path.join(this.repoRoot, ".opencode", "plugins", pluginName);
+      return path.join(this.openCodeRoot, "plugins", pluginName);
     }
     return path.join(this.repoRoot, ".agents", "plugins", "installed", pluginName);
   }
@@ -119,9 +120,9 @@ export class SyncService {
     if (target !== "opencode") {
       return this.fs.exists(this.destinationFor(pluginName, target));
     }
-    return (await this.fs.exists(path.join(this.repoRoot, ".opencode", "plugins", pluginName))) &&
-      (await this.fs.exists(path.join(this.repoRoot, ".opencode", "skills"))) &&
-      (await this.fs.exists(path.join(this.repoRoot, ".opencode", "commands")));
+    return (await this.fs.exists(path.join(this.openCodeRoot, "plugins", pluginName))) &&
+      (await this.fs.exists(path.join(this.openCodeRoot, "skills"))) &&
+      (await this.fs.exists(path.join(this.openCodeRoot, "commands")));
   }
 
   private async planSync(
@@ -149,12 +150,12 @@ export class SyncService {
 
     for (const entry of sourceEntries) {
       const to = path.join(destination, entry.relativePath);
-      assertInsideRoot(this.repoRoot, to);
+      this.assertInsideManagedRoot(to, target);
       changes.push(await this.planEntryWrite(entry, to));
 
       if (target === "opencode" && entry.adapterPath) {
-        const adapterTo = path.join(this.repoRoot, entry.adapterPath);
-        assertInsideRoot(this.repoRoot, adapterTo);
+        const adapterTo = this.openCodeAdapterDestination(entry.adapterPath);
+        assertInsideRoot(this.openCodeRoot, adapterTo);
         changes.push(await this.planAdapterWrite(entry, adapterTo));
       }
     }
@@ -352,7 +353,7 @@ export class SyncService {
       });
       if (entry.adapterPath) {
         destinations.push({
-          absolutePath: path.join(this.repoRoot, entry.adapterPath),
+          absolutePath: this.openCodeAdapterDestination(entry.adapterPath),
           relativePath: entry.adapterPath
         });
       }
@@ -416,6 +417,19 @@ export class SyncService {
       }
     };
     await this.fs.writeJson(cachePath, nextCache);
+  }
+
+  private openCodeAdapterDestination(adapterPath: string): string {
+    const prefix = `.opencode${path.sep}`;
+    const normalized = path.normalize(adapterPath);
+    const relativePath = normalized.startsWith(prefix) ? normalized.slice(prefix.length) : normalized;
+    const destination = path.join(this.openCodeRoot, relativePath);
+    assertInsideRoot(this.openCodeRoot, destination);
+    return destination;
+  }
+
+  private assertInsideManagedRoot(candidate: string, target: Target): void {
+    assertInsideRoot(target === "opencode" ? this.openCodeRoot : this.repoRoot, candidate);
   }
 }
 

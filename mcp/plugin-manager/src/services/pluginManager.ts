@@ -1,3 +1,4 @@
+import os from "node:os";
 import path from "node:path";
 import { FileSystem } from "../utils/fileSystem.js";
 import { GitService } from "./gitService.js";
@@ -98,10 +99,11 @@ export class PluginManager {
 export async function createPluginManager(configuredRoot?: string): Promise<PluginManager> {
   const fs = new FileSystem();
   const repoRoot = await discoverRepoRoot(fs, configuredRoot);
+  const openCodeRoot = path.resolve(process.env.OPENCODE_CONFIG_ROOT ?? path.join(os.homedir(), ".config", "opencode"));
   const logger = new OperationLogger(fs, path.join(repoRoot, ".plugin-manager-mcp", "operations.log"));
   const marketplace = new MarketplaceService(fs, repoRoot);
   const git = new GitService(repoRoot);
-  const sync = new SyncService(fs, repoRoot, logger);
+  const sync = new SyncService(fs, repoRoot, openCodeRoot, logger);
   return new PluginManager(repoRoot, marketplace, git, sync, logger);
 }
 
