@@ -62,6 +62,7 @@ user-invocable: true
   ```
 ### 4. 커밋 및 PR 운영 지침
 - **커밋 메시지 형식**: [Prefix]: 간략한 설명
+- **작성 언어**: Prefix는 영문으로 유지하고, 설명/본문은 기본적으로 한국어로 작성
 - **Prefix**: Add, Fix, Del, Refactor, Doc, Test, Chore, WIP
 - **PR 제목**: [commit-prefix]: 작업내용
 

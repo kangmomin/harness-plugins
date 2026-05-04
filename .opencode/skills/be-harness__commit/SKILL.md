@@ -42,7 +42,7 @@ user-invocable: true
 
      - 컨벤션에 맞는 커밋 메시지 작성
 
-     - `git commit -m "type: 설명"`
+     - `git commit -m "Prefix: 한국어 설명"`
 
 4. **커밋 완료 확인**
 
@@ -51,6 +51,10 @@ user-invocable: true
    - `git status`로 남은 변경사항 확인
 
 ### 커밋 메시지 컨벤션
+
+- 커밋 메시지의 설명과 본문은 기본적으로 한국어로 작성합니다.
+- Prefix는 기존 영문 Prefix를 유지합니다.
+
 #### 1. 기본 형식
     [Prefix]: 간략한 설명 
 #### 2. 예시

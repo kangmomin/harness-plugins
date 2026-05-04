@@ -188,7 +188,7 @@ append 규칙:
 
 ```bash
 git add fe-harness/community-feedback/
-git commit -m "Add: fe-harness community-feedback — {요약}"
+git commit -m "Add: fe-harness 커뮤니티 피드백 추가: {요약}"
 ```
 
 ### Step 5: push + PR 생성

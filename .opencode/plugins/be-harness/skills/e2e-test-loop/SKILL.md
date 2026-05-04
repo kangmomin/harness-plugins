@@ -46,7 +46,7 @@ for iteration in 1..5:
         - 수정 후 "수정: N건, 파일: [목록]" 형식으로 보고.
   commit:
     git add [수정 파일]
-    git commit -m "Fix: E2E 실패 수정 (iteration {iteration})"
+    git commit -m "Fix: E2E 실패 수정 (반복 {iteration})"
 ```
 
 ## 종료 조건

@@ -32,6 +32,8 @@ API 변경 작업인 경우, Apidog 스키마를 동기화한다.
 
 ### 커밋
 
+커밋 메시지의 설명과 본문은 기본적으로 한국어로 작성하고, Prefix는 영문으로 유지한다.
+
 ```bash
 git add [변경 파일]
 git commit -m "$(cat <<'EOF'
