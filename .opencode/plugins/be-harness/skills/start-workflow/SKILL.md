@@ -679,7 +679,7 @@ Agent tool:  (× 슬라이스 수)
 
 ```bash
 git add [전체 변경 파일]
-git commit -m "Add: [작업 요약] (parallel-slices 구현)"
+git commit -m "Add: [작업 요약] (병렬 슬라이스 구현)"
 ```
 
 (profile의 `commitCoAuthor` 가 비어있지 않으면 `Co-Authored-By` 라인을 본문에 추가한다)
@@ -712,7 +712,7 @@ profile의 `{buildCommand}` 가 비어있지 않으면:
   수정 후 커밋:
   ```bash
   git add [수정 파일들]
-  git commit -m "Fix: 빌드 에러 수정 (Phase 4.5)"
+  git commit -m "Fix: 빌드 에러 수정 (단계 4.5)"
   ```
   빌드 재시도 → 성공하면 Phase 5로 진행. **최대 3회 시도** 후에도 실패하면 유저에게 보고하고 중단.
 
@@ -848,7 +848,7 @@ profile의 `{makeTestCommand}` 가 비어있지 않으면 Bash로 직접 실행:
 커밋:
 ```bash
 git add [수정 파일들]
-git commit -m "Fix: 품질 루프 수정 (iteration N)"
+git commit -m "Fix: 품질 루프 수정 (반복 N)"
 ```
 
 완료 후: "Phase 5 완료: [루프 횟수]회, 총 [수정 건수]건 수정"

@@ -50,6 +50,60 @@ user-invocable: true
 
 유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
 
+## Phase Agent Assignment / State Tracking
+
+워크플로우 시작 시 `/tmp/workflow-state.md`를 새로 만들고, Phase 진입/완료 때마다 갱신한다.
+오케스트레이터도 Phase owner agent로 간주해 상태 파일에 기록한다.
+
+상태 파일은 항상 아래 섹션을 포함한다:
+
+```markdown
+## Current Phase
+[현재 Phase, 담당 agent, model, effort]
+
+## Phase Assignments
+| Phase | Agent | Model | Effort | Status |
+|-------|-------|-------|--------|--------|
+
+## Remaining Phases
+[아직 남은 Phase 목록]
+
+## Phase Results
+[완료된 Phase 결과를 append]
+```
+
+에이전트를 생성하기 전에는 해당 Phase를 `IN_PROGRESS`로 갱신하고, 완료 후 `DONE/SKIPPED/BLOCKED`와 결과를 기록한다.
+모든 에이전트 프롬프트에는 상태 파일 경로, 현재 Phase, 남은 Phase, 배정된 model/effort를 포함한다.
+
+### Model / Effort 선택 규칙
+
+Agent 생성 시 작업 복잡도, 난이도, 작업량에 맞춰 `model`과 `effort` 또는 `reasoning_effort`를 명시한다.
+환경별 모델명이 다르면 같은 등급의 사용 가능한 최신 모델로 치환한다.
+
+| 등급 | 기준 | Claude 계열 | Codex 계열 | effort |
+|------|------|-------------|------------|--------|
+| Simple | 난이도 1-3, 1-3개 파일, 문서/단순 UI 수정 | sonnet | gpt-5.3-codex-spark | low |
+| Standard | 난이도 4-6, 일반 컴포넌트/API 연동/테스트 수정 | sonnet | gpt-5.3-codex | medium |
+| Complex | 난이도 7-8, 다중 화면/상태/API/a11y 영향 | opus | gpt-5.4 | high |
+| Critical | 난이도 9-10, 대규모 리팩토링/복잡 상태/릴리즈 위험 | opus | gpt-5.5 | xhigh |
+
+읽기 전용 리뷰는 기본 `Standard`로 시작하되, 접근성/상태 정합성/계약 변경 검토는 `Complex` 이상으로 올린다.
+코드 수정 에이전트는 담당 파일 수와 실패 반복 횟수에 따라 한 단계 높일 수 있다.
+
+### Build Mode 기본 Phase 할당
+
+| Phase | 담당 agent | 기본 model/effort |
+|-------|------------|-------------------|
+| 0-3 | orchestrator + review agents | 난이도 기준 |
+| 3.5 | orchestrator | 현재 세션 설정 |
+| 4 | workflow-implementer | 난이도 기준 |
+| 4.5 | orchestrator build/typecheck, 실패 시 build-fix agent | Standard, 반복 실패 시 Complex |
+| 5 | simplify/convention/test/scope/lint agents | Standard, 결함 심각도에 따라 Complex |
+| 6 | component-reviewer + a11y-reviewer | Standard/Complex |
+| 7 | workflow-pr 또는 hard push | Simple/Standard |
+| 8 | workflow-reflection | Standard |
+| 9 | orchestrator | 현재 세션 설정 |
+
 ## 자율 실행 규칙
 
 - Phase 0~3: 유저와 대화하며 Spec 확인, Plan 리뷰 피드백 반영
@@ -140,8 +194,13 @@ Batch 2 (병렬): 상태 정합성 + 접근성 + 기존 코드 영향
 각 에이전트(subagent_type: `general-purpose`) 프롬프트:
 
 ```
+model: [Plan 난이도 기준 선택]
+effort: [Plan 난이도 기준 선택]
+
 당신은 [관점명] 리뷰어입니다.
 아래 Plan을 [관점] 관점에서만 리뷰하세요.
+상태 파일 `/tmp/workflow-state.md`의 Phase 3 상태와 남은 Phase를 참고하세요.
+배정 model/effort: {model}/{effort}
 
 ## Technical Spec
 [Spec 전문]
@@ -200,6 +259,34 @@ Write tool로 `/tmp/workflow-state.md`를 생성한다:
 ## Difficulty
 [N]/10
 
+## Current Phase
+Phase 3.5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effort: 현재 세션)
+
+## Phase Assignments
+| Phase | Agent | Model | Effort | Status |
+|-------|-------|-------|--------|--------|
+| 0 | orchestrator/request | 현재 세션 | 현재 세션 | DONE |
+| 1 | orchestrator | 현재 세션 | 현재 세션 | DONE |
+| 2 | orchestrator | 현재 세션 | 현재 세션 | DONE |
+| 3 | review agents + orchestrator | 난이도 기준 | 난이도 기준 | DONE |
+| 3.5 | orchestrator | 현재 세션 | 현재 세션 | IN_PROGRESS |
+| 4 | workflow-implementer | 난이도 기준 | 난이도 기준 | PENDING |
+| 4.5 | orchestrator/build-fix agent | 난이도 기준 | 난이도 기준 | PENDING |
+| 5 | quality agents | 난이도 기준 | 난이도 기준 | PENDING |
+| 6 | component-reviewer/a11y-reviewer | 난이도 기준 | 난이도 기준 | PENDING |
+| 7 | workflow-pr/hard push | 난이도 기준 | 난이도 기준 | PENDING |
+| 8 | workflow-reflection | 난이도 기준 | 난이도 기준 | PENDING |
+| 9 | orchestrator | 현재 세션 | 현재 세션 | PENDING |
+
+## Remaining Phases
+- Phase 4: 구현
+- Phase 4.5: 빌드/타입 체크
+- Phase 5: 품질 루프
+- Phase 6: 컴포넌트/접근성 리뷰
+- Phase 7: PR / Push
+- Phase 8: 성찰
+- Phase 9: 최종 보고
+
 ## Edge Cases
 [엣지 케이스 목록]
 
@@ -208,6 +295,9 @@ Write tool로 `/tmp/workflow-state.md`를 생성한다:
 
 ## Config
 [.claude/fe-harness.local.md 주요 설정]
+
+## Phase Results
+[Phase 완료 시 결과 append]
 ```
 
 출력: **"자율 실행을 시작합니다. Phase 4~8을 서브 에이전트로 순차 실행합니다."**
@@ -217,15 +307,22 @@ Write tool로 `/tmp/workflow-state.md`를 생성한다:
 ## Phase 4~8: 서브 에이전트 순차 실행
 
 **각 Phase를 전용 서브 에이전트에 위임한다.**
+각 Phase 시작 직전 `/tmp/workflow-state.md`의 `Current Phase`, `Phase Assignments.Status`, `Remaining Phases`를 갱신한다.
+Agent tool 호출에는 선택된 `model`과 `effort`를 함께 지정한다.
 
 ### Phase 4: 구현
 
 ```
 Agent tool:
   subagent_type: fe-harness:workflow-implementer
+  model: [난이도 기준 선택]
+  effort: [난이도 기준 선택]
   prompt: |
     상태 파일 `/tmp/workflow-state.md`를 읽고 Plan에 따라 코드를 구현하세요.
     프로젝트 루트: {현재 작업 디렉토리}
+    현재 Phase: Phase 4
+    남은 Phase: Phase 4.5, 5, 6, 7, 8, 9
+    배정 model/effort: {model}/{effort}
     
     [Assumption 규칙]
     Spec에 명시되지 않은 동작 변경을 수행한 경우,
@@ -257,15 +354,20 @@ profile(`.claude/fe-harness.local.md`)의 명령을 사용:
   ```
   Agent tool:
     subagent_type: general-purpose
+    model: [빌드 실패 심각도 기준 선택]
+    effort: [빌드 실패 심각도 기준 선택]
     prompt: |
       프로젝트 루트 {CWD}에서 `{buildCommand}` / `{typeCheckCommand}` 에러를 수정하세요.
+      상태 파일 `/tmp/workflow-state.md`를 읽고 Phase 4.5 상태를 갱신하세요.
+      남은 Phase: Phase 5, 6, 7, 8, 9
+      배정 model/effort: {model}/{effort}
       에러 메시지: {빌드 에러 출력}
       수정 후 빌드가 성공하는지 확인하세요.
   ```
   수정 후 커밋:
   ```bash
   git add [수정 파일들]
-  git commit -m "Fix: 빌드 에러 수정 (Phase 4.5)"
+  git commit -m "Fix: 빌드 에러 수정 (단계 4.5)"
   ```
   빌드 재시도 → 성공하면 Phase 5로 진행. **최대 3회 시도** 후에도 실패하면 유저에게 보고하고 중단.
 
@@ -301,8 +403,12 @@ Bash로 직접 실행. profile의 명령을 사용:
 ```
 Agent tool:
   subagent_type: general-purpose
+  model: [품질 수정 범위 기준 선택]
+  effort: [품질 수정 범위 기준 선택]
   prompt: |
     프로젝트 루트 {CWD}에서 Skill tool로 /fe-harness:simplify-loop 를 실행하세요.
+    상태 파일 `/tmp/workflow-state.md`를 읽고 Phase 5.1 상태를 갱신하세요.
+    배정 model/effort: {model}/{effort}
     완료 후 "수정: Y/N, N건" 형식으로 보고하세요.
 ```
 
@@ -311,8 +417,12 @@ Agent tool:
 ```
 Agent tool:
   subagent_type: general-purpose
+  model: [품질 수정 범위 기준 선택]
+  effort: [품질 수정 범위 기준 선택]
   prompt: |
     프로젝트 루트 {CWD}에서 Skill tool로 /fe-harness:convention-check 를 실행하세요.
+    상태 파일 `/tmp/workflow-state.md`를 읽고 Phase 5.2 상태를 갱신하세요.
+    배정 model/effort: {model}/{effort}
     위반 사항이 있으면 수정하세요.
     완료 후 "위반: N건, 수정: Y/N" 형식으로 보고하세요.
 ```
@@ -322,8 +432,12 @@ Agent tool:
 ```
 Agent tool:
   subagent_type: general-purpose
+  model: [테스트 실패 심각도 기준 선택]
+  effort: [테스트 실패 심각도 기준 선택]
   prompt: |
     프로젝트 루트 {CWD}에서 Skill tool로 /fe-harness:test-loop 를 실행하세요.
+    상태 파일 `/tmp/workflow-state.md`를 읽고 Phase 5.3 상태를 갱신하세요.
+    배정 model/effort: {model}/{effort}
     완료 후 "이슈: N건, 수정: Y/N" 형식으로 보고하세요.
 ```
 
@@ -332,10 +446,15 @@ Agent tool:
 ```
 Agent tool:
   subagent_type: fe-harness:scope-reviewer
+  model: [리뷰 범위 기준 선택]
+  effort: [리뷰 범위 기준 선택]
   prompt: |
     상태 파일 `/tmp/workflow-state.md`의 Technical Spec을 기준으로
     현재 구현된 코드를 검증하세요.
     프로젝트 루트: {CWD}
+    현재 Phase: Phase 5.4
+    남은 Phase: Phase 5.5, 6, 7, 8, 9
+    배정 model/effort: {model}/{effort}
 ```
 
 #### 5.5 Lint Check
@@ -343,8 +462,12 @@ Agent tool:
 ```
 Agent tool:
   subagent_type: general-purpose
+  model: [lint 이슈 심각도 기준 선택]
+  effort: [lint 이슈 심각도 기준 선택]
   prompt: |
     프로젝트 루트 {CWD}에서 Skill tool로 /fe-harness:lint-check 를 실행하세요.
+    상태 파일 `/tmp/workflow-state.md`를 읽고 Phase 5.5 상태를 갱신하세요.
+    배정 model/effort: {model}/{effort}
     이슈가 있으면 수정하세요.
     완료 후 "이슈: N건, 수정: Y/N" 형식으로 보고하세요.
 ```
@@ -364,15 +487,23 @@ Agent tool:
 ```
 Agent tool (병렬 1):
   subagent_type: fe-harness:component-reviewer
+  model: [컴포넌트 변경량 기준 선택]
+  effort: [컴포넌트 변경량 기준 선택]
   prompt: |
     변경된 파일: [git diff --name-only의 .tsx 파일 목록]
     프로젝트 루트: {CWD}
+    상태 파일 `/tmp/workflow-state.md`를 읽고 Phase 6 component review 상태를 갱신하세요.
+    배정 model/effort: {model}/{effort}
 
 Agent tool (병렬 2):
   subagent_type: fe-harness:a11y-reviewer
+  model: [접근성 영향 기준 선택]
+  effort: [접근성 영향 기준 선택]
   prompt: |
     변경된 파일: [git diff --name-only의 .tsx 파일 목록]
     프로젝트 루트: {CWD}
+    상태 파일 `/tmp/workflow-state.md`를 읽고 Phase 6 a11y review 상태를 갱신하세요.
+    배정 model/effort: {model}/{effort}
 ```
 
 Critical 이슈가 있으면 general-purpose 에이전트로 수정을 위임한다.
@@ -383,9 +514,14 @@ Critical 이슈가 있으면 general-purpose 에이전트로 수정을 위임한
   ```
   Agent tool:
     subagent_type: fe-harness:workflow-pr
+    model: [PR 복잡도 기준 선택]
+    effort: [PR 복잡도 기준 선택]
     prompt: |
       상태 파일 `/tmp/workflow-state.md`를 읽고 PR을 생성하세요.
       프로젝트 루트: {현재 작업 디렉토리}
+      현재 Phase: Phase 7
+      남은 Phase: Phase 8, 9
+      배정 model/effort: {model}/{effort}
       PR URL을 반드시 보고하세요.
   ```
 
@@ -401,9 +537,14 @@ Critical 이슈가 있으면 general-purpose 에이전트로 수정을 위임한
 ```
 Agent tool:
   subagent_type: fe-harness:workflow-reflection
+  model: [워크플로우 변경량 기준 선택]
+  effort: [워크플로우 변경량 기준 선택]
   prompt: |
     상태 파일 `/tmp/workflow-state.md`를 읽고 워크플로우 성찰을 수행하세요.
     프로젝트 루트: {현재 작업 디렉토리}
+    현재 Phase: Phase 8
+    남은 Phase: Phase 9
+    배정 model/effort: {model}/{effort}
     성찰 결과와 스킬 보완점을 보고하세요.
 ```
 
@@ -507,7 +648,8 @@ updated: {YYYY-MM-DD}
 
 ### 정리
 
-상태 파일을 삭제한다:
+`/tmp/workflow-state.md`의 모든 Phase를 `DONE/SKIPPED`으로 갱신하고 `Remaining Phases`를 `없음`으로 기록한다.
+기본은 상태 파일을 보관한다. 사용자가 정리를 요청했거나 보관이 필요 없을 때만 삭제한다:
 
 ```bash
 rm -f /tmp/workflow-state.md

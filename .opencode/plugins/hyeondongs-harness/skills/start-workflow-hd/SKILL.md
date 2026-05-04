@@ -258,7 +258,7 @@ npx tsc --noEmit 2>&1
   수정 후 커밋:
   ```bash
   git add [수정 파일들]
-  git commit -m "Fix: 빌드 에러 수정 (Phase 4.5)"
+  git commit -m "Fix: 빌드 에러 수정 (단계 4.5)"
   ```
   빌드 재시도 → 성공하면 Phase 5로 진행. **최대 3회 시도** 후에도 실패하면 유저에게 보고하고 중단.
 

@@ -71,6 +71,46 @@ argument-hint: <작업 설명 또는 빈 값>
 | 7 | 오케스트레이터 + PR 스킬 | 최종 커밋/PR |
 | 8 | `workflow-reflection` | 회고 및 정리 |
 
+## Phase Agent Assignment / State Tracking
+
+워크플로우 시작 시 `/tmp/fullstack-workflow-state.md`를 새로 만들고, Phase 진입/완료 때마다 갱신한다.
+오케스트레이터도 Phase owner agent로 간주해 상태 파일에 기록한다.
+
+상태 파일은 항상 아래 섹션을 포함한다:
+
+```markdown
+## Current Phase
+[현재 Phase, 담당 agent, model, effort]
+
+## Phase Assignments
+| Phase | Agent | Model | Effort | Status |
+|-------|-------|-------|--------|--------|
+
+## Remaining Phases
+[아직 남은 Phase 목록]
+
+## Phase Results
+[완료된 Phase 결과를 append]
+```
+
+에이전트를 생성하기 전에는 해당 Phase를 `IN_PROGRESS`로 갱신하고, 완료 후 `DONE/SKIPPED/BLOCKED`와 결과를 기록한다.
+모든 에이전트 프롬프트에는 상태 파일 경로, 현재 Phase, 남은 Phase, 배정된 model/effort를 포함한다.
+
+### Model / Effort 선택 규칙
+
+Agent 생성 시 작업 복잡도, 난이도, 작업량에 맞춰 `model`과 `effort` 또는 `reasoning_effort`를 명시한다.
+환경별 모델명이 다르면 같은 등급의 사용 가능한 최신 모델로 치환한다.
+
+| 등급 | 기준 | Claude 계열 | Codex 계열 | effort |
+|------|------|-------------|------------|--------|
+| Simple | 단일 도메인에 가까운 보조 작업, 문서/단순 리뷰 | sonnet | gpt-5.3-codex-spark | low |
+| Standard | 일반 FE+BE 계약/구현/검증 | sonnet | gpt-5.3-codex | medium |
+| Complex | 다중 API, shared artifact, 상태/DB/권한 영향 | opus | gpt-5.4 | high |
+| Critical | 대규모 계약 변경, 보안/데이터 마이그레이션, 릴리즈 위험 | opus | gpt-5.5 | xhigh |
+
+FE/BE 구현 에이전트는 각 도메인의 작업량으로 등급을 따로 산정한다.
+통합 계약 리뷰와 Codex 품질 리뷰는 기본 `Complex` 이상으로 둔다.
+
 ## 자율 실행 규칙
 
 - Phase 0~3: 유저와 기능/계약/Plan을 합의한다.
@@ -263,6 +303,32 @@ git checkout -b feat/{작업-요약-kebab-case}
 ## Integration Contract
 [Phase 1 결과]
 
+## Current Phase
+Phase 3.5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effort: 현재 세션)
+
+## Phase Assignments
+| Phase | Agent | Model | Effort | Status |
+|-------|-------|-------|--------|--------|
+| 0 | orchestrator + request agents | 현재 세션 | 현재 세션 | DONE |
+| 0.5 | Codex reviewer | 계약 복잡도 기준 | 계약 복잡도 기준 | DONE/SKIPPED |
+| 1 | orchestrator | 현재 세션 | 현재 세션 | DONE |
+| 2 | contract review agents | 계약 복잡도 기준 | 계약 복잡도 기준 | DONE |
+| 3 | orchestrator + Codex reviewer | 계약 복잡도 기준 | 계약 복잡도 기준 | DONE |
+| 3.5 | orchestrator | 현재 세션 | 현재 세션 | IN_PROGRESS |
+| 4 | BE implementer + FE implementer | 도메인별 기준 | 도메인별 기준 | PENDING |
+| 5 | BE/FE quality agents + Codex reviewer | 도메인별 기준 | 도메인별 기준 | PENDING |
+| 6 | integration review agents | 계약 복잡도 기준 | 계약 복잡도 기준 | PENDING |
+| 7 | orchestrator + PR skill | PR 복잡도 기준 | PR 복잡도 기준 | PENDING |
+| 8 | workflow-reflection | 변경량 기준 | 변경량 기준 | PENDING |
+
+## Remaining Phases
+- Phase 4: 프론트/백엔드 병렬 구현
+- Phase 5: 도메인별 품질 루프
+- Phase 5.5: Codex 품질 리뷰
+- Phase 6: 통합 검증
+- Phase 7: 커밋/PR
+- Phase 8: 회고 + 정리
+
 ## Backend Plan
 [Phase 3.1]
 
@@ -274,6 +340,9 @@ git checkout -b feat/{작업-요약-kebab-case}
 
 ## Assumptions
 [없으면 "없음"]
+
+## Phase Results
+[Phase 완료 시 결과 append]
 ```
 
 ## Phase 4: 프론트/백엔드 병렬 구현
@@ -285,12 +354,14 @@ git checkout -b feat/{작업-요약-kebab-case}
 - 입력: 상태 파일 전체
 - 책임: 백엔드 Plan의 소유 파일만 수정
 - 금지: 프론트 파일 수정, 계약 외 필드 추가
+- 생성 시 백엔드 작업량에 맞는 model/effort를 명시하고 Phase 4 Backend 상태를 갱신
 
 ### 프론트엔드 구현 에이전트
 
 - 입력: 상태 파일 전체
 - 책임: 프론트엔드 Plan의 소유 파일만 수정
 - 금지: 백엔드 파일 수정, 계약 외 필드 가정
+- 생성 시 프론트엔드 작업량에 맞는 model/effort를 명시하고 Phase 4 Frontend 상태를 갱신
 
 두 에이전트 모두 보고해야 할 것:
 
@@ -302,6 +373,9 @@ git checkout -b feat/{작업-요약-kebab-case}
 구현 중 계약 변경이 필요하면 즉시 Phase 1로 돌아간다.
 
 ## Phase 5: 도메인별 품질 루프
+
+Phase 5 시작 전 `/tmp/fullstack-workflow-state.md`의 `Current Phase`, `Phase Assignments`, `Remaining Phases`를 갱신한다.
+각 도메인 루프에서 서브 에이전트를 생성할 때는 도메인별 실패 심각도에 맞는 `model`과 `effort`를 명시한다.
 
 ### 백엔드 루프
 
@@ -369,6 +443,9 @@ Codex가 사용 불가한 환경이면 Phase 8 최종 보고에 사유를 기록
 - UI 변경이 있으면 `component-reviewer`
 - 접근성 영향이 있으면 `a11y-reviewer`
 
+통합 검증 agent는 모두 `/tmp/fullstack-workflow-state.md`를 읽고 현재 Phase, 남은 Phase, 배정된 model/effort를 보고서에 기록한다.
+계약 불일치 가능성이 있으면 `Complex` 이상 model/effort로 생성한다.
+
 해결되지 않은 contract diff가 하나라도 남아 있으면 PR 단계로 가지 않는다.
 
 ## Phase 7: 커밋/PR
@@ -377,6 +454,7 @@ Codex가 사용 불가한 환경이면 Phase 8 최종 보고에 사유를 기록
 
 - 커밋은 프론트/백엔드 단위를 분리한다.
 - PR 생성은 현재 하네스의 PR 스킬을 사용한다.
+- PR/커밋 agent를 생성하는 경우 `/tmp/fullstack-workflow-state.md`를 읽고 Phase 7 상태를 갱신하며, PR 복잡도에 맞는 model/effort를 명시한다.
 - PR 본문은 아래 순서를 따른다:
 
 ```markdown
@@ -392,8 +470,9 @@ Codex가 사용 불가한 환경이면 Phase 8 최종 보고에 사유를 기록
 
 ## Phase 8: 회고 + 정리
 
-- `workflow-reflection`으로 회고를 남긴다.
-- 임시 상태 파일을 삭제한다.
+- `workflow-reflection`으로 회고를 남긴다. agent 생성 시 변경량에 맞는 model/effort를 명시하고 `/tmp/fullstack-workflow-state.md`의 Phase 8 상태를 갱신한다.
+- `/tmp/fullstack-workflow-state.md`의 모든 Phase를 `DONE/SKIPPED`으로 갱신하고 `Remaining Phases`를 `없음`으로 기록한다.
+- 기본은 상태 파일을 보관한다. 사용자가 정리를 요청했거나 보관이 필요 없을 때만 삭제한다.
 
 ```bash
 rm -f /tmp/fullstack-workflow-state.md

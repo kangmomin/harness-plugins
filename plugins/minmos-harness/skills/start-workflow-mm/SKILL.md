@@ -62,6 +62,60 @@ user-invocable: true
 
 유저와의 모든 대화는 **한국어**로 진행한다.
 
+## Phase Agent Assignment / State Tracking
+
+워크플로우 시작 시 `/tmp/workflow-state.md`를 새로 만들고, Phase 진입/완료 때마다 갱신한다.
+오케스트레이터도 Phase owner agent로 간주해 상태 파일에 기록한다.
+
+상태 파일은 항상 아래 섹션을 포함한다:
+
+```markdown
+## Current Phase
+[현재 Phase, 담당 agent, model, effort]
+
+## Phase Assignments
+| Phase | Agent | Model | Effort | Status |
+|-------|-------|-------|--------|--------|
+
+## Remaining Phases
+[아직 남은 Phase 목록]
+
+## Phase Results
+[완료된 Phase 결과를 append]
+```
+
+에이전트를 생성하기 전에는 해당 Phase를 `IN_PROGRESS`로 갱신하고, 완료 후 `DONE/SKIPPED/BLOCKED`와 결과를 기록한다.
+모든 에이전트 프롬프트에는 상태 파일 경로, 현재 Phase, 남은 Phase, 배정된 model/effort를 포함한다.
+
+### Model / Effort 선택 규칙
+
+Agent 생성 시 작업 복잡도, 난이도, 작업량에 맞춰 `model`과 `effort` 또는 `reasoning_effort`를 명시한다.
+환경별 모델명이 다르면 같은 등급의 사용 가능한 최신 모델로 치환한다.
+
+| 등급 | 기준 | Claude 계열 | Codex 계열 | effort |
+|------|------|-------------|------------|--------|
+| Simple | 난이도 1-3, 1-3개 파일, 문서/단순 수정 | sonnet | gpt-5.3-codex-spark | low |
+| Standard | 난이도 4-6, 일반 구현/리뷰/테스트 수정 | sonnet | gpt-5.3-codex | medium |
+| Complex | 난이도 7-8, 다중 레이어/API/DB/계약 영향 | opus | gpt-5.4 | high |
+| Critical | 난이도 9-10, 보안/데이터 마이그레이션/대규모 리팩토링 | opus | gpt-5.5 | xhigh |
+
+읽기 전용 리뷰는 기본 `Standard`로 시작하되, 보안/데이터 정합성/계약 변경 검토는 `Complex` 이상으로 올린다.
+코드 수정 에이전트는 담당 파일 수와 실패 반복 횟수에 따라 한 단계 높일 수 있다.
+
+### Build Mode 기본 Phase 할당
+
+| Phase | 담당 agent | 기본 model/effort |
+|-------|------------|-------------------|
+| 0-1.5 | orchestrator | 현재 세션 설정 |
+| 2-3 | orchestrator + review agents | 난이도 기준 |
+| 4 | workflow-implementer 또는 slice별 general-purpose | 난이도/슬라이스 기준 |
+| 4.5 | orchestrator Bash, 실패 시 build-fix agent | Standard, 반복 실패 시 Complex |
+| 5 | simplify/convention/e2e/scope agents | Standard, 결함 심각도에 따라 Complex |
+| 6 | workflow-doc-sync | Standard, 계약 변경 크면 Complex |
+| 7 | workflow-pr 또는 commit-hard-push-mm | Simple/Standard |
+| 8 | workflow-reflection | Standard |
+| 9 | orchestrator | 현재 세션 설정 |
+
 ## 자율 실행 규칙
 
 - Phase 0~3: 유저와 대화하며 Spec 확인, Plan 리뷰 피드백 반영
@@ -484,8 +538,13 @@ Batch 2 (병렬): 데이터 정합성 + 보안 + 기존 코드 영향
 각 에이전트(subagent_type: `general-purpose`) 프롬프트:
 
 ```
+model: [Plan 난이도 기준 선택]
+effort: [Plan 난이도 기준 선택]
+
 당신은 [관점명] 리뷰어입니다.
 아래 Plan을 [관점] 관점에서만 리뷰하세요.
+상태 파일 `/tmp/workflow-state.md`의 Phase 3 상태와 남은 Phase를 참고하세요.
+배정 model/effort: {model}/{effort}
 
 ## Technical Spec
 [Spec 전문]
@@ -557,6 +616,36 @@ Write tool로 `/tmp/workflow-state.md`를 생성한다:
 ## Difficulty
 [N]/10
 
+## Current Phase
+Phase 3.5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effort: 현재 세션)
+
+## Phase Assignments
+| Phase | Agent | Model | Effort | Status |
+|-------|-------|-------|--------|--------|
+| 0 | orchestrator | 현재 세션 | 현재 세션 | DONE |
+| 0.5 | Codex reviewer | 난이도 기준 | 난이도 기준 | DONE/SKIPPED |
+| 1 | orchestrator | 현재 세션 | 현재 세션 | DONE |
+| 1.5 | orchestrator | 현재 세션 | 현재 세션 | DONE |
+| 2 | orchestrator | 현재 세션 | 현재 세션 | DONE |
+| 3 | review agents + orchestrator | 난이도 기준 | 난이도 기준 | DONE |
+| 3.5 | orchestrator | 현재 세션 | 현재 세션 | IN_PROGRESS |
+| 4 | workflow-implementer/general-purpose | 난이도 기준 | 난이도 기준 | PENDING |
+| 4.5 | orchestrator/build-fix agent | 난이도 기준 | 난이도 기준 | PENDING |
+| 5 | quality agents | 난이도 기준 | 난이도 기준 | PENDING |
+| 6 | workflow-doc-sync | 난이도 기준 | 난이도 기준 | PENDING |
+| 7 | workflow-pr/commit-hard-push-mm | 난이도 기준 | 난이도 기준 | PENDING |
+| 8 | workflow-reflection | 난이도 기준 | 난이도 기준 | PENDING |
+| 9 | orchestrator | 현재 세션 | 현재 세션 | PENDING |
+
+## Remaining Phases
+- Phase 4: 구현
+- Phase 4.5: 빌드 체크
+- Phase 5: 품질 루프
+- Phase 6: 문서 동기화
+- Phase 7: PR / Push
+- Phase 8: 성찰
+- Phase 9: 최종 보고
+
 ## Execution Strategy
 [sequential/parallel-slices]
 
@@ -565,6 +654,9 @@ Write tool로 `/tmp/workflow-state.md`를 생성한다:
 
 ## Plan
 [확정된 Plan 전문 그대로 복사]
+
+## Phase Results
+[Phase 완료 시 결과 append]
 ```
 
 `parallel-slices`인 경우, 상태 파일에 아래를 추가한다:
@@ -585,6 +677,8 @@ Write tool로 `/tmp/workflow-state.md`를 생성한다:
 **각 Phase를 전용 서브 에이전트에 위임한다.**
 이전 에이전트가 완료된 후 다음 에이전트를 실행한다.
 각 에이전트의 반환 결과를 기록해 둔다 (Phase 9 보고서에 사용).
+각 Phase 시작 직전 `/tmp/workflow-state.md`의 `Current Phase`, `Phase Assignments.Status`, `Remaining Phases`를 갱신한다.
+Agent tool 호출에는 선택된 `model`과 `effort`를 함께 지정한다.
 
 ### Phase 4: 구현
 
@@ -648,7 +742,7 @@ Agent tool:  (× 슬라이스 수)
 ```bash
 git add [전체 변경 파일]
 git commit -m "$(cat <<'EOF'
-Add: [작업 요약] (parallel-slices 구현)
+Add: [작업 요약] (병렬 슬라이스 구현)
 
 Co-Authored-By: Claude <noreply@anthropic.com>
 EOF
@@ -679,7 +773,7 @@ go build ./cmd/main.go 2>&1
   수정 후 커밋:
   ```bash
   git add [수정 파일들]
-  git commit -m "Fix: 빌드 에러 수정 (Phase 4.5)"
+  git commit -m "Fix: 빌드 에러 수정 (단계 4.5)"
   ```
   빌드 재시도 → 성공하면 Phase 5로 진행. **최대 3회 시도** 후에도 실패하면 유저에게 보고하고 중단.
 
@@ -772,7 +866,7 @@ make test
 커밋:
 ```bash
 git add [수정 파일들]
-git commit -m "Fix: 품질 루프 수정 (iteration N)"
+git commit -m "Fix: 품질 루프 수정 (반복 N)"
 ```
 
 완료 후: "Phase 5 완료: [루프 횟수]회, 총 [수정 건수]건 수정"
@@ -912,7 +1006,8 @@ Phase 4~8 에이전트들의 결과를 종합하여 보고서를 작성한다.
 
 ### 정리
 
-상태 파일을 삭제한다:
+`/tmp/workflow-state.md`의 모든 Phase를 `DONE/SKIPPED`으로 갱신하고 `Remaining Phases`를 `없음`으로 기록한다.
+기본은 상태 파일을 보관한다. 사용자가 정리를 요청했거나 보관이 필요 없을 때만 삭제한다:
 
 ```bash
 rm -f /tmp/workflow-state.md
