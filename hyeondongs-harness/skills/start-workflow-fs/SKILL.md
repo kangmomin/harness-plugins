@@ -251,7 +251,79 @@ Plan은 아래를 지켜야 한다:
 - 프론트는 계약 확정 전 mock shape를 임의로 만들지 않는다.
 - 백엔드는 프론트 화면 로직을 추측해서 응답 필드를 늘리지 않는다.
 
-리뷰가 끝나면 `ExitPlanMode`로 Plan을 확정한다.
+### 3.4 Plan Verification Loop (Codex APPROVE까지 반복)
+
+`ExitPlanMode` 전에 통신 계약, 백엔드 Plan, 프론트엔드 Plan, 공용 Plan에 대해 **Codex가 APPROVE할 때까지 반복되는 검증 루프**를 통과해야 한다. 반복 횟수에 상한은 없다.
+
+#### 루프 구조
+
+```
+[Plan v1 (BE + FE + 공용 + 계약)]
+   ↓
+┌──────────────────────────────────────────┐
+│ Iteration N                              │
+│  ① Codex Plan 리뷰 (Architect 관점)      │
+│  ↓                                        │
+│  [판정]                                   │
+│   - APPROVE  → 루프 탈출                 │
+│   - CONCERN/REJECT → Plan/계약 수정      │
+└──────────────────────────────────────────┘
+   ↓ (CONCERN/REJECT)              ↓ (APPROVE)
+[Claude가 Plan/계약 수정 → v(N+1)]    [Plan 확정 → Phase 3.5]
+```
+
+#### 종료 조건
+
+| 조건 | 결과 |
+|------|------|
+| Codex `APPROVE` | **PROCEED** → 다음 Phase 실행 |
+| 사용자가 명시적으로 루프 종료를 지시 | **USER-INTERRUPTED** → 잔존 이슈 기록 후 진행 |
+| Codex 사용 불가 환경 | **CODEX-UNAVAILABLE** → 사유를 상태 파일에 기록하고 진행 |
+
+#### Iteration N 입력 (stateless 보완)
+
+매 iteration마다 Codex에 다음을 함께 전달:
+- Technical Spec
+- 통신 계약 v최신
+- 백엔드/프론트엔드/공용 Plan v최신
+- **이전 iteration Diff 요약** (N≥2)
+- **이전 iteration 기각 피드백 + 사유** (N≥2)
+
+리뷰 관점:
+- 계약과 양쪽 Plan의 추적 가능성
+- 파일 소유권 충돌
+- shared artifact owner 명확성
+- 프론트/백엔드 책임 전가 여부
+- 통합 테스트 및 롤백 조건 누락
+- 더 단순한 구현 경로
+
+#### 판정 처리
+
+| Codex Verdict | 처리 |
+|---------------|------|
+| `APPROVE` | 루프 탈출 → `ExitPlanMode`로 Plan 확정 |
+| `CONCERN` | Claude가 타당한 항목 반영 (또는 사유 기록 후 기각) → 다음 iteration |
+| `REJECT` | Claude가 Plan/계약 수정 → 다음 iteration |
+
+#### Iteration Diff Log
+
+매 iteration 종료 시 상태 파일 `Plan Verification Log`에 append:
+
+```markdown
+### Iteration N → N+1
+- **Codex Verdict**: APPROVE / CONCERN / REJECT
+- **반영**: [수용 피드백 요약]
+- **기각**: [기각 피드백 + 사유]
+- **변경 요약**: [Plan/계약 vN → v(N+1) 핵심 diff]
+```
+
+#### 데드락 / 안전장치
+
+- **동일 이슈 3회 반복 지적**: 사용자에게 보고하고 판단 위임. 응답 후 루프 재개/종료.
+- **실질적 진전 확인**: Diff Log에 실제 변경이 0건이면 즉시 중단하고 사용자에게 보고.
+- **컨텍스트 누적**: 이전 iteration 컨텍스트를 매번 명시 전달.
+
+루프가 종료되면 `ExitPlanMode`로 Plan을 확정하고, 상태 파일에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
 
 ## Phase 3.5: 브랜치 + 상태 파일
 

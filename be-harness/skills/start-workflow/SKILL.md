@@ -591,7 +591,10 @@ Phase 5에서 사용할 scope-reviewer 정보를 메모한다:
 
 > 슬라이스 간 파일 범위가 겹치면 안 된다. 겹치는 파일이 발견되면 `sequential`로 전략을 변경한다.
 
-### 3.2 다관점 Plan 리뷰
+### 3.2 다관점 Plan 보강 (Claude, 1회)
+
+**목적**: Plan v1을 검증 루프에 진입시키기 전, Claude 측 다관점 리뷰로 명백한 결함을 1회 보강한다.
+**이 단계는 검증 루프가 아니다.** 다관점 피드백을 반영해 Plan v1을 정제한 뒤 곧바로 3.3 검증 루프로 진입한다.
 
 **최대 3개 서브에이전트 병렬 실행**, 2배치로 진행:
 
@@ -624,17 +627,88 @@ effort: [Plan 난이도 기준 선택]
 ```
 
 리뷰 종합:
-- **REJECT 1개+**: Plan 수정 → 해당 관점 재리뷰
-- **CONCERN만**: 타당한 것 자동 반영
+- **REJECT 1개+**: 해당 관점 이슈를 Plan에 반영해 수정.
+- **CONCERN**: 타당한 항목만 자동 반영.
 
-### 3.3 Codex 리뷰 (난이도 7+)
+→ 보강된 Plan을 **Plan v1 (검증 루프 입력)**으로 확정하고 3.3로 진입한다.
 
-Codex 사용 가능 시 Architect 관점으로 Plan 리뷰를 위임한다.
-불가 시 건너뛴다.
+### 3.3 Plan Verification Loop (Codex APPROVE까지 반복)
+
+**Plan은 Codex가 APPROVE할 때까지 반복되는 검증 루프를 통과해야 확정된다.** 반복 횟수에 상한은 없다.
+
+#### 루프 구조
+
+```
+[Plan v1] (3.2 다관점 보강 결과)
+   ↓
+┌──────────────────────────────────────────┐
+│ Iteration N                              │
+│  ① Codex Plan 리뷰 (Architect 관점)      │
+│  ↓                                        │
+│  [판정]                                   │
+│   - APPROVE  → 루프 탈출                 │
+│   - CONCERN/REJECT → Plan 수정           │
+└──────────────────────────────────────────┘
+   ↓ (CONCERN/REJECT)        ↓ (APPROVE)
+[Claude가 Plan 수정 → v(N+1)]   [3.4 Plan 확정 → Phase 3.5]
+```
+
+#### 종료 조건
+
+| 조건 | 결과 |
+|------|------|
+| Codex `APPROVE` | **PROCEED** → 다음 Phase 실행 |
+| 사용자가 명시적으로 루프 종료를 지시 | **USER-INTERRUPTED** → 잔존 이슈 기록 후 진행 |
+| Codex 사용 불가 환경 | **CODEX-UNAVAILABLE** → 사유를 상태 파일에 기록하고 진행 |
+
+> CONCERN/REJECT 자체는 종료 조건이 아니다. APPROVE를 받을 때까지 반복한다.
+
+#### Iteration N 절차
+
+**① Codex 리뷰 호출** — Architect 관점. 매 iteration마다 다음을 입력으로 전달(stateless 보완):
+
+- Technical Spec 전문
+- 현재 Plan vN 전문
+- 실행 전략(sequential / parallel-slices)
+- 난이도 및 리스크 산정 근거
+- **이전 iteration Diff 요약** (N≥2): Plan v(N-1) → vN에서 무엇을 어떻게 바꿨는지
+- **이전 iteration 기각 피드백 + 사유** (N≥2)
+
+리뷰 관점:
+- Spec과 Plan의 추적 가능성
+- 레이어별 책임 분리
+- 병렬 작업 시 파일 소유권 충돌
+- 테스트/검증 누락
+- 더 단순한 구현 경로
+
+**② 판정 처리**
+
+| Codex Verdict | 처리 |
+|---------------|------|
+| `APPROVE` | 루프 탈출 → 3.4 Plan 확정 |
+| `CONCERN` | Claude가 타당한 항목을 Plan에 반영 (또는 사유 기록 후 기각) → 다음 iteration |
+| `REJECT` | Claude가 Plan을 수정 → 다음 iteration |
+
+**③ Iteration Diff Log 기록** — 매 iteration 종료 시 상태 파일 `Plan Verification Log`에 append:
+
+```markdown
+### Iteration N → N+1
+- **Codex Verdict**: APPROVE / CONCERN / REJECT
+- **반영**: [수용한 Codex 피드백 요약]
+- **기각**: [기각한 피드백 + 사유]
+- **Plan 변경 요약**: [vN → v(N+1) 핵심 diff]
+```
+
+#### 데드락 / 안전장치
+
+- **동일 이슈 3회 반복 지적**: Codex가 같은 이슈를 3 iteration 연속 동일하게 지적하면 사용자에게 보고하고 판단을 위임. 응답 후 루프 재개/종료.
+- **실질적 진전 확인**: Diff Log에 실제 Plan 변경이 0건인 iteration 발생 시 즉시 중단하고 사용자에게 보고(무한 핑퐁 방지).
+- **컨텍스트 누적**: Codex는 stateless이므로 매 호출마다 이전 라운드 Diff/기각 사유를 명시 전달.
 
 ### 3.4 Plan 확정
 
-`ExitPlanMode` 실행.
+루프 종료(`PROCEED` / `USER-INTERRUPTED` / `CODEX-UNAVAILABLE`) 후 `ExitPlanMode` 실행.
+상태 파일 하단에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
 
 ---
 

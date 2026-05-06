@@ -268,20 +268,71 @@ Plan은 아래를 지켜야 한다:
 
 리뷰가 끝나면 `ExitPlanMode`로 Plan을 확정한다.
 
-### 3.4 Codex Plan 리뷰 (항상)
+### 3.4 Plan Verification Loop (Codex APPROVE까지 반복)
 
-`ExitPlanMode` 전에 통신 계약, 백엔드 Plan, 프론트엔드 Plan, 공용 Plan에 대해 **반드시 Codex 리뷰**를 받는다.
-Codex가 사용 불가하면 그 사유를 상태 파일과 최종 보고에 남긴다.
+`ExitPlanMode` 전에 통신 계약, 백엔드 Plan, 프론트엔드 Plan, 공용 Plan에 대해 **수렴할 때까지 반복되는 검증 루프**를 통과해야 한다.
+반복 횟수에 명시적 상한은 없다.
 
-리뷰 관점:
-- 계약과 양쪽 Plan의 추적 가능성
-- 파일 소유권 충돌
-- shared artifact owner 명확성
-- 프론트/백엔드 책임 전가 여부
-- 통합 테스트 및 롤백 조건 누락
-- 더 단순한 구현 경로
+#### 루프 구조
 
-REJECT 또는 타당한 CONCERN이 있으면 Plan 또는 계약을 수정하고 필요한 리뷰를 다시 거친 뒤 확정한다.
+```
+[Plan v1 (BE + FE + 공용 + 계약)]
+   ↓
+┌──────────────────────────────────────────────┐
+│ Iteration N (반복 횟수 무제한)                │
+│  ① Codex Plan 리뷰 (Architect 관점)          │
+│     - 계약/양쪽 Plan 추적성                   │
+│     - 파일 소유권 충돌                        │
+│     - shared artifact owner 명확성            │
+│     - 책임 전가 여부                          │
+│     - 통합 테스트/롤백 조건 누락              │
+│     - 더 단순한 구현 경로                     │
+│  ↓                                            │
+│  [Convergence Check]                          │
+│   - Codex APPROVE?                            │
+└──────────────────────────────────────────────┘
+   ↓ (수렴 X)               ↓ (수렴 O)
+[Plan/계약 수정 → v(N+1)]   [Plan 확정]
+```
+
+#### 종료 조건
+
+| 조건 | 결과 |
+|------|------|
+| Codex `APPROVE` | **PROCEED** → Plan 확정 |
+| 사용자가 명시적으로 루프 종료를 지시 | **USER-INTERRUPTED** → 잔존 이슈 기록 후 확정 |
+| Codex 사용 불가 환경 | 단발성 자체 검토(BE/FE/공용 owner 점검)로 1회만 진행, 사유를 상태 파일에 기록 |
+
+#### Iteration N 입력 (stateless 보완)
+
+매 iteration마다 Codex에 다음을 함께 전달한다:
+- Technical Spec
+- 통신 계약 v최신
+- 백엔드 Plan v최신
+- 프론트엔드 Plan v최신
+- 공용 Plan v최신
+- **이전 iteration Diff 요약** (N≥2일 때): 무엇을 어떻게 바꿨는지
+- **이전 iteration 기각 피드백 + 사유** (N≥2일 때)
+
+#### Iteration Diff Log
+
+매 iteration 종료 시 상태 파일의 `Plan Verification Log`에 append:
+
+```markdown
+### Iteration N → N+1
+- **반영**: [수용 피드백 요약]
+- **기각**: [기각 피드백 + 사유]
+- **변경 요약**: [Plan/계약 vN → v(N+1) 핵심 diff]
+```
+
+#### 데드락 / 안전장치
+
+- **동일 이슈 3회 반복 지적**: 사용자에게 보고하고 판단 위임. 응답 후 루프 재개 또는 종료.
+- **컨텍스트 누적**: 이전 iteration 컨텍스트를 매번 명시 전달.
+- **실질적 진전 확인**: Diff Log에 실제 변경이 0건이면 즉시 중단하고 사용자에게 보고.
+- **Minor만 남으면 즉시 수렴**: 사소한 표현/네이밍 CONCERN만 남았다면 v1에서 즉시 종료.
+
+루프가 PROCEED 또는 USER-INTERRUPTED로 종료되면 `ExitPlanMode`로 Plan을 확정하고, 상태 파일에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
 
 ## Phase 3.5: 브랜치 + 상태 파일
 
@@ -342,6 +393,14 @@ Phase 3.5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, eff
 
 ## Assumptions
 [없으면 "없음"]
+
+## Plan Verification Log
+[Phase 3.4 검증 루프 Iteration Diff Log를 시간순으로 기록]
+
+## Plan Verification Summary
+- **Total Iterations**: [수렴까지 반복 횟수]
+- **Convergence**: [PROCEED / USER-INTERRUPTED / CODEX-UNAVAILABLE]
+- **잔존 이슈**: [USER-INTERRUPTED인 경우 미해결 항목, 아니면 "없음"]
 
 ## Phase Results
 [Phase 완료 시 결과 append]
@@ -485,10 +544,14 @@ rm -f /tmp/fullstack-workflow-state.md
 ```markdown
 ## 📋 Task Report: [작업명]
 
-### 1. Pre-Review (Plan)
-- Codex Feedback: ...
-- Claude Feedback: ...
-- Refinement: ...
+### 1. Pre-Review (Plan Verification Loop)
+- Total Iterations: N
+- Convergence: PROCEED / USER-INTERRUPTED / CODEX-UNAVAILABLE
+- Iteration Diff Log 요약: v1→v2, v2→v3 ... 핵심 변경
+- Codex Feedback (최종 라운드): ...
+- Claude/다관점 Feedback (최종 라운드): ...
+- 기각된 피드백 + 사유: ...
+- 잔존 이슈 (USER-INTERRUPTED인 경우만): ...
 
 ### 2. Implementation Details
 - Assumptions: ...
