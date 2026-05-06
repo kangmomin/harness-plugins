@@ -1,6 +1,6 @@
 {
   "name": "fe-harness",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "범용 프론트엔드 개발 워크플로우 하네스. 컴포넌트 중심 Spec → Plan → 구현 → 품질/접근성/E2E 루프 → PR 파이프라인. React·Next.js·Vite 등 Node 생태계 범용.",
   "keywords": ["frontend", "workflow", "component", "a11y", "lint", "testing", "orchestration"],
   "upstream": {

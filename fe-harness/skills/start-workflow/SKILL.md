@@ -127,7 +127,11 @@ Agent 생성 시 작업 복잡도, 난이도, 작업량에 맞춰 `model`과 `ef
 
 ---
 
-## Phase 0: 작업 범위 수집
+## Phase 0: 작업 범위 수집 (Plan 모드 진입)
+
+> **Plan 모드 활성화**: Phase 0 시작 시 `EnterPlanMode`를 활성화한다.
+> Spec과 Plan은 같은 Plan 모드 컨텍스트에서 통합 산출물로 발전하며, `ExitPlanMode`는 Phase 3.4에서 단 한 번만 호출한다.
+> Spec/Plan 검토는 Phase 3.3 검증 루프에서 **Spec+Plan 통합 산출물**에 대해 단일 Codex APPROVE 루프로 수행한다(별도 Codex Spec 리뷰 단계는 두지 않는다).
 
 ### 분기: 이미 상세 Spec이 제공된 경우
 
@@ -175,7 +179,7 @@ Phase 5에서 사용할 scope-reviewer 정보를 메모한다:
 
 ### 3.1 Plan 작성
 
-`EnterPlanMode` 활성화. Plan 포함 내용:
+Plan 모드는 Phase 0에서 이미 활성화되어 있다. Spec을 그대로 두고 그 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 발전시킨다. Plan에 포함할 내용:
 - 구현 순서 (파일 단위)
 - 각 파일 변경 내용 요약
 - **최종 코드 구조**: 컴포넌트 분리, 훅 추출, 상태 설계를 Plan 단계에서 확정한다.
@@ -734,11 +738,11 @@ rm -f /tmp/workflow-state.md
 ## 흐름 요약
 
 ```
-[유저 대화]
-Phase 0: /request → Technical Spec (유저 확인)
+[유저 대화] — Phase 0~3 전체가 단일 EnterPlanMode 컨텍스트
+Phase 0: EnterPlanMode 활성화 → /request로 Technical Spec 작성 (유저 확인)
 Phase 1: 난이도 산정 (1-10)
 Phase 2: scope-reviewer 메모
-Phase 3: Plan 작성 → 6관점 리뷰 (3+3 병렬) → [난이도 7+: Codex] → Plan 확정
+Phase 3: Plan을 Spec 아래 추가 → 다관점 1회 보강 → Codex APPROVE 루프 (Spec+Plan 통합) → ExitPlanMode
 Phase 3.5: 상태 파일 생성 → "자율 실행 시작"
 
 [자율 실행 — 유저 확인 없이 완주]

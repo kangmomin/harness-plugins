@@ -126,7 +126,12 @@ Spec 또는 계약에 없는 변경이 필요하면:
 2. `/tmp/fullstack-workflow-state.md`의 `Assumptions` 섹션에 `[Assumption]`으로 기록한다.
 3. 계약 리뷰를 다시 거친 뒤에만 반영한다.
 
-## Phase 0: 기능 정의 + Feature Matrix
+## Phase 0: 기능 정의 + Feature Matrix (Plan 모드 진입)
+
+> **Plan 모드 활성화**: Phase 0 시작 시 `EnterPlanMode`를 활성화한다.
+> Spec(Feature Matrix), 통신 계약, BE/FE/공용 Plan은 모두 같은 Plan 모드 컨텍스트에서 발전하는 단일 산출물이며, `ExitPlanMode`는 Phase 3.4 검증 루프 종료 시 단 한 번만 호출한다.
+> Codex 검토는 Phase 3.4 검증 루프에서 **Spec+계약+Plan 통합 산출물**에 대해 단일 APPROVE 루프로 수행한다(별도 Codex Spec 리뷰 단계는 두지 않는다).
+
 
 상세 명세가 이미 충분하면 그 내용을 정리해서 시작한다.
 부족하면 `request-mm`로 백엔드 관점 질문을, `request-hd`로 프론트엔드 관점 질문을 각각 수행해 아래 표를 만든다.
@@ -220,7 +225,7 @@ Spec 또는 계약에 없는 변경이 필요하면:
 
 ## Phase 3: 분리 Plan 작성
 
-`EnterPlanMode`를 활성화하고 아래 3개를 확정한다.
+Plan 모드는 Phase 0에서 이미 활성화되어 있다. Spec(Feature Matrix)과 통신 계약 아래에 **BE/FE/공용 Plan을 추가**하여 단일 통합 산출물로 발전시킨다.
 
 ### 3.1 백엔드 Plan
 

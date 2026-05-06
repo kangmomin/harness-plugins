@@ -51,7 +51,7 @@ user-invocable: true
 ---
 
 ```
-[유저 대화] Phase 0~1.5: 직접 실행 (Spec, Codex Spec 리뷰, 난이도, 실행 전략)
+[유저 대화] Phase 0~1.5: 직접 실행 (EnterPlanMode + Spec 작성, 난이도, 실행 전략)
 [유저 대화] Phase 2~3  : 직접 실행 (Plan, 리뷰, Codex Plan 리뷰)
 [상태 저장] Phase 3.5  : 상태 파일 생성
 [자율 실행] Phase 4~8  : 서브 에이전트 순차/병렬 위임
@@ -445,7 +445,11 @@ rm -f /tmp/workflow-state.md
 
 > 플래그 없이 실행하거나 `--hard`만 지정하면 기본 Build 모드로 동작한다.
 
-## Phase 0: 작업 범위 수집
+## Phase 0: 작업 범위 수집 (Plan 모드 진입)
+
+> **Plan 모드 활성화**: Phase 0 시작 시 `EnterPlanMode`를 활성화한다.
+> Spec과 Plan은 같은 Plan 모드 컨텍스트에서 통합 산출물로 발전하며, `ExitPlanMode`는 Phase 3.4에서 단 한 번만 호출한다.
+> Spec/Plan 검토는 Phase 3.3 검증 루프에서 **Spec+Plan 통합 산출물**에 대해 단일 Codex APPROVE 루프로 수행한다(별도 Codex Spec 리뷰 단계는 폐지).
 
 ### 분기: 이미 상세 Spec이 제공된 경우
 
@@ -465,20 +469,7 @@ rm -f /tmp/workflow-state.md
 - Spec에서 **작업 유형** (생성/수정/검토/디버깅)을 확인한다.
 
 > 어느 경우든 Spec을 유저에게 보여주고 확인을 받는다.
-
-### Phase 0.5: Codex Spec 리뷰 (항상)
-
-Technical Spec 확정 직후, 구현 전략을 세우기 전에 **반드시 Codex 리뷰**를 받는다.
-Codex가 사용 불가한 환경이면 그 사실을 기록하고, 누락을 숨기지 않는다.
-
-리뷰 관점:
-- 비즈니스 요구사항 누락
-- 레이어 책임 경계
-- 데이터 정합성 및 API 계약 위험
-- 과잉 구현 가능성
-- `[Assumption]`으로 표기해야 할 유추 사항
-
-리뷰 결과에서 타당한 지적은 Technical Spec에 반영하고, 반영/미반영 사유를 기록한다.
+> 별도의 Codex Spec 리뷰는 수행하지 않는다 — Phase 3.3 검증 루프에서 Spec+Plan 통합 산출물에 대해 일괄 검토된다.
 
 ---
 
@@ -562,7 +553,7 @@ Phase 5에서 사용할 scope-reviewer 정보를 메모한다:
 
 ### 3.1 Plan 작성
 
-`EnterPlanMode` 활성화. Plan 포함 내용:
+Plan 모드는 Phase 0에서 이미 활성화되어 있다. Spec을 그대로 두고 그 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 발전시킨다. Plan에 포함할 내용:
 - 구현 순서 (파일 단위)
 - 각 파일 변경 내용 요약
 - **최종 코드 구조**: 중복 로직이 예상되면 최종 구조(e.g. 테이블 드리븐, 공통 함수 추출)를 Plan 단계에서 확정한다. 구현 후 리팩토링 커밋이 발생하지 않도록 한다.
@@ -752,8 +743,7 @@ Phase 3.5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, eff
 ## Phase Assignments
 | Phase | Agent | Model | Effort | Status |
 |-------|-------|-------|--------|--------|
-| 0 | orchestrator | 현재 세션 | 현재 세션 | DONE |
-| 0.5 | Codex reviewer | 난이도 기준 | 난이도 기준 | DONE/SKIPPED |
+| 0 | orchestrator (EnterPlanMode) | 현재 세션 | 현재 세션 | DONE |
 | 1 | orchestrator | 현재 세션 | 현재 세션 | DONE |
 | 1.5 | orchestrator | 현재 세션 | 현재 세션 | DONE |
 | 2 | orchestrator | 현재 세션 | 현재 세션 | DONE |
@@ -1216,9 +1206,8 @@ Phase 4~8 에이전트들의 결과를 종합하여 보고서를 작성한다.
 ### 7. Codex 리뷰 기록
 | 시점 | 수행 여부 | 핵심 피드백 | 반영 여부 |
 |------|----------|------------|----------|
-| Spec | Y/N | 요약 | Y/N/사유 |
-| Plan | Y/N (Iteration N회) | 요약 | Y/N/사유 |
-| 품질 리뷰 | Y/N | 요약 | Y/N/사유 |
+| Spec+Plan 통합 (Phase 3.3) | Y/N (Iteration N회) | 요약 | Y/N/사유 |
+| 품질 리뷰 (Phase 5.6) | Y/N | 요약 | Y/N/사유 |
 
 ### 7.1 Plan Verification Loop 기록
 - **Total Iterations**: N
@@ -1293,14 +1282,13 @@ Phase V4: 종합 검증 보고서 → 수정 여부 (유저 선택) → 정리
 ### Build Mode (기본)
 
 ```
-[유저 대화]
-Phase 0: /request → Technical Spec (유저 확인)
-Phase 0.5: Codex Spec 리뷰 → Spec 보완
+[유저 대화] — Phase 0~3 전체가 단일 EnterPlanMode 컨텍스트
+Phase 0: EnterPlanMode 활성화 → /request로 Technical Spec 작성 (유저 확인)
 Phase 1: 난이도 산정 (1-10)
 Phase 1.5: 실행 전략 판정 (sequential / parallel-slices / fullstack)
            fullstack → /start-workflow-fs로 전환 후 종료
 Phase 2: scope-reviewer 메모
-Phase 3: Plan 작성 → 검증 루프 (6관점 리뷰 + Codex 리뷰, 무제한 반복, PROCEED/USER-INTERRUPTED까지) → Plan 확정
+Phase 3: Plan을 Spec 아래 추가 → 다관점 1회 보강 → Codex APPROVE 루프 (Spec+Plan 통합 산출물) → ExitPlanMode로 Plan 확정
          parallel-slices → Plan에 Slice 정의 추가
 Phase 3.5: 상태 파일 생성 → "자율 실행 시작"
 
