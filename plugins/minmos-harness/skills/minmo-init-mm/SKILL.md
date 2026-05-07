@@ -24,6 +24,7 @@ description: "minmos-harness 플러그인의 모든 사전 세팅을 한 번에 
 | 5 | 컨벤션 선택 | convention-check |
 | 6 | grpcurl (선택) | e2e-test (gRPC) |
 | 7 | Dev PubSub CLI (선택) | e2e-test (PubSub) |
+| 8 | Worktree 자동 복사 hook (선택) | git worktree 사용 시 (Claude Code 전용) |
 
 ---
 
@@ -40,6 +41,7 @@ description: "minmos-harness 플러그인의 모든 사전 세팅을 한 번에 
 - db-tools 플러그인 설치 여부
 - `.convention-check.json` 존재 여부
 - `dev-pubsub-cli` 설치 여부 → `which dev-pubsub-cli` 또는 `uv tool list` 확인
+- Worktree 자동 복사 hook 설치 여부 → `~/.claude/hooks/worktree-init.sh` 존재 + `~/.claude/settings.json`의 `hooks.SessionStart`에 등록되었는지 (Claude Code 전용)
 
 **MCP 판정 원칙**: `.mcp.json` 없음만으로 MISSING 처리하지 않는다. OpenCode 등 클라이언트별 MCP 설정 위치가 다를 수 있으므로, 실제 MCP tool 호출이 성공하면 설정 파일 위치와 무관하게 OK로 본다.
 
@@ -61,6 +63,7 @@ description: "minmos-harness 플러그인의 모든 사전 세팅을 한 번에 
 | 7 | 컨벤션 설정 | OK / DEFAULT | convention-check |
 | 8 | grpcurl | OK / MISSING | e2e-test (gRPC, 선택) |
 | 9 | Dev PubSub CLI | OK / MISSING | e2e-test (PubSub, 선택) |
+| 10 | Worktree 자동 복사 hook | OK / MISSING / SKIP | git worktree (Claude Code 전용, 선택) |
 ```
 
 ### Step 2.5: 설정 가이드 / 세팅 선택
@@ -91,6 +94,7 @@ description: "minmos-harness 플러그인의 모든 사전 세팅을 한 번에 
 | 7 | 컨벤션 설정 | 적용할 컨벤션을 선택하여 `.convention-check.json` 생성 |
 | 8 | grpcurl | `grpcurl --version` 확인. 없으면 설치 안내 |
 | 9 | Dev PubSub CLI | `dev-pubsub-cli --help` 확인. 없으면 global/local 설치 안내 |
+| 10 | Worktree 자동 복사 hook | git 워크트리 생성 시 메인의 `.mcp.json`/`.env`를 자동 복사하는 SessionStart hook 설치 (Claude Code 전용) |
 
 ### Step 3: 세팅 진행
 
@@ -203,6 +207,60 @@ description: "minmos-harness 플러그인의 모든 사전 세팅을 한 번에 
     > ```
 - 건너뛰기: PubSub 테스트 없이 REST/gRPC E2E 테스트만 사용 가능하다고 안내.
 
+#### 3.8 Worktree 자동 복사 hook (Claude Code 전용, MISSING인 경우, 선택)
+
+> "git worktree를 사용한다면 워크트리 생성 시 메인의 `.mcp.json`/`.env`를 자동 복사하는 SessionStart hook을 설치할 수 있습니다. 설치할까요? (Y/건너뛰기)"
+
+**Claude Code가 아닌 환경(Codex CLI / OpenCode 등)에서는 안내만 하고 건너뛴다.**
+
+Y 선택 시 다음을 실행한다 (스크립트 본문은 항상 덮어써서 최신 내용으로 갱신, settings 등록은 idempotent).
+
+1. `~/.claude/hooks/worktree-init.sh` 작성 (존재해도 덮어쓰기):
+   ```bash
+   mkdir -p ~/.claude/hooks
+   cat > ~/.claude/hooks/worktree-init.sh <<'EOF'
+   #!/usr/bin/env bash
+   # SessionStart hook: 보조 worktree에 진입 시 메인 worktree의
+   # .mcp.json / .env 중 현재에 없는 파일을 자동 복사한다.
+   set -u
+   input=$(cat 2>/dev/null || true)
+   cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)
+   [ -z "${cwd:-}" ] && cwd="$PWD"
+   cd "$cwd" 2>/dev/null || exit 0
+   git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+   main_worktree=$(git worktree list --porcelain 2>/dev/null | awk '/^worktree / {print $2; exit}')
+   [ -z "${main_worktree:-}" ] && exit 0
+   [ ! -d "$main_worktree" ] && exit 0
+   main_abs=$(realpath "$main_worktree" 2>/dev/null) || exit 0
+   cur_worktree=$(git rev-parse --show-toplevel 2>/dev/null)
+   [ -z "${cur_worktree:-}" ] && exit 0
+   cur_abs=$(realpath "$cur_worktree" 2>/dev/null) || exit 0
+   [ "$cur_abs" = "$main_abs" ] && exit 0
+   copied=()
+   for file in .mcp.json .env; do
+     src="$main_worktree/$file"
+     dst="$cur_worktree/$file"
+     [ -e "$dst" ] && continue
+     [ ! -f "$src" ] && continue
+     cp -p "$src" "$dst" 2>/dev/null && copied+=("$file")
+   done
+   [ ${#copied[@]} -gt 0 ] && echo "[worktree-init] Copied from $main_worktree -> $cur_worktree: ${copied[*]}" >&2
+   exit 0
+   EOF
+   chmod +x ~/.claude/hooks/worktree-init.sh
+   ```
+
+2. `~/.claude/settings.json`의 `hooks.SessionStart`에 등록 (이미 있으면 skip):
+   ```bash
+   if ! jq -e '.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("worktree-init.sh"))' ~/.claude/settings.json >/dev/null 2>&1; then
+     jq '.hooks.SessionStart = ((.hooks.SessionStart // []) + [{"matcher":"","hooks":[{"type":"command","command":"~/.claude/hooks/worktree-init.sh"}]}])' \
+       ~/.claude/settings.json > ~/.claude/settings.json.tmp \
+       && mv ~/.claude/settings.json.tmp ~/.claude/settings.json
+   fi
+   ```
+
+설치 후: 다음 워크트리에서 SessionStart 시 자동으로 `.mcp.json`/`.env`가 메인에서 복사된다. 이미 존재하는 파일은 절대 덮어쓰지 않는다.
+
 #### 3.5 컨벤션 선택 (DEFAULT인 경우)
 
 > "convention-check에서 사용할 컨벤션을 설정합니다.
@@ -230,6 +288,7 @@ description: "minmos-harness 플러그인의 모든 사전 세팅을 한 번에 
 | 5 | 컨벤션 선택 | 설정 완료 / 이미 설정됨 / 기본값 사용 |
 | 6 | grpcurl | 설치됨 / 안내 완료 / 건너뜀 |
 | 7 | Dev PubSub CLI | 설치됨 (Global/Local) / 안내 완료 / 건너뜀 |
+| 8 | Worktree 자동 복사 hook | 설치 완료 / 이미 설치됨 / 건너뜀 / 미지원(Claude Code 외) |
 
 다음 단계: `$minmo-doctor-mm`로 전체 상태를 검증하세요.
 ```
