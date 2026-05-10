@@ -5,6 +5,11 @@
   },
   "plugins": [
     {
+      "name": "common",
+      "description": "여러 harness에서 공통으로 사용하는 범용 스킬 모음. 다른 하네스를 설치하기 전에 먼저 설치해야 한다.",
+      "source": "./common"
+    },
+    {
       "name": "minmos-harness",
       "description": "Post-Math 백엔드 개발 워크플로우 하네스. 커밋/PR 관리, 컨벤션 검사, E2E 테스트(REST+gRPC), Apidog 스키마 생성 등.",
       "source": "./minmos-harness"

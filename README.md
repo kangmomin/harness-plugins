@@ -12,6 +12,9 @@ Technical Spec 작성, Plan 리뷰, 구현, 품질 루프, 커밋/PR까지 반�
 # 마켓플레이스 등록
 /plugin marketplace add kangmomin/mimo-s-harness
 
+# 공용 스킬 (다른 하네스보다 먼저 설치)
+/plugin install common@harness-plugins
+
 # 범용 백엔드 하네스
 /plugin install be-harness@harness-plugins
 
@@ -96,6 +99,7 @@ MCP client에는 stdio server로 등록한다.
 
 | 플러그인 | 대상 | 설명 |
 |---------|------|------|
+| **common** | 모든 하네스 베이스 | 여러 하네스 공용 스킬. `/common:doc-gen` 등 도메인 독립 스킬. 다른 하네스 설치 전에 먼저 설치 |
 | **be-harness** | 범용 백엔드 | Go/Node 프리셋과 project profile 기반의 Spec→Plan→구현→품질 루프→PR 워크플로우 |
 | **fe-harness** | 범용 프론트엔드 | React/Next.js 중심의 컴포넌트 생성, lint/a11y, 단위/E2E 테스트, PR 워크플로우 |
 | **fs-harness** | 풀스택 | BE/FE 하네스를 병렬로 사용해 계약 정의, 교차 리뷰, 통합 검증, 단일 PR까지 오케스트레이션 |
@@ -132,6 +136,7 @@ MCP client에는 stdio server로 등록한다.
 
 ```text
 .
+├── common/                 # 모든 하네스에서 공용으로 쓰는 범용 스킬 (먼저 설치)
 ├── be-harness/             # 범용 백엔드 Claude Code 플러그인
 ├── fe-harness/             # 범용 프론트엔드 Claude Code 플러그인
 ├── fs-harness/             # 풀스택 Claude Code 오케스트레이터
@@ -147,6 +152,7 @@ MCP client에는 stdio server로 등록한다.
 
 ## 참고 문서
 
+- `common/README.md`: 공용 스킬 모음 (`/common:doc-gen` 등)
 - `be-harness/README.md`: 범용 백엔드 하네스
 - `fe-harness/README.md`: 범용 프론트엔드 하네스
 - `fs-harness/README.md`: 풀스택 오케스트레이터
