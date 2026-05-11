@@ -37,6 +37,7 @@
 | **commit-push** | `/common:commit-push` | commit + push (브랜치 컨벤션 검증/생성 포함) |
 | **commit-pr** | `/common:commit-pr` | commit + push + 브랜치 생성 + draft PR 오픈 |
 | **commit-hard-push** | `/common:commit-hard-push` | 보호 브랜치 제한 없이 commit + push |
+| **merge** | `/common:merge` | PR 을 머지. doc-gen 으로 요약 컨펌 후 머지 방식(일반/스쿼시/리베이스/취소) 선택 |
 
 ## 사용 예시
 
@@ -58,6 +59,10 @@
 
 # 커밋 + push + draft PR
 /common:commit-pr
+
+# PR 머지 (doc-gen 요약 컨펌 + 머지 방식 선택)
+/common:merge          # 현재 브랜치에 연결된 PR
+/common:merge 42       # 특정 PR
 ```
 
 자세한 동작 흐름은 각 스킬의 `skills/<name>/SKILL.md` 참고.
@@ -74,5 +79,6 @@
     ├── commit.md                   # /common:commit 오버라이드
     ├── commit-push.md              # /common:commit-push 오버라이드
     ├── commit-pr.md                # /common:commit-pr 오버라이드
-    └── commit-hard-push.md         # /common:commit-hard-push 오버라이드
+    ├── commit-hard-push.md         # /common:commit-hard-push 오버라이드
+    └── merge.md                    # /common:merge 오버라이드
 ```
