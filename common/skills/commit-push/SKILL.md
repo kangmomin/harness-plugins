@@ -1,6 +1,6 @@
 ---
 name: commit-push
-description: "커밋 후 원격 저장소에 push. 브랜치가 없거나 컨벤션에 맞지 않으면 브랜치 생성부터 진행."
+description: "/commit 진행 후 push 까지 수행. 브랜치가 없거나 컨벤션에 맞지 않으면 브랜치 생성부터 진행."
 user-invocable: true
 ---
 
@@ -8,11 +8,12 @@ user-invocable: true
 
 실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
 
-- `.claude/fe-harness/common.md` — 플러그인 공통 (모든 스킬/에이전트에 적용)
-- `.claude/fe-harness/skills/commit-push.md` — 본 스킬 전용
+- `.claude/common/common.md` — 플러그인 공통 (모든 스킬에 적용)
+- `.claude/common/skills/commit-push.md` — 본 스킬 전용
 
 존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
+---
 
 ## Step 0: 브랜치 확인 및 생성
 
@@ -26,7 +27,7 @@ git branch --show-current
 
 | 현재 브랜치 | 조건 | 행동 |
 |------------|------|------|
-| `main`, `master`, `dev`, `develop`, `rc-*` | 보호 브랜치 | **브랜치 생성 후 push** (Step 0.1로) |
+| `main`, `master`, `dev`, `rc*` | 보호 브랜치 | **브랜치 생성 후 push** (Step 0.1로) |
 | `feat/*`, `hotfix/*` | 컨벤션 매칭 | **네이밍 적합성 검증** (Step 0.1로) |
 | 그 외 (`worktree-*`, 임의 이름 등) | 컨벤션 불일치 | **브랜치 이름 재생성** (Step 0.2로) |
 
@@ -36,13 +37,13 @@ git branch --show-current
 
 1. `git diff --name-only`와 `git diff --stat`으로 변경된 파일과 내용을 파악한다.
 2. 현재 브랜치명의 `*` 부분이 작업 내용을 대표하는지 판단한다:
-   - `feat/add-login-form`인데 실제로는 다크모드를 작업 중 → **불일치**
-   - `feat/dark-mode-toggle`인데 실제로도 다크모드 작업 중 → **일치**
+   - `feat/add-review-api`인데 실제로는 장바구니 기능을 작업 중 → **불일치**
+   - `feat/cart-feature`인데 실제로도 장바구니 작업 중 → **일치**
 3. **일치** → Step 1로 진행.
 4. **불일치** → 사용자에게 알린다:
-   > "현재 브랜치명 `feat/add-login-form`이 실제 작업 내용(다크모드)과 맞지 않는 것 같습니다.
+   > "현재 브랜치명 `feat/add-review-api`가 실제 작업 내용(장바구니 기능)과 맞지 않는 것 같습니다.
    > 1. 그대로 유지
-   > 2. `feat/dark-mode-toggle`로 변경
+   > 2. `feat/add-cart-feature`로 변경
    > 3. 직접 입력"
    
    사용자가 변경을 선택하면 `git branch -m {새 이름}`으로 변경 후 Step 1로 진행.
@@ -56,7 +57,7 @@ git branch --show-current
    > 1. `feat` — 기능 추가/변경
    > 2. `hotfix` — 긴급 버그 수정
 3. kebab-case로 브랜치명을 생성하고 사용자에게 확인을 받는다:
-   > "브랜치명: `feat/login-form-component` — 이대로 생성할까요? (Y/수정)"
+   > "브랜치명: `feat/add-grpc-support` — 이대로 생성할까요? (Y/수정)"
 4. 브랜치를 생성한다:
    ```bash
    git checkout -b {브랜치명}
@@ -84,15 +85,15 @@ git branch --show-current
 
 | 규칙 | 올바른 예 | 잘못된 예 |
 |------|----------|----------|
-| 영문 소문자 + 하이픈만 | `feat/dark-mode-toggle` | `feat/DarkMode` |
-| 2~4 단어 | `feat/user-profile-card` | `feat/a` |
+| 영문 소문자 + 하이픈만 | `feat/add-grpc-support` | `feat/Add_gRPC` |
+| 2~4 단어 | `feat/grpc-e2e-test` | `feat/a` |
 | prefix 뒤 `/` 필수 | `feat/user-auth` | `feat-user-auth` |
 
 ---
 
 ## Step 1: 커밋
 
-`/fe-harness:commit` 을 실행하여 변경사항을 논리적 단위별로 커밋한다.
+`/common:commit` 을 실행하여 변경사항을 논리적 단위별로 커밋한다.
 
 ## Step 2: Push
 

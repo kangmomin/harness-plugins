@@ -391,7 +391,7 @@ Step 1에서 도출한 엔드포인트 목록을 순회하며, 각 엔드포인�
 
 ```
 Agent tool:
-  subagent_type: minmos-harness:edge-case-analyzer
+  subagent_type: be-harness:edge-case-analyzer
   prompt: |
     아래 API 엔드포인트의 엣지 케이스를 분석해줘.
 

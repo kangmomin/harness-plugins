@@ -36,8 +36,8 @@ user-invocable: true
 ```
 어떤 스킬의 사용법이 궁금하신가요?
 
- 1. /commit — 현재까지의 작업을 논리적 단위별로 나눠서 커밋
- 2. /request — 작업 유형별 단계적 질문을 통해 Technical Spec 생성
+ 1. /request — 작업 유형별 단계적 질문을 통해 Technical Spec 생성
+ 2. /convention-check — 컨벤션 위반 검사 및 보고
  ...
 ```
 

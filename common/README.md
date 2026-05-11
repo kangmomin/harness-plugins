@@ -23,9 +23,20 @@
 
 ## 스킬 목록
 
+### 문서 / 문서화
+
 | 스킬 | 호출 | 설명 |
 |------|------|------|
 | **doc-gen** | `/common:doc-gen` | 지정한 범위(파일/디렉토리/glob/PR/commit range)를 분석해 인터랙션·다이어그램이 포함된 단일 파일 문서(`-md` 또는 `-html`)로 정리 |
+
+### 커밋 / Push / PR 워크플로우
+
+| 스킬 | 호출 | 설명 |
+|------|------|------|
+| **commit** | `/common:commit` | 변경사항을 논리적 단위별로 나눠서 커밋 |
+| **commit-push** | `/common:commit-push` | commit + push (브랜치 컨벤션 검증/생성 포함) |
+| **commit-pr** | `/common:commit-pr` | commit + push + 브랜치 생성 + draft PR 오픈 |
+| **commit-hard-push** | `/common:commit-hard-push` | 보호 브랜치 제한 없이 commit + push |
 
 ## 사용 예시
 
@@ -38,9 +49,18 @@
 
 # PR 범위 요약
 /common:doc-gen -md PR#42
+
+# 작업 후 커밋만
+/common:commit
+
+# 커밋 + push (브랜치 자동 정리)
+/common:commit-push
+
+# 커밋 + push + draft PR
+/common:commit-pr
 ```
 
-자세한 동작 흐름은 `skills/doc-gen/SKILL.md` 참고.
+자세한 동작 흐름은 각 스킬의 `skills/<name>/SKILL.md` 참고.
 
 ## Project Overrides
 
@@ -48,7 +68,11 @@
 
 ```
 .claude/common/
-├── common.md                   # 플러그인 공통 오버라이드
+├── common.md                       # 플러그인 공통 오버라이드
 └── skills/
-    └── doc-gen.md              # /common:doc-gen 오버라이드
+    ├── doc-gen.md                  # /common:doc-gen 오버라이드
+    ├── commit.md                   # /common:commit 오버라이드
+    ├── commit-push.md              # /common:commit-push 오버라이드
+    ├── commit-pr.md                # /common:commit-pr 오버라이드
+    └── commit-hard-push.md         # /common:commit-hard-push 오버라이드
 ```

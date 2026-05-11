@@ -2,10 +2,20 @@
 
 Post-Math 개발 워크플로우를 위한 Claude Code 플러그인.
 
+## 의존 플러그인
+
+minmos-harness 는 다음 두 플러그인의 에이전트/스킬을 호출한다. **반드시 함께 설치해야 한다.**
+
+- `common` — `commit`, `commit-push`, `commit-pr`, `commit-hard-push` 등 커밋/PR 워크플로우 + `doc-gen`
+- `be-harness` — `code-analyzer`, `code-verifier`, `edge-case-analyzer`, `scope-reviewer`, `workflow-implementer`, `workflow-pr`, `workflow-reflection` 에이전트
+
 ## 설치
 
 ```
 /plugin marketplace add kangmomin/minmos-harness
+/plugin install common@harness-plugins
+/plugin install be-harness@harness-plugins
+/plugin install minmos-harness@harness-plugins
 ```
 
 ## 초기 세팅
@@ -36,9 +46,8 @@ Post-Math 개발 워크플로우를 위한 Claude Code 플러그인.
 | 스킬 | 호출 | 설명 |
 |------|------|------|
 | **request** | `/minmos-harness:request-mm` | 작업 유형별(생성/수정/검토/디버깅) 단계적 질문 → Technical Spec 생성 |
-| **commit** | `/minmos-harness:commit-mm` | 변경사항을 논리적 단위별로 나눠서 커밋 |
-| **commit-push** | `/minmos-harness:commit-mm-push-mm` | commit + push |
-| **commit-pr** | `/minmos-harness:commit-mm-pr-mm` | commit + push + 브랜치 생성 + draft PR 오픈 |
+
+> 커밋/Push/PR 워크플로우(`commit`, `commit-push`, `commit-pr`, `commit-hard-push`)는 [`common` 플러그인](../common/README.md)으로 이전되었습니다. `/common:commit`, `/common:commit-push`, `/common:commit-pr`, `/common:commit-hard-push` 로 호출합니다.
 
 ### 품질 관리
 
@@ -68,7 +77,9 @@ Post-Math 개발 워크플로우를 위한 Claude Code 플러그인.
 
 | 에이전트 | 설명 |
 |---------|------|
-| **scope-reviewer** | Spec 기반 비즈니스 로직/엣지 케이스 검증 (start-workflow에서 자동 호출) |
+| **workflow-doc-sync** | E2E 테스트 결과 기반 Apidog 스키마 동기화 (start-workflow에서 자동 호출) |
+
+> 그 외 `scope-reviewer`, `workflow-implementer`, `workflow-pr`, `workflow-reflection`, `code-analyzer`, `code-verifier`, `edge-case-analyzer` 에이전트는 [`be-harness`](../be-harness/README.md) 의 것을 그대로 사용한다.
 
 ## 워크플로우
 
@@ -87,7 +98,7 @@ Phase 5: 품질 루프 (최대 3회)
   └─ scope-review
   → 수정 있으면 재시작, 없으면 탈출
 Phase 6: e2e-apidog-schema-gen (API 변경 시만)
-Phase 7: commit-pr → PR
+Phase 7: /common:commit-pr → PR
 Phase 8: 성찰 (커밋 로그 분석)
 Phase 9: 최종 보고 + 보완점 스킬 반영
 ```
@@ -119,5 +130,5 @@ Phase 8: 회고 + 정리
   ↓
 /minmos-harness:e2e-apidog-schema-gen-mm # 5. Apidog 동기화
   ↓
-/minmos-harness:commit-mm-pr-mm        # 6. PR
+/common:commit-pr                      # 6. PR
 ```

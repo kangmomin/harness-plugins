@@ -37,9 +37,8 @@
 |------|------|------|
 | **request** | `/fe-harness:request` | 화면/컴포넌트/API 연동 유형별 Technical Spec 생성 |
 | **component** | `/fe-harness:component` | 컴포넌트 보일러플레이트 자동 생성 |
-| **commit** | `/fe-harness:commit` | 변경사항을 논리적 단위로 커밋 |
-| **commit-push** | `/fe-harness:commit-push` | commit + push |
-| **commit-pr** | `/fe-harness:commit-pr` | commit + push + PR |
+
+> 커밋/Push/PR 워크플로우(`commit`, `commit-push`, `commit-pr`, `commit-hard-push`)는 [`common` 플러그인](../common/README.md)으로 이전되었습니다. `/common:commit`, `/common:commit-push`, `/common:commit-pr`, `/common:commit-hard-push` 로 호출합니다.
 
 ### 품질 관리
 

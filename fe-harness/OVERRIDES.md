@@ -10,7 +10,6 @@
 <repo-root>/.claude/fe-harness/
 ├── common.md                          # 플러그인 공통 오버라이드 (모든 스킬/에이전트에 적용)
 ├── skills/
-│   ├── commit.md                      # /fe-harness:commit 오버라이드
 │   ├── request.md                     # /fe-harness:request 오버라이드
 │   ├── start-workflow.md              # /fe-harness:start-workflow 오버라이드
 │   ├── convention-check.md
@@ -50,12 +49,12 @@ frontmatter는 선택. 본문은 자유로운 markdown. 단, 아래 섹션을 **
 
 ```markdown
 ---
-scope: skill:commit          # 또는 agent:workflow-implementer, common
+scope: skill:request         # 또는 agent:workflow-implementer, common
 applies-to: fe-harness@0.1.0+ # 최소 플러그인 버전
 updated: 2026-04-21
 ---
 
-# Project Override: /fe-harness:commit
+# Project Override: /fe-harness:request
 
 ## 추가 규칙
 - [이 프로젝트에서만 적용되는 규칙들]

@@ -55,7 +55,7 @@ OpenCode용 출력물은 `.opencode/` 아래에 repo-local adapter 형태로 들
 OpenCode에서 slash command로 호출할 때는 `<plugin>__<skill>` 형식을 사용한다.
 
 ```text
-/minmos-harness__commit-mm
+/common__commit
 /minmos-harness__start-workflow-mm
 /be-harness__start-workflow
 /fe-harness__component

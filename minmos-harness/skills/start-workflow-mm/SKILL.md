@@ -15,7 +15,7 @@ user-invocable: true
 
 | 플래그 | 단축 | 효과 |
 |--------|------|------|
-| `--hard` | `-h` | 브랜치 생성/검증을 건너뛰고 현재 브랜치에서 바로 push. `commit-hard-push-mm` 사용. |
+| `--hard` | `-h` | 브랜치 생성/검증을 건너뛰고 현재 브랜치에서 바로 push. `/common:commit-hard-push` 사용. |
 | `--analyze` | `-a` | **Analyze 모드**. 전체 또는 특정 범위의 코드를 분석하여 보고서를 생성한다. |
 | `--verify` | `-v` | **Verify 모드**. 보안·성능·잠재 버그·안정성을 검증하고 Pass/Fail 판정한다. |
 
@@ -27,7 +27,7 @@ user-invocable: true
 |-------|----------|------------|
 | Phase 3.5 | feature 브랜치 생성 필수 | **건너뜀** (현재 브랜치 유지) |
 | Phase 4 커밋 | 동일 | 동일 |
-| Phase 7 PR | workflow-pr (브랜치 생성 + PR) | **commit-hard-push-mm** (현재 브랜치에서 바로 push, PR 생략) |
+| Phase 7 PR | workflow-pr (브랜치 생성 + PR) | **/common:commit-hard-push** (현재 브랜치에서 바로 push, PR 생략) |
 
 ### 모드 판별
 
@@ -112,7 +112,7 @@ Agent 생성 시 작업 복잡도, 난이도, 작업량에 맞춰 `model`과 `ef
 | 4.5 | orchestrator Bash, 실패 시 build-fix agent | Standard, 반복 실패 시 Complex |
 | 5 | simplify/convention/e2e/scope agents | Standard, 결함 심각도에 따라 Complex |
 | 6 | workflow-doc-sync | Standard, 계약 변경 크면 Complex |
-| 7 | workflow-pr 또는 commit-hard-push-mm | Simple/Standard |
+| 7 | workflow-pr 또는 /common:commit-hard-push | Simple/Standard |
 | 8 | workflow-reflection | Standard |
 | 9 | orchestrator | 현재 세션 설정 |
 
@@ -237,7 +237,7 @@ analyze
 
 ```
 Agent tool:
-  subagent_type: minmos-harness:code-analyzer
+  subagent_type: be-harness:code-analyzer
   model: [분석 범위 기준 선택]
   effort: [분석 범위 기준 선택]
   prompt: |
@@ -348,7 +348,7 @@ go test -cover ./internal/... 2>&1
 
 ```
 Agent tool:
-  subagent_type: minmos-harness:code-verifier
+  subagent_type: be-harness:code-verifier
   model: [검증 범위/초점 기준 선택]
   effort: [검증 범위/초점 기준 선택]
   prompt: |
@@ -753,7 +753,7 @@ Phase 3.5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, eff
 | 4.5 | orchestrator/build-fix agent | 난이도 기준 | 난이도 기준 | PENDING |
 | 5 | quality agents | 난이도 기준 | 난이도 기준 | PENDING |
 | 6 | workflow-doc-sync | 난이도 기준 | 난이도 기준 | PENDING |
-| 7 | workflow-pr/commit-hard-push-mm | 난이도 기준 | 난이도 기준 | PENDING |
+| 7 | workflow-pr 또는 /common:commit-hard-push | 난이도 기준 | 난이도 기준 | PENDING |
 | 8 | workflow-reflection | 난이도 기준 | 난이도 기준 | PENDING |
 | 9 | orchestrator | 현재 세션 | 현재 세션 | PENDING |
 
@@ -814,7 +814,7 @@ Agent tool 호출에는 선택된 `model`과 `effort`를 함께 지정한다.
 
 ```
 Agent tool:
-  subagent_type: minmos-harness:workflow-implementer
+  subagent_type: be-harness:workflow-implementer
   model: [난이도 기준 선택]
   effort: [난이도 기준 선택]
   prompt: |
@@ -981,7 +981,7 @@ for iteration in 1..3:
 
 [4] 5.4 Scope Review
     Agent tool:
-      subagent_type: minmos-harness:scope-reviewer
+      subagent_type: be-harness:scope-reviewer
       model: [리뷰 범위 기준 선택]
       effort: [리뷰 범위 기준 선택]
       prompt: |
@@ -1131,7 +1131,7 @@ Agent tool:
 - **`$HARD_MODE = false`** (일반):
   ```
   Agent tool:
-    subagent_type: minmos-harness:workflow-pr
+    subagent_type: be-harness:workflow-pr
     model: [PR 복잡도 기준 선택]
     effort: [PR 복잡도 기준 선택]
     prompt: |
@@ -1154,7 +1154,7 @@ Agent tool:
 
 ```
 Agent tool:
-  subagent_type: minmos-harness:workflow-reflection
+  subagent_type: be-harness:workflow-reflection
   model: [워크플로우 변경량 기준 선택]
   effort: [워크플로우 변경량 기준 선택]
   prompt: |
