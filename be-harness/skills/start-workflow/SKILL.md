@@ -25,7 +25,7 @@ user-invocable: true
 
 | 플래그 | 단축 | 효과 |
 |--------|------|------|
-| `--hard` | `-h` | 브랜치 생성/검증을 건너뛰고 현재 브랜치에서 바로 push. `commit-hard-push` 사용. |
+| `--hard` | `-h` | 브랜치 생성/검증을 건너뛰고 현재 브랜치에서 바로 push. `/common:commit-hard-push` 사용. |
 | `--analyze` | `-a` | **Analyze 모드**. 전체 또는 특정 범위의 코드를 분석하여 보고서를 생성한다. |
 | `--verify` | `-v` | **Verify 모드**. 보안·성능·잠재 버그·안정성을 검증하고 Pass/Fail 판정한다. |
 
@@ -37,7 +37,7 @@ user-invocable: true
 |-------|----------|------------|
 | Phase 3.5 | feature 브랜치 생성 필수 | **건너뜀** (현재 브랜치 유지) |
 | Phase 4 커밋 | 동일 | 동일 |
-| Phase 7 PR | workflow-pr (브랜치 생성 + PR) | **commit-hard-push** (현재 브랜치에서 바로 push, PR 생략) |
+| Phase 7 PR | workflow-pr (브랜치 생성 + PR) | **/common:commit-hard-push** (현재 브랜치에서 바로 push, PR 생략) |
 
 ### 모드 판별
 
@@ -122,7 +122,7 @@ Agent 생성 시 작업 복잡도, 난이도, 작업량에 맞춰 `model`과 `ef
 | 4.5 | orchestrator Bash, 실패 시 build-fix agent | Standard, 반복 실패 시 Complex |
 | 5 | simplify/convention/e2e/scope agents | Standard, 결함 심각도에 따라 Complex |
 | 6 | workflow-doc-sync 또는 문서 동기화 agent | Standard, 계약 변경 크면 Complex |
-| 7 | workflow-pr 또는 commit-hard-push | Simple/Standard |
+| 7 | workflow-pr 또는 /common:commit-hard-push | Simple/Standard |
 | 8 | workflow-reflection | Standard |
 | 9 | orchestrator | 현재 세션 설정 |
 
@@ -760,7 +760,7 @@ Phase 3.5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, eff
 | 4.5 | orchestrator/build-fix agent | 난이도 기준 | 난이도 기준 | PENDING |
 | 5 | quality agents | 난이도 기준 | 난이도 기준 | PENDING |
 | 6 | doc-sync agent | 난이도 기준 | 난이도 기준 | PENDING |
-| 7 | workflow-pr/commit-hard-push | 난이도 기준 | 난이도 기준 | PENDING |
+| 7 | workflow-pr 또는 /common:commit-hard-push | 난이도 기준 | 난이도 기준 | PENDING |
 | 8 | workflow-reflection | 난이도 기준 | 난이도 기준 | PENDING |
 | 9 | orchestrator | 현재 세션 | 현재 세션 | PENDING |
 
@@ -1189,7 +1189,7 @@ Phase 4~8 에이전트들의 결과를 종합하여 보고서를 작성한다.
 ### 7. 보완점 (프로젝트 오버라이드로 반영)
 | # | 대상 스킬/에이전트 | 보완 내용 | 저장 경로 | 적용 여부 |
 |---|----------|----------|----------|----------|
-| 1 | /be-harness:commit | [내용] | `.claude/be-harness/skills/commit.md` | Y/N |
+| 1 | /be-harness:request | [내용] | `.claude/be-harness/skills/request.md` | Y/N |
 | 2 | be-harness:workflow-implementer | [내용] | `.claude/be-harness/agents/workflow-implementer.md` | Y/N |
 ```
 
@@ -1248,7 +1248,7 @@ updated: {YYYY-MM-DD}
 추가 후 해당 파일 경로를 유저에게 보고한다:
 
 > "프로젝트 오버라이드 업데이트 완료:
->  - `.claude/be-harness/skills/commit.md` (+2줄)
+>  - `.claude/be-harness/skills/request.md` (+2줄)
 >  - `.claude/be-harness/agents/workflow-implementer.md` (신규 생성)
 > 다음 워크플로우 실행 시 자동으로 로드됩니다. Git에 커밋을 권장합니다."
 

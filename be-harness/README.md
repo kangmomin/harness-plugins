@@ -36,10 +36,8 @@
 | 스킬 | 호출 | 설명 |
 |------|------|------|
 | **request** | `/be-harness:request` | 작업 유형별(생성/수정/검토/디버깅) 단계적 질문 → Technical Spec |
-| **commit** | `/be-harness:commit` | 변경사항을 논리적 단위로 커밋 |
-| **commit-push** | `/be-harness:commit-push` | commit + push (브랜치 검증 포함) |
-| **commit-pr** | `/be-harness:commit-pr` | commit + push + Draft PR |
-| **commit-hard-push** | `/be-harness:commit-hard-push` | 보호 브랜치 제한 없이 commit + push |
+
+> 커밋/Push/PR 워크플로우(`commit`, `commit-push`, `commit-pr`, `commit-hard-push`)는 [`common` 플러그인](../common/README.md)으로 이전되었습니다. `/common:commit`, `/common:commit-push`, `/common:commit-pr`, `/common:commit-hard-push` 로 호출합니다.
 
 ### 품질 관리
 

@@ -10,7 +10,6 @@
 <repo-root>/.claude/be-harness/
 ├── common.md                          # 플러그인 공통 오버라이드 (모든 스킬/에이전트에 적용)
 ├── skills/
-│   ├── commit.md                      # /be-harness:commit 오버라이드
 │   ├── request.md                     # /be-harness:request 오버라이드
 │   ├── start-workflow.md              # /be-harness:start-workflow 오버라이드
 │   ├── convention-check.md
@@ -55,7 +54,7 @@ applies-to: be-harness@0.1.0+ # 최소 플러그인 버전
 updated: 2026-04-21
 ---
 
-# Project Override: /be-harness:commit
+# Project Override: /be-harness:request
 
 ## 추가 규칙
 - [이 프로젝트에서만 적용되는 규칙들]

@@ -382,7 +382,7 @@ Agent tool 호출에는 선택된 `model`과 `effort`를 함께 지정한다.
 
 ```
 Agent tool:
-  subagent_type: hyeondongs-harness:workflow-implementer
+  subagent_type: fe-harness:workflow-implementer
   model: [난이도 기준 선택]
   effort: [난이도 기준 선택]
   prompt: |
@@ -523,7 +523,7 @@ Agent tool:
 
 ```
 Agent tool:
-  subagent_type: hyeondongs-harness:scope-reviewer
+  subagent_type: fe-harness:scope-reviewer
   model: [리뷰 범위 기준 선택]
   effort: [리뷰 범위 기준 선택]
   prompt: |
@@ -564,7 +564,7 @@ Agent tool:
 
 ```
 Agent tool (병렬 1):
-  subagent_type: hyeondongs-harness:component-hd-reviewer
+  subagent_type: fe-harness:component-reviewer
   model: [컴포넌트 변경량 기준 선택]
   effort: [컴포넌트 변경량 기준 선택]
   prompt: |
@@ -574,7 +574,7 @@ Agent tool (병렬 1):
     배정 model/effort: {model}/{effort}
 
 Agent tool (병렬 2):
-  subagent_type: hyeondongs-harness:a11y-reviewer
+  subagent_type: fe-harness:a11y-reviewer
   model: [접근성 영향 기준 선택]
   effort: [접근성 영향 기준 선택]
   prompt: |
@@ -591,7 +591,7 @@ Critical 이슈가 있으면 general-purpose 에이전트로 수정을 위임한
 - **`$HARD_MODE = false`** (일반):
   ```
   Agent tool:
-    subagent_type: hyeondongs-harness:workflow-pr
+    subagent_type: fe-harness:workflow-pr
     model: [PR 복잡도 기준 선택]
     effort: [PR 복잡도 기준 선택]
     prompt: |
@@ -614,7 +614,7 @@ Critical 이슈가 있으면 general-purpose 에이전트로 수정을 위임한
 
 ```
 Agent tool:
-  subagent_type: hyeondongs-harness:workflow-reflection
+  subagent_type: fe-harness:workflow-reflection
   model: [워크플로우 변경량 기준 선택]
   effort: [워크플로우 변경량 기준 선택]
   prompt: |

@@ -2,10 +2,20 @@
 
 프론트엔드 개발 워크플로우를 위한 Claude Code 플러그인.
 
+## 의존 플러그인
+
+hyeondongs-harness 는 다음 두 플러그인의 에이전트/스킬을 호출한다. **반드시 함께 설치해야 한다.**
+
+- `common` — `commit`, `commit-push`, `commit-pr`, `commit-hard-push` 등 커밋/PR 워크플로우 + `doc-gen`
+- `fe-harness` — `a11y-reviewer`, `component-reviewer`, `scope-reviewer`, `workflow-implementer`, `workflow-pr`, `workflow-reflection` 에이전트
+
 ## 설치
 
 ```
 /plugin marketplace add kangmomin/hyeondongs-harness
+/plugin install common@harness-plugins
+/plugin install fe-harness@harness-plugins
+/plugin install hyeondongs-harness@harness-plugins
 ```
 
 ## 초기 세팅
@@ -36,9 +46,8 @@
 | 스킬 | 호출 | 설명 |
 |------|------|------|
 | **request** | `/hyeondongs-harness:request-hd` | 작업 유형별(컴포넌트 생성/페이지 생성/기능 수정/버그 수정) 단계적 질문 → Technical Spec 생성 |
-| **commit** | `/hyeondongs-harness:commit-hd` | 변경사항을 논리적 단위별로 나눠서 커밋 |
-| **commit-push** | `/hyeondongs-harness:commit-hd-push-hd` | commit + push |
-| **commit-pr** | `/hyeondongs-harness:commit-hd-pr-hd` | commit + push + 브랜치 생성 + draft PR 오픈 |
+
+> 커밋/Push/PR 워크플로우는 [`common` 플러그인](../common/README.md)으로 이전되었습니다. `/common:commit`, `/common:commit-push`, `/common:commit-pr`, `/common:commit-hard-push` 로 호출합니다.
 
 ### 컴포넌트 생성
 
@@ -70,11 +79,12 @@
 
 ### 에이전트
 
-| 에이전트 | 설명 |
-|---------|------|
-| **scope-reviewer** | Spec 기반 UI 구현/비즈니스 로직 검증 (start-workflow에서 자동 호출) |
-| **a11y-reviewer** | WAI-ARIA, 키보드 네비게이션, 색상 대비 등 접근성 검증 |
-| **component-reviewer** | Props 설계, 재사용성, 렌더링 성능, 관심사 분리 검증 |
+hyeondongs-harness 자체 에이전트는 없다. 사용되는 에이전트는 모두 [`fe-harness`](../fe-harness/README.md) 의 것을 그대로 호출한다:
+
+- `scope-reviewer` — Spec 기반 UI 구현/비즈니스 로직 검증
+- `a11y-reviewer` — WAI-ARIA, 키보드 네비게이션, 색상 대비 등 접근성 검증
+- `component-reviewer` — Props 설계, 재사용성, 렌더링 성능, 관심사 분리 검증
+- `workflow-implementer`, `workflow-pr`, `workflow-reflection`
 
 ## 워크플로우
 
@@ -127,5 +137,5 @@ Phase 8: 회고 + 정리
   ↓
 /hyeondongs-harness:lint-check-hd       # 5. 린트 + a11y 검사
   ↓
-/hyeondongs-harness:commit-hd-pr-hd        # 6. PR
+/common:commit-pr                          # 6. PR
 ```

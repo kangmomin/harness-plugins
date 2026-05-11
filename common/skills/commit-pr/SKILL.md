@@ -1,13 +1,24 @@
 ---
-name: commit-pr-hd
+name: commit-pr
 description: "커밋, 브랜치 생성, PR 오픈까지 전체 워크플로우 수행"
 user-invocable: true
 ---
 
-0. 이미 생성된 PR 이 있다면 /hyeondongs-harness:commit-hd-push-hd 만 진행해
+## Project Overrides
+
+실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
+
+- `.claude/common/common.md` — 플러그인 공통 (모든 스킬에 적용)
+- `.claude/common/skills/commit-pr.md` — 본 스킬 전용
+
+존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+---
+
+0. 이미 생성된 PR 이 있다면 /common:commit-push 만 진행해
 1. VERSION 파일이 있다면 patch VERSION 을 올려.
 2. 브랜치 생성 (이미 `feat/**` 또는 `hotfix/**` 브랜치에 있다면 이 단계를 건너뛴다)
-3. /hyeondongs-harness:commit-hd-push-hd 를 진행해
+3. /common:commit-push 를 진행해
 4. 작업을 분석하여 브랜치 바로 상위 브랜치로 draft PR 을 열어.
 
 ---
@@ -20,8 +31,8 @@ user-invocable: true
 
 | prefix | 용도 | 예시 |
 |--------|------|------|
-| `feat` | 기능 추가/변경 | `feat/login-form-component` |
-| `hotfix` | 긴급 버그 수정 | `hotfix/fix-hydration-mismatch` |
+| `feat` | 기능 추가/변경 | `feat/grpc-e2e-test` |
+| `hotfix` | 긴급 버그 수정 | `hotfix/fix-jwt-parsing` |
 
 ### 이름 생성 절차
 
@@ -40,7 +51,7 @@ user-invocable: true
    - 공백과 특수문자는 `-`로 치환
    - 연속 `-` 제거, 앞뒤 `-` 제거
 4. **최종 확인**: 생성할 브랜치명을 사용자에게 보여주고 승인을 받는다.
-   > "브랜치명: `feat/login-form-component` — 이대로 생성할까요? (Y/수정할 이름 입력)"
+   > "브랜치명: `feat/grpc-e2e-test` — 이대로 생성할까요? (Y/수정할 이름 입력)"
    
    사용자가 다른 이름을 입력하면 해당 이름을 사용하되, 이름 규칙 검증은 동일하게 수행한다.
 
@@ -48,9 +59,9 @@ user-invocable: true
 
 | 규칙 | 올바른 예 | 잘못된 예 |
 |------|----------|----------|
-| **영문 소문자 + 하이픈만 사용** | `feat/add-search-bar` | `feat/Add_SearchBar` |
-| **2~4 단어로 간결하게** | `feat/user-profile-card` | `feat/add-user-profile-card-component-with-avatar-and-badges` |
-| **구체적 의미 포함** | `feat/dark-mode-toggle` | `feat/update-code` |
+| **영문 소문자 + 하이픈만 사용** | `feat/add-grpc-support` | `feat/Add_gRPC_Support` |
+| **2~4 단어로 간결하게** | `feat/grpc-e2e-test` | `feat/add-grpc-rpc-e2e-test-automation-support-for-all-services` |
+| **구체적 의미 포함** | `feat/cursor-pagination` | `feat/update-code` |
 | **prefix 뒤에 `/` 필수** | `feat/user-auth` | `feat-user-auth` |
 | **숫자 허용, 선행 숫자 금지** | `feat/oauth2-login` | `feat/2nd-attempt` |
 

@@ -8,11 +8,12 @@ user-invocable: true
 
 실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
 
-- `.claude/be-harness/common.md` — 플러그인 공통 (모든 스킬/에이전트에 적용)
-- `.claude/be-harness/skills/commit.md` — 본 스킬 전용
+- `.claude/common/common.md` — 플러그인 공통 (모든 스킬에 적용)
+- `.claude/common/skills/commit.md` — 본 스킬 전용
 
 존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
+---
 
 현재까지 작업한 내용을 작업 단위별로 나눠서 커밋해주세요.
 

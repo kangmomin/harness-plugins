@@ -10,12 +10,8 @@
 <repo-root>/.claude/fs-harness/
 ├── common.md                          # 플러그인 공통 오버라이드 (모든 스킬/에이전트에 적용)
 ├── skills/
-│   ├── commit.md                      # /fs-harness:commit 오버라이드
-│   ├── request.md                     # /fs-harness:request 오버라이드
 │   ├── start-workflow.md              # /fs-harness:start-workflow 오버라이드
-│   ├── convention-check.md
-│   ├── e2e-test.md
-│   └── ... (스킬 이름과 동일하게)
+│   └── submit-feedback.md             # /fs-harness:submit-feedback 오버라이드
 └── agents/
     ├── workflow-implementer.md        # fs-harness:workflow-implementer 에이전트 오버라이드
     ├── code-verifier.md
@@ -50,12 +46,12 @@ frontmatter는 선택. 본문은 자유로운 markdown. 단, 아래 섹션을 **
 
 ```markdown
 ---
-scope: skill:commit          # 또는 agent:workflow-implementer, common
+scope: skill:start-workflow  # 또는 agent:workflow-implementer, common
 applies-to: fs-harness@0.1.0+ # 최소 플러그인 버전
 updated: 2026-04-21
 ---
 
-# Project Override: /fs-harness:commit
+# Project Override: /fs-harness:start-workflow
 
 ## 추가 규칙
 - [이 프로젝트에서만 적용되는 규칙들]
