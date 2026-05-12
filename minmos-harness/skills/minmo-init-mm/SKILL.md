@@ -87,7 +87,7 @@ user-invocable: true
 
 | # | 항목 | 가이드 요약 |
 |---|------|-----------|
-| 1 | Apidog MCP | Apidog 프로젝트 ID로 현재 MCP 클라이언트에 등록. Claude/Codex는 `.mcp.json`, OpenCode는 사용하는 MCP 설정 위치에 등록 |
+| 1 | Apidog MCP | 프로젝트 ID(+선택: 액세스 토큰)로 MCP 클라이언트에 등록. 새 형식(`type: stdio`, `--project=<ID>`, `env.APIDOG_ACCESS_TOKEN`) 권장. 구 형식(`--project-id=<ID>`)도 호환 |
 | 2 | APIDOG_ACCESS_TOKEN | Apidog → Settings → API Access Token에서 생성 후 `export` |
 | 3 | APIDOG_PROJECT_ID | Apidog 프로젝트 URL에서 확인 후 `export` |
 | 4 | PostgreSQL MCP | DATABASE_URL을 현재 MCP 클라이언트에 등록. `secret/.env`에서 자동 추출 가능 |
@@ -104,26 +104,57 @@ user-invocable: true
 
 #### 3.1 Apidog MCP (MISSING인 경우)
 
-> "Apidog MCP를 설정합니다. Apidog 프로젝트 ID를 알려주세요:"
+Apidog MCP는 두 가지 형식 모두 지원한다. **새 형식(`env` 인라인)** 을 권장한다.
 
-- 현재 클라이언트의 MCP 설정 방식에 맞게 등록한다.
-- Claude/Codex처럼 `.mcp.json`을 쓰는 환경이면 유저 입력을 받아 아래 설정을 추가한다:
-  ```json
-  {
-    "mcpServers": {
-      "apidog": {
-        "command": "npx",
-        "args": ["-y", "apidog-mcp-server@latest", "--project-id=<ID>"]
-      }
-    }
-  }
-  ```
-- `.mcp.json`이 없으면 새로 생성, 있으면 기존 내용에 병합한다.
-- OpenCode처럼 별도 MCP 설정을 쓰는 환경이면 `.mcp.json` 자동 추가 대신 해당 클라이언트의 MCP 설정 위치에 같은 command/args를 등록하도록 안내한다.
+1. 사용자에게 입력을 받는다:
+   > "Apidog MCP를 설정합니다."
+   > 1. **Apidog 프로젝트 ID** (필수): 예) `1233589`
+   > 2. **Apidog 액세스 토큰** (선택): 지금 같이 등록하면 Step 3.2의 별도 `export`가 불필요합니다. 비워두면 Step 3.2에서 환경 변수로 따로 안내합니다.
+
+2. Claude/Codex처럼 `.mcp.json`을 쓰는 환경이면 아래 설정을 병합한다.
+
+   **새 형식 (권장, 토큰 인라인)**:
+   ```json
+   {
+     "mcpServers": {
+       "apidog": {
+         "type": "stdio",
+         "command": "npx",
+         "args": ["-y", "apidog-mcp-server@latest", "--project=<ID>"],
+         "env": {
+           "APIDOG_ACCESS_TOKEN": "<token>"
+         }
+       }
+     }
+   }
+   ```
+
+   **구 형식 (호환, 토큰은 별도 export)**:
+   ```json
+   {
+     "mcpServers": {
+       "apidog": {
+         "command": "npx",
+         "args": ["-y", "apidog-mcp-server@latest", "--project-id=<ID>"]
+       }
+     }
+   }
+   ```
+
+   - 토큰을 입력하지 않았으면 `env` 필드를 통째로 생략하고 Step 3.2에서 별도 환경 변수 안내로 이어진다.
+   - `.mcp.json`이 없으면 새로 생성, 있으면 기존 내용에 병합한다.
+
+3. **보안 경고**: 토큰을 `env`에 인라인하면 `.mcp.json` 노출 시 토큰도 함께 노출된다.
+   - `.gitignore`에 `.mcp.json`이 포함됐는지 확인하고, 없으면 추가를 안내한다.
+   - 토큰 노출 위험이 큰 환경(공유 레포 등)에서는 구 형식 + Step 3.2 방식을 권장한다.
+
+4. OpenCode처럼 별도 MCP 설정을 쓰는 환경이면 `.mcp.json` 자동 추가 대신 해당 클라이언트의 MCP 설정 위치에 같은 `type`/`command`/`args`/`env`를 등록하도록 안내한다.
 
 #### 3.2 Apidog 환경 변수 (UNSET인 경우)
 
-> "Apidog Push 기능을 사용하려면 환경 변수가 필요합니다. 지금 설정할까요? (Y/건너뛰기)"
+> "Apidog Push 기능을 사용하려면 액세스 토큰이 필요합니다.
+> Step 3.1에서 `env`에 토큰을 인라인했다면 이 단계는 건너뛸 수 있습니다.
+> 지금 별도 환경 변수로 설정할까요? (Y/건너뛰기)"
 
 - Y: 토큰 입력 안내
   > "Apidog → Settings → API Access Token에서 토큰을 생성한 뒤 아래 명령을 실행하세요:"
