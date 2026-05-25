@@ -100,18 +100,20 @@ user-invocable: true
 
 ### Model / Effort 선택 규칙
 
+**최상위 고정**: orchestrator(이 세션 자체)와 advisor만 항상 최상위(opus / max effort)를 사용한다. 그 외 모든 **서브 에이전트의 default는 Standard (sonnet / medium)** 이며, Complex 또는 Critical로 상향할 때는 Agent prompt에 **자체평가 사유**(어떤 난이도 기준에 해당하는지)를 한 줄로 명시한다. 사유 없이 opus/high를 default로 가정하지 않는다. **세션 effort는 서브 에이전트로 상속되지 않으므로** 호출 시점에 등급표 기준으로 별도 명시한다.
+
 Agent 생성 시 작업 복잡도, 난이도, 작업량에 맞춰 `model`과 `effort` 또는 `reasoning_effort`를 명시한다.
 환경별 모델명이 다르면 같은 등급의 사용 가능한 최신 모델로 치환한다.
 
 | 등급 | 기준 | Claude 계열 | Codex 계열 | effort |
 |------|------|-------------|------------|--------|
 | Simple | 단일 도메인에 가까운 보조 작업, 문서/단순 리뷰 | sonnet | gpt-5.3-codex-spark | low |
-| Standard | 일반 FE+BE 계약/구현/검증 | sonnet | gpt-5.3-codex | medium |
+| Standard | 일반 FE+BE 계약/구현/검증 (**서브 에이전트 default**) | sonnet | gpt-5.3-codex | medium |
 | Complex | 다중 API, shared artifact, 상태/DB/권한 영향 | opus | gpt-5.4 | high |
 | Critical | 대규모 계약 변경, 보안/데이터 마이그레이션, 릴리즈 위험 | opus | gpt-5.5 | xhigh |
 
 FE/BE 구현 에이전트는 각 도메인의 작업량으로 등급을 따로 산정한다.
-통합 계약 리뷰와 Codex 품질 리뷰는 기본 `Complex` 이상으로 둔다.
+**통합 계약 리뷰와 Codex 품질 리뷰는 fs 워크플로우 특성상 default를 `Complex` 이상으로 둔다** (계약 불일치 비용이 크기 때문에 mm의 일반 서브와 다른 예외).
 
 ## 자율 실행 규칙
 
@@ -347,22 +349,24 @@ git checkout -b feat/{작업-요약-kebab-case}
 [Phase 1 결과]
 
 ## Current Phase
-Phase 3.5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effort: 현재 세션)
+Phase 3.5 - 자율 실행 시작 (agent: orchestrator (이 세션), model/effort: 최상위 고정 — 서브 에이전트는 등급표 기준 별도 명시)
 
 ## Phase Assignments
+> "이 세션" = orchestrator 자신 (최상위 고정). 서브 에이전트는 **Model / Effort 선택 규칙** 등급표를 따르며 세션 effort를 상속하지 않는다. fs 예외: 통합 계약 리뷰·Codex 품질 리뷰는 default Complex 이상.
+
 | Phase | Agent | Model | Effort | Status |
 |-------|-------|-------|--------|--------|
-| 0 | orchestrator + request agents | 현재 세션 | 현재 세션 | DONE |
-| 0.5 | Codex reviewer | 계약 복잡도 기준 | 계약 복잡도 기준 | DONE/SKIPPED |
-| 1 | orchestrator | 현재 세션 | 현재 세션 | DONE |
-| 2 | contract review agents | 계약 복잡도 기준 | 계약 복잡도 기준 | DONE |
-| 3 | orchestrator + Codex reviewer | 계약 복잡도 기준 | 계약 복잡도 기준 | DONE |
-| 3.5 | orchestrator | 현재 세션 | 현재 세션 | IN_PROGRESS |
-| 4 | BE implementer + FE implementer | 도메인별 기준 | 도메인별 기준 | PENDING |
-| 5 | BE/FE quality agents + Codex reviewer | 도메인별 기준 | 도메인별 기준 | PENDING |
-| 6 | integration review agents | 계약 복잡도 기준 | 계약 복잡도 기준 | PENDING |
-| 7 | orchestrator + PR skill | PR 복잡도 기준 | PR 복잡도 기준 | PENDING |
-| 8 | workflow-reflection | 변경량 기준 | 변경량 기준 | PENDING |
+| 0 | orchestrator + request agents | 이 세션 (최상위) | 이 세션 (최상위) | DONE |
+| 0.5 | Codex reviewer | 계약 복잡도 기준 (default Complex) | 계약 복잡도 기준 (default Complex) | DONE/SKIPPED |
+| 1 | orchestrator | 이 세션 (최상위) | 이 세션 (최상위) | DONE |
+| 2 | contract review agents | 계약 복잡도 기준 (default Complex) | 계약 복잡도 기준 (default Complex) | DONE |
+| 3 | orchestrator + Codex reviewer | 계약 복잡도 기준 (default Complex) | 계약 복잡도 기준 (default Complex) | DONE |
+| 3.5 | orchestrator | 이 세션 (최상위) | 이 세션 (최상위) | IN_PROGRESS |
+| 4 | BE implementer + FE implementer | 도메인별 등급표 (default Standard) | 도메인별 등급표 (default Standard) | PENDING |
+| 5 | BE/FE quality agents + Codex reviewer | 도메인별 등급표 (default Standard, Codex 리뷰는 Complex) | 도메인별 등급표 (default Standard, Codex 리뷰는 Complex) | PENDING |
+| 6 | integration review agents | 계약 복잡도 기준 (default Complex) | 계약 복잡도 기준 (default Complex) | PENDING |
+| 7 | orchestrator + PR skill | PR 복잡도 기준 (default Simple/Standard) | PR 복잡도 기준 (default Simple/Standard) | PENDING |
+| 8 | workflow-reflection | 변경량 기준 (default Standard) | 변경량 기준 (default Standard) | PENDING |
 
 ## Remaining Phases
 - Phase 4: 프론트/백엔드 병렬 구현

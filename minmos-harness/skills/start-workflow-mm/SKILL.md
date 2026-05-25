@@ -52,7 +52,7 @@ user-invocable: true
 
 ```
 [유저 대화] Phase 0~1.5: 직접 실행 (EnterPlanMode + Spec 작성, 난이도, 실행 전략)
-[유저 대화] Phase 2~3  : 직접 실행 (Plan, 리뷰, Codex Plan 리뷰)
+[유저 대화] Phase 2~3  : 직접 실행 (E2E 메인 플로우 질문, Plan, 리뷰, Codex Plan 리뷰)
 [상태 저장] Phase 3.5  : 상태 파일 생성
 [자율 실행] Phase 4~8  : 서브 에이전트 순차/병렬 위임
 [유저 대화] Phase 9    : 최종 보고 + 보완점 적용
@@ -89,13 +89,15 @@ user-invocable: true
 
 ### Model / Effort 선택 규칙
 
+**최상위 고정**: orchestrator(이 세션 자체)와 advisor만 항상 최상위(opus / max effort)를 사용한다. 그 외 모든 **서브 에이전트의 default는 Standard (sonnet / medium)** 이며, Complex 또는 Critical로 상향할 때는 Agent prompt에 **자체평가 사유**(어떤 난이도 기준에 해당하는지)를 한 줄로 명시한다. 사유 없이 opus/high를 default로 가정하지 않는다.
+
 Agent 생성 시 작업 복잡도, 난이도, 작업량에 맞춰 `model`과 `effort` 또는 `reasoning_effort`를 명시한다.
 환경별 모델명이 다르면 같은 등급의 사용 가능한 최신 모델로 치환한다.
 
 | 등급 | 기준 | Claude 계열 | Codex 계열 | effort |
 |------|------|-------------|------------|--------|
 | Simple | 난이도 1-3, 1-3개 파일, 문서/단순 수정 | sonnet | gpt-5.3-codex-spark | low |
-| Standard | 난이도 4-6, 일반 구현/리뷰/테스트 수정 | sonnet | gpt-5.3-codex | medium |
+| Standard | 난이도 4-6, 일반 구현/리뷰/테스트 수정 (**서브 에이전트 default**) | sonnet | gpt-5.3-codex | medium |
 | Complex | 난이도 7-8, 다중 레이어/API/DB/계약 영향 | opus | gpt-5.4 | high |
 | Critical | 난이도 9-10, 보안/데이터 마이그레이션/대규모 리팩토링 | opus | gpt-5.5 | xhigh |
 
@@ -106,15 +108,17 @@ Agent 생성 시 작업 복잡도, 난이도, 작업량에 맞춰 `model`과 `ef
 
 | Phase | 담당 agent | 기본 model/effort |
 |-------|------------|-------------------|
-| 0-1.5 | orchestrator | 현재 세션 설정 |
-| 2-3 | orchestrator + review agents | 난이도 기준 |
-| 4 | workflow-implementer 또는 slice별 general-purpose | 난이도/슬라이스 기준 |
+| 0-1.5 | orchestrator (이 세션) | 최상위 (opus / max) — 세션 설정 그대로 |
+| 2-3 | orchestrator + review agents | review 서브는 Standard, 보안/계약 검토 Complex |
+| 4 | workflow-implementer 또는 slice별 general-purpose | Standard 기본, 난이도 자체평가 시 Complex |
 | 4.5 | orchestrator Bash, 실패 시 build-fix agent | Standard, 반복 실패 시 Complex |
 | 5 | simplify/convention/e2e/scope agents | Standard, 결함 심각도에 따라 Complex |
 | 6 | workflow-doc-sync | Standard, 계약 변경 크면 Complex |
 | 7 | workflow-pr 또는 /common:commit-hard-push | Simple/Standard |
 | 8 | workflow-reflection | Standard |
-| 9 | orchestrator | 현재 세션 설정 |
+| 9 | orchestrator (이 세션) | 최상위 (opus / max) — 세션 설정 그대로 |
+
+> **표기 일관성**: "현재 세션" 또는 "이 세션"은 orchestrator 자신을 의미. 서브 에이전트는 이 표의 등급을 따르고 세션 effort를 상속하지 않는다.
 
 ## 자율 실행 규칙
 
@@ -182,26 +186,9 @@ Agent 생성 시 작업 복잡도, 난이도, 작업량에 맞춰 `model`과 `ef
 
 ---
 
-## Pre-flight: 세션 환경 점검
+## Pre-flight: 프로젝트 환경 점검
 
-모드 실행 전, 대화 이력을 확인하여 세션 환경을 점검한다.
-
-### 1. Effort Level
-
-대화 이력에 `/effort max` 실행 흔적이 없으면 `AskUserQuestion`으로 질문한다:
-> "워크플로우 최대 성능을 위해 `/effort max` 설정을 권장합니다. 설정할까요?"
-
-- 동의하면 → "`/effort max`를 입력해주세요." 안내 후, 실행 확인 뒤 진행
-- 거부하면 → 현재 설정으로 진행
-
-### 2. Advisor
-
-대화 이력에 `/advisor opus` 실행 흔적이 없으면 사용자에게 실행을 요청한다:
-> "워크플로우 시작 전 `/advisor opus`를 실행해주세요."
-
-실행 확인 후 다음 단계로 진행한다.
-
-### 3. 프로젝트 환경 점검
+> orchestrator/advisor의 최상위 고정 및 서브 에이전트 등급화 정책은 위 `Model / Effort 선택 규칙`에 정의되어 있다. 별도 사용자 안내 단계는 두지 않는다.
 
 아래 항목을 Bash/Glob으로 빠르게 확인한다. **누락 항목이 있으면 어떤 Phase가 SKIP될 것인지 사전 경고**한다.
 
@@ -578,11 +565,27 @@ Technical Spec을 분석하여 구현 병렬화 가능 여부를 판정한다.
 
 ---
 
-## Phase 2: Scope Reviewer 준비
+## Phase 2: Scope Reviewer 준비 + E2E 메인 플로우 수집
+
+### 2.1 Scope Reviewer 준비
 
 Phase 5에서 사용할 scope-reviewer 정보를 메모한다:
 - Technical Spec 전문
 - 엣지 케이스 목록
+
+### 2.2 E2E 메인 플로우 수집
+
+Phase 5.3 E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직접 묻는다. git diff 기반 자동 도출만으로는 의도한 주 사용 흐름이 누락될 수 있으므로, 사람이 확인한 메인 플로우를 함께 확보한다.
+
+**모든 Build 모드 작업에서 항상 질문한다** (작업 유형과 무관). 아직 Plan 모드 대화 중이므로 평문으로 묻는다:
+
+> "E2E 테스트 메인 플로우를 알려주세요. 이 작업의 핵심 사용자 시나리오 또는 주요 API 호출 순서를 서술해주세요.
+> 예: `진단지 생성 → 목록 조회 → 단건 수정 → 삭제`
+> 자동 도출(git diff 기반)에 맡기려면 `자동`이라고 답해주세요."
+
+- 사용자가 시나리오를 서술하면 그 텍스트를 **그대로** 보관한다 (재해석·요약하지 않는다).
+- 사용자가 `자동`이라고 답하거나 응답하지 않으면 `자동 도출 (git diff 기반)`으로 보관한다.
+- 보관한 값은 Phase 3.5에서 상태 파일 `## E2E 메인 플로우` 섹션에 **한 번만** 영구 저장한다 (단일 출처). 이후 Phase 5.3은 상태 파일에서 읽어 쓴다.
 
 ---
 
@@ -808,6 +811,9 @@ Phase 3.5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, eff
 
 ## Edge Cases
 [엣지 케이스 목록]
+
+## E2E 메인 플로우
+[Phase 2.2에서 사용자가 서술한 메인 플로우 전문, 또는 "자동 도출 (git diff 기반)"]
 
 ## Plan
 [확정된 Plan 전문 그대로 복사]
@@ -1133,12 +1139,17 @@ Agent tool:
     배정 model/effort: {model}/{effort}
     결과가 `[SKIPPED:*]`이면 스킵 사유를 그대로 보고하세요.
 
+    [E2E 메인 플로우 규칙]
+    상태 파일의 `## E2E 메인 플로우` 섹션을 읽어 e2e-test-loop-mm에 호출 컨텍스트로 전달하세요.
+    값이 "자동 도출 (git diff 기반)"이 아니면, 해당 플로우를 Happy Path 필수 시나리오로 반드시 포함하도록 지시하세요.
+
     [Implementation Notes 규칙]
     E2E에서 드러난 Spec 모호성·예상치 못한 응답 형식·검증 보류 케이스가 있으면
     `/tmp/implementation-notes.md`의 해당 섹션에 한 줄 append 하세요(append-only, 마크다운).
     `[SKIPPED:*]`로 검증을 못 했다면 그 사유를 `## 미결 질문`에 체크박스로 기록하세요.
 
-    완료 후 "이슈: N건, 수정: Y/N, 스킵 사유: {있으면}" 형식으로 보고하세요.
+    완료 후 "이슈: N건, 수정: Y/N, 스킵 사유: {있으면}, E2E 리포트 HTML: {경로 또는 미생성}" 형식으로 보고하세요.
+    e2e-test-loop-mm이 출력한 `E2E 리포트 HTML:` 절대 경로를 그대로 보고에 포함해야 합니다 (Phase 9 보고서가 이 경로를 참조합니다).
 ```
 - `SKIPPED` 반환 시 → `modified`에 영향 주지 않고 다음 단계 진행 (루프 재시작 트리거 아님)
 - "수정: Y" → `modified = true`
@@ -1355,6 +1366,8 @@ Phase 4~8 에이전트들의 결과를 종합하여 보고서를 작성한다.
 | e2e | N | M |
 | scope-review | N | M |
 
+- **E2E 리포트 HTML**: [Phase 5.3 마지막 실행이 보고한 `E2E 리포트 HTML` 경로 (품질 루프가 5.3을 여러 번 돌렸으면 최종 iteration 산출물). 미생성이면 "미생성 (E2E SKIP 또는 미실행)"]
+
 ### 5. 문서 동기화
 - Apidog 업데이트: [Y/N, 요약]
 
@@ -1399,10 +1412,10 @@ Phase 4~8 에이전트들의 결과를 종합하여 보고서를 작성한다.
 기본은 상태 파일과 라이브 노트를 **보관**한다 (HTML 산출물은 `/workspace/work-log/claude/`에 영구 저장). 사용자가 정리를 요청했거나 보관이 필요 없을 때만 삭제한다:
 
 ```bash
-rm -f /tmp/workflow-state.md /tmp/implementation-notes.md
+rm -f /tmp/workflow-state.md /tmp/implementation-notes.md /tmp/e2e-run-report.md
 ```
 
-> HTML 산출물(`/workspace/work-log/claude/*-impl-notes.html`)은 별도 산출물이므로 자동 삭제하지 않는다.
+> HTML 산출물(`/workspace/work-log/claude/*-impl-notes.html`, `*-e2e-report.html`)은 별도 산출물이므로 자동 삭제하지 않는다.
 
 ---
 
@@ -1454,7 +1467,7 @@ Phase 0: EnterPlanMode 활성화 → /request로 Technical Spec 작성 (유저 �
 Phase 1: 난이도 산정 (1-10)
 Phase 1.5: 실행 전략 판정 (sequential / parallel-slices / fullstack)
            fullstack → /start-workflow-fs로 전환 후 종료
-Phase 2: scope-reviewer 메모
+Phase 2: scope-reviewer 메모 + E2E 메인 플로우 수집 (사용자 질문, 모든 Build 작업)
 Phase 3: Plan을 Spec 아래 추가 → 다관점 1회 보강 → Codex APPROVE 루프 (Spec+Plan 통합 산출물) → ExitPlanMode로 Plan 확정
          parallel-slices → Plan에 Slice 정의 추가
 Phase 3.5: 상태 파일 + implementation-notes.md(4-섹션) 생성 → "자율 실행 시작"
@@ -1473,7 +1486,7 @@ Phase 5: 품질 루프 (병렬 스캔 → 통합 수정 → 순차 실행, 최�
   통합 수정 [모인 이슈 일괄 반영]:
     general-purpose 1개                → 빌드/scope/convention/simplify 순서로 수정
   Batch B [순차 실행, 서버 점유]:
-    5.3 e2e-test-loop                  → general-purpose 에이전트
+    5.3 e2e-test-loop                  → general-purpose 에이전트 (E2E 실행 리포트 HTML 생성)
     5.5 make test                      → Bash 직접
   → 수정 있으면 커밋 후 재시작, 없으면 탈출
 Phase 5.6: Codex 품질 리뷰             → APPROVE까지 보완
