@@ -52,7 +52,7 @@ user-invocable: true
 
 ```
 [유저 대화] Phase 0~1.5: 직접 실행 (EnterPlanMode + Spec 작성, 난이도, 실행 전략)
-[유저 대화] Phase 2~3  : 직접 실행 (Plan, 리뷰, Codex Plan 리뷰)
+[유저 대화] Phase 2~3  : 직접 실행 (E2E 메인 플로우 질문, Plan, 리뷰, Codex Plan 리뷰)
 [상태 저장] Phase 3.5  : 상태 파일 생성
 [자율 실행] Phase 4~8  : 서브 에이전트 순차/병렬 위임
 [유저 대화] Phase 9    : 최종 보고 + 보완점 적용
@@ -89,13 +89,15 @@ user-invocable: true
 
 ### Model / Effort 선택 규칙
 
+**최상위 고정**: orchestrator(이 세션 자체)와 advisor만 항상 최상위(opus / max effort)를 사용한다. 그 외 모든 **서브 에이전트의 default는 Standard (sonnet / medium)** 이며, Complex 또는 Critical로 상향할 때는 Agent prompt에 **자체평가 사유**(어떤 난이도 기준에 해당하는지)를 한 줄로 명시한다. 사유 없이 opus/high를 default로 가정하지 않는다.
+
 Agent 생성 시 작업 복잡도, 난이도, 작업량에 맞춰 `model`과 `effort` 또는 `reasoning_effort`를 명시한다.
 환경별 모델명이 다르면 같은 등급의 사용 가능한 최신 모델로 치환한다.
 
 | 등급 | 기준 | Claude 계열 | Codex 계열 | effort |
 |------|------|-------------|------------|--------|
 | Simple | 난이도 1-3, 1-3개 파일, 문서/단순 수정 | sonnet | gpt-5.3-codex-spark | low |
-| Standard | 난이도 4-6, 일반 구현/리뷰/테스트 수정 | sonnet | gpt-5.3-codex | medium |
+| Standard | 난이도 4-6, 일반 구현/리뷰/테스트 수정 (**서브 에이전트 default**) | sonnet | gpt-5.3-codex | medium |
 | Complex | 난이도 7-8, 다중 레이어/API/DB/계약 영향 | opus | gpt-5.4 | high |
 | Critical | 난이도 9-10, 보안/데이터 마이그레이션/대규모 리팩토링 | opus | gpt-5.5 | xhigh |
 
@@ -106,15 +108,17 @@ Agent 생성 시 작업 복잡도, 난이도, 작업량에 맞춰 `model`과 `ef
 
 | Phase | 담당 agent | 기본 model/effort |
 |-------|------------|-------------------|
-| 0-1.5 | orchestrator | 현재 세션 설정 |
-| 2-3 | orchestrator + review agents | 난이도 기준 |
-| 4 | workflow-implementer 또는 slice별 general-purpose | 난이도/슬라이스 기준 |
+| 0-1.5 | orchestrator (이 세션) | 최상위 (opus / max) — 세션 설정 그대로 |
+| 2-3 | orchestrator + review agents | review 서브는 Standard, 보안/계약 검토 Complex |
+| 4 | workflow-implementer 또는 slice별 general-purpose | Standard 기본, 난이도 자체평가 시 Complex |
 | 4.5 | orchestrator Bash, 실패 시 build-fix agent | Standard, 반복 실패 시 Complex |
 | 5 | simplify/convention/e2e/scope agents | Standard, 결함 심각도에 따라 Complex |
 | 6 | workflow-doc-sync | Standard, 계약 변경 크면 Complex |
 | 7 | workflow-pr 또는 /common:commit-hard-push | Simple/Standard |
 | 8 | workflow-reflection | Standard |
-| 9 | orchestrator | 현재 세션 설정 |
+| 9 | orchestrator (이 세션) | 최상위 (opus / max) — 세션 설정 그대로 |
+
+> **표기 일관성**: "현재 세션" 또는 "이 세션"은 orchestrator 자신을 의미. 서브 에이전트는 이 표의 등급을 따르고 세션 effort를 상속하지 않는다.
 
 ## 자율 실행 규칙
 
@@ -143,28 +147,48 @@ Agent 생성 시 작업 복잡도, 난이도, 작업량에 맞춰 `model`과 `ef
 - **유저 응답을 기다리거나, 진행 여부를 묻거나, 중간 보고 후 멈추는 것은 금지**
 - 유일한 정지 지점은 **Phase 9 (최종 보고)** 뿐이다
 
+### Implementation Notes (라이브 판단 기록)
+
+자율 실행 중 발생하는 **설계 결정·편차·트레이드오프·미결 질문**을 코드와 분리하여 실시간으로 누적한다.
+유저는 자율 실행 중에도 파일을 직접 열어 비동기로 피드백할 수 있고, Phase 9 최종 보고에서 HTML로 일괄 렌더링된다.
+
+**파일 경로**: `/tmp/implementation-notes.md` (Phase 3.5에서 초기화)
+
+**4-섹션 구조** (이 순서·헤더 고정):
+
+```markdown
+# Implementation Notes — {작업 요약}
+
+## 설계 결정
+<!-- Spec이 모호하여 본인이 내린 선택. 형식: "- {Phase} | {file:line 또는 범위} — 선택: {택1} (대안: {택2}) — 근거: {1~2줄}" -->
+
+## 편차
+<!-- 의도적으로 Spec을 따르지 않은 부분 + 사유. 기존 [Assumption] 태그와 1:1 대응. -->
+
+## 트레이드오프
+<!-- 고려한 대안과 현재 방식 채택 이유. -->
+
+## 미결 질문
+<!-- 사용자 확인이 필요한 항목. 형식: "- [ ] {Phase} | {질문} — 영향: {핵심 동작/주변 영향/판단 보류}" -->
+```
+
+**Append 규칙**:
+- 자율 실행 에이전트(Phase 4 · 4.5 · 5 통합 수정 · 5.3 · 6 · 7 · 8)는 위 4종 사건 발생 시 **코드 수정 전에** 해당 섹션에 한 줄을 append 한다.
+- 읽기 전용 스캔 에이전트(5.0/5.1/5.2/5.4)는 파일을 수정하지 않으므로 implementation-notes에도 직접 쓰지 않는다. 발견한 판단 사항은 이슈 보고서에 포함하여 통합 수정 단계가 대신 기록한다.
+- `Spec 외 변경 금지 원칙`의 `[Assumption]` 보고와 동일한 항목은 `## 편차` 섹션에 동시 기록한다 (중복 게이팅 — 보고서와 라이브 노트가 어긋나지 않도록).
+- 동일 이슈를 여러 Phase가 갱신해도 **append-only** — 기존 줄을 수정하거나 삭제하지 않는다. 추가 맥락은 새 줄로 누적.
+- 마크다운 외 포맷(HTML, JSON 등) 직접 작성 금지 — Phase 9 렌더링이 깨진다.
+
+**Phase 9 HTML 렌더링**:
+- Phase 9 보고 직전 `/tmp/implementation-notes.md`를 `/workspace/work-log/claude/{YYYYMMDD}-{task-name-kebab}-impl-notes.html`로 변환한다. 디렉토리가 없으면 `mkdir -p`로 먼저 생성한다.
+- HTML은 4개 섹션을 색상으로 분리(설계 결정=파랑, 편차=주황, 트레이드오프=초록, 미결 질문=빨강)하고 `## 미결 질문`의 체크박스는 유지한다.
+- `## 미결 질문`에 1건 이상 있으면 Phase 9 보고서 최상단에 **"사용자 확인 필요"** 블록을 자동 생성하여 일괄 표면화한다 (자율 실행은 멈추지 않고, 보고 시점에만 표면화).
+
 ---
 
-## Pre-flight: 세션 환경 점검
+## Pre-flight: 프로젝트 환경 점검
 
-모드 실행 전, 대화 이력을 확인하여 세션 환경을 점검한다.
-
-### 1. Effort Level
-
-대화 이력에 `/effort max` 실행 흔적이 없으면 `AskUserQuestion`으로 질문한다:
-> "워크플로우 최대 성능을 위해 `/effort max` 설정을 권장합니다. 설정할까요?"
-
-- 동의하면 → "`/effort max`를 입력해주세요." 안내 후, 실행 확인 뒤 진행
-- 거부하면 → 현재 설정으로 진행
-
-### 2. Advisor
-
-대화 이력에 `/advisor opus` 실행 흔적이 없으면 사용자에게 실행을 요청한다:
-> "워크플로우 시작 전 `/advisor opus`를 실행해주세요."
-
-실행 확인 후 다음 단계로 진행한다.
-
-### 3. 프로젝트 환경 점검
+> orchestrator/advisor의 최상위 고정 및 서브 에이전트 등급화 정책은 위 `Model / Effort 선택 규칙`에 정의되어 있다. 별도 사용자 안내 단계는 두지 않는다.
 
 아래 항목을 Bash/Glob으로 빠르게 확인한다. **누락 항목이 있으면 어떤 Phase가 SKIP될 것인지 사전 경고**한다.
 
@@ -541,11 +565,27 @@ Technical Spec을 분석하여 구현 병렬화 가능 여부를 판정한다.
 
 ---
 
-## Phase 2: Scope Reviewer 준비
+## Phase 2: Scope Reviewer 준비 + E2E 메인 플로우 수집
+
+### 2.1 Scope Reviewer 준비
 
 Phase 5에서 사용할 scope-reviewer 정보를 메모한다:
 - Technical Spec 전문
 - 엣지 케이스 목록
+
+### 2.2 E2E 메인 플로우 수집
+
+Phase 5.3 E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직접 묻는다. git diff 기반 자동 도출만으로는 의도한 주 사용 흐름이 누락될 수 있으므로, 사람이 확인한 메인 플로우를 함께 확보한다.
+
+**모든 Build 모드 작업에서 항상 질문한다** (작업 유형과 무관). 아직 Plan 모드 대화 중이므로 평문으로 묻는다:
+
+> "E2E 테스트 메인 플로우를 알려주세요. 이 작업의 핵심 사용자 시나리오 또는 주요 API 호출 순서를 서술해주세요.
+> 예: `진단지 생성 → 목록 조회 → 단건 수정 → 삭제`
+> 자동 도출(git diff 기반)에 맡기려면 `자동`이라고 답해주세요."
+
+- 사용자가 시나리오를 서술하면 그 텍스트를 **그대로** 보관한다 (재해석·요약하지 않는다).
+- 사용자가 `자동`이라고 답하거나 응답하지 않으면 `자동 도출 (git diff 기반)`으로 보관한다.
+- 보관한 값은 Phase 3.5에서 상태 파일 `## E2E 메인 플로우` 섹션에 **한 번만** 영구 저장한다 (단일 출처). 이후 Phase 5.3은 상태 파일에서 읽어 쓴다.
 
 ---
 
@@ -772,6 +812,9 @@ Phase 3.5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, eff
 ## Edge Cases
 [엣지 케이스 목록]
 
+## E2E 메인 플로우
+[Phase 2.2에서 사용자가 서술한 메인 플로우 전문, 또는 "자동 도출 (git diff 기반)"]
+
 ## Plan
 [확정된 Plan 전문 그대로 복사]
 
@@ -793,6 +836,31 @@ Phase 3.5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, eff
 ## Slices
 [Plan에서 정의한 Slice 정보 그대로 복사]
 ```
+
+### Implementation Notes 라이브 파일 초기화
+
+상태 파일과 별개로 `/tmp/implementation-notes.md`를 Write tool로 생성한다. 기존 파일이 있으면 덮어쓴다.
+
+```markdown
+# Implementation Notes — {작업 요약}
+
+> 자율 실행 중 발생한 판단·편차·트레이드오프·미결 질문이 실시간으로 누적됩니다.
+> 유저는 언제든 이 파일을 열어 비동기로 피드백할 수 있으며, Phase 9에서 HTML로 일괄 렌더링됩니다.
+
+## 설계 결정
+<!-- "- {Phase} | {file:line 또는 범위} — 선택: {택1} (대안: {택2}) — 근거: {1~2줄}" -->
+
+## 편차
+<!-- "- {Phase} | {file:line 또는 범위} — Spec: {원래 기대 동작} → 실제: {바뀐 동작} — 사유: {1~2줄}" — [Assumption] 보고와 1:1 대응 -->
+
+## 트레이드오프
+<!-- "- {Phase} | {결정} — 채택안: {A} / 기각안: {B,C} — 이유: {1~2줄}" -->
+
+## 미결 질문
+<!-- "- [ ] {Phase} | {질문} — 영향: {핵심 동작/주변 영향/판단 보류}" -->
+```
+
+> 4개 섹션 헤더(`## 설계 결정`, `## 편차`, `## 트레이드오프`, `## 미결 질문`)는 정확히 이 형태로 유지한다. Phase 9 HTML 렌더링이 헤더 텍스트로 섹션을 식별한다.
 
 출력:
 - `sequential`: **"자율 실행을 시작합니다. Phase 4~8을 서브 에이전트로 순차 실행합니다."**
@@ -827,7 +895,12 @@ Agent tool:
     [Assumption 규칙]
     Spec에 명시되지 않은 동작 변경(예: 필터 추가, 정렬 변경 등)을 수행한 경우,
     해당 항목에 반드시 [Assumption] 태그를 붙여 보고하세요.
-    
+
+    [Implementation Notes 규칙]
+    설계 결정·편차·트레이드오프·미결 질문이 발생하면 **코드 수정 전에**
+    `/tmp/implementation-notes.md`의 해당 섹션(`## 설계 결정` / `## 편차` / `## 트레이드오프` / `## 미결 질문`)에 한 줄을 append 하세요.
+    기존 줄 수정 금지(append-only), 마크다운만 작성(HTML 금지). [Assumption] 항목은 `## 편차` 섹션에도 동시 기록하세요.
+
     구현 완료 후 변경 파일 목록, 커밋 수, Plan 대비 차이점, [Assumption] 목록을 보고하세요.
 ```
 
@@ -871,7 +944,13 @@ Agent tool:  (× 슬라이스 수)
     [Assumption 규칙]
     Spec에 명시되지 않은 동작 변경을 수행한 경우,
     해당 항목에 반드시 [Assumption] 태그를 붙여 보고하세요.
-    
+
+    [Implementation Notes 규칙]
+    설계 결정·편차·트레이드오프·미결 질문이 발생하면 **코드 수정 전에**
+    `/tmp/implementation-notes.md`의 해당 섹션에 한 줄을 append 하세요.
+    여러 슬라이스 에이전트가 같은 파일을 동시에 append 할 수 있으므로, 각 줄 앞에 담당 슬라이스 이름을 prefix로 붙이세요(예: `- [Slice 1] Phase 4 | ...`).
+    기존 줄 수정 금지(append-only), 마크다운만 작성.
+
     구현 완료 후 변경 파일 목록, Plan 대비 차이점, [Assumption] 목록을 보고하세요.
 ```
 
@@ -912,6 +991,10 @@ go build ./cmd/main.go 2>&1
       배정 model/effort: {model}/{effort}
       에러 메시지: {빌드 에러 출력}
       수정 후 빌드가 성공하는지 확인하세요.
+
+      [Implementation Notes 규칙]
+      빌드 실패 원인이 Spec/Plan과 어긋난 결정이거나 향후 영향 있는 트레이드오프라면
+      `/tmp/implementation-notes.md`의 해당 섹션에 한 줄 append 하세요(append-only, 마크다운).
   ```
   수정 후 커밋:
   ```bash
@@ -1026,6 +1109,13 @@ Agent tool:
 
     같은 파일에 여러 이슈가 있으면 한 번의 편집으로 합쳐 처리하세요.
     수정 후 `go build ./cmd/main.go`로 빌드가 통과하는지 확인하세요.
+
+    [Implementation Notes 규칙]
+    Batch A 스캔 에이전트들이 발견했지만 직접 기록하지 못한 판단 사항 중,
+    수정 과정에서 설계 결정/편차/트레이드오프/미결 질문에 해당하는 항목이 있으면
+    `/tmp/implementation-notes.md`의 해당 섹션에 한 줄씩 append 하세요(append-only, 마크다운).
+    Simplify 후보 중 안전성이 의심되어 적용을 보류한 항목은 `## 미결 질문`에 체크박스로 기록하세요.
+
     완료 후 "수정: N건, 파일: [목록]" 형식으로 보고하세요.
 ```
 
@@ -1048,7 +1138,18 @@ Agent tool:
     남은 Phase: Phase 5.5, 5.6, 6, 7, 8, 9
     배정 model/effort: {model}/{effort}
     결과가 `[SKIPPED:*]`이면 스킵 사유를 그대로 보고하세요.
-    완료 후 "이슈: N건, 수정: Y/N, 스킵 사유: {있으면}" 형식으로 보고하세요.
+
+    [E2E 메인 플로우 규칙]
+    상태 파일의 `## E2E 메인 플로우` 섹션을 읽어 e2e-test-loop-mm에 호출 컨텍스트로 전달하세요.
+    값이 "자동 도출 (git diff 기반)"이 아니면, 해당 플로우를 Happy Path 필수 시나리오로 반드시 포함하도록 지시하세요.
+
+    [Implementation Notes 규칙]
+    E2E에서 드러난 Spec 모호성·예상치 못한 응답 형식·검증 보류 케이스가 있으면
+    `/tmp/implementation-notes.md`의 해당 섹션에 한 줄 append 하세요(append-only, 마크다운).
+    `[SKIPPED:*]`로 검증을 못 했다면 그 사유를 `## 미결 질문`에 체크박스로 기록하세요.
+
+    완료 후 "이슈: N건, 수정: Y/N, 스킵 사유: {있으면}, E2E 리포트 HTML: {경로 또는 미생성}" 형식으로 보고하세요.
+    e2e-test-loop-mm이 출력한 `E2E 리포트 HTML:` 절대 경로를 그대로 보고에 포함해야 합니다 (Phase 9 보고서가 이 경로를 참조합니다).
 ```
 - `SKIPPED` 반환 시 → `modified`에 영향 주지 않고 다음 단계 진행 (루프 재시작 트리거 아님)
 - "수정: Y" → `modified = true`
@@ -1124,6 +1225,11 @@ Agent tool:
     [외부 도구 규칙]
     MCP tool 호출 전 capability(read/write)를 먼저 확인하세요.
     지원하지 않는 기능은 시도하지 말고 수동 가이드를 제공하세요.
+
+    [Implementation Notes 규칙]
+    OAS 스키마와 실제 코드 간 불일치, 응답 케이스 추가/삭제, 수동 안내로 전환한 항목 등이 있으면
+    `/tmp/implementation-notes.md`의 해당 섹션에 한 줄 append 하세요(append-only, 마크다운).
+    Apidog 업로드 실패·권한 부족으로 동기화를 보류한 항목은 `## 미결 질문`에 기록하세요.
 ```
 
 ### Phase 7: PR / Push
@@ -1141,6 +1247,11 @@ Agent tool:
       남은 Phase: Phase 8, 9
       배정 model/effort: {model}/{effort}
       PR URL을 반드시 보고하세요.
+
+      [Implementation Notes 규칙]
+      `/tmp/implementation-notes.md`를 읽어 `## 미결 질문` 항목이 있으면
+      PR description 본문 끝에 "리뷰어 확인 필요" 블록으로 그대로 옮겨 넣으세요.
+      그 외 섹션은 PR 본문에 자동 포함하지 않습니다(Phase 9 HTML 산출물로 별도 표면화).
   ```
 
 - **`$HARD_MODE = true`** (`--hard`):
@@ -1164,16 +1275,74 @@ Agent tool:
     남은 Phase: Phase 9
     배정 model/effort: {model}/{effort}
     성찰 결과와 스킬 보완점을 보고하세요.
+
+    [Implementation Notes 규칙]
+    `/tmp/implementation-notes.md`를 함께 읽어 라이브 노트가 누락한 판단(설계 결정·트레이드오프)이 있으면
+    해당 섹션에 append 하세요. 워크플로우 자체에 대한 보완 아이디어(스킬 개선)는 노트에 쓰지 말고
+    Phase 9 보고서 "보완점" 표에 기록하세요.
 ```
 
 ---
 
 ## Phase 9: 최종 보고
 
+### 사전: Implementation Notes HTML 렌더링
+
+보고서 작성 직전, 라이브 노트를 HTML 산출물로 변환한다.
+
+1. **출력 디렉토리 보장**: `mkdir -p /workspace/work-log/claude`
+2. **출력 경로 결정**: `/workspace/work-log/claude/{YYYYMMDD}-{task-name-kebab}-impl-notes.html`
+   - `YYYYMMDD`: 현재 날짜 (Bash `date +%Y%m%d`)
+   - `task-name-kebab`: Phase 3.5 브랜치명 또는 Spec 제목을 kebab-case로 변환
+3. **렌더링**: `/tmp/implementation-notes.md`를 Read한 뒤, 4개 섹션을 각각 색상 카드로 변환하여 Write tool로 HTML 파일을 생성한다. 권장 템플릿:
+
+```html
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>Implementation Notes — {task}</title>
+<style>
+ body{font-family:system-ui,sans-serif;max-width:880px;margin:32px auto;padding:0 16px;color:#222;line-height:1.55}
+ h1{font-size:1.5rem;margin-bottom:.25rem}
+ .meta{color:#666;font-size:.9rem;margin-bottom:1.5rem}
+ section{border-left:4px solid;padding:12px 16px;margin:16px 0;border-radius:6px;background:#fafafa}
+ section.decision{border-color:#2563eb}
+ section.deviation{border-color:#ea580c}
+ section.tradeoff{border-color:#16a34a}
+ section.open{border-color:#dc2626}
+ section h2{margin:0 0 8px;font-size:1.1rem}
+ ul{margin:0;padding-left:1.2rem}
+ .empty{color:#888;font-style:italic}
+ .alert{background:#fef2f2;border:1px solid #fecaca;padding:12px 16px;border-radius:6px;margin-bottom:16px}
+</style></head><body>
+<h1>Implementation Notes — {task}</h1>
+<div class="meta">생성: {ISO timestamp} · 브랜치: {branch} · 워크플로우: start-workflow-mm</div>
+{미결 질문이 1건 이상이면 아래 alert 블록 삽입}
+<div class="alert"><strong>사용자 확인 필요</strong> — 미결 질문 {N}건이 있습니다. 아래 빨간 카드 참고.</div>
+<section class="decision"><h2>설계 결정</h2>{ul 또는 empty}</section>
+<section class="deviation"><h2>편차</h2>{ul 또는 empty}</section>
+<section class="tradeoff"><h2>트레이드오프</h2>{ul 또는 empty}</section>
+<section class="open"><h2>미결 질문</h2>{ul 또는 empty}</section>
+</body></html>
+```
+
+> 각 섹션이 비어 있으면(헤더 외에 항목 없음) `<p class="empty">기록 없음</p>`로 표기한다.
+> `## 미결 질문`의 체크박스(`- [ ]`)는 `<input type="checkbox" disabled>` 로 변환해 시각적으로 유지한다.
+
+4. **결과 경로를 메모**: Phase 9 보고서의 `Implementation Notes` 섹션에 절대 경로를 명시.
+
+### 보고서 작성
+
 Phase 4~8 에이전트들의 결과를 종합하여 보고서를 작성한다.
 
 ```markdown
 ## Workflow Report
+
+{미결 질문 N≥1 인 경우에만 보고서 최상단에 아래 블록을 자동 삽입}
+> ⚠️ **사용자 확인 필요** — Implementation Notes에 미결 질문 {N}건이 있습니다.
+> 상세: `/workspace/work-log/claude/{YYYYMMDD}-{task}-impl-notes.html` (`## 미결 질문` 섹션)
+> 항목 목록:
+> - [ ] {질문 1 요약}
+> - [ ] {질문 2 요약}
 
 ### 1. 작업 요약
 - **작업 유형**: [생성/수정/검토/디버깅]
@@ -1197,6 +1366,8 @@ Phase 4~8 에이전트들의 결과를 종합하여 보고서를 작성한다.
 | e2e | N | M |
 | scope-review | N | M |
 
+- **E2E 리포트 HTML**: [Phase 5.3 마지막 실행이 보고한 `E2E 리포트 HTML` 경로 (품질 루프가 5.3을 여러 번 돌렸으면 최종 iteration 산출물). 미생성이면 "미생성 (E2E SKIP 또는 미실행)"]
+
 ### 5. 문서 동기화
 - Apidog 업데이트: [Y/N, 요약]
 
@@ -1215,7 +1386,14 @@ Phase 4~8 에이전트들의 결과를 종합하여 보고서를 작성한다.
 - **Iteration Diff Log 요약**: [v1→v2, v2→v3 ... 핵심 변경]
 - **잔존 이슈**: [USER-INTERRUPTED인 경우만, 아니면 "없음"]
 
-### 8. 보완점
+### 8. Implementation Notes
+- **HTML 산출물**: `/workspace/work-log/claude/{YYYYMMDD}-{task}-impl-notes.html`
+- **설계 결정**: [N]건
+- **편차**: [N]건 ([Assumption] 보고와 동기 확인: 일치/불일치 N건)
+- **트레이드오프**: [N]건
+- **미결 질문**: [N]건 ([N≥1이면 보고서 상단 블록과 일치 확인])
+
+### 9. 보완점
 | # | 대상 스킬 | 보완 내용 | 적용 여부 |
 |---|----------|----------|----------|
 ```
@@ -1231,11 +1409,13 @@ Phase 4~8 에이전트들의 결과를 종합하여 보고서를 작성한다.
 ### 정리
 
 `/tmp/workflow-state.md`의 모든 Phase를 `DONE/SKIPPED`으로 갱신하고 `Remaining Phases`를 `없음`으로 기록한다.
-기본은 상태 파일을 보관한다. 사용자가 정리를 요청했거나 보관이 필요 없을 때만 삭제한다:
+기본은 상태 파일과 라이브 노트를 **보관**한다 (HTML 산출물은 `/workspace/work-log/claude/`에 영구 저장). 사용자가 정리를 요청했거나 보관이 필요 없을 때만 삭제한다:
 
 ```bash
-rm -f /tmp/workflow-state.md
+rm -f /tmp/workflow-state.md /tmp/implementation-notes.md /tmp/e2e-run-report.md
 ```
+
+> HTML 산출물(`/workspace/work-log/claude/*-impl-notes.html`, `*-e2e-report.html`)은 별도 산출물이므로 자동 삭제하지 않는다.
 
 ---
 
@@ -1287,10 +1467,10 @@ Phase 0: EnterPlanMode 활성화 → /request로 Technical Spec 작성 (유저 �
 Phase 1: 난이도 산정 (1-10)
 Phase 1.5: 실행 전략 판정 (sequential / parallel-slices / fullstack)
            fullstack → /start-workflow-fs로 전환 후 종료
-Phase 2: scope-reviewer 메모
+Phase 2: scope-reviewer 메모 + E2E 메인 플로우 수집 (사용자 질문, 모든 Build 작업)
 Phase 3: Plan을 Spec 아래 추가 → 다관점 1회 보강 → Codex APPROVE 루프 (Spec+Plan 통합 산출물) → ExitPlanMode로 Plan 확정
          parallel-slices → Plan에 Slice 정의 추가
-Phase 3.5: 상태 파일 생성 → "자율 실행 시작"
+Phase 3.5: 상태 파일 + implementation-notes.md(4-섹션) 생성 → "자율 실행 시작"
 
 [자율 실행 — 유저 확인 없이 완주]
 Phase 4: 구현
@@ -1306,7 +1486,7 @@ Phase 5: 품질 루프 (병렬 스캔 → 통합 수정 → 순차 실행, 최�
   통합 수정 [모인 이슈 일괄 반영]:
     general-purpose 1개                → 빌드/scope/convention/simplify 순서로 수정
   Batch B [순차 실행, 서버 점유]:
-    5.3 e2e-test-loop                  → general-purpose 에이전트
+    5.3 e2e-test-loop                  → general-purpose 에이전트 (E2E 실행 리포트 HTML 생성)
     5.5 make test                      → Bash 직접
   → 수정 있으면 커밋 후 재시작, 없으면 탈출
 Phase 5.6: Codex 품질 리뷰             → APPROVE까지 보완
@@ -1315,5 +1495,7 @@ Phase 7: workflow-pr                   → PR 생성
 Phase 8: workflow-reflection           → 성찰
 
 [유저 대화]
-Phase 9: 최종 보고 → 보완점 적용 (유저 선택) → 정리
+Phase 9: implementation-notes.md → HTML 렌더링 (work-log/claude/) → 최종 보고 (미결 질문 상단 표면화) → 보완점 적용 → 정리
 ```
+
+> **자율 실행 중 사용자 개입 채널**: Phase 4~8 진행 중에도 `/tmp/implementation-notes.md`를 직접 열어 코멘트를 남길 수 있다. 다음 자율 실행 에이전트는 노트를 함께 읽고 반영을 시도하지만, 자율 실행 자체는 멈추지 않는다(비동기 모델). 즉시 중단이 필요하면 사용자가 명시적으로 워크플로우를 중단해야 한다.
