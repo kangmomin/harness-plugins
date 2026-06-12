@@ -1,6 +1,6 @@
 ---
 name: request-mm
-description: "작업 유형별(생성/수정/검토/디버깅) 단계적 질문을 통해 실행 가능한 Technical Spec을 생성한다."
+description: "작업 유형별(생성/수정/검토/디버깅) 단계적 질문을 통해 실행 가능한 Technical Spec을 생성한다. 'API 만들어줘', '스펙 정리해줘', 요구사항이 모호할 때 사용. start-workflow-mm Phase 1에서 자동 호출됨."
 allowed-tools: AskUserQuestion, Read, Glob, Grep, Agent
 argument-hint: <기능 설명 또는 요청>
 user-invocable: true
@@ -19,9 +19,11 @@ user-invocable: true
 
 ---
 
-## Phase 0: 작업 유형 선택
+## Phase 1: 작업 유형 선택
 
-`$ARGUMENTS`가 비어있거나 작업 유형이 불명확하면, 반드시 먼저 `AskUserQuestion`으로 질문한다:
+`$ARGUMENTS`에서 유형을 유추할 수 있으면 (판별 기준: 만들어줘/추가 → 생성, 바꿔줘/변경 → 수정, 리뷰/검토 → 검토, 에러/버그/안 됨 → 디버깅) 유추 결과를 확인받고 바로 진행한다.
+
+비어있거나 두 개 이상 유형에 걸치면, 반드시 먼저 `AskUserQuestion`으로 질문한다:
 
 ```
 어떤 작업을 진행하시나요?
@@ -32,11 +34,10 @@ user-invocable: true
 4. API 디버깅 — 기존 API의 오류/버그 수정
 ```
 
-`$ARGUMENTS`에서 유형을 유추할 수 있으면 (예: "장바구니 API 만들어줘" → 생성) 확인 후 바로 진행한다.
 
 ---
 
-## Phase 1: 유형별 단계적 질문
+## Phase 2: 유형별 단계적 질문
 
 유형이 확정되면, 해당 유형의 질문 흐름을 순서대로 진행한다.
 **각 단계에서 코드베이스를 탐색하고, 발견한 내용을 공유하면서 질문한다.**
@@ -83,7 +84,7 @@ user-invocable: true
 
 #### Spec 반영
 
-확정된 규칙은 Phase 3 출력의 **엣지 케이스** 섹션에 아래 케이스를 자동 포함한다:
+확정된 규칙은 Phase 4 출력의 **엣지 케이스** 섹션에 아래 케이스를 자동 포함한다:
 
 | 케이스 | 기대 동작 |
 |--------|----------|
@@ -201,9 +202,9 @@ user-invocable: true
 
 ---
 
-## Phase 2: 코드베이스 탐색
+## Phase 3: 코드베이스 탐색
 
-Phase 1의 질문 과정에서 **매 단계마다** 코드베이스를 탐색한다. 질문이 끝난 후 별도로 하지 않는다.
+Phase 2의 질문 과정에서 **매 단계마다** 코드베이스를 탐색한다. 질문이 끝난 후 별도로 하지 않는다.
 
 ### 탐색 대상
 ```
@@ -224,7 +225,7 @@ Migration          → DB 스키마
 
 ---
 
-## Phase 3: Technical Spec 출력
+## Phase 4: Technical Spec 출력
 
 모든 질문이 완료되면, 유형에 맞는 Spec을 출력한다.
 

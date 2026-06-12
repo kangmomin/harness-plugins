@@ -1,6 +1,6 @@
 ---
 name: pagenation-mm
-description: "커서 기반 페이지네이션 구현 컨벤션"
+description: "커서 기반 페이지네이션 구현 컨벤션 (참조 문서). 목록 API에 페이지네이션을 구현하거나 '페이지네이션 어떻게 해?'를 물을 때, convention-check-mm 검사 기준으로 사용."
 user-invocable: true
 ---
 

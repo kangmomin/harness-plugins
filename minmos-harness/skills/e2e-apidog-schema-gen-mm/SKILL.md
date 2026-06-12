@@ -1,6 +1,6 @@
 ---
 name: e2e-apidog-schema-gen-mm
-description: "E2E 테스트 결과(요청/응답)를 기반으로 Apidog 명세의 응답 케이스를 추가하고 스키마를 보정한다."
+description: "E2E 테스트 결과(요청/응답 실측)를 기반으로 Apidog 명세의 응답 케이스를 추가하고 스키마를 보정한다. e2e-test-mm 실행 후 'Apidog 명세 보정해줘', 'E2E 결과로 문서 갱신' 요청 시 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, WebFetch, mcp__apidog__read_project_oas_w9of5k, mcp__apidog__read_project_oas_ref_resources_w9of5k, mcp__apidog__refresh_project_oas_w9of5k
 argument-hint: <API 경로 또는 'all'>
 user-invocable: true
@@ -43,7 +43,7 @@ E2E 테스트에서 수집된 **실제 요청/응답 데이터**를 기반으로
 | APIDOG_PROJECT_ID | SET / UNSET | Push 기능용 |
 ```
 
-**MCP 판정 원칙**: `.mcp.json`은 연결 실패 시 참고하는 fallback일 뿐이다. OpenCode 등 다른 클라이언트 설정으로 MCP가 연결되어 있을 수 있으므로, 실제 `mcp__apidog__read_project_oas_*` 호출이 성공하면 OK로 판정한다.
+> **MCP 판정**: 실제 `mcp__apidog__read_project_oas_*` 호출 성공 = 연결 OK. `.mcp.json` 존재 여부는 단독 기준으로 쓰지 않는다 (상세: `/minmos-harness:minmo-doctor-mm`).
 
 ### 플래그
 
@@ -323,7 +323,7 @@ REST API 호출이 실패하면 (302, 401, 400, 빈 응답 등), MCP에서 프�
    - 올바른 targetFolderId 지정
    - YAML 호환성 검증 (기존 OAS 구조 참조)
 
-> **핵심**: MCP가 OAS를 정상 조회하고 있어도 인증 정보가 반드시 `.mcp.json`에 있는 것은 아니다. OpenCode 등 다른 설정 경로를 쓰는 경우를 고려해 읽을 수 있는 MCP 설정과 현재 환경 변수를 함께 사용한다.
+> **핵심**: MCP가 OAS를 정상 조회하고 있어도 인증 정보가 반드시 `.mcp.json`에 있는 것은 아니다. 다른 설정 경로를 쓰는 클라이언트를 고려해 읽을 수 있는 MCP 설정과 현재 환경 변수를 함께 사용한다.
 
 재시도도 실패하면 **반복 시도 없이** 즉시 시도 3으로 전환한다.
 

@@ -1,6 +1,6 @@
 ---
 name: minmo-doctor-mm
-description: "minmos-harness 플러그인의 모든 의존성 상태를 한 번에 진단한다."
+description: "minmos-harness 플러그인의 모든 의존성 상태(MCP·secret·도구)를 한 번에 진단한다. 워크플로우가 SKIP을 내거나 설정이 의심될 때, '환경 진단해줘' 요청 시 사용. MCP 판정 원칙의 canonical."
 allowed-tools: Read, Glob, Grep, Bash
 user-invocable: true
 ---
@@ -26,7 +26,7 @@ user-invocable: true
 | PostgreSQL MCP 연결 | PostgreSQL MCP로 `SELECT 1` 쿼리 시도 | e2e-test |
 | PostgreSQL MCP DB 호스트 | PostgreSQL MCP로 `SELECT inet_server_addr()` 쿼리 시도 | e2e-test |
 
-**판정 원칙**: `.mcp.json`은 설정 안내용 참고 자료일 뿐, 연결 여부의 단독 기준으로 쓰지 않는다. OpenCode처럼 MCP를 다른 위치에 설정하는 클라이언트도 있으므로 실제 MCP tool 호출이 성공하면 `.mcp.json` 존재 여부와 무관하게 OK로 판정한다.
+**판정 원칙**: `.mcp.json`은 설정 안내용 참고 자료일 뿐, 연결 여부의 단독 기준으로 쓰지 않는다. 일부 클라이언트는 MCP를 다른 위치에 설정하므로 실제 MCP tool 호출이 성공하면 `.mcp.json` 존재 여부와 무관하게 OK로 판정한다.
 
 ### 2. 환경 변수
 

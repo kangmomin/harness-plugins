@@ -1,6 +1,6 @@
 ---
 name: minmo-init-mm
-description: "minmos-harness 플러그인의 모든 사전 세팅을 한 번에 진행한다."
+description: "minmos-harness 플러그인의 모든 사전 세팅(MCP·secret·훅)을 한 번에 진행한다. 플러그인 최초 설정, '초기화해줘', doctor가 MISSING을 보고할 때 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 ---
@@ -45,7 +45,7 @@ user-invocable: true
 - `dev-pubsub-cli` 설치 여부 → `which dev-pubsub-cli` 또는 `uv tool list` 확인
 - Worktree 자동 복사 hook 설치 여부 → `~/.claude/hooks/worktree-init.sh` 존재 + `~/.claude/settings.json`의 `hooks.SessionStart`에 등록되었는지 (Claude Code 전용)
 
-**MCP 판정 원칙**: `.mcp.json` 없음만으로 MISSING 처리하지 않는다. OpenCode 등 클라이언트별 MCP 설정 위치가 다를 수 있으므로, 실제 MCP tool 호출이 성공하면 설정 파일 위치와 무관하게 OK로 본다.
+> **MCP 판정**: 실제 MCP tool 호출 성공 = 연결 OK. `.mcp.json` 존재 여부는 단독 기준으로 쓰지 않는다 (상세: `/minmos-harness:minmo-doctor-mm`).
 
 ### Step 2: 상태 요약 보고
 
@@ -148,7 +148,7 @@ Apidog MCP는 두 가지 형식 모두 지원한다. **새 형식(`env` 인라�
    - `.gitignore`에 `.mcp.json`이 포함됐는지 확인하고, 없으면 추가를 안내한다.
    - 토큰 노출 위험이 큰 환경(공유 레포 등)에서는 구 형식 + Step 3.2 방식을 권장한다.
 
-4. OpenCode처럼 별도 MCP 설정을 쓰는 환경이면 `.mcp.json` 자동 추가 대신 해당 클라이언트의 MCP 설정 위치에 같은 `type`/`command`/`args`/`env`를 등록하도록 안내한다.
+4. 별도 MCP 설정을 쓰는 클라이언트 환경이면 `.mcp.json` 자동 추가 대신 해당 클라이언트의 MCP 설정 위치에 같은 `type`/`command`/`args`/`env`를 등록하도록 안내한다.
 
 #### 3.2 Apidog 환경 변수 (UNSET인 경우)
 
@@ -184,7 +184,7 @@ Apidog MCP는 두 가지 형식 모두 지원한다. **새 형식(`env` 인라�
      }
    }
    ```
-   OpenCode처럼 별도 MCP 설정을 쓰는 환경이면 `.mcp.json` 자동 추가 대신 해당 클라이언트의 MCP 설정 위치에 같은 command/args를 등록하도록 안내한다.
+   별도 MCP 설정을 쓰는 클라이언트 환경이면 `.mcp.json` 자동 추가 대신 해당 클라이언트의 MCP 설정 위치에 같은 command/args를 등록하도록 안내한다.
 
 #### 3.4 db-tools 플러그인 (MISSING인 경우)
 
@@ -244,7 +244,7 @@ Apidog MCP는 두 가지 형식 모두 지원한다. **새 형식(`env` 인라�
 
 > "git worktree를 사용한다면 워크트리 생성 시 메인의 `.mcp.json`/`.env`를 자동 복사하는 SessionStart hook을 설치할 수 있습니다. 설치할까요? (Y/건너뛰기)"
 
-**Claude Code가 아닌 환경(Codex CLI / OpenCode 등)에서는 안내만 하고 건너뛴다.**
+**Claude Code가 아닌 클라이언트 환경에서는 안내만 하고 건너뛴다.**
 
 Y 선택 시 다음을 실행한다 (스크립트 본문은 항상 덮어써서 최신 내용으로 갱신, settings 등록은 idempotent).
 
