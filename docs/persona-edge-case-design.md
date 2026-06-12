@@ -187,8 +187,6 @@ Phase 4.5는 Phase 4 완료 후, 같은 에이전트 호출 내에서 실행된�
 | 항목 | 이유 |
 |------|------|
 | `e2e-test-mm/SKILL.md` | 호출 인터페이스 변경 없음. 에이전트 내부 변경만으로 충분 |
-| `plugins/minmos-harness/agents/edge-case-analyzer.toml` | 에이전트 메타데이터(모델, 샌드박스) 변경 없음 |
-| `codex/minmos/agents/edge-case-analyzer.toml` | 동일 |
 | 중복 판정 로직 | 기존 4-key 기준 그대로 재사용 |
 | 심각도 기준 | 기존 Critical/High/Medium/Low 그대로 유지 |
 

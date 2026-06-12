@@ -1,6 +1,6 @@
 # mimo-s-harness
 
-개발 워크플로우 자동화를 위한 Claude Code / Codex CLI / OpenCode 하네스 모음.
+개발 워크플로우 자동화를 위한 Claude Code 하네스 모음.
 
 Technical Spec 작성, Plan 리뷰, 구현, 품질 루프, 커밋/PR까지 반복되는 개발 절차를 플러그인과 스킬로 묶어 제공한다.
 
@@ -33,67 +33,6 @@ Technical Spec 작성, Plan 리뷰, 구현, 품질 루프, 커밋/PR까지 반�
 ```
 
 Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
-
-### Codex CLI
-
-이 repo를 연 상태에서 `/plugins` 를 열면 Codex용 `minmos-harness`, `hyeondongs-harness` 가 노출된다.
-
-repo-local marketplace 정의는 `.agents/plugins/marketplace.json`, 실제 Codex plugin root는 `plugins/` 아래에 있다.
-수동 설치 방식은 `codex/README.md` 를 참고한다.
-
-### OpenCode
-
-OpenCode용 출력물은 `.opencode/` 아래에 repo-local adapter 형태로 들어 있다.
-
-```text
-.opencode/
-├── skills/<plugin>__<skill>/SKILL.md
-├── commands/<plugin>__<skill>.md
-└── plugins/<plugin>/
-```
-
-OpenCode에서 slash command로 호출할 때는 `<plugin>__<skill>` 형식을 사용한다.
-
-```text
-/common__commit
-/minmos-harness__start-workflow-mm
-/be-harness__start-workflow
-/fe-harness__component
-```
-
-원본 기능은 각 하네스의 `skills/*/SKILL.md`가 source of truth이고, `.opencode/` 아래 파일은 `plugin-manager-mcp`가 생성하는 adapter다.
-
-### Plugin Manager MCP
-
-`plugin-manager-mcp`는 Claude Code, Codex, OpenCode용 repo-local plugin adapter를 marketplace allowlist 기반으로 동기화한다.
-
-```bash
-npm install -g plugin-manager-mcp
-HARNESS_PLUGINS_ROOT=/path/to/mimo-s-harness plugin-manager-mcp --health
-```
-
-MCP client에는 stdio server로 등록한다.
-
-```json
-{
-  "mcpServers": {
-    "plugin-manager": {
-      "command": "plugin-manager-mcp",
-      "env": {
-        "HARNESS_PLUGINS_ROOT": "/path/to/mimo-s-harness"
-      }
-    }
-  }
-}
-```
-
-주요 tool:
-
-- `list_plugins`
-- `show_status`
-- `sync_to_claude`
-- `sync_to_codex`
-- `sync_to_opencode`
 
 ## 플러그인 목록
 
@@ -142,21 +81,16 @@ MCP client에는 stdio server로 등록한다.
 ├── fs-harness/             # 풀스택 Claude Code 오케스트레이터
 ├── minmos-harness/         # Post-Math 백엔드 Claude Code 플러그인
 ├── hyeondongs-harness/     # 프로젝트 특화 프론트엔드 Claude Code 플러그인
-├── codex/                  # Codex CLI 수동 설치용 스킬/에이전트
-├── mcp/plugin-manager/     # plugin-manager-mcp TypeScript MCP 서버
-├── plugins/                # Codex CLI repo-local 플러그인
-├── .opencode/              # OpenCode repo-local skills/commands/plugin adapters
-├── .claude-plugin/         # Claude Code marketplace 정의
-└── .agents/plugins/        # Codex CLI repo-local marketplace 정의
+├── docs/                   # 저장소 차원 문서 (스킬 작성 표준 등)
+└── .claude-plugin/         # Claude Code marketplace 정의
 ```
 
 ## 참고 문서
 
+- `docs/skill-authoring.md`: 스킬 작성 표준 (모든 플러그인 SKILL.md의 기준)
 - `common/README.md`: 공용 스킬 모음 (`/common:doc-gen` 등)
 - `be-harness/README.md`: 범용 백엔드 하네스
 - `fe-harness/README.md`: 범용 프론트엔드 하네스
 - `fs-harness/README.md`: 풀스택 오케스트레이터
 - `minmos-harness/README.md`: Post-Math 백엔드 하네스
 - `hyeondongs-harness/README.md`: 프로젝트 특화 프론트엔드 하네스
-- `codex/README.md`: Codex CLI용 수동 설치 및 호출 방식
-- `mcp/plugin-manager/README.md`: MCP 기반 plugin 동기화 서버
