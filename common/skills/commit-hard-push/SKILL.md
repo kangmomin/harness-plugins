@@ -1,20 +1,24 @@
 ---
 name: commit-hard-push
-description: "보호 브랜치 제한 없이 /commit 진행 후 push 까지 수행"
+description: "보호 브랜치 제한 없이 /commit 진행 후 현재 브랜치에 그대로 push한다. main 등 보호 브랜치에 직접 push해야 할 때, '그냥 현재 브랜치에 올려줘' 요청 시 사용."
 user-invocable: true
 ---
 
-## Project Overrides
+> **Project Overrides**: 실행 전 `.claude/common/common.md`와 `.claude/common/skills/commit-hard-push.md`를 Read.
+> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
-실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
+# Commit & Hard Push
 
-- `.claude/common/common.md` — 플러그인 공통 (모든 스킬에 적용)
-- `.claude/common/skills/commit-hard-push.md` — 본 스킬 전용
+`/common:commit-push`와 달리 **브랜치 판정·생성·네이밍 검증을 모두 생략**하고, 어떤 브랜치에서든 현재 브랜치에 그대로 push한다.
 
-존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+## Step 1: 커밋
 
----
+`/common:commit` 절차를 수행해 변경사항을 논리 단위별로 커밋한다.
 
-/common:commit 진행 후 push 까지 해
+## Step 2: Push
 
-이 스킬은 보호 브랜치 제한 없이 어떤 브랜치에서든 push를 수행합니다.
+```bash
+git push -u origin {현재 브랜치}
+```
+
+실패 시: 에러 원문과 원인 분석을 보고하고 중단한다 (커밋은 로컬에 보존됨).

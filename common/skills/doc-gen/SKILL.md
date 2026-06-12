@@ -1,113 +1,77 @@
 ---
 name: doc-gen
-description: "지정한 범위(파일/디렉토리/glob/PR/commit range)를 분석해 인터랙션·다이어그램이 포함된 단일 파일 문서(md 또는 html)를 생성한다."
+description: "지정한 범위(파일/디렉토리/glob/PR/commit range)를 분석해 다이어그램이 포함된 단일 파일 문서(md 또는 html)를 생성한다. '문서 만들어줘', 'PR 요약해줘', '변경 사항 정리 문서' 요청 시 사용."
 allowed-tools: AskUserQuestion, Read, Glob, Grep, Bash, Write
 argument-hint: "[-md|-html] [선택적 범위]"
 user-invocable: true
 ---
 
-## Project Overrides
+> **Project Overrides**: 실행 전 `.claude/common/common.md`와 `.claude/common/skills/doc-gen.md`를 Read.
+> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
-실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
+# Doc-Gen — 단일 파일 문서 생성
 
-- `.claude/common/common.md` — 플러그인 공통 (모든 스킬에 적용)
-- `.claude/common/skills/doc-gen.md` — 본 스킬 전용
+지정한 범위를 분석해 빠르게 스캔 가능하고 모바일 친화적인 단일 파일 기술 문서를 생성한다.
 
-존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+## Step 1: 인자 파싱 및 범위 확정
+
+`$ARGUMENTS`에서 포맷과 범위를 결정한다:
+
+| 인자 | 해석 |
+|------|------|
+| `-md` / `-html` | 출력 포맷. 둘 다 없으면 AskUserQuestion으로 질문 |
+| `PR#N`, `#N`, 숫자 | PR 번호 |
+| `a..b` | commit range |
+| 경로/glob | 파일 또는 디렉토리 범위 |
+| (없음) | AskUserQuestion으로 질문: ① 범위 종류(파일/디렉토리/PR/commit range) ② 구체적 값 ③ 문서 초점(변경 요약 (review 용) / 아키텍처 설명 / 온보딩 가이드) |
+
+호출자(예: `/common:merge`)가 인자로 이미 범위를 전달했으면 추가 질문 없이 확인만 하고 진행한다.
+
+## Step 2: 자료 수집
+
+| 범위 종류 | 수집 방법 |
+|----------|----------|
+| 파일/디렉토리/glob | `Glob`·`Read`·`Grep`으로 코드와 구조 파악 |
+| PR | `gh pr view {N} --json title,body,baseRefName,headRefName,additions,deletions,changedFiles` + `gh pr diff {N}` |
+| commit range | `git log {a..b} --oneline` + `git diff {a..b}` |
+
+수집 실패 시 (gh 미인증, 잘못된 범위 등): 에러 원문을 보고하고 중단한다. 호출자가 있으면 실패 사실을 그대로 반환한다.
+
+## Step 3: 문서 생성
+
+아래 **디자인 프롬프트**를 따라 문서를 생성한다.
+
+- `-md`: 동일한 구조·스타일 규칙을 Markdown으로 적용. Mermaid는 ` ```mermaid ` 코드펜스 사용.
+- `-html`: 디자인 프롬프트의 HTML 규칙대로 standalone HTML 생성.
+
+## Step 4: 저장 및 보고
+
+1. `./docs/` 디렉토리가 없으면 생성한다.
+2. `./docs/doc-gen-{unix epoch}.{md|html}` 로 저장한다.
+3. 절대 경로와 문서 핵심 요약(TL;DR)을 보고한다.
 
 ---
 
+# 디자인 프롬프트
+
 You are an expert technical PR/refactor document designer.
 
-Your task is NOT to merely summarize technical changes.
-Your goal is to transform dense engineering information into a document that is:
-
-- easy to scan quickly
-- visually structured
-- mobile-friendly
-- architecture-oriented
-- decision-oriented
-- optimized for vertical reading
+Your task is NOT to merely summarize technical changes. Transform dense engineering information into a document that is: easy to scan quickly, visually structured, mobile-friendly, architecture-oriented, decision-oriented, optimized for vertical reading.
 
 IMPORTANT:
 - The PROMPT is written in English.
 - The GENERATED DOCUMENT itself must be written in Korean.
 - All section titles, explanations, labels, and descriptions inside the final document should be in Korean unless code or technical identifiers require English.
 
-━━━━━━━━━━━━━━━━━━
-PRIMARY OBJECTIVE
-━━━━━━━━━━━━━━━━━━
+## Primary Objective
 
-Convert the source material into a document that prioritizes:
+Prioritize: readability over exhaustiveness, understanding over completeness, information hierarchy over raw detail, design intent over implementation chronology.
 
-- readability over exhaustiveness
-- understanding over completeness
-- information hierarchy over raw detail
-- design intent over implementation chronology
+The result should feel like a polished engineering design review document / a high-quality PR architecture summary / a mobile-friendly technical explainer.
 
-The result should feel like:
-- a polished engineering design review document
-- a high-quality PR architecture summary
-- a mobile-friendly technical explainer
+NOT: a dump of implementation details, a raw changelog, a commit log copy.
 
-NOT:
-- a dump of implementation details
-- a raw changelog
-- a commit log copy
-
-━━━━━━━━━━━━━━━━━━
-OUTPUT FORMAT
-━━━━━━━━━━━━━━━━━━
-
-Output MUST be a single standalone HTML document.
-
-Requirements:
-- no build tools
-- no frameworks
-- self-contained
-- responsive
-- mobile-first
-- dark mode by default
-- clean card-based layout
-- inline CSS only
-- Mermaid supported
-- readable on narrow vertical screens
-
-━━━━━━━━━━━━━━━━━━
-VERY IMPORTANT — MERMAID RULES
-━━━━━━━━━━━━━━━━━━
-
-Use Mermaid aggressively, BUT:
-
-NEVER:
-- create one giant sequence diagram
-- create horizontally massive diagrams
-- combine too many concepts into one graph
-- create unreadable enterprise-style diagrams
-
-ALWAYS:
-- split flows into multiple small Mermaid diagrams
-- keep each Mermaid focused on ONE concept
-- optimize for mobile vertical reading
-- prefer `flowchart TD`
-- place Mermaid diagrams inside isolated cards/sections
-
-GOOD:
-1. Insert flow
-2. Conflict handling
-3. Error branch
-4. Rollback path
-
-BAD:
-- one enormous diagram describing the entire architecture
-
-Each Mermaid block should be independently understandable.
-
-━━━━━━━━━━━━━━━━━━
-RECOMMENDED DOCUMENT STRUCTURE
-━━━━━━━━━━━━━━━━━━
-
-Use this structure by default:
+## Document Structure (default)
 
 1. Hero / 문서 목적
 2. 왜 바꿨는가
@@ -120,38 +84,27 @@ Use this structure by default:
 9. Rejected Decisions
 10. Follow-up 후보
 
-━━━━━━━━━━━━━━━━━━
-WRITING STYLE
-━━━━━━━━━━━━━━━━━━
+## Writing Style
 
-The generated document must be written in Korean.
+Korean. Concise, dense but readable, engineering-oriented. Short paragraphs, one core idea per block. Explain WHY before HOW; implementation detail comes later.
 
-Style rules:
-- concise
-- dense but readable
-- engineering-oriented
-- short paragraphs
-- one core idea per block
-- explain WHY before HOW
-- implementation detail comes later
+GOOD: `SAVEPOINT 제거`, `revive 지원 추가`, `duplicate handling 단순화`
+BAD: long academic-style paragraphs, verbose explanations, giant walls of text.
 
-GOOD:
-- SAVEPOINT 제거
-- revive 지원 추가
-- duplicate handling 단순화
+## Mermaid Rules (VERY IMPORTANT)
 
-BAD:
-- long academic-style paragraphs
-- verbose explanations
-- giant walls of text
+Use Mermaid aggressively, BUT:
 
-━━━━━━━━━━━━━━━━━━
-BEFORE / AFTER RULES
-━━━━━━━━━━━━━━━━━━
+NEVER: one giant sequence diagram, horizontally massive diagrams, too many concepts in one graph, unreadable enterprise-style diagrams.
 
-Always represent architectural changes using simplified flow blocks.
+ALWAYS: split flows into multiple small diagrams, ONE concept per diagram, optimize for mobile vertical reading, prefer `flowchart TD`, place diagrams inside isolated cards/sections.
 
-Example:
+GOOD: separate diagrams for ① Insert flow ② Conflict handling ③ Error branch ④ Rollback path.
+Each Mermaid block should be independently understandable.
+
+## Before / After Rules
+
+Always represent architectural changes using simplified flow blocks:
 
 ```text
 INSERT
@@ -167,76 +120,37 @@ INSERT ... ON CONFLICT DO NOTHING
 → merge / revive
 ```
 
-━━━━━━━━━━━━━━━━━━
-EDGE CASE RULES
-━━━━━━━━━━━━━━━━━━
+## Edge Case Rules
 
-Prefer checklist-style presentation over giant tables.
+Prefer checklist-style presentation over giant tables:
 
-Example:
-
+```
 ✅ active duplicate → merge
 ✅ removed duplicate → revive
 ✅ item_type mismatch → skip
 ⚠ source_id NULL → ON CONFLICT 미트리거
+```
 
-━━━━━━━━━━━━━━━━━━
-DESIGN DECISION RULES
-━━━━━━━━━━━━━━━━━━
+## Design Decision Rules
 
-Always include a concise decision table.
+Always include a concise decision table:
 
-Example:
+| 결정 | 이유 |
+|------|------|
+| ON CONFLICT DO NOTHING | SAVEPOINT 제거 |
+| DO UPDATE 미사용 | trigger 부작용 회피 |
 
-| 결정                     | 이유             |
-| ---------------------- | -------------- |
-| ON CONFLICT DO NOTHING | SAVEPOINT 제거   |
-| DO UPDATE 미사용          | trigger 부작용 회피 |
+## Rejected Decisions
 
-━━━━━━━━━━━━━━━━━━
-REJECTED DECISIONS
-━━━━━━━━━━━━━━━━━━
+Always include rejected alternatives and tradeoffs (e.g., DO UPDATE trick rejected, FOR UPDATE deferred).
 
-Always include rejected alternatives and tradeoffs.
+## Technical Focus
 
-Examples:
+Explicitly highlight: race conditions, rollback boundaries, compatibility concerns, regression fallback, data consistency, concurrency behavior, edge-case handling.
 
-* DO UPDATE trick rejected
-* FOR UPDATE deferred
-* no UNIQUE constraint available
+## HTML Rules (`-html` only)
 
-━━━━━━━━━━━━━━━━━━
-TECHNICAL FOCUS
-━━━━━━━━━━━━━━━━━━
-
-The document should explicitly highlight:
-
-* race conditions
-* rollback boundaries
-* compatibility concerns
-* regression fallback
-* data consistency
-* concurrency behavior
-* edge-case handling
-
-━━━━━━━━━━━━━━━━━━
-HTML DESIGN RULES
-━━━━━━━━━━━━━━━━━━
-
-The HTML should:
-
-* feel modern and polished
-* use soft borders
-* use rounded cards
-* use spacing aggressively
-* optimize for mobile reading
-* avoid cramped layouts
-* support overflow scrolling for Mermaid/code
-* use dark mode by default
-
-━━━━━━━━━━━━━━━━━━
-MERMAID INITIALIZATION
-━━━━━━━━━━━━━━━━━━
+Single standalone HTML: no build tools, no frameworks, self-contained, responsive, mobile-first, dark mode by default, clean card-based layout, inline CSS only, soft borders, rounded cards, aggressive spacing, overflow scrolling for Mermaid/code.
 
 Always initialize Mermaid using this exact pattern:
 
@@ -256,21 +170,6 @@ mermaid.initialize({
 </script>
 ```
 
-━━━━━━━━━━━━━━━━━━
-FINAL GOAL
-━━━━━━━━━━━━━━━━━━
+## Final Goal
 
-The final result should allow:
-
-* PR reviewers
-* teammates
-* future maintainers
-
-to understand within 3 minutes:
-
-* why the change exists
-* what fundamentally changed
-* what tradeoffs were made
-* which edge cases matter
-* how rollback/race behavior works
-* what was intentionally NOT changed
+PR reviewers, teammates, and future maintainers should understand within 3 minutes: why the change exists, what fundamentally changed, what tradeoffs were made, which edge cases matter, how rollback/race behavior works, what was intentionally NOT changed.
