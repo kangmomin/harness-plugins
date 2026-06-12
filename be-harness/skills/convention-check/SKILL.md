@@ -1,18 +1,12 @@
 ---
 name: convention-check
-description: "프로젝트 컨벤션 위배 사항을 검사하고 보고"
+description: "프로젝트 컨벤션 위배 사항을 검사하고 보고한다 (보고 전용 — 코드를 수정하지 않음). 커밋/PR 전 점검, '컨벤션 검사해줘' 요청 시 사용. --init으로 적용 컨벤션 선택, --doctor로 설정 진단."
 allowed-tools: Read, Write, Edit, Glob, Grep, AskUserQuestion
 user-invocable: true
 ---
 
-## Project Overrides
-
-실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
-
-- `.claude/be-harness/common.md` — 플러그인 공통 (모든 스킬/에이전트에 적용)
-- `.claude/be-harness/skills/convention-check.md` — 본 스킬 전용
-
-존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+> **Project Overrides**: 실행 전 `.claude/be-harness/common.md`와 `.claude/be-harness/skills/convention-check.md`를 Read.
+> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
 
 ## Prerequisites
@@ -114,3 +108,17 @@ Spec(Technical Spec 또는 유저 지시)에 명시되지 않은 동작 변경�
 3. 남은 외부 패키지에 대해 `Grep`으로 프로젝트 내 기존 사용 여부를 확인한다:
    - **기존에 사용 중**: 기존 import 방식(alias 등)과 일치하는지 확인
    - **프로젝트 최초 도입**: `[NEW_DEPENDENCY]`로 표기하고 위반으로 보고 (의도적 도입인지 확인 필요)
+
+### 보고 형식
+
+```markdown
+## Convention Check 결과
+
+| # | 파일:라인 | 위반 규칙 | 태그 | 제안 수정 |
+|---|----------|----------|------|----------|
+
+위반: N건 (태그별: [SQL_PATTERN] a건, [Assumption] b건, [NEW_DEPENDENCY] c건)
+```
+
+- 본 스킬은 **보고만 한다**. 수정은 호출자(start-workflow 통합 수정 단계) 또는 유저 판단에 위임한다.
+- 위반 0건이면 "위반: 0건 — 통과" 한 줄로 보고한다.

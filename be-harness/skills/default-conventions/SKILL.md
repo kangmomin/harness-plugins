@@ -1,17 +1,11 @@
 ---
 name: default-conventions
-description: "be-harness 범용 개발 가이드라인. 프로젝트별 세부 컨벤션은 CLAUDE.md 또는 profile의 projectConventions에서 로드한다."
+description: "be-harness 범용 개발 가이드라인 (컨벤션 참조 문서). convention-check가 검사 기준으로 로드하며, 코드 작성 원칙이 궁금할 때도 사용. 프로젝트별 세부 컨벤션은 CLAUDE.md 또는 profile의 projectConventions에서 로드한다."
 user-invocable: true
 ---
 
-## Project Overrides
-
-실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
-
-- `.claude/be-harness/common.md` — 플러그인 공통 (모든 스킬/에이전트에 적용)
-- `.claude/be-harness/skills/default-conventions.md` — 본 스킬 전용
-
-존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+> **Project Overrides**: 실행 전 `.claude/be-harness/common.md`와 `.claude/be-harness/skills/default-conventions.md`를 Read.
+> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
 
 # be-harness 범용 개발 가이드라인

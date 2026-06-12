@@ -1,18 +1,12 @@
 ---
 name: init
-description: "be-harness 플러그인의 project profile(.claude/be-harness.local.md)을 대화형으로 생성/갱신한다. Go/Node 프리셋 지원."
+description: "be-harness 플러그인의 project profile(.claude/be-harness.local.md)을 대화형으로 생성/갱신한다. 플러그인 최초 설정, '초기화해줘', doctor가 MISSING을 보고할 때 사용. Go/Node 프리셋 지원."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 ---
 
-## Project Overrides
-
-실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
-
-- `.claude/be-harness/common.md` — 플러그인 공통 (모든 스킬/에이전트에 적용)
-- `.claude/be-harness/skills/init.md` — 본 스킬 전용
-
-존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+> **Project Overrides**: 실행 전 `.claude/be-harness/common.md`와 `.claude/be-harness/skills/init.md`를 Read.
+> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
 
 # be-harness Init
@@ -177,7 +171,7 @@ mkdir -p .claude/be-harness/skills .claude/be-harness/agents
 - `skills/{skill-name}.md` — 특정 스킬 전용
 - `agents/{agent-name}.md` — 특정 에이전트 전용
 
-파일은 전부 선택. start-workflow Phase 9 의 보완점이 자동으로 이곳에 append 된다.
+파일은 전부 선택. start-workflow Phase 12 의 보완점이 자동으로 이곳에 append 된다.
 ```
 
 ## Step 8: 최종 결과

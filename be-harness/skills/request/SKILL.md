@@ -1,19 +1,13 @@
 ---
 name: request
-description: "작업 유형별(생성/수정/검토/디버깅) 단계적 질문을 통해 실행 가능한 Technical Spec을 생성한다."
+description: "작업 유형별(생성/수정/검토/디버깅) 단계적 질문을 통해 실행 가능한 Technical Spec을 생성한다. 'API 만들어줘', '스펙 정리해줘', 요구사항이 모호해 명세가 필요할 때 사용. start-workflow Phase 1에서 자동 호출됨."
 allowed-tools: AskUserQuestion, Read, Glob, Grep, Agent
 argument-hint: <기능 설명 또는 요청>
 user-invocable: true
 ---
 
-## Project Overrides
-
-실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
-
-- `.claude/be-harness/common.md` — 플러그인 공통 (모든 스킬/에이전트에 적용)
-- `.claude/be-harness/skills/request.md` — 본 스킬 전용
-
-존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+> **Project Overrides**: 실행 전 `.claude/be-harness/common.md`와 `.claude/be-harness/skills/request.md`를 Read.
+> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
 
 # API 작업 요청 가이드
@@ -29,9 +23,11 @@ user-invocable: true
 
 ---
 
-## Phase 0: 작업 유형 선택
+## Phase 1: 작업 유형 선택
 
-`$ARGUMENTS`가 비어있거나 작업 유형이 불명확하면, 반드시 먼저 `AskUserQuestion`으로 질문한다:
+`$ARGUMENTS`에서 유형을 유추할 수 있으면 (판별 기준: 만들어줘/추가 → 생성, 바꿔줘/변경 → 수정, 리뷰/검토 → 검토, 에러/버그/안 됨 → 디버깅) 유추 결과를 확인받고 바로 진행한다.
+
+비어있거나 두 개 이상 유형에 걸치면, 반드시 먼저 `AskUserQuestion`으로 질문한다:
 
 ```
 어떤 작업을 진행하시나요?
@@ -42,11 +38,9 @@ user-invocable: true
 4. API 디버깅 — 기존 API의 오류/버그 수정
 ```
 
-`$ARGUMENTS`에서 유형을 유추할 수 있으면 (예: "장바구니 API 만들어줘" → 생성) 확인 후 바로 진행한다.
-
 ---
 
-## Phase 1: 유형별 단계적 질문
+## Phase 2: 유형별 단계적 질문
 
 유형이 확정되면, 해당 유형의 질문 흐름을 순서대로 진행한다.
 **각 단계에서 코드베이스를 탐색하고, 발견한 내용을 공유하면서 질문한다.**
@@ -95,7 +89,7 @@ user-invocable: true
 
 #### Spec 반영
 
-확정된 규칙은 Phase 3 출력의 **엣지 케이스** 섹션에 아래 케이스를 자동 포함한다:
+확정된 규칙은 Phase 4 출력의 **엣지 케이스** 섹션에 아래 케이스를 자동 포함한다:
 
 | 케이스 | 기대 동작 |
 |--------|----------|
@@ -150,23 +144,23 @@ user-invocable: true
 - 답변 후 해당 Handler/Usecase/Repository 코드를 즉시 탐색
 - 현재 동작을 요약하여 제시: "현재 이 API는 ~하고 있습니다"
 
-#### Step 1.5 — 참조 구현 위치
+#### Step 2 — 참조 구현 위치
 > "수정 대상 코드의 위치를 알고 있나요? (파일:라인 또는 함수명)"
 
 - 유저가 위치를 알면 기록하고, Step 1의 코드 탐색 결과와 대조한다.
 - 모르면 Step 1에서 탐색한 결과를 기준으로 자동 특정하여 제시한다.
 
-#### Step 2 — 변경 내용
+#### Step 3 — 변경 내용
 > "무엇을 바꾸나요?"
 > 예: "응답에 `totalPrice` 필드 추가", "정렬 기준 변경", "권한 체크 추가"
 
-#### Step 3 — 영향 범위 확인
+#### Step 4 — 영향 범위 확인
 > (코드 탐색 결과를 기반으로) "이 변경이 `xxx_usecase.go`와 `xxx_repository.go`에도 영향을 줄 것 같은데, 맞나요?"
 
 - `Grep`으로 해당 함수/타입의 참조를 추적하여 영향 범위를 자동 분석
 - 사용자에게 확인만 요청
 
-#### Step 4 — 호환성
+#### Step 5 — 호환성
 > "기존 클라이언트와의 호환성을 유지해야 하나요? (Breaking change 허용 여부)"
 
 ### 유형 C: API 검토
@@ -213,9 +207,9 @@ user-invocable: true
 
 ---
 
-## Phase 2: 코드베이스 탐색
+## Phase 3: 코드베이스 탐색
 
-Phase 1의 질문 과정에서 **매 단계마다** 코드베이스를 탐색한다. 질문이 끝난 후 별도로 하지 않는다.
+Phase 2의 질문 과정에서 **매 단계마다** 코드베이스를 탐색한다. 질문이 끝난 후 별도로 하지 않는다.
 
 ### 탐색 대상
 
@@ -241,7 +235,7 @@ Migration / Schema               → DB 스키마
 
 ---
 
-## Phase 3: Technical Spec 출력
+## Phase 4: Technical Spec 출력
 
 모든 질문이 완료되면, 유형에 맞는 Spec을 출력한다.
 

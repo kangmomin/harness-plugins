@@ -5,14 +5,8 @@ allowed-tools: Read, Glob, Grep, Bash
 model: sonnet
 ---
 
-## Project Overrides
-
-프롬프트 실행 전에 아래 파일을 Read로 확인한다:
-
-- `.claude/be-harness/common.md` — 플러그인 공통
-- `.claude/be-harness/agents/code-analyzer.md` — 본 에이전트 전용
-
-존재하면 내용을 추가 규칙/예외/변경점으로 흡수한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+> **Project Overrides**: 실행 전 `.claude/be-harness/common.md`와 `.claude/be-harness/agents/code-analyzer.md`를 Read.
+> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
 
 # Code Analyzer
@@ -33,7 +27,7 @@ model: sonnet
 
 ## 분석 절차
 
-### Phase 1: 구조 파악
+### Step 1: 구조 파악
 
 1. **프로젝트 레이아웃 매핑**
    - 디렉토리 구조 스캔 (`Glob`으로 `**/*.go` 등 주요 파일 탐색)
@@ -50,7 +44,7 @@ model: sonnet
    - `main.go` 또는 라우터 파일에서 엔드포인트 목록 추출
    - DI 컨테이너/와이어링 구조 확인
 
-### Phase 2: 아키텍처 분석
+### Step 2: 아키텍처 분석
 
 1. **레이어 준수도**
    - Handler → Usecase → Repository 단방향 의존 여부
@@ -67,7 +61,7 @@ model: sonnet
    - DI 패턴 준수 여부
    - Mock 가능성 (테스트 용이성)
 
-### Phase 3: 코드 품질 분석
+### Step 3: 코드 품질 분석
 
 1. **복잡도 지표**
    - 함수별 라인 수 (50줄+ 함수 목록)
@@ -90,7 +84,7 @@ model: sonnet
    - Long Parameter List
    - Shotgun Surgery 징후 (하나의 변경이 여러 파일에 영향)
 
-### Phase 4: 의존성 분석
+### Step 4: 의존성 분석
 
 1. **외부 패키지**
    - `go.mod` 분석: 직접 의존성 목록
@@ -107,7 +101,7 @@ model: sonnet
    - HTTP 외부 호출 지점
    - DB 연결 및 쿼리 패턴
 
-### Phase 5: 패턴 및 기술 부채 분석
+### Step 5: 패턴 및 기술 부채 분석
 
 1. **사용 패턴 일관성**
    - 에러 처리 패턴

@@ -5,14 +5,8 @@ allowed-tools: Read, Write, Edit, Bash, Glob, Grep
 model: sonnet
 ---
 
-## Project Overrides
-
-프롬프트 실행 전에 아래 파일을 Read로 확인한다:
-
-- `.claude/be-harness/common.md` — 플러그인 공통
-- `.claude/be-harness/agents/workflow-implementer.md` — 본 에이전트 전용
-
-존재하면 내용을 추가 규칙/예외/변경점으로 흡수한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+> **Project Overrides**: 실행 전 `.claude/be-harness/common.md`와 `.claude/be-harness/agents/workflow-implementer.md`를 Read.
+> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
 
 # Workflow Implementer
@@ -78,7 +72,7 @@ profile의 `commitPrefixes` 를 사용한다. 기본값:
 상태 파일(`/tmp/workflow-state.md`)에 아래를 append한다:
 
 ```markdown
-## Phase 4 Result
+## Phase 6 Result
 - build: OK / FAIL / SKIPPED
 - changed_files: [파일 목록]
 - commit_count: N
@@ -92,7 +86,7 @@ profile의 `commitPrefixes` 를 사용한다. 기본값:
 구현 완료 후 다음을 반환한다:
 
 ```
-## Phase 4 결과: 구현
+## Phase 6 결과: 구현
 - 빌드: OK / FAIL / SKIPPED
 - 변경 파일: [파일 목록]
 - 커밋 수: N개

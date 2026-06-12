@@ -1,18 +1,12 @@
 ---
 name: e2e-test-loop
-description: "E2E 테스트 → 이슈 수정 → 재테스트를 반복한다. 모든 테스트가 통과하거나 최대 5회에 도달할 때까지."
+description: "E2E 테스트 → 이슈 수정 → 재테스트를 반복한다 (최대 5회). 기능 구현 후 'E2E 돌려줘', '테스트 통과할 때까지 고쳐줘' 요청 시 사용. start-workflow 품질 루프에서 자동 호출됨."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, Skill
 user-invocable: true
 ---
 
-## Project Overrides
-
-실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
-
-- `.claude/be-harness/common.md` — 플러그인 공통 (모든 스킬/에이전트에 적용)
-- `.claude/be-harness/skills/e2e-test-loop.md` — 본 스킬 전용
-
-존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+> **Project Overrides**: 실행 전 `.claude/be-harness/common.md`와 `.claude/be-harness/skills/e2e-test-loop.md`를 Read.
+> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
 
 # E2E Test Loop
@@ -30,7 +24,7 @@ for iteration in 1..5:
   run /be-harness:e2e-test
   if result == PASS (모든 시나리오 통과):
     break
-  if result starts with "[SKIPPED:":
+  if result starts with "SKIPPED:":
     return result   # 오케스트레이터가 상위에서 판단하도록 그대로 전달
   # FAIL 처리
   collect failures
@@ -54,7 +48,7 @@ for iteration in 1..5:
 | 조건 | 반환값 |
 |------|-------|
 | 모든 시나리오 PASS | `"이슈: 0건, 수정: N (iter 1..k)"` |
-| `[SKIPPED:*]` | SKIPPED 그대로 전달 |
+| `SKIPPED:*` | SKIPPED 그대로 전달 |
 | 5회 도달했는데 여전히 실패 | `"이슈: N건 미해결, 수정: M"` |
 
 ## 루프 판정 세부

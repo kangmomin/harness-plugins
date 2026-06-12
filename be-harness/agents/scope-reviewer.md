@@ -5,14 +5,8 @@ allowed-tools: Read, Glob, Grep
 model: sonnet
 ---
 
-## Project Overrides
-
-프롬프트 실행 전에 아래 파일을 Read로 확인한다:
-
-- `.claude/be-harness/common.md` — 플러그인 공통
-- `.claude/be-harness/agents/scope-reviewer.md` — 본 에이전트 전용
-
-존재하면 내용을 추가 규칙/예외/변경점으로 흡수한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+> **Project Overrides**: 실행 전 `.claude/be-harness/common.md`와 `.claude/be-harness/agents/scope-reviewer.md`를 Read.
+> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
 
 # Scope Reviewer

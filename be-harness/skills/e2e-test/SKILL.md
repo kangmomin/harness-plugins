@@ -1,19 +1,13 @@
 ---
 name: e2e-test
-description: "기능 추가/수정 후 연관 HTTP API를 실제 요청으로 E2E 테스트한다. profile의 runServerCommand/serverUrl 기반 범용 API 테스트."
+description: "기능 추가/수정 후 연관 HTTP API를 실제 요청으로 E2E 테스트한다. 'API 실제로 테스트해줘', 구현 검증이 필요할 때 사용. profile의 runServerCommand/serverUrl 기반, Bash+curl만 사용."
 allowed-tools: Read, Write, Glob, Grep, Bash, AskUserQuestion
 argument-hint: <대상 API 설명 또는 엣지 케이스 ID>
 user-invocable: true
 ---
 
-## Project Overrides
-
-실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
-
-- `.claude/be-harness/common.md` — 플러그인 공통 (모든 스킬/에이전트에 적용)
-- `.claude/be-harness/skills/e2e-test.md` — 본 스킬 전용
-
-존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+> **Project Overrides**: 실행 전 `.claude/be-harness/common.md`와 `.claude/be-harness/skills/e2e-test.md`를 Read.
+> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
 
 # E2E API 테스트
@@ -33,7 +27,7 @@ user-invocable: true
   - `e2eEnabled: true`
   - `serverUrl: "http://..."`
   - `runServerCommand`: 로컬 서버 기동 명령 (이미 서버가 떠 있으면 비워도 됨)
-- profile이 없거나 `e2eEnabled: false`면 **`[SKIPPED:PROFILE]`** 을 반환하고 종료한다.
+- profile이 없으면 `SKIPPED:NO_PROFILE`, `e2eEnabled: false`면 `SKIPPED:DISABLED`를 반환하고 종료한다 (SKIP 조건 표 참조).
 
 ## 플래그
 
@@ -73,7 +67,7 @@ user-invocable: true
 3. **타입 불일치** — 문자열 자리에 숫자 등 → 4xx
 4. **권한 부족** — 토큰 없이 / 다른 권한으로 → 401/403
 5. **존재하지 않는 리소스** — 잘못된 ID → 404
-6. **Spec 엣지 케이스** — workflow Phase 0의 엣지 케이스 테이블 각 항목
+6. **Spec 엣지 케이스** — start-workflow Phase 1(Spec)의 엣지 케이스 테이블 각 항목
 
 `$ARGUMENTS` 에 엣지 케이스 ID가 있으면 해당 시나리오만 실행.
 
@@ -85,7 +79,10 @@ user-invocable: true
 2. profile 본문에 토큰 발급 절차가 적혀 있으면 그에 따름
 3. 프로젝트 `Makefile` 또는 `scripts/` 디렉토리에 토큰 발급 스크립트가 있으면 실행
 4. 위 어느 것도 없으면 사용자에게 한 번 묻는다:
-   > "E2E 테스트용 인증 토큰을 어떻게 발급받나요? 명령을 알려주거나 토큰을 직접 입력해 주세요."
+   > "E2E 테스트용 인증 토큰을 어떻게 발급받나요?
+   > 1. 발급 명령 입력 → 실행해 토큰 확보
+   > 2. 토큰 직접 입력 → 그대로 사용
+   > 3. 모름/제공 불가 → `SKIPPED:NO_AUTH` 반환 후 종료"
 
 입력받은 방법은 `projectNotes` 업데이트를 제안한다 (사용자 승인 시에만).
 
@@ -100,7 +97,7 @@ run_in_background:
 
 기동 후 `serverUrl` 이 응답할 때까지 대기 (최대 30초). `curl -sf {serverUrl}/healthz` 또는 루트 경로에 대한 HEAD 요청으로 확인.
 
-30초 내 응답이 없으면 로그를 읽고 실패 원인을 보고하고 `[SKIPPED:SERVER_START_FAIL]` 반환.
+30초 내 응답이 없으면 로그를 읽고 실패 원인을 보고하고 `SKIPPED:SERVER_START_FAIL` 반환.
 
 ## Step 5: 요청 실행
 
@@ -163,12 +160,12 @@ Step 4에서 기동한 프로세스를 종료한다. `--skip-server`면 skip.
 
 | 조건 | 반환 |
 |------|------|
-| profile 없음 | `[SKIPPED:NO_PROFILE]` |
-| `e2eEnabled: false` | `[SKIPPED:DISABLED]` |
-| `serverUrl` 없음 | `[SKIPPED:NO_SERVER_URL]` |
-| `runServerCommand` 없고 `--skip-server`도 아님, 기존 서버도 응답 없음 | `[SKIPPED:NO_SERVER]` |
-| 인증 토큰 확보 실패 | `[SKIPPED:NO_AUTH]` |
-| 변경된 HTTP API 없음 | `[SKIPPED:NO_CHANGED_API]` |
+| profile 없음 | `SKIPPED:NO_PROFILE` |
+| `e2eEnabled: false` | `SKIPPED:DISABLED` |
+| `serverUrl` 없음 | `SKIPPED:NO_SERVER_URL` |
+| `runServerCommand` 없고 `--skip-server`도 아님, 기존 서버도 응답 없음 | `SKIPPED:NO_SERVER` |
+| 인증 토큰 확보 실패 | `SKIPPED:NO_AUTH` |
+| 변경된 HTTP API 없음 | `SKIPPED:NO_CHANGED_API` |
 
 SKIP은 오케스트레이터의 루프 재시작 트리거가 아니다.
 
