@@ -6,24 +6,19 @@ argument-hint: "<보완점 항목 JSON> 또는 대화 컨텍스트에서 수집"
 user-invocable: true
 ---
 
-## Project Overrides
-
-실행 전에 아래 파일이 있으면 Read로 확인:
-- `.claude/fe-harness/common.md`
-- `.claude/fe-harness/skills/submit-feedback.md`
-
-상세 규약: 플러그인 루트 `OVERRIDES.md`.
+> **Project Overrides**: 실행 전 `.claude/fe-harness/common.md`와 `.claude/fe-harness/skills/submit-feedback.md`를 Read.
+> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
 ---
 
 # submit-feedback — 피드백을 플러그인 레포에 PR로 제출
 
-`start-workflow` Phase 9 에서 수집된 **범용성 있는 보완점**을 플러그인 원본 레포의 `community-feedback/` 영역에 PR로 보낸다.
+`start-workflow` Phase 11 에서 수집된 **범용성 있는 보완점**을 플러그인 원본 레포의 `community-feedback/` 영역에 PR로 보낸다.
 
 ## 언제 쓰나
 
 - 보완점이 "이 프로젝트만의 규칙"이 아니라 **다른 팀에도 도움이 될 범용 규칙**이라고 판단될 때
-- 유저가 Phase 9 에서 "로컬 저장 + PR" 옵션을 선택했을 때 자동 호출됨
+- 유저가 Phase 11 에서 "로컬 저장 + PR" 옵션을 선택했을 때 자동 호출됨
 - 수동으로 단독 실행도 가능 (`/fe-harness:submit-feedback`)
 
 ## 언제 쓰지 말아야 하나
@@ -118,7 +113,7 @@ UPSTREAM_OWNER=$(echo "{upstream.repo}" | cut -d/ -f1)
 ```markdown
 ## {YYYY-MM-DD}
 
-**출처**: /fe-harness:start-workflow Phase 8 성찰
+**출처**: /fe-harness:start-workflow Phase 10 성찰
 **대상**: {target_type}:{target_name}
 **요지**: {summary}
 **범용성**: {generality}{, 조건: condition 있으면}
@@ -219,7 +214,7 @@ fe-harness 사용 중 수집된 피드백 {N}건을 community-feedback 영역에
 | agent:workflow-implementer | ... | 특정 조건 |
 
 ## 출처
-- 워크플로우: /fe-harness:start-workflow Phase 8 성찰 (자동 제출)
+- 워크플로우: /fe-harness:start-workflow Phase 10 성찰 (자동 제출)
 
 ## 주의
 - 원본 SKILL.md 는 변경하지 않습니다.

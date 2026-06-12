@@ -1,18 +1,12 @@
 ---
 name: test-loop
-description: "단위 테스트 + E2E 테스트를 실행하고, 실패 시 수정 후 재실행을 반복한다. (최대 5회)"
+description: "단위 테스트 + E2E 테스트를 실행하고, 실패 시 수정 후 재실행을 반복한다 (최대 5회). '테스트 통과할 때까지 고쳐줘' 요청 시 사용. start-workflow 품질 루프에서 자동 호출됨."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 ---
 
-## Project Overrides
-
-실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
-
-- `.claude/fe-harness/common.md` — 플러그인 공통 (모든 스킬/에이전트에 적용)
-- `.claude/fe-harness/skills/test-loop.md` — 본 스킬 전용
-
-존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+> **Project Overrides**: 실행 전 `.claude/fe-harness/common.md`와 `.claude/fe-harness/skills/test-loop.md`를 Read.
+> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
 
 # Test Loop

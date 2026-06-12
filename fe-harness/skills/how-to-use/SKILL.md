@@ -1,18 +1,12 @@
 ---
 name: how-to-use
-description: "플러그인 내 스킬의 사용법을 안내한다. 스킬 목록을 보여주고 선택한 스킬의 사용법을 설명한다."
+description: "플러그인 내 스킬의 사용법을 안내한다. '이 플러그인 어떻게 써?', '스킬 목록 보여줘', 특정 스킬의 사용법이 궁금할 때 사용."
 allowed-tools: AskUserQuestion, Read, Glob
 user-invocable: true
 ---
 
-## Project Overrides
-
-실행 전에 아래 경로의 프로젝트 로컬 오버라이드 파일을 Read로 확인한다:
-
-- `.claude/fe-harness/common.md` — 플러그인 공통 (모든 스킬/에이전트에 적용)
-- `.claude/fe-harness/skills/how-to-use.md` — 본 스킬 전용
-
-존재하면 내용을 **추가 규칙/예외/변경점**으로 흡수해 본 스킬 흐름에 반영한다. 충돌 시 프로젝트 오버라이드가 우선. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+> **Project Overrides**: 실행 전 `.claude/fe-harness/common.md`와 `.claude/fe-harness/skills/how-to-use.md`를 Read.
+> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
 
 # How to Use — 스킬 사용법 안내
