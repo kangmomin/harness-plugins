@@ -1,6 +1,6 @@
 ---
 name: hyeondong-init-hd
-description: "hyeondongs-harness 플러그인의 모든 사전 세팅을 한 번에 진행한다."
+description: "hyeondongs-harness 플러그인의 모든 사전 세팅(.hyeondong-config.json)을 한 번에 진행한다. 플러그인 최초 설정, '초기화해줘', doctor가 MISSING을 보고할 때 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 ---

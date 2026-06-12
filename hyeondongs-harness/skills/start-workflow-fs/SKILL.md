@@ -1,6 +1,6 @@
 ---
 name: start-workflow-fs
-description: "프론트엔드와 백엔드를 분리된 에이전트로 병렬 오케스트레이션한다. 기능 정의 → 통신 계약 정의 → 교차 리뷰 → 영역별 구현 → 통합 검증 → PR 순서의 애자일 풀스택 워크플로우."
+description: "프론트엔드(hyeondongs-harness)와 백엔드(minmos-harness)를 분리된 에이전트로 병렬 오케스트레이션한다. 기능 정의 → 통신 계약 → 교차 리뷰 → 병렬 구현 → Codex 품질 리뷰 → 통합 검증 → 단일 PR. 화면과 API가 함께 바뀌는 작업, '풀스택으로 진행해줘' 요청 시 사용."
 allowed-tools: AskUserQuestion, Read, Write, Edit, Glob, Grep, Bash, Agent, EnterPlanMode, ExitPlanMode, Skill
 argument-hint: <작업 설명 또는 빈 값>
 user-invocable: true
@@ -11,26 +11,20 @@ user-invocable: true
 프론트엔드와 백엔드를 하나의 큰 구현 덩어리로 취급하지 않는다.
 먼저 **기능 단위와 통신 계약**을 고정하고, 그 다음 **프론트/백엔드 전용 에이전트**가 병렬로 구현한 뒤, 마지막에 통합 검증으로 닫는다.
 
-## 언제 쓰는가
+**플레이스홀더 정의** (본문·references 공통, 값 변경은 여기 한 곳만 수정):
 
-- 화면과 API가 함께 바뀌는 기능
-- 요청/응답 구조, 에러 모델, 인증 방식이 같이 정리되어야 하는 작업
-- 프론트와 백엔드가 서로를 기다리며 흔들리기 쉬운 작업
+- `{STATE_FILE}` = `/tmp/fullstack-workflow-state.md`
+- `{CWD}` = 현재 작업 디렉토리 (프로젝트 루트)
 
-## 언제 쓰지 않는가
+## 언제 쓰는가 / 쓰지 않는가
 
-- 백엔드만 바뀌는 작업: `start-workflow-mm`
-- 프론트엔드만 바뀌는 작업: `start-workflow-hd`
+- **사용**: 화면과 API가 함께 바뀌는 기능, 요청/응답 구조·에러 모델·인증 방식이 같이 정리되어야 하는 작업.
+- **미사용**: 백엔드만 바뀌면 `start-workflow-mm`, 프론트엔드만 바뀌면 `start-workflow-hd`.
 
 ## 전제 조건
 
-- `request-mm`, `request-hd`
-- `workflow-implementer`
-- `scope-reviewer`, `component-reviewer`, `a11y-reviewer`
-- `workflow-reflection`
-- 프론트 하네스와 백엔드 하네스가 모두 사용 가능해야 한다.
-
-한쪽 하네스가 없으면 이 스킬로 억지로 진행하지 말고, 단일 도메인 워크플로우로 내린다.
+- **minmos-harness와 hyeondongs-harness가 모두 사용 가능**해야 한다 (`request-mm`/`request-hd`, 각 도메인 품질 스킬, workflow-reflection 사용).
+- 한쪽 하네스가 없으면 이 스킬로 억지로 진행하지 말고, 단일 도메인 워크플로우로 안내 후 종료한다.
 
 ## Flags
 
@@ -56,472 +50,219 @@ user-invocable: true
 2. **Contract First**: 구현 전에 통신 규약을 먼저 확정한다.
 3. **Review Before Code**: 계약과 분업 계획을 리뷰한 뒤에만 구현한다.
 4. **Split By Ownership**: 프론트와 백엔드는 파일 소유권이 명확해야 한다.
-5. **No Silent Contract Drift**: 계약이 바뀌면 구현을 계속하지 말고 계약 단계로 되돌아간다.
+5. **No Silent Contract Drift**: 계약이 바뀌면 구현을 계속하지 말고 Phase 3(계약)으로 되돌아간다.
 
 ## Phase 매핑
 
 | Phase | 담당 | 목적 |
 |-------|------|------|
-| 0 | 오케스트레이터 + `request-mm` + `request-hd` | 기능 정의 및 도메인 분리 |
-| 1 | 오케스트레이터 | 통신 계약 초안 작성 |
-| 2 | 읽기 전용 리뷰 에이전트 2개 이상 | 계약/분업 리뷰 |
-| 3 | 오케스트레이터 | 프론트/백엔드 Plan 분리 |
-| 4 | 백엔드 구현 에이전트 + 프론트 구현 에이전트 | 병렬 구현 |
-| 5 | 각 도메인 품질 루프 | 영역별 안정화 |
-| 6 | 읽기 전용 리뷰 에이전트 | 통합 검증 |
-| 7 | 오케스트레이터 + PR 스킬 | 최종 커밋/PR |
-| 8 | `workflow-reflection` | 회고 및 정리 |
+| 1 | 오케스트레이터 + `request-mm` + `request-hd` | 기능 정의 및 도메인 분리 |
+| 2 | Codex 리뷰 | Feature Matrix / Technical Spec 사전 검토 |
+| 3 | 오케스트레이터 | 통신 계약 초안 작성 |
+| 4 | 읽기 전용 리뷰 에이전트 2개 이상 | 계약/분업 리뷰 |
+| 5 | 오케스트레이터 + Codex 리뷰 | 프론트/백엔드 Plan 분리 + 검증 루프 |
+| 6 | 오케스트레이터 | 브랜치 + 상태 파일 |
+| 7 | BE 구현 에이전트 + FE 구현 에이전트 | 병렬 구현 |
+| 8 | 각 도메인 품질 루프 | 영역별 안정화 |
+| 9 | Codex 리뷰 | 품질 리뷰 |
+| 10 | 읽기 전용 리뷰 에이전트 | 통합 검증 |
+| 11 | 오케스트레이터 + PR 스킬 | 최종 커밋/PR |
+| 12 | workflow-reflection | 회고 및 정리 |
 
-## Phase Agent Assignment / State Tracking
+## 상태 추적
 
-워크플로우 시작 시 `/tmp/fullstack-workflow-state.md`를 새로 만들고, Phase 진입/완료 때마다 갱신한다.
-오케스트레이터도 Phase owner agent로 간주해 상태 파일에 기록한다.
-
-상태 파일은 항상 아래 섹션을 포함한다:
-
-```markdown
-## Current Phase
-[현재 Phase, 담당 agent, model, effort]
-
-## Phase Assignments
-| Phase | Agent | Model | Effort | Status |
-|-------|-------|-------|--------|--------|
-
-## Remaining Phases
-[아직 남은 Phase 목록]
-
-## Phase Results
-[완료된 Phase 결과를 append]
-```
-
-에이전트를 생성하기 전에는 해당 Phase를 `IN_PROGRESS`로 갱신하고, 완료 후 `DONE/SKIPPED/BLOCKED`와 결과를 기록한다.
-모든 에이전트 프롬프트에는 상태 파일 경로, 현재 Phase, 남은 Phase, 배정된 model/effort를 포함한다.
+워크플로우 시작 시 `{STATE_FILE}`을 새로 만들고, Phase 진입/완료 때마다 갱신한다 (템플릿: `references/contract-templates.md`).
+에이전트 생성 전 `IN_PROGRESS`, 완료 후 `DONE` / `SKIPPED:{사유}` / `BLOCKED:{사유}`와 결과를 기록한다.
+모든 에이전트 프롬프트에 상태 파일 경로, 현재 Phase, 남은 Phase, 배정 model/effort를 포함한다.
 
 ### Model / Effort 선택 규칙
 
-Agent 생성 시 작업 복잡도, 난이도, 작업량에 맞춰 `model`과 `effort` 또는 `reasoning_effort`를 명시한다.
-환경별 모델명이 다르면 같은 등급의 사용 가능한 최신 모델로 치환한다.
+**최상위 고정**: orchestrator(이 세션 자체)와 advisor만 항상 최상위(opus / max effort)를 사용한다. 그 외 모든 **서브 에이전트의 default는 Standard (sonnet / medium)** 이며, Complex/Critical로 상향할 때는 Agent prompt에 **자체평가 사유**(어떤 난이도 기준에 해당하는지)를 한 줄로 명시한다. **세션 effort는 서브 에이전트로 상속되지 않으므로** 호출 시점에 등급표 기준으로 별도 명시한다.
 
 | 등급 | 기준 | Claude 계열 | Codex 계열 | effort |
 |------|------|-------------|------------|--------|
 | Simple | 단일 도메인에 가까운 보조 작업, 문서/단순 리뷰 | sonnet | gpt-5.3-codex-spark | low |
-| Standard | 일반 FE+BE 계약/구현/검증 | sonnet | gpt-5.3-codex | medium |
+| Standard | 일반 FE+BE 계약/구현/검증 (**서브 에이전트 default**) | sonnet | gpt-5.3-codex | medium |
 | Complex | 다중 API, shared artifact, 상태/DB/권한 영향 | opus | gpt-5.4 | high |
 | Critical | 대규모 계약 변경, 보안/데이터 마이그레이션, 릴리즈 위험 | opus | gpt-5.5 | xhigh |
 
-FE/BE 구현 에이전트는 각 도메인의 작업량으로 등급을 따로 산정한다.
-통합 계약 리뷰와 contract drift 판정은 기본 `Complex` 이상으로 둔다.
+**통합 계약 리뷰와 Codex 품질 리뷰는 fs 워크플로우 특성상 default를 `Complex` 이상으로 둔다** (계약 불일치 비용이 크기 때문에 일반 서브와 다른 예외).
 
 ## 자율 실행 규칙
 
-- Phase 0~3: 유저와 기능/계약/Plan을 합의한다.
-- **Phase 3.5 이후 ~ Phase 8 완료까지**는 자동 실행한다.
+- Phase 1~5: 유저와 기능/계약/Plan을 합의한다.
+- **Phase 6 이후 ~ Phase 12 완료까지** 자동 실행한다.
 - 멈춰야 하는 지점은 계약 불일치, 권한 부족, 테스트 불가, 또는 유저 승인 없이는 바꿀 수 없는 요구사항뿐이다.
 
-## Spec 외 변경 금지 원칙
+### Spec 외 변경 금지 원칙
 
-Spec 또는 계약에 없는 변경이 필요하면:
+Spec 또는 계약에 없는 변경이 필요하면: ① 코드를 먼저 바꾸지 않는다 ② `{STATE_FILE}`의 `Assumptions` 섹션에 `[Assumption]`으로 기록한다 ③ 계약 리뷰를 다시 거친 뒤에만 반영한다.
 
-1. 코드를 먼저 바꾸지 않는다.
-2. `/tmp/fullstack-workflow-state.md`의 `Assumptions` 섹션에 `[Assumption]`으로 기록한다.
-3. 계약 리뷰를 다시 거친 뒤에만 반영한다.
+---
 
-## Phase 0: 기능 정의 + Feature Matrix (Plan 모드 진입)
+## Phase 1: 기능 정의 + Feature Matrix (Plan 모드 진입)
 
-> **Plan 모드 활성화**: Phase 0 시작 시 `EnterPlanMode`를 활성화한다.
-> Spec(Feature Matrix), 통신 계약, BE/FE/공용 Plan은 모두 같은 Plan 모드 컨텍스트에서 발전하는 단일 산출물이며, `ExitPlanMode`는 Phase 3.4 검증 루프 종료 시 단 한 번만 호출한다.
-> Codex 검토는 Phase 3.4 검증 루프에서 **Spec+계약+Plan 통합 산출물**에 대해 단일 APPROVE 루프로 수행한다(별도 Codex Spec 리뷰 단계는 두지 않는다).
-
+> **Plan 모드 활성화**: Phase 1 시작 시 `EnterPlanMode`를 활성화한다.
+> Spec(Feature Matrix), 통신 계약, BE/FE/공용 Plan은 모두 같은 Plan 모드 컨텍스트에서 발전하는 단일 산출물이며, `ExitPlanMode`는 Phase 5.4 검증 루프 종료 시 단 한 번만 호출한다.
 
 상세 명세가 이미 충분하면 그 내용을 정리해서 시작한다.
-부족하면 `request-mm`로 백엔드 관점 질문을, `request-hd`로 프론트엔드 관점 질문을 각각 수행해 아래 표를 만든다.
+부족하면 `request-mm`로 백엔드 관점 질문을, `request-hd`로 프론트엔드 관점 질문을 각각 수행한다 (Skill tool, 대화형이므로 순차).
 
-```markdown
-## Feature Matrix
-| ID | 사용자 흐름 | 프론트 책임 | 백엔드 책임 | 완료 조건 |
-|----|------------|------------|------------|----------|
-```
-
-반드시 정리할 항목:
-
-- 어떤 사용자가 어떤 화면에서 어떤 행동을 하는가
-- 그 행동에 대응하는 API/이벤트/쿼리 키가 무엇인가
-- 프론트의 화면 상태: loading, empty, success, error
-- 백엔드의 비즈니스 규칙, 권한, 저장소 변경
-- 테스트 완료 조건
+> Phase 1 진입 시 MUST: `references/contract-templates.md`를 Read하고 "Feature Matrix 템플릿"대로 표를 작성한다.
 
 이 결과가 한쪽 도메인만 필요하면 풀스택 워크플로우를 중단하고 단일 도메인 스킬로 전환한다.
 
-## Phase 1: 통신 계약 정의
+## Phase 2: Codex Spec 사전 검토
 
-구현 전에 반드시 **Integration Contract**를 작성한다.
+Feature Matrix / Technical Spec을 Codex에 전달해 사전 검토를 받는다 (계약 복잡도 기준, default Complex).
+타당한 피드백을 반영한다. Codex 불가 환경이면 `SKIPPED:CODEX_UNAVAILABLE`로 기록하고 진행한다.
 
-```markdown
-## Integration Contract
-### Surface
-- REST / GraphQL / gRPC / Event 중 무엇인지
+## Phase 3: 통신 계약 정의
 
-### Endpoint Or Event
-- Method / Path / Event Name
-- Auth / Role
-- Query / Path / Header / Body 필드
+구현 전에 반드시 **Integration Contract**를 작성한다 (`references/contract-templates.md`의 템플릿 준수 — 인증/페이지네이션/포맷/캐시/호환성 필수 항목 포함).
 
-### Success Response
-- 필드명 / 타입 / nullable / 기본값
+## Phase 4: 계약 리뷰
 
-### Error Contract
-- 에러 코드
-- 사용자 노출 메시지 여부
-- 프론트 fallback 동작
+계약 초안이 나오면 읽기 전용 리뷰를 병렬로 수행한다 (출력 형식·REJECT 기준: `references/contract-templates.md`).
 
-### UI State Contract
-- loading / empty / disabled / retry / optimistic update
+- **Batch 1 (병렬)**: 백엔드 advisor (데이터 정합성·비즈니스 규칙·에러 모델) + 프론트엔드 advisor (화면 상태·사용자 흐름·소비 가능성)
+- **Batch 2 (병렬)**: 프론트가 계약을 소비하는 데 빠진 필드가 없는지 + 백엔드가 프론트 요구를 과도하게 책임지지 않는지 교차 리뷰
 
-### Ownership
-- Backend owner
-- Frontend owner
-- Shared artifact owner
-```
+REJECT가 있으면 계약을 수정하고 재리뷰한다.
 
-계약에는 아래가 빠지면 안 된다:
+## Phase 5: 분리 Plan 작성
 
-- 인증/인가
-- 페이지네이션/커서 규칙
-- 날짜/금액/enum 포맷
-- 정렬/필터 파라미터
-- 캐시 무효화 또는 재조회 규칙
-- 하위 호환성 여부
+### Phase 5.1: 백엔드 Plan
+변경 파일 / 핸들러·서비스·리포지토리 범위 / 테스트 전략 / 계약 산출물 owner 여부
 
-## Phase 2: 계약 리뷰
+### Phase 5.2: 프론트엔드 Plan
+변경 파일 / 페이지·컴포넌트·훅 범위 / 화면 상태 처리 전략 / 타입·클라이언트 연동 전략
 
-계약 초안이 나오면 읽기 전용 리뷰를 병렬로 수행한다.
+### Phase 5.3: 공용 Plan
+feature 브랜치 전략 / shared artifact owner / 통합 테스트 순서 / 롤백 조건 / `[Assumption]` 목록
 
-### Batch 1
-
-- 백엔드 리뷰어 역할의 advisor: 데이터 정합성, 비즈니스 규칙, 에러 모델 검토
-- 프론트엔드 리뷰어 역할의 advisor: 화면 상태, 사용자 흐름, 소비 가능성 검토
-
-### Batch 2
-
-- 프론트가 백엔드 계약을 소비하는 데 빠진 필드가 없는지 교차 리뷰
-- 백엔드가 프론트 요구를 과도하게 책임지지 않는지 교차 리뷰
-
-리뷰 출력 형식:
-
-```markdown
-**Verdict**: APPROVE / CONCERN / REJECT
-**Issues**: [목록 또는 "없음"]
-**Suggestions**: [목록 또는 "없음"]
-**Next Action**: [오케스트레이터가 바로 수행할 1개 액션]
-```
-
-다음 중 하나라도 있으면 **REJECT**다:
-
-- 필수 필드 정의 누락
-- 성공/실패 응답 해석이 양쪽에서 다름
-- 인증/권한 책임이 불명확함
-- shared artifact owner가 없음
-- 프론트 완료 조건과 백엔드 완료 조건이 서로 다름
-
-## Phase 3: 분리 Plan 작성
-
-Plan 모드는 Phase 0에서 이미 활성화되어 있다. Spec(Feature Matrix)과 통신 계약 아래에 **BE/FE/공용 Plan을 추가**하여 단일 통합 산출물로 발전시킨다.
-
-### 3.1 백엔드 Plan
-
-- 변경 파일
-- 핸들러/서비스/리포지토리 범위
-- 테스트 전략
-- 계약 산출물 owner 여부
-
-### 3.2 프론트엔드 Plan
-
-- 변경 파일
-- 페이지/컴포넌트/훅 범위
-- 화면 상태 처리 전략
-- 타입/클라이언트 연동 전략
-
-### 3.3 공용 Plan
-
-- feature 브랜치 전략
-- shared artifact owner
-- 통합 테스트 순서
-- 롤백 조건
-- `[Assumption]` 목록
-
-Plan은 아래를 지켜야 한다:
-
-- 한 파일의 owner는 한쪽만 가진다.
-- 생성 코드나 shared schema도 owner를 지정한다.
+Plan 규칙:
+- 한 파일의 owner는 한쪽만 가진다. 생성 코드나 shared schema도 owner를 지정한다.
 - 프론트는 계약 확정 전 mock shape를 임의로 만들지 않는다.
 - 백엔드는 프론트 화면 로직을 추측해서 응답 필드를 늘리지 않는다.
 
-### 3.4 Plan Verification Loop (Codex APPROVE까지 반복)
+### Phase 5.4: Plan Verification Loop (Codex 검증, 최대 5회)
 
-`ExitPlanMode` 전에 통신 계약, 백엔드 Plan, 프론트엔드 Plan, 공용 Plan에 대해 **Codex가 APPROVE할 때까지 반복되는 검증 루프**를 통과해야 한다. 반복 횟수에 상한은 없다.
-
-#### 루프 구조
+통신 계약 + BE/FE/공용 Plan에 대해 Codex 검증 루프를 통과해야 확정된다.
 
 ```
-[Plan v1 (BE + FE + 공용 + 계약)]
-   ↓
-┌──────────────────────────────────────────┐
-│ Iteration N                              │
-│  ① Codex Plan 리뷰 (Architect 관점)      │
-│  ↓                                        │
-│  [판정]                                   │
-│   - APPROVE  → 루프 탈출                 │
-│   - CONCERN/REJECT → Plan/계약 수정      │
-└──────────────────────────────────────────┘
-   ↓ (CONCERN/REJECT)              ↓ (APPROVE)
-[Claude가 Plan/계약 수정 → v(N+1)]    [Plan 확정 → Phase 3.5]
+for iteration in 1..5:
+  ① Codex Plan 리뷰 (Architect 관점) — stateless 보완을 위해 매회 전달:
+     Spec / 통신 계약 v최신 / BE·FE·공용 Plan v최신
+     / (N≥2) 이전 iteration Diff 요약 + 기각 피드백·사유
+     리뷰 관점: 계약-Plan 추적성, 파일 소유권 충돌, shared artifact owner 명확성,
+               책임 전가 여부, 통합 테스트·롤백 조건 누락, 더 단순한 구현 경로
+  ② 판정: APPROVE → 탈출 / CONCERN → 타당한 항목 반영(또는 기각 사유 기록) / REJECT → 수정
+  ③ Iteration Diff Log를 상태 파일 `Plan Verification Log`에 append
+     (Verdict / 반영 / 기각+사유 / 변경 요약)
 ```
 
-#### 종료 조건
+| 종료 조건 | 결과 |
+|----------|------|
+| Codex `APPROVE` | **PROCEED** → ExitPlanMode로 Plan 확정 |
+| 사소한 표현/네이밍 CONCERN만 잔존 | 즉시 수렴으로 간주 → **PROCEED** |
+| 사용자가 명시적으로 루프 종료 지시 | **USER-INTERRUPTED** → 잔존 이슈 기록 후 확정 |
+| Codex 사용 불가 환경 | **CODEX-UNAVAILABLE** → 단발성 자체 검토(BE/FE/공용 owner 점검) 1회만 수행, 사유 기록 |
+| 5회 도달, 미APPROVE | **BLOCKED:MAX_ITERATIONS** → 아래 선택지 제시 |
 
-| 조건 | 결과 |
-|------|------|
-| Codex `APPROVE` | **PROCEED** → 다음 Phase 실행 |
-| 사용자가 명시적으로 루프 종료를 지시 | **USER-INTERRUPTED** → 잔존 이슈 기록 후 진행 |
-| Codex 사용 불가 환경 | **CODEX-UNAVAILABLE** → 사유를 상태 파일에 기록하고 진행 |
+5회 도달 시 선택지:
+> "Plan 검증 루프가 5회에 도달했습니다. 미해결 이슈: {요약}
+> 1. 현재 Plan으로 진행 2. 루프 계속 (5회 추가) 3. 중단"
 
-#### Iteration N 입력 (stateless 보완)
+안전장치: 동일 이슈 3회 반복 지적 → 사용자 판단 위임 / 변경 0건 iteration → 즉시 중단·보고 / Codex는 stateless이므로 이전 컨텍스트 매회 명시 전달.
 
-매 iteration마다 Codex에 다음을 함께 전달:
-- Technical Spec
-- 통신 계약 v최신
-- 백엔드/프론트엔드/공용 Plan v최신
-- **이전 iteration Diff 요약** (N≥2)
-- **이전 iteration 기각 피드백 + 사유** (N≥2)
+루프가 PROCEED/USER-INTERRUPTED로 종료되면 `ExitPlanMode`로 Plan을 확정하고, 상태 파일에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
 
-리뷰 관점:
-- 계약과 양쪽 Plan의 추적 가능성
-- 파일 소유권 충돌
-- shared artifact owner 명확성
-- 프론트/백엔드 책임 전가 여부
-- 통합 테스트 및 롤백 조건 누락
-- 더 단순한 구현 경로
+## Phase 6: 브랜치 + 상태 파일
 
-#### 판정 처리
+`--hard`가 아니면 feature 브랜치를 만든다: `git checkout -b feat/{작업-요약-kebab-case}`
 
-| Codex Verdict | 처리 |
-|---------------|------|
-| `APPROVE` | 루프 탈출 → `ExitPlanMode`로 Plan 확정 |
-| `CONCERN` | Claude가 타당한 항목 반영 (또는 사유 기록 후 기각) → 다음 iteration |
-| `REJECT` | Claude가 Plan/계약 수정 → 다음 iteration |
+> Phase 6 진입 시 MUST: `references/contract-templates.md`의 "상태 파일 템플릿"대로 `{STATE_FILE}`을 작성한다.
 
-#### Iteration Diff Log
+## Phase 7: 프론트/백엔드 병렬 구현
 
-매 iteration 종료 시 상태 파일 `Plan Verification Log`에 append:
+두 구현 에이전트를 **병렬**로 실행한다 (도메인별 작업량에 맞는 model/effort 명시, 상태 파일의 Phase 7 Backend/Frontend 상태 갱신).
 
-```markdown
-### Iteration N → N+1
-- **Codex Verdict**: APPROVE / CONCERN / REJECT
-- **반영**: [수용 피드백 요약]
-- **기각**: [기각 피드백 + 사유]
-- **변경 요약**: [Plan/계약 vN → v(N+1) 핵심 diff]
-```
-
-#### 데드락 / 안전장치
-
-- **동일 이슈 3회 반복 지적**: 사용자에게 보고하고 판단 위임. 응답 후 루프 재개/종료.
-- **실질적 진전 확인**: Diff Log에 실제 변경이 0건이면 즉시 중단하고 사용자에게 보고.
-- **컨텍스트 누적**: 이전 iteration 컨텍스트를 매번 명시 전달.
-
-루프가 종료되면 `ExitPlanMode`로 Plan을 확정하고, 상태 파일에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
-
-## Phase 3.5: 브랜치 + 상태 파일
-
-`--hard`가 아니면 feature 브랜치를 만든다.
-
-```bash
-git checkout -b feat/{작업-요약-kebab-case}
-```
-
-그다음 `/tmp/fullstack-workflow-state.md`를 작성한다:
-
-```markdown
-# Fullstack Workflow State
-
-## Spec
-[합쳐진 Technical Spec]
-
-## Feature Matrix
-[Phase 0 결과]
-
-## Integration Contract
-[Phase 1 결과]
-
-## Current Phase
-Phase 3.5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effort: 현재 세션)
-
-## Phase Assignments
-| Phase | Agent | Model | Effort | Status |
-|-------|-------|-------|--------|--------|
-| 0 | orchestrator + request agents | 현재 세션 | 현재 세션 | DONE |
-| 1 | orchestrator | 현재 세션 | 현재 세션 | DONE |
-| 2 | contract review agents | 계약 복잡도 기준 | 계약 복잡도 기준 | DONE |
-| 3 | orchestrator | 현재 세션 | 현재 세션 | DONE |
-| 3.5 | orchestrator | 현재 세션 | 현재 세션 | IN_PROGRESS |
-| 4 | BE implementer + FE implementer | 도메인별 기준 | 도메인별 기준 | PENDING |
-| 5 | BE/FE quality agents | 도메인별 기준 | 도메인별 기준 | PENDING |
-| 6 | integration review agents | 계약 복잡도 기준 | 계약 복잡도 기준 | PENDING |
-| 7 | orchestrator + PR skill | PR 복잡도 기준 | PR 복잡도 기준 | PENDING |
-| 8 | workflow-reflection | 변경량 기준 | 변경량 기준 | PENDING |
-
-## Remaining Phases
-- Phase 4: 프론트/백엔드 병렬 구현
-- Phase 5: 도메인별 품질 루프
-- Phase 6: 통합 검증
-- Phase 7: 커밋/PR
-- Phase 8: 회고 + 정리
-
-## Backend Plan
-[Phase 3.1]
-
-## Frontend Plan
-[Phase 3.2]
-
-## Shared Ownership
-[공용 산출물 owner]
-
-## Assumptions
-[없으면 "없음"]
-
-## Phase Results
-[Phase 완료 시 결과 append]
-```
-
-## Phase 4: 프론트/백엔드 병렬 구현
-
-두 구현 에이전트를 **병렬**로 실행한다.
-
-### 백엔드 구현 에이전트
-
+**백엔드 구현 에이전트**
 - 입력: 상태 파일 전체
 - 책임: 백엔드 Plan의 소유 파일만 수정
 - 금지: 프론트 파일 수정, 계약 외 필드 추가
-- 생성 시 백엔드 작업량에 맞는 model/effort를 명시하고 Phase 4 Backend 상태를 갱신
 
-### 프론트엔드 구현 에이전트
-
+**프론트엔드 구현 에이전트**
 - 입력: 상태 파일 전체
 - 책임: 프론트엔드 Plan의 소유 파일만 수정
 - 금지: 백엔드 파일 수정, 계약 외 필드 가정
-- 생성 시 프론트엔드 작업량에 맞는 model/effort를 명시하고 Phase 4 Frontend 상태를 갱신
 
-두 에이전트 모두 보고해야 할 것:
+두 에이전트 모두 보고해야 할 것: 변경 파일 목록 / 계약 대비 차이점 / `[Assumption]` 목록 / 막힌 계약 항목.
+구현 중 계약 변경이 필요하면 즉시 Phase 3으로 돌아간다 (No Silent Contract Drift).
 
-- 변경 파일 목록
-- 계약 대비 차이점
-- `[Assumption]` 목록
-- 막힌 계약 항목
+## Phase 8: 도메인별 품질 루프 (최대 3회)
 
-구현 중 계약 변경이 필요하면 즉시 Phase 1로 돌아간다.
+- **백엔드 루프**: ① `simplify-loop-mm` ② `convention-check-mm` ③ `e2e-test-loop-mm` ④ API 계약이 바뀌었으면 `e2e-apidog-schema-gen-mm`
+- **프론트엔드 루프**: ① build + type-check ② `simplify-loop-hd` ③ `convention-check-hd` ④ `test-loop-hd` ⑤ `lint-check-hd`
 
-## Phase 5: 도메인별 품질 루프
+| 규칙 | 내용 |
+|------|------|
+| 독립 반복 | 각 도메인은 자기 루프만 다시 돈다 |
+| 계약 위협 | 한쪽 루프 결과가 계약을 흔들면 둘 다 멈추고 Phase 3으로 복귀 |
+| 상한 | 최대 3회. 도달 시 미해결 사항 보고 후 Phase 9로 강제 진행 |
 
-Phase 5 시작 전 `/tmp/fullstack-workflow-state.md`의 `Current Phase`, `Phase Assignments`, `Remaining Phases`를 갱신한다.
-각 도메인 루프에서 서브 에이전트를 생성할 때는 도메인별 실패 심각도에 맞는 `model`과 `effort`를 명시한다.
+## Phase 9: Codex 품질 리뷰 (항상)
 
-### 백엔드 루프
+도메인별 품질 루프가 완료되면 통합 검증으로 넘어가기 전에 **반드시 Codex 리뷰**를 받는다 (default Complex).
+Codex 불가 환경이면 `SKIPPED:CODEX_UNAVAILABLE`로 기록하고 Phase 12 최종 보고에 사유를 기록한다.
 
-1. `simplify-loop-mm`
-2. `convention-check-mm`
-3. `e2e-test-loop-mm`
-4. API 계약이 바뀌었으면 `e2e-apidog-schema-gen-mm`
+- **리뷰 입력**: Feature Matrix / Integration Contract / BE·FE·공용 Plan / 변경 파일 목록 / 양쪽 품질 루프 결과 및 남은 이슈
+- **리뷰 관점**: frozen contract와 실제 구현의 불일치, 프론트/백엔드 책임 경계 위반, 상태/에러/권한/캐시 무효화 누락, 테스트·검증 공백, 품질 루프가 놓친 단순화/컨벤션 이슈
+- **결과 처리** (REJECT 재리뷰는 최대 3회):
 
-### 프론트엔드 루프
+| Verdict | 처리 |
+|---------|------|
+| APPROVE | Phase 10으로 진행 |
+| CONCERN | 타당한 항목만 수정 후 필요한 검증 재실행 → Phase 10 |
+| REJECT | 수정 후 관련 도메인 품질 루프와 Codex 품질 리뷰 재수행 |
+| REJECT 3회 도달 | `BLOCKED:CODEX_REVIEW` — 미해결 이슈 요약과 함께 사용자 선택지(현 상태 진행/리뷰 계속/중단) 제시 |
 
-1. build + type-check
-2. `simplify-loop-hd`
-3. `convention-check-hd`
-4. `test-loop-hd`
-5. `lint-check-hd`
+## Phase 10: 통합 검증
 
-규칙:
+frozen contract와 실제 코드를 다시 맞춘다. 반드시 검증할 항목:
 
-- 각 도메인은 자기 루프만 다시 돈다.
-- 한쪽 루프 결과가 계약을 흔들면 둘 다 멈추고 Phase 1로 복귀한다.
-- 최대 3회까지 반복한다.
+Method/Path/Event Name · Request/Response 필드명과 타입 · 에러 코드와 프론트 fallback · loading/empty/retry/disabled 상태 · 인증/권한 · 페이지네이션/커서 · 캐시 무효화/재조회
 
-## Phase 6: 통합 검증
+통합 검증 agent는 모두 `{STATE_FILE}`을 읽고 현재 Phase·남은 Phase·배정 model/effort를 보고서에 기록한다. 계약 불일치 가능성이 있으면 `Complex` 이상으로 생성한다.
 
-구현이 끝나면 frozen contract와 실제 코드를 다시 맞춘다.
+**해결되지 않은 contract diff가 하나라도 남아 있으면 Phase 11로 가지 않는다** (수정 → Phase 10 재검증).
 
-반드시 검증할 항목:
-
-- Method / Path / Event Name
-- Request / Response 필드명과 타입
-- 에러 코드와 프론트 fallback
-- loading / empty / retry / disabled 상태
-- 인증/권한
-- 페이지네이션/커서
-- 캐시 무효화 또는 재조회
-
-권장 리뷰 조합:
-
-- 백엔드 `scope-reviewer`
-- 프론트엔드 `scope-reviewer`
-- UI 변경이 있으면 `component-reviewer`
-- 접근성 영향이 있으면 `a11y-reviewer`
-
-통합 검증 agent는 모두 `/tmp/fullstack-workflow-state.md`를 읽고 현재 Phase, 남은 Phase, 배정된 model/effort를 보고서에 기록한다.
-계약 불일치 가능성이 있으면 `Complex` 이상 model/effort로 생성한다.
-
-해결되지 않은 contract diff가 하나라도 남아 있으면 PR 단계로 가지 않는다.
-
-## Phase 7: 커밋/PR
+## Phase 11: 커밋/PR
 
 둘 다 green이면 단일 PR로 묶는다.
 
 - 커밋은 프론트/백엔드 단위를 분리한다.
-- PR 생성은 현재 하네스의 PR 스킬을 사용한다.
-- PR/커밋 agent를 생성하는 경우 `/tmp/fullstack-workflow-state.md`를 읽고 Phase 7 상태를 갱신하며, PR 복잡도에 맞는 model/effort를 명시한다.
-- PR 본문은 아래 순서를 따른다:
+- PR 본문은 `references/contract-templates.md`의 "PR 본문 순서"를 따른다.
+- PR/커밋 agent 생성 시 `{STATE_FILE}`을 읽고 Phase 11 상태를 갱신하며, PR 복잡도에 맞는 model/effort를 명시한다.
+- `--hard`면 push/PR 단계를 생략하고 현재 브랜치에서 종료한다.
 
-```markdown
-## Feature Summary
-## Integration Contract
-## Backend Changes
-## Frontend Changes
-## Verification
-## Assumptions
-```
+## Phase 12: 회고 + 정리
 
-`--hard`면 push/PR 단계를 생략하고 현재 브랜치에서 종료한다.
+1. `workflow-reflection`으로 회고를 남긴다 (변경량 기준 model/effort, `{STATE_FILE}`의 Phase 12 상태 갱신).
+2. 정리: `{STATE_FILE}`의 모든 Phase를 `DONE`/`SKIPPED:{사유}`로 갱신, `Remaining Phases`를 `없음`으로. 기본은 보관, 사용자 요청 시에만 `rm -f {STATE_FILE}`.
+3. 최종 보고: `references/contract-templates.md`의 "최종 보고 형식"(Task Report)을 따른다.
 
-## Phase 8: 회고 + 정리
+## 상태 코드
 
-- `workflow-reflection`으로 회고를 남긴다. agent 생성 시 변경량에 맞는 model/effort를 명시하고 `/tmp/fullstack-workflow-state.md`의 Phase 8 상태를 갱신한다.
-- `/tmp/fullstack-workflow-state.md`의 모든 Phase를 `DONE/SKIPPED`으로 갱신하고 `Remaining Phases`를 `없음`으로 기록한다.
-- 기본은 상태 파일을 보관한다. 사용자가 정리를 요청했거나 보관이 필요 없을 때만 삭제한다.
+| 코드 | 의미 |
+|------|------|
+| `DONE` / `IN_PROGRESS` / `PENDING` | Phase 진행 상태 |
+| `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 (예: `SKIPPED:CODEX_UNAVAILABLE`) |
+| `BLOCKED:{사유}` | 진행 불가 — 사용자 개입 필요 (예: `BLOCKED:MAX_ITERATIONS`, `BLOCKED:CODEX_REVIEW`) |
 
-```bash
-rm -f /tmp/fullstack-workflow-state.md
-```
+## References
 
-최종 보고는 아래 형식을 따른다:
-
-```markdown
-## 📋 Task Report: [작업명]
-
-### 1. Pre-Review (Plan)
-- Codex Feedback: ...
-- Claude Feedback: ...
-- Refinement: ...
-
-### 2. Implementation Details
-- Assumptions: ...
-- Key Changes: ...
-
-### 3. Final Convention Review
-- Layer Analysis: ...
-- Simplicity Check: ...
-
-### 4. Status
-- Verification: ...
-- Cleanup: ...
-```
-
-Claude 또는 Codex 교차 리뷰를 실제로 수행할 수 없는 환경이면 그 사실을 적고, 누락을 숨기지 않는다.
+| 파일 | 로드 시점 |
+|------|----------|
+| `references/contract-templates.md` | Phase 1, 3, 4, 6, 11, 12 (템플릿·리뷰 기준) |

@@ -1,6 +1,6 @@
 ---
 name: component-hd
-description: "컴포넌트 보일러플레이트를 자동 생성한다. .hyeondong-config.json 설정에 따라 스타일, 테스트, Storybook 파일을 함께 생성."
+description: "컴포넌트 보일러플레이트를 자동 생성한다. '컴포넌트 만들어줘', 새 컴포넌트 스캐폴딩이 필요할 때 사용. .hyeondong-config.json 설정에 따라 스타일, 테스트, Storybook 파일을 함께 생성."
 allowed-tools: Read, Write, Glob, Grep, Bash, AskUserQuestion
 argument-hint: <컴포넌트 이름 또는 설명>
 user-invocable: true

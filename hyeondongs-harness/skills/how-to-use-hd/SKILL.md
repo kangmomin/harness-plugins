@@ -1,6 +1,6 @@
 ---
 name: how-to-use-hd
-description: "플러그인 내 스킬의 사용법을 안내한다. 스킬 목록을 보여주고 선택한 스킬의 사용법을 설명한다."
+description: "플러그인 내 스킬의 사용법을 안내한다. '이 플러그인 어떻게 써?', '스킬 목록 보여줘', 특정 스킬의 사용법이 궁금할 때 사용."
 allowed-tools: AskUserQuestion, Read, Glob
 user-invocable: true
 ---

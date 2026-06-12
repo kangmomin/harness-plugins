@@ -1,6 +1,6 @@
 ---
 name: convention-check-hd
-description: "프론트엔드 프로젝트 컨벤션 위배 사항을 검사하고 보고"
+description: "프론트엔드 프로젝트 컨벤션 위배 사항을 검사하고 보고한다. 커밋/PR 전 점검, '컨벤션 검사해줘' 요청 시 사용. start-workflow-hd 품질 루프에서 자동 호출됨."
 allowed-tools: Read, Write, Edit, Glob, Grep, AskUserQuestion
 user-invocable: true
 ---

@@ -1,6 +1,6 @@
 ---
 name: unit-test-hd
-description: "변경된 컴포넌트/함수 대상으로 단위 테스트를 작성하고 실행한다."
+description: "변경된 컴포넌트/함수 대상으로 단위 테스트를 작성하고 실행한다. '테스트 작성해줘', '유닛 테스트 돌려줘' 요청 시 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 ---

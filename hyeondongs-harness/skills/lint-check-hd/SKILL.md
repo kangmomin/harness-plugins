@@ -1,6 +1,6 @@
 ---
 name: lint-check-hd
-description: "ESLint + TypeScript 타입 검사 + 접근성(a11y) 종합 코드 품질 검사"
+description: "ESLint + TypeScript 타입 검사 + 접근성(a11y) 종합 코드 품질 검사. 커밋/PR 전 점검, '린트 돌려줘' 요청 시 사용. start-workflow-hd 품질 루프에서 자동 호출됨."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 user-invocable: true
 ---

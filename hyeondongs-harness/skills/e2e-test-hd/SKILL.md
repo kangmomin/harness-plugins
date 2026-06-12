@@ -1,6 +1,6 @@
 ---
 name: e2e-test-hd
-description: "Playwright 기반 E2E 테스트를 작성하고 실행한다."
+description: "Playwright 기반 E2E 테스트를 작성하고 실행한다. 화면/플로우 구현 후 'E2E 테스트 돌려줘', 실제 브라우저 검증이 필요할 때 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 ---

@@ -1,6 +1,6 @@
 ---
 name: hyeondong-doctor-hd
-description: "hyeondongs-harness 플러그인의 모든 의존성 상태를 한 번에 진단한다."
+description: "hyeondongs-harness 플러그인의 모든 의존성 상태를 한 번에 진단한다. 워크플로우가 SKIP을 내거나 설정이 의심될 때, '환경 진단해줘' 요청 시 사용."
 allowed-tools: Read, Glob, Grep, Bash
 user-invocable: true
 ---

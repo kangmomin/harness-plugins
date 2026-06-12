@@ -1,6 +1,6 @@
 ---
 name: default-conventions-hd
-description: "React/Next.js/TypeScript 프론트엔드 개발 및 리뷰 가이드라인 (Local Convention)"
+description: "React/Next.js/TypeScript 프론트엔드 개발 및 리뷰 가이드라인 (컨벤션 참조 문서). convention-check-hd가 검사 기준으로 로드하며, 코드 작성 원칙이 궁금할 때도 사용."
 user-invocable: true
 ---
 
