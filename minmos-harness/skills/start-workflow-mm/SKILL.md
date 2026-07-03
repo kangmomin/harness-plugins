@@ -120,6 +120,7 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 | `secret/.env` | 파일 존재 확인 | Phase 9.6 (e2e-test-loop) SKIP 예정 — 서버 부팅/JWT 발급 불가 |
 | Apidog MCP 연결 | `mcp__apidog__read_project_oas_*` 호출 가능 여부 | Phase 11 (Apidog 동기화) SKIP 예정 |
 | PostgreSQL MCP 연결 | PostgreSQL MCP로 `SELECT 1` 실행 | Phase 9.6 부분 SKIP 예정 — DB 시드/정리 경로 제한 |
+| be-harness 에이전트 | 세션 available agent types 목록에 `be-harness:*` 존재 확인 | 미설치 시 SKIP이 아닌 **폴백 모드**로 진행 (아래 "be-harness 폴백" 참조) |
 
 > **MCP 판정**: 실제 MCP tool 호출 성공 = 연결 OK. `.mcp.json` 존재 여부는 단독 기준으로 쓰지 않는다 (상세: `/minmos-harness:minmo-doctor-mm`).
 
@@ -129,6 +130,15 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
   > "⚠️ 환경 누락 감지: `{누락 항목}` 없음. 이번 워크플로우에서 **{영향받는 Phase 목록}**는 SKIP됩니다.
   > 1. 이대로 진행 — 해당 Phase는 `SKIPPED:{사유}`로 기록하고 넘어감
   > 2. 중단 — `/minmos-harness:minmo-doctor-mm`으로 진단 후 재시작 권장"
+
+### be-harness 폴백 (미설치 시)
+
+**일반 규칙**: 본 스킬(references 포함)의 모든 `be-harness:*` subagent_type 호출 지점은, be-harness 미설치 시 `general-purpose` + **동일 프롬프트**로 대체한다.
+
+- **감지 한정**: ① Pre-flight에서 available agent types에 `be-harness:*` 부재 ② 호출 시 "unknown agent type" 즉시 실패 — 이 두 경우만 폴백한다. 에이전트가 작업 도중 실패한 경우(부분 커밋 등)는 폴백 대상이 아니라 기존 에러 처리 경로다 (중복 구현·중복 커밋 방지).
+- **예외 1 — Phase 7 (workflow-implementer)**: 커밋/빌드가 에이전트 정의에 내장돼 있으므로, 폴백 시 구현 에이전트 완료 후 **오케스트레이터가 직접 빌드 확인·커밋**한다 (parallel-slices 모드의 오케스트레이터 일괄 커밋 방식 준용).
+- **예외 2 — Phase 12 (workflow-pr)**: 자율 실행 구간(유저 응답 대기 금지)이므로 인터랙티브 스킬 호출 없이 **오케스트레이터가 무질문으로 직접 PR을 생성**한다. Phase 12 프롬프트의 본문 요건을 유지한다: {STATE_FILE} 기반 PR 본문 + {IMPL_NOTES} 미결 질문의 "리뷰어 확인 필요" 블록. VERSION 범프는 base 브랜치 대조 방식으로 직접 수행한다 — `git fetch origin {base}` 후 `origin/{base}`의 VERSION과 로컬 중 큰 쪽 기준 patch +1 (조회 실패 시 로컬 기준 +1). `gh pr create --draft ...`를 직접 실행한다.
+- **고지 문구**: "be-harness 미설치 — 동일 프롬프트의 general-purpose 폴백으로 진행합니다 (권장: be-harness 설치)."
 
 ---
 
@@ -260,11 +270,29 @@ for iteration in 1..5:
      (Verdict / 반영 / 기각+사유 / Plan 변경 요약)
 ```
 
+**Codex 호출 실패 처리** (매 iteration의 Codex 호출에 적용):
+
+| 감지 패턴 | 분류 | 행동 |
+|----------|------|------|
+| CLI/MCP 부재 (command not found, 도구 미존재) | 환경 부재 | 종료조건 표의 `CODEX-UNAVAILABLE` — 사유 기록 후 진행 |
+| quota/rate-limit (429, "usage limit", "rate limit", "quota", "try again at") | quota 차단 | **Claude 다관점 패널로 리뷰어 대체** + 상태 파일에 `SKIPPED:CODEX_QUOTA_BLOCKED` 기록 (Phase가 아닌 Codex 호출 항목에 대한 기록 — 검증 루프 자체는 계속 실행된다) |
+| 기타 일시 오류 (타임아웃, 5xx) | 모호 | 1회 재시도 → 재실패 시 quota 차단과 동일 취급 |
+
+**Claude 다관점 패널 (대체 리뷰어)**: Logic / Architecture / Edge Cases 3관점 `general-purpose` 에이전트 병렬 실행.
+
+| 패널 판정 | 처리 |
+|----------|------|
+| 3인 전원 APPROVE | Codex APPROVE와 동일 — 수렴 |
+| REJECT 1개 이상 | 지적 반영 후 다음 iteration |
+| CONCERN | 기존 Phase 5.3의 CONCERN 처리 규칙 준용 |
+
+패널 대체 시에도 **루프 카운터는 승계**한다 (리셋 없음, 최대 반복 상한 동일).
+
 | 종료 조건 | 결과 |
 |----------|------|
 | Codex `APPROVE` | **PROCEED** → Phase 5.4 |
 | 사용자가 명시적으로 루프 종료 지시 | **USER-INTERRUPTED** → 잔존 이슈 기록 후 진행 |
-| Codex 사용 불가 환경 | **CODEX-UNAVAILABLE** → 사유 기록 후 진행 |
+| Codex CLI/MCP 부재 | **CODEX-UNAVAILABLE** → 사유 기록 후 진행 |
 | 5회 도달, 미APPROVE | **BLOCKED:MAX_ITERATIONS** → 아래 선택지 제시 |
 
 5회 도달 시 선택지:
@@ -343,7 +371,7 @@ for iteration in 1..3:
 
 > 상세 절차·REJECT 상한(최대 3회)·선택지: `references/quality-loop.md`의 "Phase 10" 섹션.
 
-APPROVE → Phase 11. Codex 불가 환경이면 `SKIPPED:CODEX_UNAVAILABLE` 기록 후 진행.
+APPROVE → Phase 11. Codex 호출 실패 시 처리(환경 부재/quota/일시 오류 분류)는 `references/quality-loop.md`의 Phase 10 섹션을 따른다.
 
 ### Phase 11: 문서 동기화 (조건부)
 

@@ -160,11 +160,22 @@ make test
 # Phase 10: Codex 품질 리뷰 (항상)
 
 품질 루프가 완료되면 Phase 11로 넘어가기 전에 **반드시 Codex 리뷰**를 받는다.
-Codex가 사용 불가한 환경이면 `SKIPPED:CODEX_UNAVAILABLE`로 기록하고 Phase 14 보고서에 사유를 기록한다.
+
+**Codex 호출 실패 처리**:
+
+| 감지 패턴 | 분류 | 행동 |
+|----------|------|------|
+| CLI/MCP 부재 (command not found, 도구 미존재) | 환경 부재 | `SKIPPED:CODEX_UNAVAILABLE` 기록하고 Phase 14 보고서에 사유 기록 (현행 유지) |
+| quota/rate-limit (429, "usage limit", "rate limit", "quota", "try again at") | quota 차단 | Claude 패널로 리뷰어 대체 + `SKIPPED:CODEX_QUOTA_BLOCKED` 기록 |
+| 기타 일시 오류 (타임아웃, 5xx) | 모호 | 1회 재시도 → 재실패 시 quota 차단과 동일 취급 |
+
+`SKIPPED:CODEX_QUOTA_BLOCKED`는 "Codex 호출" 항목에 대한 기록이며, 리뷰 자체는 아래 Claude 패널로 계속 실행된다 (SKIP 아님).
 
 **리뷰 입력**: Technical Spec / 확정 Plan / 변경 파일 목록 / Phase 7 구현 결과 / Phase 9 품질 루프 결과 및 남은 이슈
 
 **리뷰 관점**: Spec/Plan 대비 구현 누락, 비즈니스 로직 결함, 레이어 구조 위반, 테스트·검증 공백, 품질 루프가 놓친 단순화/컨벤션 이슈
+
+**Phase 10 대체 패널 (quota 차단 시)**: Phase 5.3의 3관점이 아니라 위 "리뷰 관점"을 그대로 사용하는 `general-purpose` 에이전트로 대체한다. 상한·선택지는 Phase 10 고유값(아래 REJECT 최대 3회 · `BLOCKED:CODEX_REVIEW`)을 그대로 유지한다.
 
 **결과 처리** (REJECT 재리뷰는 최대 3회):
 
