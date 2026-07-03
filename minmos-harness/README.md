@@ -12,7 +12,7 @@ minmos-harness 는 다음 플러그인의 에이전트/스킬을 호출한다.
 ## 설치
 
 ```
-/plugin marketplace add kangmomin/minmos-harness
+/plugin marketplace add kangmomin/harness-plugins
 /plugin install common@harness-plugins
 /plugin install be-harness@harness-plugins
 /plugin install minmos-harness@harness-plugins
@@ -33,6 +33,7 @@ minmos-harness 는 다음 플러그인의 에이전트/스킬을 호출한다.
 |------|------|------|
 | **minmo-init** | `/minmos-harness:minmo-init-mm` | 모든 의존성 한 번에 세팅 (MCP, 환경 변수, 컨벤션) |
 | **minmo-doctor** | `/minmos-harness:minmo-doctor-mm` | 모든 의존성 한 번에 진단 (필수/선택 분류) |
+| **how-to-use** | `/minmos-harness:how-to-use-mm` | 플러그인 내 스킬 사용법 안내 (스킬 목록 조회 + 개별 사용법 설명) |
 
 ### 자동화 파이프라인
 
@@ -88,7 +89,7 @@ minmos-harness 는 다음 플러그인의 에이전트/스킬을 호출한다.
 Build 모드(기본):
 
 ```
-Pre-flight: 환경 점검 (.env / Apidog MCP / PostgreSQL MCP)
+Pre-flight: 환경 점검 (.env / Apidog MCP / PostgreSQL MCP / be-harness 에이전트)
 Phase 1: Spec 수집 (/request-mm, Plan 모드)
 Phase 2: 난이도 산정 (1-10)
 Phase 3: 실행 전략 판정 (sequential / parallel-slices / fullstack)
@@ -98,7 +99,7 @@ Phase 5: Plan 작성 + 리뷰
   └─ 5.3 Codex 검증 루프 (최대 5회)
 Phase 6: 브랜치 + 상태 파일 생성 → 자율 실행 시작
 Phase 7~13: 자율 실행 (묻지 않고 완주)
-  구현 → 품질 루프 → E2E 테스트 → Codex 리뷰 → Apidog 동기화 → PR → 회고
+  구현 → 빌드 체크 → 품질 루프(E2E 포함) → Codex 리뷰 → Apidog 동기화 → PR → 회고
 Phase 14: 최종 보고
 ```
 
@@ -107,15 +108,18 @@ Phase 14: 최종 보고
 ### 풀스택 자동화 (`/minmos-harness:start-workflow-fs`)
 
 ```
-Phase 0: 백엔드/프론트 Spec 수집 → Feature Matrix
-Phase 1: Integration Contract 정의
-Phase 2: 계약 교차 리뷰 (BE 관점 + FE 관점)
-Phase 3: 백엔드 Plan / 프론트 Plan / shared ownership 확정
-Phase 4: FE workflow-implementer + BE workflow-implementer 병렬 구현
-Phase 5: 도메인별 품질 루프 병렬 실행
-Phase 6: contract diff / scope / a11y / component 통합 검증
-Phase 7: 단일 PR 생성
-Phase 8: 회고 + 정리
+Phase 1: 기능 정의 + Feature Matrix (Plan 모드 진입)
+Phase 2: Codex Spec 사전 검토
+Phase 3: 통신 계약 정의
+Phase 4: 계약 리뷰
+Phase 5: 분리 Plan 작성
+Phase 6: 브랜치 + 상태 파일
+Phase 7: 프론트/백엔드 병렬 구현
+Phase 8: 도메인별 품질 루프 (최대 3회)
+Phase 9: Codex 품질 리뷰 (항상)
+Phase 10: 통합 검증
+Phase 11: 커밋/PR
+Phase 12: 회고 + 정리
 ```
 
 ### 수동 실행 (개별 스킬)

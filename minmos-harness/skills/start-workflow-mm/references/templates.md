@@ -36,7 +36,7 @@ Phase 6 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | 9 | quality agents | 난이도 기준 | 난이도 기준 | PENDING |
 | 10 | orchestrator + Codex | Complex 이상 | Complex 이상 | PENDING |
 | 11 | workflow-doc-sync | 난이도 기준 | 난이도 기준 | PENDING |
-| 12 | workflow-pr 또는 /common:commit-hard-push | 난이도 기준 | 난이도 기준 | PENDING |
+| 12 | workflow-pr / 직접 push(--hard) / 오케스트레이터 직접 PR(be-harness 폴백) | 난이도 기준 | 난이도 기준 | PENDING |
 | 13 | workflow-reflection | 난이도 기준 | 난이도 기준 | PENDING |
 | 14 | orchestrator | 현재 세션 | 현재 세션 | PENDING |
 
@@ -200,7 +200,7 @@ Phase 6 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 ### 7.1 Plan Verification Loop 기록
 - **Total Iterations**: N
-- **Convergence**: PROCEED / USER-INTERRUPTED
+- **Convergence**: PROCEED / USER-INTERRUPTED / CODEX-UNAVAILABLE / BLOCKED:MAX_ITERATIONS→사용자 선택
 - **Iteration Diff Log 요약**: [v1→v2, v2→v3 ... 핵심 변경]
 - **잔존 이슈**: [USER-INTERRUPTED인 경우만, 아니면 "없음"]
 

@@ -263,7 +263,7 @@ Push 전에 해당 API 경로가 Apidog에 이미 존재하는지 확인한다.
 - **경로가 없음 (신규)** → 기존 경로 중 **prefix가 가장 많이 일치하는 엔드포인트의 폴더**에 배치 (`targetFolderId` 지정).
 - **유사 경로도 없음** → Root 폴더에 배치.
 
-상세 판정 로직은 `/minmos-harness:apidog-schema-gen-mm`의 Phase 6.2를 따른다.
+상세 판정 로직은 `/minmos-harness:apidog-schema-gen-mm`의 push-import 절차 Step 8.2(폴더 결정)를 따른다.
 
 ### 5.1 Push 실행 (MCP → REST API fallback)
 

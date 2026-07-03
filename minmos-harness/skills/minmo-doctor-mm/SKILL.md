@@ -49,7 +49,7 @@ user-invocable: true
 | 항목 | 점검 방법 | 관련 스킬 |
 |------|----------|----------|
 | db-tools | `db-tools:db-gen` 스킬 사용 가능 여부 | db-gen-committed |
-| Codex (선택) | `mcp__codex__codex` 호출 가능 여부 | start-workflow (난이도 7+) |
+| Codex (선택) | `mcp__codex__codex` 호출 가능 여부 | start-workflow (Plan 검증 루프 상시) |
 
 ### 5. 빌드 환경
 
@@ -108,7 +108,7 @@ user-invocable: true
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | db-tools | OK / MISSING | |
-| Codex | OK / MISSING | 선택 (난이도 7+ 전용) |
+| Codex | OK / MISSING | 선택 (Plan 검증 루프 상시) |
 
 ### 빌드 환경
 | 항목 | 상태 | 비고 |
@@ -152,7 +152,7 @@ user-invocable: true
 | db-tools | **필수** | migration 생성 |
 | APIDOG_ACCESS_TOKEN | 선택 | Push 기능 전용 |
 | APIDOG_PROJECT_ID | 선택 | Push 기능 전용 |
-| Codex | 선택 | 난이도 7+ Plan 리뷰 전용 |
+| Codex | 선택 | Plan 검증 루프 상시 사용 |
 | .convention-check.json | 선택 | 없으면 기본값 사용 |
 | grpcurl | 선택 | gRPC E2E 테스트 전용 |
 | GRPC_PORT | 선택 | gRPC E2E 테스트 전용 |

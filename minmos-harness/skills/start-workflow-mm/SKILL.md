@@ -45,7 +45,7 @@ user-invocable: true
 | Phase 6 브랜치 | feature 브랜치 생성 필수 | **건너뜀** (현재 브랜치 유지) |
 | Phase 12 PR | workflow-pr (PR 생성) | 현재 브랜치에서 바로 push, PR 생략 |
 
-> **Analyze/Verify 모드 진입 시 MUST**: 같은 폴더의 `references/analyze-verify-modes.md`를 Read하고 해당 모드 절차를 따른다. 이하 본문은 Build 모드를 정의한다.
+> **Analyze/Verify 모드 진입 시 MUST**: 같은 폴더의 `references/analyze-verify-modes.md`를 Read하고 해당 모드 절차를 따른다. Pre-flight(모든 모드 공통 — be-harness 폴백 규칙 포함)까지는 전 모드에 적용되며, 그 이후 `Build Mode` 섹션이 Build 모드 정의다.
 
 ## Language Rule
 
@@ -137,7 +137,7 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 
 - **감지 한정**: ① Pre-flight에서 available agent types에 `be-harness:*` 부재 ② 호출 시 "unknown agent type" 즉시 실패 — 이 두 경우만 폴백한다. 에이전트가 작업 도중 실패한 경우(부분 커밋 등)는 폴백 대상이 아니라 기존 에러 처리 경로다 (중복 구현·중복 커밋 방지).
 - **예외 1 — Phase 7 (workflow-implementer)**: 커밋/빌드가 에이전트 정의에 내장돼 있으므로, 폴백 시 구현 에이전트 완료 후 **오케스트레이터가 직접 빌드 확인·커밋**한다 (parallel-slices 모드의 오케스트레이터 일괄 커밋 방식 준용).
-- **예외 2 — Phase 12 (workflow-pr)**: 자율 실행 구간(유저 응답 대기 금지)이므로 인터랙티브 스킬 호출 없이 **오케스트레이터가 무질문으로 직접 PR을 생성**한다. Phase 12 프롬프트의 본문 요건을 유지한다: {STATE_FILE} 기반 PR 본문 + {IMPL_NOTES} 미결 질문의 "리뷰어 확인 필요" 블록. VERSION 범프는 base 브랜치 대조 방식으로 직접 수행한다 — `git fetch origin {base}` 후 `origin/{base}`의 VERSION과 로컬 중 큰 쪽 기준 patch +1 (조회 실패 시 로컬 기준 +1). `gh pr create --draft ...`를 직접 실행한다.
+- **예외 2 — Phase 12 (workflow-pr)**: 자율 실행 구간(유저 응답 대기 금지)이므로 인터랙티브 스킬 호출 없이 **오케스트레이터가 무질문으로 직접 PR을 생성**한다. Phase 12 프롬프트의 본문 요건을 유지한다: {STATE_FILE} 기반 PR 본문 + {IMPL_NOTES} 미결 질문의 "리뷰어 확인 필요" 블록. VERSION 범프는 base 브랜치(= PR 대상 브랜치 — 현재 브랜치의 분기 원점) 대조 방식으로 직접 수행한다 — `git fetch origin {base}` 후 `origin/{base}`의 VERSION과 로컬 중 큰 쪽 기준 patch +1 (조회 실패 시 로컬 기준 +1). `gh pr create --draft ...`를 직접 실행한다.
 - **고지 문구**: "be-harness 미설치 — 동일 프롬프트의 general-purpose 폴백으로 진행합니다 (권장: be-harness 설치)."
 
 ---
@@ -287,6 +287,8 @@ for iteration in 1..5:
 | CONCERN | 기존 Phase 5.3의 CONCERN 처리 규칙 준용 |
 
 패널 대체 시에도 **루프 카운터는 승계**한다 (리셋 없음, 최대 반복 상한 동일).
+
+**고지 문구** (패널 대체 시): "Codex quota 차단 감지 — Claude 다관점 패널로 대체해 계속 진행합니다 (`SKIPPED:CODEX_QUOTA_BLOCKED` 기록)."
 
 | 종료 조건 | 결과 |
 |----------|------|

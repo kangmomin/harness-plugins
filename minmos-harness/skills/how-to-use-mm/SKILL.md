@@ -26,13 +26,13 @@ user-invocable: true
 ```
 어떤 스킬의 사용법이 궁금하신가요?
 
- 1. /commit — 현재까지의 작업을 논리적 단위별로 나눠서 커밋
- 2. /request — 작업 유형별 단계적 질문을 통해 Technical Spec 생성
+ 1. /start-workflow-mm — Spec부터 PR까지 백엔드 워크플로우 자동 실행
+ 2. /request-mm — 작업 유형별 단계적 질문을 통해 Technical Spec 생성
  ...
 ```
 
 - `$ARGUMENTS`에 스킬 이름이 있으면 선택 질문을 건너뛰고 바로 Step 3으로 진행한다.
-- 예: `/how-to-use commit` → 바로 commit 스킬 안내
+- 예: `/how-to-use-mm start-workflow-mm` → 바로 start-workflow-mm 스킬 안내
 
 ### Step 3: 해당 스킬의 SKILL.md 읽기
 

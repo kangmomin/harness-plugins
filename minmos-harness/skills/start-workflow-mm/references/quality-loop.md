@@ -171,6 +171,8 @@ make test
 
 `SKIPPED:CODEX_QUOTA_BLOCKED`는 "Codex 호출" 항목에 대한 기록이며, 리뷰 자체는 아래 Claude 패널로 계속 실행된다 (SKIP 아님).
 
+**고지 문구** (패널 대체 시): "Codex quota 차단 감지 — Claude 다관점 패널로 대체해 계속 진행합니다 (`SKIPPED:CODEX_QUOTA_BLOCKED` 기록)."
+
 **리뷰 입력**: Technical Spec / 확정 Plan / 변경 파일 목록 / Phase 7 구현 결과 / Phase 9 품질 루프 결과 및 남은 이슈
 
 **리뷰 관점**: Spec/Plan 대비 구현 누락, 비즈니스 로직 결함, 레이어 구조 위반, 테스트·검증 공백, 품질 루프가 놓친 단순화/컨벤션 이슈

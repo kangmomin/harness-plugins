@@ -239,7 +239,7 @@ Agent tool:
     {Step 4~5에서 해당 엔드포인트에 대해 이미 도출한 엣지 케이스 요약}
 ```
 
-> be-harness 미설치 감지 시(available agent types에 부재 또는 unknown agent type 즉시 실패): `general-purpose` + 동일 프롬프트로 대체하고 "be-harness 미설치 — general-purpose 폴백으로 진행합니다"를 고지한다.
+> be-harness 미설치 감지 시(available agent types에 부재 또는 unknown agent type 즉시 실패): `general-purpose` + 동일 프롬프트로 대체하고 "be-harness 미설치 — 동일 프롬프트의 general-purpose 폴백으로 진행합니다 (권장: be-harness 설치)"를 고지한다.
 
 **질문 처리**: 에이전트는 `incremental` 모드에서 직접 질문하지 않고 `질문 및 확인 사항` 섹션에 기록만 반환한다. 질문이 있으면 본 스킬이 사용자에게 대신 질문하고, 답변을 반영한다. 답변이 없으면 `[답변 필요]` 태그 케이스는 보고서에 조건부로 기록한다.
 
