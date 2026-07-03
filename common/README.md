@@ -27,15 +27,15 @@
 
 | 스킬 | 호출 | 설명 |
 |------|------|------|
-| **doc-gen** | `/common:doc-gen` | 지정한 범위(파일/디렉토리/glob/PR/commit range)를 분석해 인터랙션·다이어그램이 포함된 단일 파일 문서(`-md` 또는 `-html`)로 정리 |
+| **doc-gen** | `/common:doc-gen` | 지정한 범위(파일/디렉토리/glob/PR/commit range)를 분석해 인터랙션·다이어그램이 포함된 단일 파일 문서(`-md`/`-html`, `--twin`으로 동시 생성+정합 검증, `--brief`로 압축 모드)로 정리. 저장 전 Mermaid lint 자체 점검 |
 
 ### 커밋 / Push / PR 워크플로우
 
 | 스킬 | 호출 | 설명 |
 |------|------|------|
 | **commit** | `/common:commit` | 변경사항을 논리적 단위별로 나눠서 커밋 |
-| **commit-push** | `/common:commit-push` | commit + push (브랜치 컨벤션 검증/생성 포함) |
-| **commit-pr** | `/common:commit-pr` | commit + push + 브랜치 생성 + draft PR 오픈 |
+| **commit-push** | `/common:commit-push` | commit + push (브랜치 컨벤션 검증/생성 포함). 브랜치 모델 오버라이드 선언 시 prefix·base 조합까지 검증 |
+| **commit-pr** | `/common:commit-pr` | commit + push + 브랜치 생성 + PR 오픈(기본 draft, `--ready`로 ready 전환, `--bump-only`로 VERSION 범프 전용 PR). base 브랜치 대조 VERSION 자동 범프, 기존 open PR 본문 동기화 확인 포함 |
 | **commit-hard-push** | `/common:commit-hard-push` | 보호 브랜치 제한 없이 commit + push |
 | **merge** | `/common:merge` | PR 을 머지. doc-gen 으로 요약 컨펌 후 머지 방식(일반/스쿼시/리베이스/취소) 선택 |
 
@@ -51,6 +51,9 @@
 # PR 범위 요약
 /common:doc-gen -md PR#42
 
+# 압축 모드로 PR 요약 (핵심만)
+/common:doc-gen --brief PR#42
+
 # 작업 후 커밋만
 /common:commit
 
@@ -59,6 +62,9 @@
 
 # 커밋 + push + draft PR
 /common:commit-pr
+
+# 커밋 + push + ready PR (VERSION 범프 포함)
+/common:commit-pr --ready
 
 # PR 머지 (doc-gen 요약 컨펌 + 머지 방식 선택)
 /common:merge          # 현재 브랜치에 연결된 PR
