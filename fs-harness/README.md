@@ -5,7 +5,7 @@
 ## 설치
 
 ```
-/plugin marketplace add kangmomin/mimo-s-harness
+/plugin marketplace add kangmomin/harness-plugins
 /plugin install be-harness@harness-plugins
 /plugin install fe-harness@harness-plugins
 /plugin install fs-harness@harness-plugins
@@ -28,20 +28,21 @@
 | 스킬 | 호출 | 설명 |
 |------|------|------|
 | **start-workflow** | `/fs-harness:start-workflow` | 풀스택 애자일 워크플로우 — 기능 정의 → 통신 계약 → 교차 리뷰 → FE/BE 병렬 구현 → 통합 검증 → 단일 PR |
+| **submit-feedback** | `/fs-harness:submit-feedback` | 풀스택 워크플로우에서 수집된 보완점을 플러그인 레포 community-feedback 에 PR로 제출 (실패 시 로컬 저장 fallback) |
 
 ## Phase 개요
 
 ```
-Phase 0: /be-harness:request + /fe-harness:request → Feature Matrix
-Phase 1: Integration Contract 초안 (요청/응답, 에러 모델, 인증)
-Phase 2: 읽기 전용 리뷰 (계약/분업 리뷰)
-Phase 3: Backend Plan / Frontend Plan / Shared Ownership
-Phase 3.5: feature 브랜치 + 상태 파일 생성 → 자율 실행 시작
-Phase 4: be-harness:workflow-implementer + fe-harness:workflow-implementer 병렬
-Phase 5: 도메인별 품질 루프 (BE: simplify/convention/e2e, FE: simplify/lint/test/e2e)
-Phase 6: 통합 검증 (계약 diff, scope, a11y, component)
-Phase 7: 단일 PR
-Phase 8: 회고
+Phase 1: 기능 정의 + Feature Matrix (Plan 모드 진입)
+Phase 2: 통신 계약 정의
+Phase 3: 계약 리뷰
+Phase 4: 분리 Plan 작성
+Phase 5: 브랜치 + 상태 파일
+Phase 6: 프론트/백엔드 병렬 구현
+Phase 7: 도메인별 품질 루프 (최대 3회)
+Phase 8: 통합 검증
+Phase 9: 커밋/PR
+Phase 10: 회고 + 정리
 ```
 
 ## 핵심 원칙
@@ -50,7 +51,7 @@ Phase 8: 회고
 2. **Contract First** — 구현 전에 통신 계약 고정.
 3. **Review Before Code** — 계약/분업 리뷰 후에만 구현.
 4. **Split By Ownership** — FE/BE 파일 소유권 분리, 공용 산출물은 owner 지정.
-5. **No Silent Contract Drift** — 계약이 바뀌면 Phase 1으로 복귀.
+5. **No Silent Contract Drift** — 계약이 바뀌면 Phase 2로 복귀.
 
 ## 언제 쓰지 말아야 하는가
 
@@ -63,18 +64,19 @@ fs-harness는 be-harness/fe-harness 에이전트를 병렬 호출하므로 **세
 
 ```
 .claude/
-├── be-harness/                # be-harness 오버라이드 (Phase 4 BE 구현, Phase 5 BE 루프)
-├── fe-harness/                # fe-harness 오버라이드 (Phase 4 FE 구현, Phase 5 FE 루프)
+├── be-harness/                # be-harness 오버라이드 (Phase 6 BE 구현, Phase 7 BE 루프)
+├── fe-harness/                # fe-harness 오버라이드 (Phase 6 FE 구현, Phase 7 FE 루프)
 └── fs-harness/
-    ├── common.md              # fs-harness 공통 (Phase 0~8 풀스택 조정)
-    └── skills/start-workflow.md
+    ├── common.md              # fs-harness 공통 (Phase 1~10 풀스택 조정)
+    ├── skills/start-workflow.md
+    └── skills/submit-feedback.md
 ```
 
 - `be-harness:workflow-implementer` 실행 시 → `.claude/be-harness/agents/workflow-implementer.md` 가 적용됨
 - `fe-harness:workflow-implementer` 실행 시 → `.claude/fe-harness/agents/workflow-implementer.md` 가 적용됨
 - Integration Contract / Feature Matrix 등 풀스택 규약은 → `.claude/fs-harness/skills/start-workflow.md`
 
-start-workflow Phase 8 의 보완점은 대상 도메인에 따라 각 디렉토리에 분산 append 된다.
+start-workflow Phase 10 의 보완점은 대상 도메인에 따라 각 디렉토리에 분산 append 된다.
 상세 규약: `OVERRIDES.md`.
 
 ## Community Feedback (플러그인 레포 PR)
@@ -85,7 +87,7 @@ start-workflow Phase 8 의 보완점은 대상 도메인에 따라 각 디렉토
   - `/be-harness:submit-feedback` (BE 스킬/에이전트 피드백)
   - `/fe-harness:submit-feedback` (FE 스킬/에이전트 피드백)
   - `/fs-harness:submit-feedback` (풀스택 계약/오케스트레이션 피드백)
-- `start-workflow` Phase 8 에서 "로컬 저장 + PR" 을 선택하면 각 도메인의 submit-feedback 이 병렬로 호출됨
+- `start-workflow` Phase 10 에서 "로컬 저장 + PR" 을 선택하면 각 도메인의 submit-feedback 이 병렬로 호출됨
 - 각 도메인 PR은 독립적: 한쪽이 실패/SKIP 해도 다른 쪽 진행
 - 전제: `gh` CLI 설치 및 인증
 

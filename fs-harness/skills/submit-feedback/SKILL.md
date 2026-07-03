@@ -42,7 +42,7 @@ user-invocable: true
 | 플러그인 `upstream.repo` | 필수 | `fs-harness/.claude-plugin/plugin.json` 읽기 |
 | 네트워크 접근 | 필수 | 시도 후 판정 |
 
-하나라도 누락되면 이 스킬은 `SKIPPED:{사유}]` 를 반환하고 호출자(start-workflow)가 로컬 저장만 수행하도록 신호한다.
+하나라도 누락되면 이 스킬은 `[SKIPPED:{사유}]` 를 반환하고 호출자(start-workflow)가 로컬 저장만 수행하도록 신호한다.
 
 ---
 
@@ -53,7 +53,7 @@ user-invocable: true
 ```
 feedback_items:
   - target_type: skill | agent | common
-    target_name: commit | workflow-implementer | ...
+    target_name: start-workflow | submit-feedback | ...
     summary: 한 줄 요약
     context: 어떤 작업에서 나왔는지 (범용 용어만)
     proposal: 구체적 변경/추가
@@ -93,8 +93,8 @@ UPSTREAM_OWNER=$(echo "{upstream.repo}" | cut -d/ -f1)
 - 레포: kangmomin/harness-plugins
 - 모드: {self-owner / fork}
 - 추가할 파일:
-  - fs-harness/community-feedback/skills/commit.md (+1 엔트리)
-  - fs-harness/community-feedback/agents/workflow-implementer.md (+1 엔트리)
+  - fs-harness/community-feedback/skills/start-workflow.md (+1 엔트리)
+  - fs-harness/community-feedback/skills/submit-feedback.md (+1 엔트리)
 - 브랜치명: feedback/fs-harness/{YYYYMMDD}-{요약-kebab}
 - PR 제목: "[fs-harness] feedback: {요약}"
 
@@ -210,8 +210,8 @@ fs-harness 사용 중 수집된 피드백 {N}건을 community-feedback 영역에
 ## 추가된 항목
 | 대상 | 요지 | 범용성 |
 |------|------|--------|
-| skill:commit | ... | 범용 |
-| agent:workflow-implementer | ... | 특정 조건 |
+| skill:start-workflow | ... | 범용 |
+| skill:submit-feedback | ... | 특정 조건 |
 
 ## 출처
 - 워크플로우: /fs-harness:start-workflow Phase 10 성찰 (자동 제출)
@@ -247,9 +247,9 @@ rm -rf "$WORK"
 
 | 상황 | 처리 |
 |------|------|
-| `gh` 없음 | `SKIPPED:NO_GH]` 반환. 설치 안내 출력 (`https://cli.github.com`) |
-| `gh auth status` 실패 | `SKIPPED:NO_AUTH]` 반환. `gh auth login` 안내 |
-| fork/clone 네트워크 실패 | `SKIPPED:NETWORK]` 반환 |
+| `gh` 없음 | `[SKIPPED:NO_GH]` 반환. 설치 안내 출력 (`https://cli.github.com`) |
+| `gh auth status` 실패 | `[SKIPPED:NO_AUTH]` 반환. `gh auth login` 안내 |
+| fork/clone 네트워크 실패 | `[SKIPPED:NETWORK]` 반환 |
 | push 실패 (권한/보호 브랜치) | 에러 로그 출력 + `[FAILED]` 반환 |
 | gh pr create 실패 | push 는 이미 완료되었으므로 수동 PR 링크 안내 |
 | 본 스킬 자체가 중단 | 임시 디렉토리는 가능한 정리. `WORK` 경로를 유저에게 알림 |
@@ -290,7 +290,7 @@ fallback 시 호출자(`start-workflow`)는 로컬 저장(`.claude/fs-harness/..
 
 스킵 (fallback):
 ```
-## submit-feedback 결과: SKIPPED:{사유}]
+## submit-feedback 결과: [SKIPPED:{사유}]
 {사유 상세}
 {호출자는 로컬 저장만 수행할 것}
 ```

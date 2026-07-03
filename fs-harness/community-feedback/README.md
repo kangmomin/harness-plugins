@@ -9,17 +9,15 @@ fs-harness/community-feedback/
 ├── README.md                  # 이 파일
 ├── common/
 │   └── {YYYY-MM-DD}-{project}.md    # 플러그인 공통에 제안된 피드백
-├── skills/
-│   └── {skill-name}.md              # 각 스킬별로 누적되는 피드백
-└── agents/
-    └── {agent-name}.md              # 각 에이전트별로 누적되는 피드백
+└── skills/
+    └── {skill-name}.md              # 각 스킬별로 누적되는 피드백
 ```
 
 각 파일은 시간순 append 로그. PR로 들어오고, 유지보수자가 주기적으로 **큐레이션**하여 범용 규칙이 확인된 항목만 플러그인 원본 SKILL.md 에 반영합니다.
 
 ## 기여 방식
 
-1. 프로젝트에서 `/fs-harness:start-workflow` 를 실행하고 Phase 9에서 **"로컬 저장 + PR"** 옵션을 선택
+1. 프로젝트에서 `/fs-harness:start-workflow` 를 실행하고 Phase 10에서 **"로컬 저장 + PR"** 옵션을 선택
 2. `/fs-harness:submit-feedback` 이 자동으로:
    - 이 레포를 fork/clone
    - 해당 스킬/에이전트/common 파일에 append
@@ -33,7 +31,7 @@ fs-harness/community-feedback/
 ```markdown
 ## {YYYY-MM-DD} — {project-name-optional}
 
-**출처**: /fs-harness:start-workflow Phase 8 성찰
+**출처**: /fs-harness:start-workflow Phase 10 성찰
 **대상**: skill:{name} / agent:{name} / common
 **요지**: [한 줄 요약]
 

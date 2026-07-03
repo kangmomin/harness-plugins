@@ -4,17 +4,19 @@
 
 ## 의존 플러그인
 
-hyeondongs-harness 는 다음 두 플러그인의 에이전트/스킬을 호출한다. **반드시 함께 설치해야 한다.**
+hyeondongs-harness 는 다음 세 플러그인의 에이전트/스킬을 호출한다. **반드시 함께 설치해야 한다.**
 
 - `common` — `commit`, `commit-push`, `commit-pr`, `commit-hard-push` 등 커밋/PR 워크플로우 + `doc-gen`
 - `fe-harness` — `a11y-reviewer`, `component-reviewer`, `scope-reviewer`, `workflow-implementer`, `workflow-pr`, `workflow-reflection` 에이전트
+- `minmos-harness` — `request-mm`, `simplify-loop-mm`, `convention-check-mm`, `e2e-test-loop-mm`, `e2e-apidog-schema-gen-mm` 등 백엔드 스킬 (`start-workflow-fs` 전용)
 
 ## 설치
 
 ```
-/plugin marketplace add kangmomin/hyeondongs-harness
+/plugin marketplace add kangmomin/harness-plugins
 /plugin install common@harness-plugins
 /plugin install fe-harness@harness-plugins
+/plugin install minmos-harness@harness-plugins
 /plugin install hyeondongs-harness@harness-plugins
 ```
 
@@ -33,6 +35,7 @@ hyeondongs-harness 는 다음 두 플러그인의 에이전트/스킬을 호출�
 |------|------|------|
 | **hyeondong-init** | `/hyeondongs-harness:hyeondong-init-hd` | 모든 의존성 한 번에 세팅 (프레임워크, UI lib, 상태관리, 테스트 도구) |
 | **hyeondong-doctor** | `/hyeondongs-harness:hyeondong-doctor-hd` | 모든 의존성 한 번에 진단 (필수/선택 분류) |
+| **how-to-use** | `/hyeondongs-harness:how-to-use-hd` | 플러그인 내 스킬 사용법 안내 (스킬 목록 조회 + 개별 사용법 설명) |
 
 ### 자동화 파이프라인
 
@@ -91,37 +94,34 @@ hyeondongs-harness 자체 에이전트는 없다. 사용되는 에이전트는 �
 ### 전체 자동화 (`/hyeondongs-harness:start-workflow-hd`)
 
 ```
-Phase 0: /request → Technical Spec 생성
-Phase 1: 난이도 산정 (1-10)
-Phase 2: scope-reviewer 에이전트 대기
-Phase 3: Plan → 6관점 리뷰 (3+3 병렬) → [난이도 7+: Codex]
-Phase 4: 구현 → commit
-Phase 5: 품질 루프 (최대 3회)
-  ├─ build + type-check
-  ├─ simplify-loop
-  ├─ convention-check
-  ├─ test-loop (unit + e2e)
-  ├─ scope-review
-  └─ lint-check
-  → 수정 있으면 재시작, 없으면 탈출
-Phase 6: component-reviewer + a11y-reviewer (컴포넌트 변경 시)
-Phase 7: commit-pr → PR
-Phase 8: 성찰 (커밋 로그 분석)
-Phase 9: 최종 보고 + 보완점 스킬 반영
+Phase 1: 작업 범위 수집 (Plan 모드 진입)
+Phase 2: 난이도 산정
+Phase 3: Plan 작성 + 리뷰
+Phase 4: 브랜치 + 상태 파일 + 자율 실행 시작
+Phase 5: 구현
+Phase 6: 빌드/타입 체크 (MANDATORY — 구현 직후 강제 실행)
+Phase 7: 품질 루프 (최대 3회)
+Phase 8: 컴포넌트/접근성 리뷰 (조건부)
+Phase 9: PR / Push
+Phase 10: 성찰
+Phase 11: 최종 보고
 ```
 
 ### 풀스택 자동화 (`/hyeondongs-harness:start-workflow-fs`)
 
 ```
-Phase 0: 백엔드/프론트 Spec 수집 → Feature Matrix
-Phase 1: Integration Contract 정의
-Phase 2: 계약 교차 리뷰 (BE 관점 + FE 관점)
-Phase 3: 백엔드 Plan / 프론트 Plan / shared ownership 확정
-Phase 4: FE workflow-implementer + BE workflow-implementer 병렬 구현
-Phase 5: 도메인별 품질 루프 병렬 실행
-Phase 6: contract diff / scope / a11y / component 통합 검증
-Phase 7: 단일 PR 생성
-Phase 8: 회고 + 정리
+Phase 1: 기능 정의 + Feature Matrix (Plan 모드 진입)
+Phase 2: Codex Spec 사전 검토
+Phase 3: 통신 계약 정의
+Phase 4: 계약 리뷰
+Phase 5: 분리 Plan 작성
+Phase 6: 브랜치 + 상태 파일
+Phase 7: 프론트/백엔드 병렬 구현
+Phase 8: 도메인별 품질 루프 (최대 3회)
+Phase 9: Codex 품질 리뷰 (항상)
+Phase 10: 통합 검증
+Phase 11: 커밋/PR
+Phase 12: 회고 + 정리
 ```
 
 ### 수동 실행 (개별 스킬)

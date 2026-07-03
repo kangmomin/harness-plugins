@@ -1,32 +1,30 @@
 # fs-harness Project Overrides
 
-플러그인 스킬/에이전트의 **기본 동작을 그대로 두고**, 프로젝트마다 필요한 **추가 규칙/예외/피드백**을 프로젝트 내부에 레이어로 두기 위한 규약.
+플러그인 스킬의 **기본 동작을 그대로 두고**, 프로젝트마다 필요한 **추가 규칙/예외/피드백**을 프로젝트 내부에 레이어로 두기 위한 규약.
 
 플러그인 원본 파일(`fs-harness/skills/{name}/SKILL.md`)은 **절대 수정하지 않는다**. 프로젝트 특화 규칙은 아래 경로의 오버라이드 파일에만 작성한다.
+
+> fs-harness 는 **자체 에이전트를 갖지 않는다** — `start-workflow`, `submit-feedback` 두 스킬뿐이며, 구현은 be-harness/fe-harness 의 에이전트를 병렬 호출한다. 해당 에이전트 오버라이드는 이 문서가 아니라 `.claude/be-harness/agents/...`, `.claude/fe-harness/agents/...` 에 각각 작성한다 (각 플러그인의 `OVERRIDES.md` 참고).
 
 ## 경로 구조
 
 ```
 <repo-root>/.claude/fs-harness/
-├── common.md                          # 플러그인 공통 오버라이드 (모든 스킬/에이전트에 적용)
-├── skills/
-│   ├── start-workflow.md              # /fs-harness:start-workflow 오버라이드
-│   └── submit-feedback.md             # /fs-harness:submit-feedback 오버라이드
-└── agents/
-    ├── workflow-implementer.md        # fs-harness:workflow-implementer 에이전트 오버라이드
-    ├── code-verifier.md
-    └── ... (에이전트 이름과 동일하게)
+├── common.md                          # 플러그인 공통 오버라이드 (모든 스킬에 적용)
+└── skills/
+    ├── start-workflow.md              # /fs-harness:start-workflow 오버라이드
+    └── submit-feedback.md             # /fs-harness:submit-feedback 오버라이드
 ```
 
 모든 파일은 선택적이다. 없으면 해당 레이어를 건너뛴다.
 
 ## 병합 규칙
 
-스킬/에이전트 실행 시 로드 순서:
+스킬 실행 시 로드 순서:
 
-1. **플러그인 기본 동작** — `fs-harness/skills/{name}/SKILL.md` 또는 `fs-harness/agents/{name}.md` (Claude Code가 로드)
+1. **플러그인 기본 동작** — `fs-harness/skills/{name}/SKILL.md` (Claude Code가 로드)
 2. **공통 오버라이드** — `.claude/fs-harness/common.md` 가 있으면 먼저 읽는다
-3. **스킬별 오버라이드** — `.claude/fs-harness/skills/{name}.md` 또는 `.claude/fs-harness/agents/{name}.md` 가 있으면 읽는다
+3. **스킬별 오버라이드** — `.claude/fs-harness/skills/{name}.md` 가 있으면 읽는다
 
 ### 충돌 해결
 
@@ -46,7 +44,7 @@ frontmatter는 선택. 본문은 자유로운 markdown. 단, 아래 섹션을 **
 
 ```markdown
 ---
-scope: skill:start-workflow  # 또는 agent:workflow-implementer, common
+scope: skill:start-workflow  # 또는 skill:submit-feedback, common
 applies-to: fs-harness@0.1.0+ # 최소 플러그인 버전
 updated: 2026-04-21
 ---
@@ -63,14 +61,14 @@ updated: 2026-04-21
 - [특정 단계를 건너뛰어야 한다면 이유와 함께]
 
 ## 참고
-- 이 파일은 start-workflow Phase 9 보완점이 자동으로 append 될 수 있다.
+- 이 파일은 start-workflow Phase 10 보완점이 자동으로 append 될 수 있다.
 ```
 
 자유 markdown만 있어도 된다. 스킬이 읽어서 문맥에 맞게 반영한다.
 
 ## 보완점 자동 반영 (2-Tier 경로 + 도메인 라우팅)
 
-Phase 8 회고에서 도출된 보완점은 **대상 도메인별로 분류**된 뒤, 유저가 선택한 경로로 반영된다.
+Phase 10 회고에서 도출된 보완점은 **대상 도메인별로 분류**된 뒤, 유저가 선택한 경로로 반영된다.
 
 ### 도메인 라우팅
 
@@ -93,7 +91,7 @@ Phase 8 회고에서 도출된 보완점은 **대상 도메인별로 분류**된
 - 제출: 도메인별 `submit-feedback` 이 gh CLI로 fork/clone → append → PR
 - **범용성 있는 피드백**에만 권장
 
-Phase 8 옵션:
+Phase 10 옵션:
 1. **로컬만** (default) — 각 도메인의 Tier 1 에만 저장
 2. **로컬 + PR** — 도메인별로 독립 PR (be/fe/fs 병렬 가능)
 3. **건너뛰기**
@@ -102,13 +100,14 @@ Phase 8 옵션:
 
 ## 전역 컨벤션 파일과의 차이
 
+fs-harness 는 **자체 profile/projectConventions 을 갖지 않는다**. be-harness/fe-harness 의 profile 을 그대로 사용한다.
+
 | 구분 | 용도 | 파일 경로 |
 |------|------|----------|
-| profile | 빌드/테스트 명령, 디렉토리 경로 등 **값(setting)** | `.claude/fs-harness.local.md` |
-| projectConventions | `convention-check` 가 검사 기준으로 삼는 컨벤션 문서 | profile의 `projectConventions` 필드 (예: `CLAUDE.md`) |
-| **Project Overrides (이 문서)** | **각 스킬/에이전트에 대한 프로젝트별 동작 조정/추가 규칙** | `.claude/fs-harness/{skills,agents}/{name}.md` |
+| profile (be/fe 개별 보유) | 빌드/테스트 명령, 디렉토리 경로 등 **값(setting)** — fs 자체 profile 없음 | `.claude/be-harness.local.md`, `.claude/fe-harness.local.md` |
+| **Project Overrides (이 문서)** | **fs-harness 의 두 스킬(`start-workflow`, `submit-feedback`)에 대한 프로젝트별 동작 조정/추가 규칙** | `.claude/fs-harness/{common.md,skills/{name}.md}` |
 
-Profile 은 "값", projectConventions 는 "코드 규약의 참조 문서", Overrides 는 "스킬 그 자체의 행동 변형" — 역할이 분리되어 있다.
+Profile 은 "값", Overrides 는 "스킬 그 자체의 행동 변형" — 역할이 분리되어 있다.
 
 ## 로드 절차 (각 스킬 공통)
 
@@ -120,8 +119,6 @@ Profile 은 "값", projectConventions 는 "코드 규약의 참조 문서", Over
 3. 각 단계가 오버라이드에 의해 수정/추가/제거되었는지 판단
 4. 최종 결과 보고 시 어떤 오버라이드가 적용되었는지 명시
 ```
-
-에이전트도 동일 — 본인 프롬프트 실행 전에 `.claude/fs-harness/agents/{name}.md` 를 Read.
 
 ## 주의
 
