@@ -28,9 +28,8 @@ model: sonnet
 
 ### 브랜치 네이밍
 
-- 기능 추가: `feat-[기능명]`
-- 버그 수정: `hotfix-[이슈명]`
-- 리팩토링: `refactor-[대상]`
+- 기능 추가: `feat/[기능명]`
+- 버그 수정: `hotfix/[이슈명]`
 
 ### VERSION 업데이트
 

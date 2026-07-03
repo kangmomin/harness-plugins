@@ -36,7 +36,7 @@ user-invocable: true
 ```
 
 - `$ARGUMENTS`에 스킬 이름이 있으면 선택 질문을 건너뛰고 바로 Step 3으로 진행한다.
-- 예: `/how-to-use commit` → 바로 commit 스킬 안내
+- 예: `/how-to-use start-workflow` → 바로 start-workflow 스킬 안내
 
 ### Step 3: 해당 스킬의 SKILL.md 읽기
 

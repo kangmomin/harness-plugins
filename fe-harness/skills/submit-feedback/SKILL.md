@@ -53,7 +53,7 @@ user-invocable: true
 ```
 feedback_items:
   - target_type: skill | agent | common
-    target_name: commit | workflow-implementer | ...
+    target_name: start-workflow | workflow-implementer | ...
     summary: 한 줄 요약
     context: 어떤 작업에서 나왔는지 (범용 용어만)
     proposal: 구체적 변경/추가
@@ -93,7 +93,7 @@ UPSTREAM_OWNER=$(echo "{upstream.repo}" | cut -d/ -f1)
 - 레포: kangmomin/harness-plugins
 - 모드: {self-owner / fork}
 - 추가할 파일:
-  - fe-harness/community-feedback/skills/commit.md (+1 엔트리)
+  - fe-harness/community-feedback/skills/start-workflow.md (+1 엔트리)
   - fe-harness/community-feedback/agents/workflow-implementer.md (+1 엔트리)
 - 브랜치명: feedback/fe-harness/{YYYYMMDD}-{요약-kebab}
 - PR 제목: "[fe-harness] feedback: {요약}"
@@ -210,7 +210,7 @@ fe-harness 사용 중 수집된 피드백 {N}건을 community-feedback 영역에
 ## 추가된 항목
 | 대상 | 요지 | 범용성 |
 |------|------|--------|
-| skill:commit | ... | 범용 |
+| skill:start-workflow | ... | 범용 |
 | agent:workflow-implementer | ... | 특정 조건 |
 
 ## 출처

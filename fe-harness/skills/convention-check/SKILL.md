@@ -12,7 +12,7 @@ user-invocable: true
 ## Prerequisites
 
 ### 설정 파일
-- **`.claude/fe-harness.local.md`** (프로젝트 루트): `conventions` 배열에서 적용할 컨벤션 목록을 참조한다.
+- **`.claude/fe-harness.local.md`** (프로젝트 루트): YAML frontmatter의 `projectConventions` 배열에서 적용할 컨벤션 목록을 참조한다.
 - 이 파일이 없으면 기본값 (`default-conventions`)으로 동작한다.
 
 ### `--init` (컨벤션 선택)
@@ -33,14 +33,9 @@ user-invocable: true
 
 2. **유저 선택 수집**: `AskUserQuestion`으로 선택을 받는다.
 
-3. **설정 파일 업데이트**: `.claude/fe-harness.local.md`의 `conventions` 배열을 업데이트한다.
-   ```json
-   {
-     "conventions": [
-       { "name": "default-conventions", "source": "plugin", "skill": "fe-harness:default-conventions" },
-       { "name": "CLAUDE.md", "source": "project", "path": "CLAUDE.md" }
-     ]
-   }
+3. **설정 파일 업데이트**: `.claude/fe-harness.local.md`의 YAML frontmatter `projectConventions` 배열을 업데이트한다.
+   ```yaml
+   projectConventions: ["default-conventions", "CLAUDE.md"]
    ```
 
 4. **결과 보고**:
@@ -55,7 +50,7 @@ user-invocable: true
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| .claude/fe-harness.local.md | OK / MISSING | conventions 배열 확인 |
+| .claude/fe-harness.local.md | OK / MISSING | projectConventions 배열 확인 |
 | default-conventions 스킬 | OK / MISSING | 플러그인 스킬 확인 |
 | CLAUDE.md | OK / MISSING | 프로젝트 루트 확인 |
 | 적용 컨벤션 목록 | [목록] | 현재 설정 표시 |
@@ -68,14 +63,14 @@ user-invocable: true
 ### 설정 파일 로드
 
 1. 프로젝트 루트에서 `.claude/fe-harness.local.md`을 읽는다.
-2. `conventions` 배열이 없으면 기본값으로 진행: `default-conventions`
+2. `projectConventions` 배열이 없으면 기본값으로 진행: `default-conventions`
 
 ### 컨벤션 검사
 
 설정된 각 컨벤션에 대해 위배 사항을 검사하고 보고한다:
 
-- **`source: "plugin"`**: 해당 스킬의 내용을 기준으로 코드를 검사한다.
-- **`source: "project"`**: 해당 파일의 내용을 기준으로 코드를 검사한다.
+- **`default-conventions`** (플러그인 내장): 해당 스킬의 내용을 기준으로 코드를 검사한다.
+- **그 외 항목** (프로젝트 파일 경로, 예: `CLAUDE.md`): 해당 파일의 내용을 기준으로 코드를 검사한다.
 
 #### 이전 세션 변경 사항 검증
 

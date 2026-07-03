@@ -34,7 +34,7 @@ user-invocable: true
 
 | 항목 | 점검 방법 | 관련 스킬 |
 |------|----------|----------|
-| .claude/fe-harness.local.md | 파일 존재 및 유효한 JSON 확인 | 전체 |
+| .claude/fe-harness.local.md | 파일 존재 및 YAML frontmatter 파싱 확인 | 전체 |
 | package.json | 파일 존재 확인 | 전체 |
 | TypeScript 설정 | `tsconfig.json` 존재 확인 | lint-check, convention-check |
 | CLAUDE.md | 파일 존재 확인 | convention-check |
@@ -70,7 +70,7 @@ user-invocable: true
 
 | 항목 | 점검 방법 | 관련 스킬 |
 |------|----------|----------|
-| Codex MCP | `mcp__codex__codex` 호출 가능 여부 | start-workflow (난이도 7+) |
+| Codex MCP | `mcp__codex__codex` 호출 가능 여부 | start-workflow (Plan 검증 루프 상시) |
 
 ### 7. 프로젝트 오버라이드 (선택)
 
@@ -140,7 +140,7 @@ user-invocable: true
 ### 외부 도구
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| Codex | OK / MISSING | 선택 (난이도 7+ 전용) |
+| Codex | OK / MISSING | 선택 (Plan 검증 루프 상시) |
 
 ---
 
@@ -172,5 +172,5 @@ user-invocable: true
 | Prettier | 선택 | 포매팅 (ESLint로 대체 가능) |
 | E2E 러너 | 선택 | fe-harness profile에서 none 가능 |
 | Storybook | 선택 | fe-harness profile에서 false 가능 |
-| Codex | 선택 | 난이도 7+ Plan 리뷰 전용 |
+| Codex | 선택 | Plan 검증 루프 상시 사용 |
 | Playwright 브라우저 | 선택 | E2E 사용 시만 필수 |

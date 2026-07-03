@@ -49,7 +49,7 @@ frontmatter는 선택. 본문은 자유로운 markdown. 단, 아래 섹션을 **
 
 ```markdown
 ---
-scope: skill:commit          # 또는 agent:workflow-implementer, common
+scope: skill:start-workflow  # 또는 agent:workflow-implementer, common
 applies-to: be-harness@0.1.0+ # 최소 플러그인 버전
 updated: 2026-04-21
 ---
@@ -66,14 +66,14 @@ updated: 2026-04-21
 - [특정 단계를 건너뛰어야 한다면 이유와 함께]
 
 ## 참고
-- 이 파일은 start-workflow Phase 9 보완점이 자동으로 append 될 수 있다.
+- 이 파일은 start-workflow Phase 12 보완점이 자동으로 append 될 수 있다.
 ```
 
 자유 markdown만 있어도 된다. 스킬이 읽어서 문맥에 맞게 반영한다.
 
 ## 보완점 자동 반영 (2-Tier 경로)
 
-`/be-harness:start-workflow` Phase 9 에서 워크플로우 성찰로 도출된 보완점은 두 가지 경로 중 하나로 반영된다. 유저가 Phase 9 에서 선택한다.
+`/be-harness:start-workflow` Phase 12 에서 워크플로우 성찰로 도출된 보완점은 두 가지 경로 중 하나로 반영된다. 유저가 Phase 12 에서 선택한다.
 
 ### Tier 1: 로컬 오버라이드 (기본값)
 
@@ -97,7 +97,7 @@ updated: 2026-04-21
 - **범용성 있는 피드백**에만 권장 (사내 용어/경로/티켓 포함 금지)
 - 원본 SKILL.md 는 이 PR 로도 변경되지 않음. community-feedback 은 수집 레이어일 뿐, 유지보수자가 별도 검토 후 범용 규칙으로 승격 여부를 결정
 
-Phase 9 에서 유저 선택:
+Phase 12 에서 유저 선택:
 1. **로컬만** (default) — Tier 1 만
 2. **로컬 + PR** — Tier 1 먼저 + Tier 2 로 범용 항목만 PR
 3. **건너뛰기**

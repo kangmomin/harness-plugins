@@ -17,7 +17,7 @@
 │   └── ... (스킬 이름과 동일하게)
 └── agents/
     ├── workflow-implementer.md        # fe-harness:workflow-implementer 에이전트 오버라이드
-    ├── code-verifier.md
+    ├── component-reviewer.md
     └── ... (에이전트 이름과 동일하게)
 ```
 
@@ -66,14 +66,14 @@ updated: 2026-04-21
 - [특정 단계를 건너뛰어야 한다면 이유와 함께]
 
 ## 참고
-- 이 파일은 start-workflow Phase 9 보완점이 자동으로 append 될 수 있다.
+- 이 파일은 start-workflow Phase 11 보완점이 자동으로 append 될 수 있다.
 ```
 
 자유 markdown만 있어도 된다. 스킬이 읽어서 문맥에 맞게 반영한다.
 
 ## 보완점 자동 반영 (2-Tier 경로)
 
-Phase 9 에서 유저가 반영 방식을 선택한다.
+Phase 11 에서 유저가 반영 방식을 선택한다.
 
 ### Tier 1: 로컬 오버라이드 (기본값)
 
@@ -97,7 +97,7 @@ Phase 9 에서 유저가 반영 방식을 선택한다.
 - **범용성 있는 피드백**에만 권장 (사내 용어/경로/티켓 포함 금지)
 - 원본 SKILL.md 는 이 PR 로도 변경되지 않음. community-feedback 은 수집 레이어
 
-Phase 9 옵션:
+Phase 11 옵션:
 1. **로컬만** (default)
 2. **로컬 + PR**
 3. **건너뛰기**

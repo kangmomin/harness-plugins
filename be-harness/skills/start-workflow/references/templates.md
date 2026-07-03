@@ -34,7 +34,7 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | 7 | orchestrator/build-fix agent | 난이도 기준 | 난이도 기준 | PENDING |
 | 8 | quality agents | 난이도 기준 | 난이도 기준 | PENDING |
 | 9 | doc-sync agent | 난이도 기준 | 난이도 기준 | PENDING |
-| 10 | workflow-pr 또는 /common:commit-hard-push | 난이도 기준 | 난이도 기준 | PENDING |
+| 10 | workflow-pr 또는 직접 push(--hard 모드) | 난이도 기준 | 난이도 기준 | PENDING |
 | 11 | workflow-reflection | 난이도 기준 | 난이도 기준 | PENDING |
 | 12 | orchestrator | 현재 세션 | 현재 세션 | PENDING |
 
