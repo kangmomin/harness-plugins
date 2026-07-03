@@ -44,7 +44,7 @@ gh pr view --json number,state,url,isDraft,baseRefName
 
 프로젝트 루트의 `VERSION` 또는 `VERSION.txt`가 대상이다. 없으면 건너뛴다 (`SKIPPED:NO_VERSION_FILE`).
 
-1. **base 결정 (1회)**: 오버라이드에 브랜치 모델(prefix → 허용 base 표, `/common:commit-push`의 "브랜치 모델" 섹션 참조)이 선언돼 있으면 현재 브랜치 prefix에 매핑된 base, 없으면 현재 브랜치의 바로 상위 브랜치. **여기서 결정한 base를 Step 4의 PR base로 재사용한다** (이원화 금지). 보호 브랜치에서 시작해 Step 3에서 새 브랜치가 생성되는 경우에는 시작 시점의 그 브랜치(분기 원점)가 base다.
+1. **base 결정 (1회)**: 오버라이드에 브랜치 모델(prefix → 허용 base 표, `/common:commit-push`의 "브랜치 모델" 섹션 참조)이 선언돼 있으면 현재 브랜치 prefix에 매핑된 base, 없으면 현재 브랜치의 바로 상위 브랜치. **여기서 결정한 base를 Step 4의 PR base로 재사용한다** (이원화 금지). 보호 브랜치에서 시작해 Step 3에서 새 브랜치가 생성되는 경우에는 시작 시점의 그 브랜치(분기 원점)가 base다. 컨벤션 불일치 브랜치가 Step 3에서 재명명되는 경우에는 재명명 후 확정된 prefix 기준으로 base를 재확인한다.
 2. base의 버전을 조회한다:
    ```bash
    git fetch origin {base} --quiet
@@ -53,7 +53,7 @@ gh pr view --json number,state,url,isDraft,baseRefName
 3. `max(base 버전, 로컬 버전)` 기준 patch +1 로 범프해 이번 커밋에 포함한다 (semver 3필드 비교 — 병렬 브랜치가 이미 점유한 버전을 자동 회피).
 4. 조회 실패(오프라인, origin/base 부재) 또는 semver 파싱 실패 시: 로컬 기준 patch +1 로 폴백하고 고지한다 — "base 버전 확인 불가 — 로컬 기준 범프. 머지 시 충돌 가능".
 
-> 한계: 이 절차는 base가 이미 전진한 경우의 충돌을 막는다. 머지 전 동시 오픈 PR들끼리의 동일 버전 점유는 남으며, 한쪽이 먼저 머지된 뒤 다른 PR의 Step 1-4 재범프로 해소한다.
+> 한계: 이 절차는 base가 이미 전진한 경우의 충돌을 막는다. 머지 전 동시 오픈 PR들끼리의 동일 버전 점유는 남으며, 한쪽이 먼저 머지된 뒤 다른 PR에서 Step 1의 4번(VERSION 재범프 확인)으로 해소한다.
 
 ## Step 3: 커밋 + Push
 
@@ -82,7 +82,7 @@ gh pr view --json number,state,url,isDraft,baseRefName
 
 ## Bump-Only 절차 (`--bump-only`)
 
-Step 1의 단락 규칙을 적용하지 않는다 — open PR이 있어도 범프 자체가 목적이므로 아래를 수행한다. Step 1-3(본문 동기화 확인)도 이 경로에는 적용하지 않는다.
+Step 1의 단락 규칙을 적용하지 않는다 — open PR이 있어도 범프 자체가 목적이므로 아래를 수행한다. Step 1의 3번(본문 동기화 확인)도 이 경로에는 적용하지 않는다.
 
 1. VERSION 파일(`VERSION` 또는 `VERSION.txt`)이 없으면 `BLOCKED:NO_VERSION_FILE` 보고 후 선택지를 제시한다:
    > 1. `0.1.0`으로 새로 생성하고 진행

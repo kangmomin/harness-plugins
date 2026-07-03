@@ -7,7 +7,7 @@
 ## 설치
 
 ```bash
-/plugin marketplace add kangmomin/mimo-s-harness
+/plugin marketplace add kangmomin/harness-plugins
 
 # 다른 하네스를 쓰기 전에 먼저 설치
 /plugin install common@harness-plugins
@@ -27,7 +27,7 @@
 
 | 스킬 | 호출 | 설명 |
 |------|------|------|
-| **doc-gen** | `/common:doc-gen` | 지정한 범위(파일/디렉토리/glob/PR/commit range)를 분석해 인터랙션·다이어그램이 포함된 단일 파일 문서(`-md`/`-html`, `--twin`으로 동시 생성+정합 검증, `--brief`로 압축 모드)로 정리. 저장 전 Mermaid lint 자체 점검 |
+| **doc-gen** | `/common:doc-gen` | 지정한 범위(파일/디렉토리/glob/PR/commit range)를 분석해 다이어그램이 포함된 단일 파일 문서(`-md`/`-html`, `--twin`으로 동시 생성+정합 검증, `--brief`로 압축 모드)로 정리. 저장 전 Mermaid lint 자체 점검 |
 
 ### 커밋 / Push / PR 워크플로우
 
