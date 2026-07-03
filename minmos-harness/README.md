@@ -4,10 +4,10 @@ Post-Math 개발 워크플로우를 위한 Claude Code 플러그인.
 
 ## 의존 플러그인
 
-minmos-harness 는 다음 두 플러그인의 에이전트/스킬을 호출한다. **반드시 함께 설치해야 한다.**
+minmos-harness 는 다음 플러그인의 에이전트/스킬을 호출한다.
 
-- `common` — `commit`, `commit-push`, `commit-pr`, `commit-hard-push` 등 커밋/PR 워크플로우 + `doc-gen`
-- `be-harness` — `code-analyzer`, `code-verifier`, `edge-case-analyzer`, `scope-reviewer`, `workflow-implementer`, `workflow-pr`, `workflow-reflection` 에이전트
+- `common` (필수) — `commit`, `commit-push`, `commit-pr`, `commit-hard-push` 등 커밋/PR 워크플로우 + `doc-gen`. 반드시 함께 설치해야 한다.
+- `be-harness` (권장 의존) — `code-analyzer`, `code-verifier`, `edge-case-analyzer`, `scope-reviewer`, `workflow-implementer`, `workflow-pr`, `workflow-reflection` 에이전트. 미설치 시 start-workflow-mm·e2e-test-mm이 동일 프롬프트의 `general-purpose` 폴백으로 진행한다 (품질 상한은 be-harness 설치 시).
 
 ## 설치
 
@@ -56,7 +56,7 @@ minmos-harness 는 다음 두 플러그인의 에이전트/스킬을 호출한�
 | **convention-check** | `/minmos-harness:convention-check-mm` | 프로젝트 컨벤션 위반 검사 및 보고 |
 | **simplify-loop** | `/minmos-harness:simplify-loop-mm` | 빌트인 `/simplify` 반복 실행 (수정 없을 때까지, 최대 10회) |
 | **e2e-test** | `/minmos-harness:e2e-test-mm` | 변경된 API 대상 E2E 테스트 수행 |
-| **e2e-test-loop** | `/minmos-harness:e2e-test-mm-loop-mm` | E2E 테스트 → 이슈 수정 → 재테스트 반복 (최대 5회) |
+| **e2e-test-loop** | `/minmos-harness:e2e-test-loop-mm` | E2E 테스트 → 이슈 수정 → 재테스트 반복 (최대 5회) |
 
 ### 컨벤션 레퍼런스
 
@@ -71,7 +71,7 @@ minmos-harness 는 다음 두 플러그인의 에이전트/스킬을 호출한�
 |------|------|------|
 | **db-gen-committed** | `/minmos-harness:db-gen-committed-mm` | Liquibase migration 파일 생성 (committed 상태) |
 | **apidog-schema-gen** | `/minmos-harness:apidog-schema-gen-mm` | Apidog OAS에서 flat JSON 스키마 추출 + 코드 교차 검증 |
-| **e2e-apidog-schema-gen** | `/minmos-harness:e2e-apidog-schema-gen-mm` | E2E 실측 결과 기반���로 Apidog 응답 케이스 추가 + 스키마 보정 |
+| **e2e-apidog-schema-gen** | `/minmos-harness:e2e-apidog-schema-gen-mm` | E2E 실측 결과 기반으로 Apidog 응답 케이스 추가 + 스키마 보정 |
 
 ### 에이전트
 
@@ -79,29 +79,30 @@ minmos-harness 는 다음 두 플러그인의 에이전트/스킬을 호출한�
 |---------|------|
 | **workflow-doc-sync** | E2E 테스트 결과 기반 Apidog 스키마 동기화 (start-workflow에서 자동 호출) |
 
-> 그 외 `scope-reviewer`, `workflow-implementer`, `workflow-pr`, `workflow-reflection`, `code-analyzer`, `code-verifier`, `edge-case-analyzer` 에이전트는 [`be-harness`](../be-harness/README.md) 의 것을 그대로 사용한다.
+> 그 외 `scope-reviewer`, `workflow-implementer`, `workflow-pr`, `workflow-reflection`, `code-analyzer`, `code-verifier`, `edge-case-analyzer` 에이전트는 [`be-harness`](../be-harness/README.md) 의 것을 사용한다. **권장 의존** — 미설치 시 start-workflow-mm·e2e-test-mm이 동일 프롬프트의 `general-purpose` 폴백으로 진행한다 (품질 상한은 be-harness 설치 시).
 
 ## 워크플로우
 
 ### 전체 자동화 (`/minmos-harness:start-workflow-mm`)
 
+Build 모드(기본):
+
 ```
-Phase 0: /request → Technical Spec 생성
-Phase 1: 난이도 산정 (1-10)
-Phase 2: scope-reviewer 에이전트 대기
-Phase 3: Plan → 6관점 리뷰 (3+3 병렬) → [난이도 7+: Codex]
-Phase 4: 구현 → commit
-Phase 5: 품질 루프 (최대 3회)
-  ├─ simplify-loop
-  ├─ convention-check
-  ├─ e2e-test-loop
-  └─ scope-review
-  → 수정 있으면 재시작, 없으면 탈출
-Phase 6: e2e-apidog-schema-gen (API 변경 시만)
-Phase 7: /common:commit-pr → PR
-Phase 8: 성찰 (커밋 로그 분석)
-Phase 9: 최종 보고 + 보완점 스킬 반영
+Pre-flight: 환경 점검 (.env / Apidog MCP / PostgreSQL MCP)
+Phase 1: Spec 수집 (/request-mm, Plan 모드)
+Phase 2: 난이도 산정 (1-10)
+Phase 3: 실행 전략 판정 (sequential / parallel-slices / fullstack)
+Phase 4: E2E 메인 플로우 수집
+Phase 5: Plan 작성 + 리뷰
+  ├─ 5.2 Claude 다관점 보강 (1회)
+  └─ 5.3 Codex 검증 루프 (최대 5회)
+Phase 6: 브랜치 + 상태 파일 생성 → 자율 실행 시작
+Phase 7~13: 자율 실행 (묻지 않고 완주)
+  구현 → 품질 루프 → E2E 테스트 → Codex 리뷰 → Apidog 동기화 → PR → 회고
+Phase 14: 최종 보고
 ```
+
+> `--analyze` / `--verify` 모드는 `references/analyze-verify-modes.md`로 분리되어 있다 (Phase A1~A4 / V1~V5).
 
 ### 풀스택 자동화 (`/minmos-harness:start-workflow-fs`)
 
@@ -126,7 +127,7 @@ Phase 8: 회고 + 정리
   ↓
 /minmos-harness:convention-check-mm # 3. 컨벤션 검사
   ↓
-/minmos-harness:e2e-test-mm-loop-mm    # 4. E2E 테스트 + 수정 반복
+/minmos-harness:e2e-test-loop-mm    # 4. E2E 테스트 + 수정 반복
   ↓
 /minmos-harness:e2e-apidog-schema-gen-mm # 5. Apidog 동기화
   ↓

@@ -1,12 +1,12 @@
 ---
 name: default-conventions-mm
-description: "BMad 프로젝트 개발 및 리뷰 가이드라인 (컨벤션 참조 문서). convention-check-mm이 검사 기준으로 로드하며, 코드 작성 원칙이 궁금할 때도 사용."
+description: "Post-Math 백엔드 프로젝트 개발 및 리뷰 가이드라인 (컨벤션 참조 문서). convention-check-mm이 검사 기준으로 로드하며, 코드 작성 원칙이 궁금할 때도 사용."
 user-invocable: true
 ---
 
-# BMad 프로젝트 개발 및 리뷰 가이드라인 (Local Convention)
+# Post-Math 백엔드 프로젝트 개발 및 리뷰 가이드라인 (Local Convention)
 
-당신은 BMad 프로젝트의 코드를 수정하거나 리뷰할 때 반드시 아래의 규칙을 준수해야 하는 전문 개발 파트너입니다.
+당신은 Post-Math 백엔드 프로젝트의 코드를 수정하거나 리뷰할 때 반드시 아래의 규칙을 준수해야 하는 전문 개발 파트너입니다.
 
 ## 1. 에러 처리 아키텍처 (3-Layer Flow)
 
