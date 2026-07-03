@@ -1,4 +1,4 @@
-# mimo-s-harness
+# harness-plugins
 
 개발 워크플로우 자동화를 위한 Claude Code 하네스 모음.
 
@@ -10,7 +10,7 @@ Technical Spec 작성, Plan 리뷰, 구현, 품질 루프, 커밋/PR까지 반�
 
 ```bash
 # 마켓플레이스 등록
-/plugin marketplace add kangmomin/mimo-s-harness
+/plugin marketplace add kangmomin/harness-plugins
 
 # 공용 스킬 (다른 하네스보다 먼저 설치)
 /plugin install common@harness-plugins
@@ -42,7 +42,7 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 | **be-harness** | 범용 백엔드 | Go/Node 프리셋과 project profile 기반의 Spec→Plan→구현→품질 루프→PR 워크플로우 |
 | **fe-harness** | 범용 프론트엔드 | React/Next.js 중심의 컴포넌트 생성, lint/a11y, 단위/E2E 테스트, PR 워크플로우 |
 | **fs-harness** | 풀스택 | BE/FE 하네스를 병렬로 사용해 계약 정의, 교차 리뷰, 통합 검증, 단일 PR까지 오케스트레이션 |
-| **minmos-harness** | Post-Math 백엔드 | 커밋/PR, 컨벤션 검사, E2E 테스트(REST+gRPC), Apidog 스키마 생성 |
+| **minmos-harness** | Post-Math 백엔드 | 커밋/PR, 컨벤션 검사, Feature Spec 생성, E2E 테스트(REST+gRPC+PubSub), Apidog 스키마 생성 |
 | **hyeondongs-harness** | React 프론트엔드 | 컴포넌트 생성, 커밋/PR, 단위/E2E 테스트, 코드 품질 검사(ESLint, a11y) |
 
 ## 빠른 시작

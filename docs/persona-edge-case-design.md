@@ -1,5 +1,7 @@
 # Persona-Based Edge Case Generation — 설계 보고서
 
+> 구현 완료 문서 — 본문의 "Phase 4.5" 채번은 작성 표준(§3 비정규 번호 금지)에 따라 실물에서는 be-harness `edge-case-analyzer.md`의 **Step 5**로 반영됐다.
+
 ## 1. 기획 의도
 
 ### 문제 인식
