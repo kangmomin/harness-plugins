@@ -55,7 +55,7 @@ minmos-harness 는 다음 플러그인의 에이전트/스킬을 호출한다.
 | 스킬 | 호출 | 설명 |
 |------|------|------|
 | **convention-check** | `/minmos-harness:convention-check-mm` | 프로젝트 컨벤션 위반 검사 및 보고 |
-| **simplify-loop** | `/minmos-harness:simplify-loop-mm` | 빌트인 `/simplify` 반복 실행 (수정 없을 때까지, 최대 10회) |
+| **simplify-loop** | `/minmos-harness:simplify-loop-mm` | 4관점 리뷰 Workflow 루프로 코드 단순화 반복 적용 (수렴까지, 최대 10회; Workflow 미지원 시 빌트인 `/simplify` 반복 폴백) |
 | **e2e-test** | `/minmos-harness:e2e-test-mm` | 변경된 API 대상 E2E 테스트 수행 |
 | **e2e-test-loop** | `/minmos-harness:e2e-test-loop-mm` | E2E 테스트 → 이슈 수정 → 재테스트 반복 (최대 5회) |
 
