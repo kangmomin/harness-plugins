@@ -7,6 +7,8 @@ user-invocable: true
 # 커서 기반 페이지네이션 구현 컨벤션
 
 > 본 문서는 프로젝트 내에서 GORM 및 `cloudKit` 패키지를 활용하여 일관된 **Cursor-based Pagination**을 구현하기 위한 표준 가이드를 정의합니다.
+>
+> 정본은 `go-conventions:conventions-guide` 의 `cursor-pagination-spec`·`entity-repository-contract` 이며, 본 문서와 충돌하면 정본이 우선합니다.
 
 ---
 
@@ -50,13 +52,19 @@ user-invocable: true
 
 - 더 이상 결과가 없거나 마지막 페이지인 경우 빈 문자열(`""`)을 반환합니다.
 
+### 2.4 totalCount (첫 페이지 전용)
+
+- repository 시그니처는 정본 계약대로 **4-tuple** `([]*VO, totalCount int, nextCursor string, error)` 를 반환합니다.
+
+- `COUNT` 쿼리는 **첫 페이지(`cursor == ""`)에서만** 실행하고, 후속 페이지에서는 `totalCount = 0` 으로 생략합니다 (응답 조립 시 첫 페이지에만 totalItems 포함).
+
 
 ---
 
 ## 3. 표준 코드 템플릿 (Go Reference)
 
 ```go
-func (r *repository) GetList(ctx context.Context, order, cursor string, limit int) ([]*VO, string, error) {
+func (r *repository) GetAllCursor(ctx context.Context, order, cursor string, limit int) ([]*VO, int, string, error) {
     var entities []*Entity
     query := r.db.WithContext(ctx).Table("table_name")
 
@@ -65,11 +73,21 @@ func (r *repository) GetList(ctx context.Context, order, cursor string, limit in
     if cursor != "" {
         specs, err := cloudKit.CursorDecode(cursor)
         if err != nil {
-            return nil, "", fmt.Errorf("invalid cursor: %w", err)
+            return nil, 0, "", fmt.Errorf("invalid cursor: %w", err)
         }
         orderSpecs = specs
     } else {
         orderSpecs = cloudKit.ParseOrderParam(order)
+    }
+
+    // totalCount 는 첫 페이지에서만 계산 (정본: cursor-pagination-spec)
+    totalCount := 0
+    if cursor == "" {
+        var cnt int64
+        if err := query.Session(&gorm.Session{}).Count(&cnt).Error; err != nil {
+            return nil, 0, "", err
+        }
+        totalCount = int(cnt)
     }
 
     // 2. 쿼리 빌딩 (Order & Where)
@@ -94,7 +112,7 @@ func (r *repository) GetList(ctx context.Context, order, cursor string, limit in
 
     // 4. 실행 및 결과 처리
     if err := query.Limit(limit).Find(&entities).Error; err != nil {
-        return nil, "", err
+        return nil, 0, "", err
     }
 
     // 5. 다음 커서 인코딩
@@ -104,7 +122,7 @@ func (r *repository) GetList(ctx context.Context, order, cursor string, limit in
         nextCursor = cloudKit.CursorEncode(extractNextSpecs(orderSpecs, last))
     }
 
-    return vos, nextCursor, nil
+    return vos, totalCount, nextCursor, nil
 }
 ```
 
@@ -116,6 +134,6 @@ func (r *repository) GetList(ctx context.Context, order, cursor string, limit in
 >
 > - **시간대(Timezone)**: `created_at` 등 시간 필드 정렬 시, 애플리케이션과 DB의 시간대 설정(UTC 등)이 일치하는지 확인하십시오.
 >
-> - **인덱스 활용**: 커서 기반 페이지네이션의 성능을 위해 정렬에 사용되는 컬럼들(예: `created_at`, `id`)은 반드시 **복합 인덱스**로 구성되어야 합니다.
+> - **인덱스 활용**: 정렬 컬럼은 **기존 활성(status='active' 부분) 인덱스를 우선 재사용**하고, 중복 인덱스 추가는 금지합니다. 신규 인덱스는 실행계획 측정으로 필요가 입증될 때만 추가합니다 (정본: cursor-pagination-spec).
 >
 > - **컬럼 매핑**: API의 `CamelCase` 필드명이 DB의 `snake_case` 컬럼명과 정확히 매핑되는지 검증 로직을 포함하십시오.
