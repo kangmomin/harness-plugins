@@ -38,7 +38,7 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 
 | 플러그인 | 대상 | 설명 |
 |---------|------|------|
-| **common** | 모든 하네스 베이스 | 여러 하네스 공용 스킬. `/common:doc-gen` 등 도메인 독립 스킬. 다른 하네스 설치 전에 먼저 설치 |
+| **common** | 모든 하네스 베이스 | 여러 하네스 공용 스킬(`/common:doc-gen`, 커밋/PR 워크플로우)과 **하네스 공용 진입점 라우터**. 다른 하네스 설치 전에 먼저 설치 |
 | **be-harness** | 범용 백엔드 | Go/Node 프리셋과 project profile 기반의 Spec→Plan→구현→품질 루프→PR 워크플로우 |
 | **fe-harness** | 범용 프론트엔드 | React/Next.js 중심의 컴포넌트 생성, lint/a11y, 단위/E2E 테스트, PR 워크플로우 |
 | **fs-harness** | 풀스택 | BE/FE 하네스를 병렬로 사용해 계약 정의, 교차 리뷰, 통합 검증, 단일 PR까지 오케스트레이션 |
@@ -47,29 +47,38 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 
 ## 빠른 시작
 
-### 백엔드 프로젝트
+여러 하네스가 같은 이름의 스킬(`start-workflow`, `request`, `e2e-test` …)을 제공한다.
+**`/common:` 진입점**을 쓰면 하네스 접두를 기억할 필요 없이 대상만 고르면 된다.
 
 ```bash
-/be-harness:init
-/be-harness:start-workflow
+/common:how-to-use          # 설치된 스킬 전체 안내부터
+
+/common:init                # 설치된 하네스 중에서 선택지 제시
+/common:start-workflow      # 〃
 ```
 
-### 프론트엔드 프로젝트
+대상을 알고 있으면 플래그로 바로 지정한다 — `--be` · `--fe` · `--fs` · `--mm` · `--hd`:
 
 ```bash
-/fe-harness:init
-/fe-harness:start-workflow
+/common:init --be
+/common:start-workflow --be
+
+/common:init --fe
+/common:start-workflow --fe
 ```
 
-### 풀스택 프로젝트
+풀스택은 백엔드·프론트엔드 profile을 각각 만든 뒤 `--fs` 로 실행한다:
 
 ```bash
-/be-harness:init
-/fe-harness:init
-/fs-harness:start-workflow
+/common:init --be
+/common:init --fe
+/common:start-workflow --fs
 ```
 
 `fs-harness` 는 `be-harness` 와 `fe-harness` 가 모두 설치되어 있어야 한다.
+
+기존처럼 하네스를 직접 호출해도 동작은 동일하다 (`/be-harness:start-workflow`).
+라우터 대상과 공통 규약은 [`common/ROUTING.md`](./common/ROUTING.md) 참조.
 
 ## 디렉터리 구조
 

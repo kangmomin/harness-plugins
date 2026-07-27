@@ -39,6 +39,40 @@
 | **commit-hard-push** | `/common:commit-hard-push` | 보호 브랜치 제한 없이 commit + push |
 | **merge** | `/common:merge` | PR 을 머지. doc-gen 으로 요약 컨펌 후 머지 방식(일반/스쿼시/리베이스/취소) 선택 |
 
+### 하네스 공용 진입점 (라우터)
+
+여러 하네스가 같은 이름의 스킬을 제공한다. 매번 `/be-harness:`, `/fe-harness:` 같은 접두를 기억하는 대신 `/common:` 으로 진입하고 대상만 고른다.
+
+**대상 플래그**: `--be`(백엔드) · `--fe`(프론트엔드) · `--fs`(풀스택) · `--mm`(minmos) · `--hd`(hyeondongs)
+**플래그를 생략하면** 설치된 하네스 중에서 선택지를 제시한다. 후보가 하나뿐이면 묻지 않고 바로 실행한다.
+
+| 스킬 | 호출 | 위임 대상 |
+|------|------|----------|
+| **start-workflow** | `/common:start-workflow` | be · fe · fs · mm · hd (+ `--mm-fs` / `--hd-fs` 풀스택 변형) |
+| **request** | `/common:request` | be · fe · mm · hd |
+| **e2e-test** | `/common:e2e-test` | be · fe · mm · hd |
+| **e2e-test-loop** | `/common:e2e-test-loop` | be · mm |
+| **simplify-loop** | `/common:simplify-loop` | be · fe · mm · hd |
+| **convention-check** | `/common:convention-check` | be · fe · mm · hd |
+| **default-conventions** | `/common:default-conventions` | be · fe · mm · hd |
+| **doctor** | `/common:doctor` | be · fe · mm · hd (후보 전체 순차 실행 가능) |
+| **init** | `/common:init` | be · fe · mm · hd |
+| **component** | `/common:component` | fe · hd |
+| **unit-test** | `/common:unit-test` | fe · hd |
+| **lint-check** | `/common:lint-check` | fe · hd |
+| **test-loop** | `/common:test-loop` | fe · hd |
+
+라우터는 **절차를 갖지 않는다.** 실제 동작은 위임 대상 하네스 스킬이 정의하며, 라우터는 대상 결정과 인자 전달만 한다. 공통 규약: 플러그인 루트 [`ROUTING.md`](./ROUTING.md).
+
+### 하네스 무관 스킬
+
+동작이 하네스와 무관해 common 이 직접 구현하는 스킬. 대상 플래그는 동작을 바꾸지 않고 **범위를 좁히는 필터**로만 쓰인다.
+
+| 스킬 | 호출 | 설명 |
+|------|------|------|
+| **how-to-use** | `/common:how-to-use` | 설치된 모든 harness 플러그인의 스킬 목록·사용법 안내. 플래그로 특정 하네스만 좁히기 가능 |
+| **submit-feedback** | `/common:submit-feedback` | 수집된 범용 보완점을 플러그인 레포 `community-feedback/` 에 PR 제출. 대상 플러그인은 플래그·보완점 경로·프로젝트 구조 순으로 판별 |
+
 ## 사용 예시
 
 ```bash
