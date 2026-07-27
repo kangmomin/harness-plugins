@@ -51,13 +51,16 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 [sequential/parallel-slices]
 
 ## Edge Cases
-[Spec의 엣지 케이스 목록]
+[Spec의 엣지 케이스 표를 **ID·참조 구현 열까지 그대로** 복사. Phase 8.6 커버리지 대조와 Phase 8.8 Diff 판정의 기준이므로 ID를 생략하거나 다시 매기지 않는다]
 
 ## Plan
 [확정된 Plan 전문 그대로 복사]
 
 ## Plan Verification Log
 [Phase 4.3 검증 루프의 Iteration Diff Log]
+
+## Readback Diff
+[Phase 8.8 결과. Phase 8.8 실행 전에는 `미실행`]
 
 ## Phase Results
 [Phase 완료 시 결과 append]
@@ -86,8 +89,13 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 - **핵심 로직**: [요약]
 
 ### 3. 엣지 케이스 대응
-| # | 케이스 | 대응 방법 |
-|---|--------|----------|
+| ID | 케이스 | 대응 방법 | E2E | Read-back |
+|----|--------|----------|-----|-----------|
+| EC-01 | [케이스] | [대응] | PASS | 일치 |
+| EC-02 | [케이스] | [대응] | `UNCOVERED:{사유}` | A 검증 누락 |
+
+- `E2E` 열: Phase 8.6 리포트의 해당 ID 판정. 미실행이면 `-`
+- `Read-back` 열: Phase 8.8 Diff 유형(A~E) 또는 `일치`. Phase 8.8이 SKIP이면 `-`
 
 ### 4. 품질 루프 결과
 | 단계 | 루프 횟수 | 수정 건수 |
@@ -96,6 +104,8 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | convention | N | M |
 | e2e | N | M |
 | scope-review | N | M |
+
+**Read-back 판정**: [PASS/WARN/FAIL] — A [n]건 / C [n]건 / E [n]건 (소스: 테스트 파일 / E2E 리포트 / 구현 코드)
 
 ### 5. 문서 동기화
 - API 문서 동기화: [Y/N/SKIPPED, 요약]
@@ -108,6 +118,17 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 |---|----------|----------|----------|----------|
 | 1 | /be-harness:request | [내용] | `.claude/be-harness/skills/request.md` | Y/N |
 | 2 | be-harness:workflow-implementer | [내용] | `.claude/be-harness/agents/workflow-implementer.md` | Y/N |
+
+### 8. Read-back Diff (유저 결정 필요)
+> Phase 8.8이 SKIP이거나 판정이 PASS면 "없음"으로 적고 이 섹션을 비운다.
+
+| 유형 | 항목 | Spec | 실제 보장 | 참조 구현 | 필요한 결정 |
+|------|------|------|----------|----------|------------|
+| C 기대값 불일치 | 중복 리뷰 (EC-05) | 400 | 409 | `order_handler.go:88` → 409 | 어느 쪽으로 통일할지 |
+| A 검증 누락 | 일일 5회 제한 (EC-07) | 429 | 검증 없음 | - | 테스트 추가 / 범위 제외 |
+| B Spec 밖 | body 길이 2000자 제한 | 없음 | 400 반환 | - | Spec에 반영 / 제거 |
+| E 컨벤션 이탈 | `now == startAt` (EC-02) | 예정 | 예정 | `promotion.go:41` → 진행중 | 기존 컨벤션 따를지 |
+| D 해석 불가 | `assert.Eventually` (`x_test.go:103`) | - | 불명 | - | 의도 확인 |
 ```
 
 ## Phase 12: 보완점 적용 상세

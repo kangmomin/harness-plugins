@@ -22,8 +22,8 @@ user-invocable: true
 ```
 for iteration in 1..5:
   run /be-harness:e2e-test
-  if result == PASS (모든 시나리오 통과):
-    break
+  if result == PASS (모든 시나리오 통과) or result == WARN (실패 0건 + 미커버만 존재):
+    break   # 미커버는 검증 공백이지 구현 결함이 아니므로 수정 루프를 돌리지 않는다
   if result starts with "SKIPPED:":
     return result   # 오케스트레이터가 상위에서 판단하도록 그대로 전달
   # FAIL 처리
