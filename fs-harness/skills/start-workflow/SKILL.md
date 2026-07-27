@@ -211,14 +211,38 @@ Phase 7 시작 전 `{STATE_FILE}`의 상태를 갱신한다. 각 도메인 루�
 
 ## Phase 8: 통합 검증
 
+### Phase 8.1: 계약 격리 Read-back
+
+통합 검증에 들어가기 전에, **계약을 모르는 에이전트 2개**가 각각 백엔드·프론트엔드 구현만 읽고 "이 코드가 실제로 주고받는 계약"을 복원한다.
+Phase 8.2는 frozen contract를 **보면서** 코드를 검증하므로 "대충 맞네"로 통과하기 쉽다. 계약을 가린 상태에서 복원한 뒤 대조해야 실제 이탈이 드러난다.
+
+> **격리 규칙 (CRITICAL)**: 두 에이전트에게 `{STATE_FILE}` 경로와 frozen contract를 **전달하지 않고, 읽지 말라고 명시**한다. 다른 Phase와 달리 "상태 파일을 읽고 갱신하세요" 문구를 넣지 않으며, 상태 갱신은 오케스트레이터가 대신 수행한다.
+> 이 규칙이 빠지면 에이전트가 계약을 읽고 그대로 옮겨 적어 **Diff가 항상 0건**이 되고, 이 단계는 요식 행위가 된다.
+
+프롬프트: `references/agent-prompts.md`의 "Phase 8.1" 섹션. 두 에이전트를 **병렬 실행**한다.
+
+복원 결과를 받으면 **오케스트레이터가** frozen contract와 3방향 대조한다:
+
+| 축 | 의미 |
+|----|------|
+| **BE ↔ contract** | 백엔드가 계약에서 이탈했는가 |
+| **FE ↔ contract** | 프론트엔드가 계약에서 이탈했는가 |
+| **BE ↔ FE** | 계약과 무관하게 양쪽이 서로 어긋났는가 (양쪽이 같은 방향으로 이탈하면 위 두 축은 통과하지만 이 축이 잡는다) |
+
+불일치 항목은 Phase 8.2의 검증 대상 목록에 **우선 항목으로 추가**한다. Phase 8.1 자체는 코드를 수정하지 않는다.
+
+### Phase 8.2: 통합 검증
+
 frozen contract와 실제 코드를 다시 맞춘다. 반드시 검증할 항목:
 
 Method/Path/Event Name · Request/Response 필드명과 타입 · 에러 코드와 프론트 fallback · loading/empty/retry/disabled 상태 · 인증/권한 · 페이지네이션/커서 · 캐시 무효화/재조회
 
+Phase 8.1이 보고한 불일치를 먼저 확인한 뒤 위 항목을 점검한다.
+
 권장 리뷰 조합: 백엔드 `scope-reviewer` + 프론트엔드 `scope-reviewer` (+UI 변경 시 `component-reviewer`, 접근성 영향 시 `a11y-reviewer`).
 계약 불일치 가능성이 있으면 `Complex` 이상 model/effort로 생성한다.
 
-**해결되지 않은 contract diff가 하나라도 남아 있으면 Phase 9로 가지 않는다** (수정 → Phase 8 재검증).
+**해결되지 않은 contract diff가 하나라도 남아 있으면 Phase 9로 가지 않는다** (수정 → Phase 8.2 재검증).
 
 ## Phase 9: 커밋/PR
 

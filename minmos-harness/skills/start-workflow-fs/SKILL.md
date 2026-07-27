@@ -230,13 +230,28 @@ Codex 불가 환경이면 `SKIPPED:CODEX_UNAVAILABLE`로 기록하고 Phase 12 �
 
 ## Phase 10: 통합 검증
 
+### Phase 10.1: 계약 격리 Read-back
+
+통합 검증에 들어가기 전에, **계약을 모르는 에이전트 2개**가 각각 백엔드·프론트엔드 구현만 읽고 "이 코드가 실제로 주고받는 계약"을 복원한다.
+Phase 10.2는 frozen contract를 **보면서** 코드를 검증하므로 "대충 맞네"로 통과하기 쉽다. 계약을 가린 상태에서 복원한 뒤 대조해야 실제 이탈이 드러난다.
+
+> Phase 10.1 진입 시 MUST: 같은 폴더의 `references/contract-templates.md`를 Read하고 "Phase 10.1" 섹션의 프롬프트와 3방향 대조 절차를 따른다.
+
+> **격리 규칙 (CRITICAL)**: 두 에이전트에게 `{STATE_FILE}` 경로와 frozen contract를 **전달하지 않고, 읽지 말라고 명시**한다. 다른 Phase와 달리 "상태 파일을 읽고 기록하세요" 지시를 넣지 않으며, 상태 갱신은 오케스트레이터가 대신 수행한다.
+> 이 규칙이 빠지면 에이전트가 계약을 읽고 그대로 옮겨 적어 **Diff가 항상 0건**이 되고, 이 단계는 요식 행위가 된다.
+
+Phase 10.1은 코드를 수정하지 않는다. 불일치 항목을 Phase 10.2 검증 대상의 **우선 항목**으로 넘긴다.
+
+### Phase 10.2: 통합 검증
+
 frozen contract와 실제 코드를 다시 맞춘다. 반드시 검증할 항목:
 
 Method/Path/Event Name · Request/Response 필드명과 타입 · 에러 코드와 프론트 fallback · loading/empty/retry/disabled 상태 · 인증/권한 · 페이지네이션/커서 · 캐시 무효화/재조회
 
+Phase 10.1이 보고한 불일치를 먼저 확인한 뒤 위 항목을 점검한다.
 통합 검증 agent는 모두 `{STATE_FILE}`을 읽고 현재 Phase·남은 Phase·배정 model/effort를 보고서에 기록한다. 계약 불일치 가능성이 있으면 `Complex` 이상으로 생성한다.
 
-**해결되지 않은 contract diff가 하나라도 남아 있으면 Phase 11로 가지 않는다** (수정 → Phase 10 재검증).
+**해결되지 않은 contract diff가 하나라도 남아 있으면 Phase 11로 가지 않는다** (수정 → Phase 10.2 재검증).
 
 ## Phase 11: 커밋/PR
 
