@@ -1,0 +1,64 @@
+---
+name: how-to-use
+description: "설치된 harness 플러그인의 스킬 목록과 사용법을 안내한다. '어떤 스킬 있어?', '사용법 알려줘', '뭐 할 수 있어?', 플러그인을 처음 쓸 때 사용. 특정 하네스만 보려면 대상 플래그를 붙인다."
+user-invocable: true
+allowed-tools: AskUserQuestion, Read, Glob, Bash, Skill
+argument-hint: "[--be|--fe|--fs|--mm|--hd] [스킬명]"
+---
+
+> **Project Overrides**: 실행 전 `.claude/common/common.md`와 `.claude/common/skills/how-to-use.md`를 Read.
+> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+# How to Use
+
+설치된 harness 플러그인의 스킬을 안내한다.
+
+이 스킬은 **라우터가 아니다.** 하네스별 `how-to-use`는 플러그인 이름과 스킬 목록만 다르고 동작이 동일하므로, common이 직접 구현한다. 대상 플래그는 동작을 바꾸는 스위치가 아니라 **출력 범위를 좁히는 필터**다.
+
+## Step 1: 범위 결정
+
+| 입력 | 범위 |
+|------|------|
+| 플래그 없음 | 세션에 설치된 **모든** harness 플러그인 |
+| `--be` / `--fe` / `--fs` / `--mm` / `--hd` | 해당 플러그인만 |
+| 스킬명 (예: `start-workflow`) | 그 이름을 제공하는 모든 플러그인의 해당 스킬 |
+
+플래그가 없어도 **선택지를 묻지 않는다.** 전체 안내가 기본 동작이며, 이것이 처음 쓰는 사용자에게 가장 유용하다.
+
+## Step 2: 스킬 수집
+
+세션 스킬 목록에서 아래 접두를 가진 항목을 수집한다:
+
+`common:` · `be-harness:` · `fe-harness:` · `fs-harness:` · `minmos-harness:` · `hyeondongs-harness:`
+
+각 스킬의 `description` 첫 문장을 요약으로 쓴다. 스킬 파일을 직접 읽지 않는다 (세션 목록으로 충분하고, 미설치 플러그인 경로 접근을 피한다).
+
+## Step 3: 출력
+
+```markdown
+## 설치된 harness 스킬
+
+### common — 공용 진입점
+| 스킬 | 호출 | 설명 |
+|------|------|------|
+| start-workflow | `/common:start-workflow` | 하네스별 개발 워크플로우로 위임 |
+| commit-push | `/common:commit-push` | 커밋 후 push |
+
+### be-harness — 범용 백엔드
+| 스킬 | 호출 | 설명 |
+|------|------|------|
+
+(설치된 플러그인만 섹션으로 출력)
+
+---
+**여러 하네스에 같은 이름이 있으면** `/common:{스킬명}` 으로 부르면 대상을 골라 실행합니다.
+예: `/common:request --be`, `/common:start-workflow` (플래그 없으면 선택지 제시)
+```
+
+- 설치된 플러그인이 `common` 뿐이면 하네스 설치를 안내한다:
+  > "harness 플러그인이 설치되어 있지 않습니다. `/plugin install be-harness@harness-plugins` 처럼 필요한 하네스를 설치하세요."
+
+## Step 4: 개별 스킬 상세 (스킬명이 주어진 경우)
+
+해당 스킬의 `description` 전문과 `argument-hint` 를 보여주고, 실행 예시 2~3개를 제시한다.
+같은 이름을 여러 플러그인이 제공하면 **플러그인별로 나란히** 보여주고 차이를 한 줄로 밝힌다.
