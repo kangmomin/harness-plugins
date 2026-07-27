@@ -235,13 +235,18 @@ for iteration in 1..3:
   7.4 test-loop               → general-purpose 에이전트
   7.5 scope-reviewer          → scope-reviewer 에이전트
   7.6 lint-check              → general-purpose 에이전트
+
+[루프 종료 후 1회] 7.7 Spec 정합 Read-back — 판정만, 코드 수정 없음
 ```
 
 | 종료 조건 | 결과 |
 |----------|------|
-| iteration 내 수정 0건 (`modified == false`) | 루프 탈출 → Phase 8 |
+| iteration 내 수정 0건 (`modified == false`) | 루프 탈출 → Phase 7.7 |
 | `modified == true` | 커밋 후 다음 iteration |
-| 3회 도달 | 미해결 사항 보고 후 강제 탈출 → Phase 8 |
+| 3회 도달 | 미해결 사항 보고 후 강제 탈출 → Phase 7.7 |
+
+**Phase 7.7은 루프 밖에서 1회만 실행한다.** Spec을 모르는 격리된 에이전트가 테스트·구현 산출물에서 보장 동작을 복원하고, 오케스트레이터가 그것을 Spec·기존 코드와 대조해 이탈을 판정한다. 코드는 수정하지 않으며 결과는 Phase 11에서 유저에게 보고한다. 판정이 `FAIL`이어도 자율 실행은 멈추지 않는다.
+프롬프트·Diff 분류·판정 기준: `references/agent-prompts.md`의 "Phase 7.7" 섹션.
 
 ### Phase 8: 컴포넌트/접근성 리뷰 (조건부)
 
@@ -264,10 +269,14 @@ for iteration in 1..3:
 > Phase 11 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고 "Workflow Report 템플릿"과 "보완점 적용 상세"를 따른다.
 
 1. Phase 5~10 결과를 종합해 **Workflow Report**를 작성한다 (템플릿 준수 — 섹션 머리글 변경 금지).
-2. 보완점 적용을 질문한다:
+2. **Read-back Diff 처리** (Phase 7.7 판정이 `WARN`/`FAIL`일 때만): 보고서 8번 섹션의 각 항목을 유저에게 제시하고 결정을 받는다.
+   보완점 질문보다 **먼저** 처리한다 — 코드·Spec에 직접 영향을 주는 결정이기 때문이다.
+   - 결정에 따른 코드/Spec 수정이 필요하면 그 자리에서 수행하고 커밋한다. 유저가 승인하기 전에는 수정하지 않는다.
+   - 유저가 "이번 범위 외"로 판단한 항목은 보고서에 `보류`로 남기고 넘어간다.
+3. 보완점 적용을 질문한다:
    > "위 보완점을 해당 스킬에 반영할까요?
    > 1. 전체 — 모든 보완점 반영 2. 선택 — 번호로 선택한 항목만 3. 건너뛰기"
-3. 정리: 상태 파일의 모든 Phase를 `DONE`/`SKIPPED:{사유}`로 갱신, `Remaining Phases`를 `없음`으로 기록.
+4. 정리: 상태 파일의 모든 Phase를 `DONE`/`SKIPPED:{사유}`로 갱신, `Remaining Phases`를 `없음`으로 기록.
    기본은 보관, 사용자가 정리를 요청한 경우에만 `rm -f {STATE_FILE}`.
 
 ## 상태 코드

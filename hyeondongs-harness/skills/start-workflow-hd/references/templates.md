@@ -47,7 +47,7 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 - Phase 11: 최종 보고
 
 ## Edge Cases
-[Spec의 엣지 케이스 목록]
+[Spec의 엣지 케이스 표를 **ID·참조 구현 열까지 그대로** 복사. Phase 7.7 Diff 판정의 기준이므로 ID를 생략하거나 다시 매기지 않는다]
 
 ## Plan
 [확정된 Plan 전문 그대로 복사]
@@ -57,6 +57,9 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 ## Plan Verification Log
 [Phase 3.3 검증 루프의 Iteration Diff Log]
+
+## Readback Diff
+[Phase 7.7 결과. Phase 7.7 실행 전에는 `미실행`]
 
 ## Phase Results
 [Phase 완료 시 결과 append]
@@ -78,8 +81,12 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 - **핵심 컴포넌트**: [요약]
 
 ### 3. 엣지 케이스 대응
-| # | 케이스 | 대응 방법 |
-|---|--------|----------|
+| ID | 케이스 | 대응 방법 | 테스트 | Read-back |
+|----|--------|----------|--------|-----------|
+| EC-01 | [케이스] | [대응] | PASS | 일치 |
+| EC-02 | [케이스] | [대응] | 미작성 | A 검증 누락 |
+
+- `Read-back` 열: Phase 7.7 Diff 유형(A~E) 또는 `일치`. Phase 7.7이 SKIP이면 `-`
 
 ### 4. 품질 루프 결과
 | 단계 | 루프 횟수 | 수정 건수 |
@@ -89,6 +96,8 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | test | N | M |
 | scope-review | N | M |
 | lint | N | M |
+
+- **Read-back 판정**: [PASS/WARN/FAIL] — A [n]건 / C [n]건 / E [n]건 (소스: 테스트 파일 / 테스트 리포트 / 구현 코드)
 
 ### 5. 컴포넌트/접근성 리뷰
 - 컴포넌트 리뷰: [요약]
@@ -100,4 +109,15 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 ### 7. 보완점
 | # | 대상 스킬 | 보완 내용 | 적용 여부 |
 |---|----------|----------|----------|
+
+### 8. Read-back Diff (유저 결정 필요)
+> Phase 7.7이 SKIP이거나 판정이 PASS면 "없음"으로 적고 이 섹션을 비운다.
+
+| 유형 | 항목 | Spec | 실제 보장 | 참조 구현 | 필요한 결정 |
+|------|------|------|----------|----------|------------|
+| C 기대값 불일치 | 빈 목록 (EC-03) | EmptyState | 스켈레톤 유지 | `OrderList.tsx:52` → EmptyState | 어느 쪽으로 통일할지 |
+| A 검증 누락 | 네트워크 오류 (EC-05) | 재시도 버튼 | 테스트 없음 | - | 테스트 추가 / 범위 제외 |
+| B Spec 밖 | 입력 300자 제한 | 없음 | maxLength 적용 | - | Spec에 반영 / 제거 |
+| E 컨벤션 이탈 | 로딩 상태 (EC-01) | 스피너 | 스피너 | `ProductList.tsx:31` → 스켈레톤 | 기존 패턴 따를지 |
+| D 해석 불가 | `waitFor` 단언 (`x.test.tsx:88`) | - | 불명 | - | 의도 확인 |
 ```
