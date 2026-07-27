@@ -54,7 +54,7 @@ Phase 6 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 [sequential/parallel-slices]
 
 ## Edge Cases
-[Spec의 엣지 케이스 목록]
+[Spec의 엣지 케이스 표를 **ID·참조 구현 열까지 그대로** 복사. Phase 9.6 커버리지 대조와 Phase 9.8 Diff 판정의 기준이므로 ID를 생략하거나 다시 매기지 않는다]
 
 ## E2E 메인 플로우
 [Phase 4에서 사용자가 서술한 메인 플로우 전문, 또는 "자동 도출 (git diff 기반)"]
@@ -69,6 +69,9 @@ Phase 6 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 - **Total Iterations**: [수렴까지 반복 횟수]
 - **Convergence**: [PROCEED / USER-INTERRUPTED / CODEX-UNAVAILABLE / BLOCKED:MAX_ITERATIONS→사용자 선택]
 - **잔존 이슈**: [미해결 항목, 없으면 "없음"]
+
+## Readback Diff
+[Phase 9.8 결과. Phase 9.8 실행 전에는 `미실행`]
 
 ## Phase Results
 [Phase 완료 시 결과 append]
@@ -173,8 +176,13 @@ Phase 6 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 - **핵심 로직**: [요약]
 
 ### 3. 엣지 케이스 대응
-| # | 케이스 | 대응 방법 |
-|---|--------|----------|
+| ID | 케이스 | 대응 방법 | E2E | Read-back |
+|----|--------|----------|-----|-----------|
+| EC-01 | [케이스] | [대응] | PASS | 일치 |
+| EC-02 | [케이스] | [대응] | `UNCOVERED:{사유}` | A 검증 누락 |
+
+- `E2E` 열: Phase 9.6 리포트의 해당 ID 판정. 미실행이면 `-`
+- `Read-back` 열: Phase 9.8 Diff 유형(A~E) 또는 `일치`. Phase 9.8이 SKIP이면 `-`
 
 ### 4. 품질 루프 결과
 | 단계 | 루프 횟수 | 수정 건수 |
@@ -185,6 +193,7 @@ Phase 6 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | scope-review | N | M |
 
 - **E2E 리포트 HTML**: [Phase 9.6 마지막 실행이 보고한 경로 (여러 번 돌렸으면 최종 iteration 산출물). 미생성이면 "미생성 (E2E SKIP 또는 미실행)"]
+- **Read-back 판정**: [PASS/WARN/FAIL] — A [n]건 / C [n]건 / E [n]건 (소스: 테스트 파일 / E2E 리포트 / 구현 코드)
 
 ### 5. 문서 동기화
 - Apidog 업데이트: [Y/N, 요약]
@@ -214,4 +223,15 @@ Phase 6 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 ### 9. 보완점
 | # | 대상 스킬 | 보완 내용 | 적용 여부 |
 |---|----------|----------|----------|
+
+### 10. Read-back Diff (유저 결정 필요)
+> Phase 9.8이 SKIP이거나 판정이 PASS면 "없음"으로 적고 이 섹션을 비운다.
+
+| 유형 | 항목 | Spec | 실제 보장 | 참조 구현 | 필요한 결정 |
+|------|------|------|----------|----------|------------|
+| C 기대값 불일치 | 중복 리뷰 (EC-05) | 400 | 409 | `order_handler.go:88` → 409 | 어느 쪽으로 통일할지 |
+| A 검증 누락 | 일일 5회 제한 (EC-07) | 429 | 검증 없음 | - | 테스트 추가 / 범위 제외 |
+| B Spec 밖 | body 길이 2000자 제한 | 없음 | 400 반환 | - | Spec에 반영 / 제거 |
+| E 컨벤션 이탈 | `now == startAt` (EC-02) | 예정 | 예정 | `promotion.go:41` → 진행중 | 기존 컨벤션 따를지 |
+| D 해석 불가 | `assert.Eventually` (`x_test.go:103`) | - | 불명 | - | 의도 확인 |
 ```

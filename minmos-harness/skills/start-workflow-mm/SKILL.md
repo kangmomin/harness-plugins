@@ -358,16 +358,21 @@ for iteration in 1..3:
       → 이슈만 수집, 파일 수정 금지
   [Phase 9.5 — 통합 수정] 수집 이슈를 단일 에이전트가 일괄 수정
   [Batch B — 순차, 서버 점유] 9.6 e2e-test-loop-mm → 9.7 make test
+
+[루프 종료 후 1회] 9.8 Spec 정합 Read-back — 판정만, 코드 수정 없음
 ```
 
 | 종료 조건 | 결과 |
 |----------|------|
-| iteration 내 수정 0건 (`modified == false`) | 루프 탈출 → Phase 10 |
+| iteration 내 수정 0건 (`modified == false`) | 루프 탈출 → Phase 9.8 |
 | `modified == true` | 커밋 후 다음 iteration |
-| 3회 도달 | 미해결 사항 보고 후 강제 탈출 → Phase 10 |
+| 3회 도달 | 미해결 사항 보고 후 강제 탈출 → Phase 9.8 |
 
 커밋: `git add [수정 파일들] && git commit -m "Fix: 품질 루프 수정 (반복 N)"`
-완료 후: "Phase 9 완료: [루프 횟수]회, 총 [수정 건수]건 수정"
+
+**Phase 9.8은 루프 밖에서 1회만 실행한다.** Spec을 모르는 격리된 에이전트가 구현·검증 산출물에서 보장 동작을 복원하고, 오케스트레이터가 그것을 Spec·기존 코드와 대조해 이탈을 판정한다. 코드는 수정하지 않으며 결과는 Phase 14에서 유저에게 보고한다. 판정이 `FAIL`이어도 자율 실행은 멈추지 않는다.
+
+완료 후: "Phase 9 완료: [루프 횟수]회, 총 [수정 건수]건 수정 / Read-back [PASS/WARN/FAIL] (A·C·E [N]건)"
 
 ### Phase 10: Codex 품질 리뷰 (항상)
 
@@ -398,7 +403,11 @@ MCP tool 호출 전 **1회 호출로 read/write capability를 먼저 확인**하
 
 1. **HTML 렌더링**: `{IMPL_NOTES}` → `{WORKLOG_DIR}/{YYYYMMDD}-{task-name-kebab}-impl-notes.html` (템플릿 준수, 디렉토리 없으면 생성).
 2. **보고서 작성**: Phase 7~13 결과를 종합해 Workflow Report 작성 (템플릿 준수 — 섹션 머리글 변경 금지). `## 미결 질문` 1건 이상이면 보고서 최상단에 "사용자 확인 필요" 블록 자동 삽입.
-3. **보완점 적용** 질문:
+3. **Read-back Diff 처리** (Phase 9.8 판정이 `WARN`/`FAIL`일 때만): 보고서의 Read-back Diff 섹션 각 항목을 유저에게 제시하고 결정을 받는다.
+   보완점 질문보다 **먼저** 처리한다 — 코드·Spec에 직접 영향을 주는 결정이기 때문이다.
+   - 결정에 따른 코드/Spec 수정이 필요하면 그 자리에서 수행하고 커밋한다. 유저가 승인하기 전에는 수정하지 않는다 (Spec 외 변경 금지 원칙).
+   - 유저가 "이번 범위 외"로 판단한 항목은 보고서에 `보류`로 남기고 넘어간다.
+4. **보완점 적용** 질문:
    > "위 보완점을 해당 스킬에 반영할까요?
    > 1. 전체 — 모든 보완점 반영
    > 2. 선택 — 번호로 선택한 항목만 반영
@@ -443,6 +452,7 @@ Phase 6: feature 브랜치 + 상태 파일 + implementation-notes.md(4-섹션) �
 Phase 7: 구현 (sequential: workflow-implementer / parallel: general-purpose × N → 일괄 커밋)
 Phase 8: go build 빌드 체크 (실패 시 수정 최대 3회)
 Phase 9: 품질 루프 최대 3회 (병렬 스캔 9.1~9.4 → 통합 수정 9.5 → e2e 9.6 → make test 9.7)
+         루프 종료 후 9.8 Spec 정합 Read-back 1회 (격리 복원 → Diff 판정, 수정 없음)
 Phase 10: Codex 품질 리뷰 (APPROVE까지, REJECT 최대 3회)
 Phase 11: workflow-doc-sync → Apidog 동기화 (API 변경 시만)
 Phase 12: workflow-pr → PR 생성 (--hard: push만)
