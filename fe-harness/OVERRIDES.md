@@ -93,7 +93,7 @@ Phase 11 에서 유저가 반영 방식을 선택한다.
 
 - 적용 범위: **모든 fe-harness 사용자** (단, 유지보수자 큐레이션 후)
 - 경로: 플러그인 레포(`kangmomin/harness-plugins`) 의 `fe-harness/community-feedback/{skills,agents,common}/...`
-- 제출: `/fe-harness:submit-feedback` 이 `gh` CLI 로 fork/clone → append → PR 생성 을 자동 수행
+- 제출: `/common:submit-feedback` 이 `gh` CLI 로 fork/clone → append → PR 생성 을 자동 수행
 - **범용성 있는 피드백**에만 권장 (사내 용어/경로/티켓 포함 금지)
 - 원본 SKILL.md 는 이 PR 로도 변경되지 않음. community-feedback 은 수집 레이어
 

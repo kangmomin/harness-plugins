@@ -144,7 +144,7 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 > "보완점 반영 방식을 선택하세요:
 > 1. **로컬에만 저장** (기본값) — `.claude/be-harness/...` 에 append. 이 프로젝트에만 적용.
-> 2. **로컬 저장 + 플러그인 레포에 PR** — 로컬 저장 후 `/be-harness:submit-feedback` 호출로 community-feedback 영역에 PR 제출. 범용성 있는 피드백에 권장.
+> 2. **로컬 저장 + 플러그인 레포에 PR** — 로컬 저장 후 `/common:submit-feedback` 호출로 community-feedback 영역에 PR 제출. 범용성 있는 피드백에 권장.
 > 3. **건너뛰기** — 보고서만 출력하고 종료."
 
 - 옵션 선택 후 각 보완점마다 Y/N 선택.
@@ -154,7 +154,7 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 1. 로컬 오버라이드에 append 먼저 수행 (옵션 1과 동일).
 2. PR 제출 대상 후보(generality: 범용 / 특정 조건)를 정리.
-3. `Skill tool`로 `/be-harness:submit-feedback`을 호출하며 후보 리스트 전달.
+3. `Skill tool`로 `/common:submit-feedback`을 호출하며 후보 리스트 전달.
 4. submit-feedback이 `SKIPPED:*` 반환 시(gh 미설치/미인증/네트워크 실패 등) 로컬 저장만 완료된 상태로 워크플로우 정상 종료, 유저에게 fallback 사유를 보고.
 5. 성공 시 PR URL을 최종 보고서에 포함.
 

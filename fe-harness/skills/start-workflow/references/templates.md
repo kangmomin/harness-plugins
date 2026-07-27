@@ -136,7 +136,7 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 > "보완점 반영 방식을 선택하세요:
 > 1. **로컬에만 저장** (기본값) — `.claude/fe-harness/...` 에 append.
-> 2. **로컬 저장 + 플러그인 레포에 PR** — `/fe-harness:submit-feedback` 호출. community-feedback 영역에 PR.
+> 2. **로컬 저장 + 플러그인 레포에 PR** — `/common:submit-feedback` 호출. community-feedback 영역에 PR.
 > 3. **건너뛰기**."
 
 옵션 2 선택 시 각 보완점마다 `generality`(범용 / 특정 조건 / 프로젝트 한정)를 수집. `프로젝트 한정`은 PR 대상에서 제외.
@@ -144,7 +144,7 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 ### 옵션 2 세부 흐름
 
 1. 로컬 오버라이드 append 먼저.
-2. PR 후보 정리 후 `Skill tool`로 `/fe-harness:submit-feedback` 호출.
+2. PR 후보 정리 후 `Skill tool`로 `/common:submit-feedback` 호출.
 3. `SKIPPED:*` 반환 시 로컬 저장만 완료 상태로 종료, fallback 사유 보고.
 4. 성공 시 PR URL을 최종 보고서에 포함.
 

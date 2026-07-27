@@ -27,7 +27,6 @@ commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 �
 |------|------|------|
 | **init** | `/fe-harness:init` | profile 생성/갱신 (framework, testRunner, e2eRunner 등) |
 | **doctor** | `/fe-harness:doctor` | 환경 진단 |
-| **how-to-use** | `/fe-harness:how-to-use` | 플러그인 내 스킬 사용법 안내 (스킬 목록 조회 + 개별 사용법 설명) |
 
 ### 자동화
 
@@ -95,7 +94,7 @@ commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 �
 
 범용성 있는 보완점은 플러그인 레포에 PR로 제출해 다른 사용자와 공유할 수 있다:
 
-- 제출 스킬: `/fe-harness:submit-feedback`
+- 제출 스킬: `/common:submit-feedback`
 - 대상: `kangmomin/harness-plugins` 의 `fe-harness/community-feedback/{skills,agents,common}/...`
 - `start-workflow` Phase 11 에서 "로컬 저장 + PR" 옵션을 선택하면 자동 호출됨
 - 플러그인 원본 SKILL.md 는 PR 로도 변경되지 않음 (수집 레이어)

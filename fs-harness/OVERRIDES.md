@@ -4,7 +4,7 @@
 
 플러그인 원본 파일(`fs-harness/skills/{name}/SKILL.md`)은 **절대 수정하지 않는다**. 프로젝트 특화 규칙은 아래 경로의 오버라이드 파일에만 작성한다.
 
-> fs-harness 는 **자체 에이전트를 갖지 않는다** — `start-workflow`, `submit-feedback` 두 스킬뿐이며, 구현은 be-harness/fe-harness 의 에이전트를 병렬 호출한다. 해당 에이전트 오버라이드는 이 문서가 아니라 `.claude/be-harness/agents/...`, `.claude/fe-harness/agents/...` 에 각각 작성한다 (각 플러그인의 `OVERRIDES.md` 참고).
+> fs-harness 는 **자체 에이전트를 갖지 않는다** — `start-workflow` 스킬 하나뿐이며 (피드백 제출은 `/common:submit-feedback` 사용), 구현은 be-harness/fe-harness 의 에이전트를 병렬 호출한다. 해당 에이전트 오버라이드는 이 문서가 아니라 `.claude/be-harness/agents/...`, `.claude/fe-harness/agents/...` 에 각각 작성한다 (각 플러그인의 `OVERRIDES.md` 참고).
 
 ## 경로 구조
 
@@ -13,7 +13,6 @@
 ├── common.md                          # 플러그인 공통 오버라이드 (모든 스킬에 적용)
 └── skills/
     ├── start-workflow.md              # /fs-harness:start-workflow 오버라이드
-    └── submit-feedback.md             # /fs-harness:submit-feedback 오버라이드
 ```
 
 모든 파일은 선택적이다. 없으면 해당 레이어를 건너뛴다.
@@ -44,7 +43,7 @@ frontmatter는 선택. 본문은 자유로운 markdown. 단, 아래 섹션을 **
 
 ```markdown
 ---
-scope: skill:start-workflow  # 또는 skill:submit-feedback, common
+scope: skill:start-workflow  # 또는 common
 applies-to: fs-harness@0.1.0+ # 최소 플러그인 버전
 updated: 2026-04-21
 ---
@@ -74,9 +73,9 @@ Phase 10 회고에서 도출된 보완점은 **대상 도메인별로 분류**�
 
 | 보완점 대상 | 저장 경로 | submit-feedback |
 |-----------|----------|-----------------|
-| BE 스킬/에이전트 | `.claude/be-harness/...` | `/be-harness:submit-feedback` |
-| FE 스킬/에이전트 | `.claude/fe-harness/...` | `/fe-harness:submit-feedback` |
-| 풀스택 계약/오케스트레이션 | `.claude/fs-harness/...` | `/fs-harness:submit-feedback` |
+| BE 스킬/에이전트 | `.claude/be-harness/...` | `/common:submit-feedback` |
+| FE 스킬/에이전트 | `.claude/fe-harness/...` | `/common:submit-feedback` |
+| 풀스택 계약/오케스트레이션 | `.claude/fs-harness/...` | `/common:submit-feedback` |
 
 ### Tier 1: 로컬 오버라이드 (기본값)
 
@@ -88,7 +87,7 @@ Phase 10 회고에서 도출된 보완점은 **대상 도메인별로 분류**�
 
 - 적용 범위: 모든 사용자 (단, 유지보수자 큐레이션 후)
 - 경로: 각 플러그인의 `community-feedback/{skills,agents,common}/...`
-- 제출: 도메인별 `submit-feedback` 이 gh CLI로 fork/clone → append → PR
+- 제출: `/common:submit-feedback` 이 도메인별로 gh CLI를 써서 fork/clone → append → PR
 - **범용성 있는 피드백**에만 권장
 
 Phase 10 옵션:
@@ -96,7 +95,7 @@ Phase 10 옵션:
 2. **로컬 + PR** — 도메인별로 독립 PR (be/fe/fs 병렬 가능)
 3. **건너뛰기**
 
-각 submit-feedback 은 독립 동작. 한쪽이 `[SKIPPED:*]` 나 FAILED 여도 다른 도메인 PR은 계속 진행.
+각 도메인 제출은 독립 동작. 한쪽이 `[SKIPPED:*]` 나 FAILED 여도 다른 도메인 PR은 계속 진행.
 
 ## 전역 컨벤션 파일과의 차이
 
@@ -105,7 +104,7 @@ fs-harness 는 **자체 profile/projectConventions 을 갖지 않는다**. be-ha
 | 구분 | 용도 | 파일 경로 |
 |------|------|----------|
 | profile (be/fe 개별 보유) | 빌드/테스트 명령, 디렉토리 경로 등 **값(setting)** — fs 자체 profile 없음 | `.claude/be-harness.local.md`, `.claude/fe-harness.local.md` |
-| **Project Overrides (이 문서)** | **fs-harness 의 두 스킬(`start-workflow`, `submit-feedback`)에 대한 프로젝트별 동작 조정/추가 규칙** | `.claude/fs-harness/{common.md,skills/{name}.md}` |
+| **Project Overrides (이 문서)** | **fs-harness 의 `start-workflow` 스킬에 대한 프로젝트별 동작 조정/추가 규칙** | `.claude/fs-harness/{common.md,skills/{name}.md}` |
 
 Profile 은 "값", Overrides 는 "스킬 그 자체의 행동 변형" — 역할이 분리되어 있다.
 

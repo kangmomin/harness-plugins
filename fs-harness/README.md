@@ -28,7 +28,6 @@
 | 스킬 | 호출 | 설명 |
 |------|------|------|
 | **start-workflow** | `/fs-harness:start-workflow` | 풀스택 애자일 워크플로우 — 기능 정의 → 통신 계약 → 교차 리뷰 → FE/BE 병렬 구현 → 통합 검증 → 단일 PR |
-| **submit-feedback** | `/fs-harness:submit-feedback` | 풀스택 워크플로우에서 수집된 보완점을 플러그인 레포 community-feedback 에 PR로 제출 (실패 시 로컬 저장 fallback) |
 
 ## Phase 개요
 
@@ -68,8 +67,7 @@ fs-harness는 be-harness/fe-harness 에이전트를 병렬 호출하므로 **세
 ├── fe-harness/                # fe-harness 오버라이드 (Phase 6 FE 구현, Phase 7 FE 루프)
 └── fs-harness/
     ├── common.md              # fs-harness 공통 (Phase 1~10 풀스택 조정)
-    ├── skills/start-workflow.md
-    └── skills/submit-feedback.md
+    └── skills/start-workflow.md
 ```
 
 - `be-harness:workflow-implementer` 실행 시 → `.claude/be-harness/agents/workflow-implementer.md` 가 적용됨
@@ -83,11 +81,9 @@ start-workflow Phase 10 의 보완점은 대상 도메인에 따라 각 디렉�
 
 범용성 있는 보완점은 각 플러그인 레포의 `community-feedback/` 영역에 PR로 제출할 수 있다:
 
-- 제출 스킬:
-  - `/be-harness:submit-feedback` (BE 스킬/에이전트 피드백)
-  - `/fe-harness:submit-feedback` (FE 스킬/에이전트 피드백)
-  - `/fs-harness:submit-feedback` (풀스택 계약/오케스트레이션 피드백)
-- `start-workflow` Phase 10 에서 "로컬 저장 + PR" 을 선택하면 각 도메인의 submit-feedback 이 병렬로 호출됨
+- 제출 스킬: `/common:submit-feedback` (대상 플러그인은 보완점의 저장 경로로 판별)
+- `start-workflow` Phase 10 에서 "로컬 저장 + PR" 을 선택하면 도메인별 후보를 나눠 호출됨
+- BE·FE·풀스택 보완점은 **각각 별도 PR**로 분리된다 (플러그인마다 리뷰 주체·배포 주기가 다름)
 - 각 도메인 PR은 독립적: 한쪽이 실패/SKIP 해도 다른 쪽 진행
 - 전제: `gh` CLI 설치 및 인증
 

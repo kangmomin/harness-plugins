@@ -20,7 +20,7 @@ be-harness/community-feedback/
 ## 기여 방식
 
 1. 프로젝트에서 `/be-harness:start-workflow` 를 실행하고 Phase 12에서 **"로컬 저장 + PR"** 옵션을 선택
-2. `/be-harness:submit-feedback` 이 자동으로:
+2. `/common:submit-feedback` 이 자동으로:
    - 이 레포를 fork/clone
    - 해당 스킬/에이전트/common 파일에 append
    - PR 생성

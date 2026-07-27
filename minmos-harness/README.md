@@ -33,7 +33,6 @@ minmos-harness 는 다음 플러그인의 에이전트/스킬을 호출한다.
 |------|------|------|
 | **minmo-init** | `/minmos-harness:minmo-init-mm` | 모든 의존성 한 번에 세팅 (MCP, 환경 변수, 컨벤션) |
 | **minmo-doctor** | `/minmos-harness:minmo-doctor-mm` | 모든 의존성 한 번에 진단 (필수/선택 분류) |
-| **how-to-use** | `/minmos-harness:how-to-use-mm` | 플러그인 내 스킬 사용법 안내 (스킬 목록 조회 + 개별 사용법 설명) |
 
 ### 자동화 파이프라인
 

@@ -260,7 +260,7 @@ Phase 8.1이 보고한 불일치를 먼저 확인한 뒤 위 항목을 점검한
    > "1. **로컬에만 저장** (기본값) — 각 도메인의 로컬 오버라이드 파일에 append.
    > 2. **로컬 저장 + 플러그인 레포 PR** — 도메인별 submit-feedback 호출.
    > 3. **건너뛰기**."
-4. 옵션 2: 로컬 저장 먼저 → 도메인별 후보 분리 → `/be-harness:submit-feedback` / `/fe-harness:submit-feedback` / `/fs-harness:submit-feedback` 각각 호출. 각 호출은 독립적 — 한쪽이 `SKIPPED:*`/FAILED여도 다른 쪽은 계속 진행. PR URL과 SKIP 사유를 모두 수집해 최종 보고서에 병기.
+4. 옵션 2: 로컬 저장 먼저 → 도메인별(BE/FE/풀스택) 후보 분리 → 각 도메인마다 `/common:submit-feedback`을 대상 플래그(`--be` / `--fe` / `--fs`)와 함께 **따로** 호출. 도메인별로 별도 PR이 생성된다. 각 호출은 독립적 — 한쪽이 `SKIPPED:*`/FAILED여도 다른 쪽은 계속 진행. PR URL과 SKIP 사유를 모두 수집해 최종 보고서에 병기.
 5. 최종 보고: `references/contract-templates.md`의 "최종 보고 형식"을 따른다.
 6. 정리: `{STATE_FILE}`의 모든 Phase를 `DONE`/`SKIPPED:{사유}`로 갱신, `Remaining Phases`를 `없음`으로. 기본은 보관, 사용자 요청 시에만 `rm -f {STATE_FILE}`.
 
