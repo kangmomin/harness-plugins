@@ -3,7 +3,7 @@ name: unit-test
 description: "하네스별 단위 테스트 작성/실행 스킬로 위임하는 라우터. '테스트 작성해줘', '유닛 테스트 돌려줘' 요청 시 사용. 대상 플래그가 없으면 설치된 하네스 중에서 선택지를 제시한다."
 user-invocable: true
 allowed-tools: AskUserQuestion, Read, Glob, Bash, Skill
-argument-hint: "[--fe|--hd] [--init|--doctor] [대상 파일]"
+argument-hint: "[--fe] [--init|--doctor] [대상 파일]"
 ---
 
 > **Project Overrides**: 실행 전 `.claude/common/common.md`와 `.claude/common/skills/unit-test.md`를 Read.
@@ -20,7 +20,6 @@ argument-hint: "[--fe|--hd] [--init|--doctor] [대상 파일]"
 | 플래그 | 대상 스킬 | 설정 출처 |
 |--------|----------|----------|
 | `--fe` | `/fe-harness:unit-test` | `.claude/fe-harness.local.md` (`testRunner`) |
-| `--hd` | `/hyeondongs-harness:unit-test-hd` | `.hyeondong-config.json` |
 
 ## 특이사항
 

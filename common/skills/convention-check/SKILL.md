@@ -3,7 +3,7 @@ name: convention-check
 description: "하네스별 컨벤션 위반 검사 스킬로 위임하는 라우터. '컨벤션 검사해줘', '규칙 위반 확인', 커밋/PR 전 점검 시 사용. 대상 플래그가 없으면 설치된 하네스 중에서 선택지를 제시한다."
 user-invocable: true
 allowed-tools: AskUserQuestion, Read, Glob, Bash, Skill
-argument-hint: "[--be|--fe|--mm|--hd] [검사 범위]"
+argument-hint: "[--be|--fe|--mm] [검사 범위]"
 ---
 
 > **Project Overrides**: 실행 전 `.claude/common/common.md`와 `.claude/common/skills/convention-check.md`를 Read.
@@ -22,7 +22,6 @@ argument-hint: "[--be|--fe|--mm|--hd] [검사 범위]"
 | `--be` | `/be-harness:convention-check` | 레이어 분리·에러 처리·네이밍 (범용 백엔드) |
 | `--fe` | `/fe-harness:convention-check` | 컴포넌트 구조·Props·상태 관리 (범용 프론트엔드) |
 | `--mm` | `/minmos-harness:convention-check-mm` | minmos 로컬 컨벤션 (go-conventions SSOT 정렬) |
-| `--hd` | `/hyeondongs-harness:convention-check-hd` | hyeondongs 로컬 컨벤션 |
 
 ## 특이사항
 

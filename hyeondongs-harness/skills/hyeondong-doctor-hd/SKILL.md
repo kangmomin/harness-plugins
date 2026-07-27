@@ -9,6 +9,9 @@ user-invocable: true
 
 플러그인이 정상 동작하기 위한 모든 의존성을 한 번에 점검하고, 문제가 있으면 해결 방법을 안내한다.
 
+> **관련 스킬은 `fe-harness` 에 있다.** 아래 표의 스킬 이름(`lint-check`, `unit-test` 등)은 `/fe-harness:{이름}` 을 가리킨다.
+> `.hyeondong-config.json` 은 fe-harness 의 2순위 profile 이며, `.claude/fe-harness.local.md` 가 있으면 그쪽이 우선한다.
+
 ## Language Rule
 
 유저와의 모든 대화는 **한국어**로 진행한다.

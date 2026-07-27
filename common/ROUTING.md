@@ -16,10 +16,11 @@
 | `--fe` | | `fe-harness` — 범용 프론트엔드 |
 | `--fs` | | `fs-harness` — 풀스택 오케스트레이터 |
 | `--mm` | | `minmos-harness` — minmos 프로젝트 전용 |
-| `--hd` | | `hyeondongs-harness` — hyeondongs 프로젝트 전용 |
+| `--hd` | | `hyeondongs-harness` — hyeondongs 프로젝트 전용 (init·doctor·풀스택만) |
 
 - 플래그는 **인자 어느 위치에나** 올 수 있다. 라우터는 플래그를 제거한 나머지 인자를 그대로 대상에 전달한다.
 - 대상 스킬 고유 플래그(`--hard`, `--analyze`, `--dry-run` 등)는 **해석하지 않고 그대로 넘긴다.**
+- **`--hd` 폴백**: hyeondongs의 프론트엔드 스킬 10종은 `fe-harness` 로 흡수되었다. 자기 표에 `--hd` 대상이 없는 라우터는 `--hd` 를 `--fe` 로 처리하고, 위임 전에 한 줄로 고지한다: "hyeondongs 프론트엔드 스킬은 fe-harness 로 통합되었습니다. `/fe-harness:{스킬}` 로 진행합니다."
 - 두 개 이상의 대상 플래그가 오면 오류로 처리한다: "대상 플래그는 하나만 지정하세요: {입력된 목록}".
 - 한 하네스가 같은 이름의 변형을 둘 이상 제공하면(예: minmos의 `start-workflow-mm`과 `start-workflow-fs`) 라우터가 **자기 표에 추가 플래그를 정의**한다(`--mm-fs` 등). 추가 플래그도 위 규칙을 그대로 따른다.
 

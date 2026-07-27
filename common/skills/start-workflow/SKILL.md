@@ -3,7 +3,7 @@ name: start-workflow
 description: "하네스별 개발 워크플로우(Spec → Plan → 구현 → 품질 루프 → PR)로 위임하는 라우터. '워크플로우 시작', '기능 구현해줘(전 과정 자동)', '코드 분석/검증해줘' 요청 시 사용. 대상 플래그가 없으면 설치된 하네스 중에서 선택지를 제시한다."
 user-invocable: true
 allowed-tools: AskUserQuestion, Read, Glob, Bash, Skill
-argument-hint: "[--be|--fe|--fs|--mm|--hd|--mm-fs|--hd-fs] <작업 설명 또는 대상 스킬 플래그>"
+argument-hint: "[--be|--fe|--fs|--mm|--mm-fs|--hd-fs] <작업 설명 또는 대상 스킬 플래그>"
 ---
 
 > **Project Overrides**: 실행 전 `.claude/common/common.md`와 `.claude/common/skills/start-workflow.md`를 Read.
@@ -24,7 +24,6 @@ argument-hint: "[--be|--fe|--fs|--mm|--hd|--mm-fs|--hd-fs] <작업 설명 또는
 | `--fs` | `/fs-harness:start-workflow` | 범용 풀스택 (FE+BE 병렬 오케스트레이션) |
 | `--mm` | `/minmos-harness:start-workflow-mm` | minmos 백엔드 |
 | `--mm-fs` | `/minmos-harness:start-workflow-fs` | minmos 풀스택 |
-| `--hd` | `/hyeondongs-harness:start-workflow-hd` | hyeondongs 프론트엔드 |
 | `--hd-fs` | `/hyeondongs-harness:start-workflow-fs` | hyeondongs 풀스택 |
 
 ## 특이사항

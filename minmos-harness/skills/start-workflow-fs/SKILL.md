@@ -1,6 +1,6 @@
 ---
 name: start-workflow-fs
-description: "프론트엔드(hyeondongs-harness)와 백엔드(minmos-harness)를 분리된 에이전트로 병렬 오케스트레이션한다. 기능 정의 → 통신 계약 → 교차 리뷰 → 병렬 구현 → Codex 품질 리뷰 → 통합 검증 → 단일 PR. 화면과 API가 함께 바뀌는 작업, '풀스택으로 진행해줘' 요청 시 사용."
+description: "프론트엔드(fe-harness)와 백엔드(minmos-harness)를 분리된 에이전트로 병렬 오케스트레이션한다. 기능 정의 → 통신 계약 → 교차 리뷰 → 병렬 구현 → Codex 품질 리뷰 → 통합 검증 → 단일 PR. 화면과 API가 함께 바뀌는 작업, '풀스택으로 진행해줘' 요청 시 사용."
 allowed-tools: AskUserQuestion, Read, Write, Edit, Glob, Grep, Bash, Agent, EnterPlanMode, ExitPlanMode, Skill
 argument-hint: <작업 설명 또는 빈 값>
 user-invocable: true
@@ -19,11 +19,11 @@ user-invocable: true
 ## 언제 쓰는가 / 쓰지 않는가
 
 - **사용**: 화면과 API가 함께 바뀌는 기능, 요청/응답 구조·에러 모델·인증 방식이 같이 정리되어야 하는 작업.
-- **미사용**: 백엔드만 바뀌면 `start-workflow-mm`, 프론트엔드만 바뀌면 `start-workflow-hd`.
+- **미사용**: 백엔드만 바뀌면 `start-workflow-mm`, 프론트엔드만 바뀌면 `/fe-harness:start-workflow`.
 
 ## 전제 조건
 
-- **minmos-harness와 hyeondongs-harness가 모두 사용 가능**해야 한다 (`request-mm`/`request-hd`, 각 도메인 품질 스킬, workflow-reflection 사용).
+- **minmos-harness와 fe-harness가 모두 사용 가능**해야 한다 (`request-mm`/`/fe-harness:request`, 각 도메인 품질 스킬, workflow-reflection 사용).
 - 한쪽 하네스가 없으면 이 스킬로 억지로 진행하지 말고, 단일 도메인 워크플로우로 안내 후 종료한다.
 
 ## Flags
@@ -56,7 +56,7 @@ user-invocable: true
 
 | Phase | 담당 | 목적 |
 |-------|------|------|
-| 1 | 오케스트레이터 + `request-mm` + `request-hd` | 기능 정의 및 도메인 분리 |
+| 1 | 오케스트레이터 + `request-mm` + `/fe-harness:request` | 기능 정의 및 도메인 분리 |
 | 2 | Codex 리뷰 | Feature Matrix / Technical Spec 사전 검토 |
 | 3 | 오케스트레이터 | 통신 계약 초안 작성 |
 | 4 | 읽기 전용 리뷰 에이전트 2개 이상 | 계약/분업 리뷰 |
@@ -106,7 +106,7 @@ Spec 또는 계약에 없는 변경이 필요하면: ① 코드를 먼저 바꾸
 > Spec(Feature Matrix), 통신 계약, BE/FE/공용 Plan은 모두 같은 Plan 모드 컨텍스트에서 발전하는 단일 산출물이며, `ExitPlanMode`는 Phase 5.4 검증 루프 종료 시 단 한 번만 호출한다.
 
 상세 명세가 이미 충분하면 그 내용을 정리해서 시작한다.
-부족하면 `request-mm`로 백엔드 관점 질문을, `request-hd`로 프론트엔드 관점 질문을 각각 수행한다 (Skill tool, 대화형이므로 순차).
+부족하면 `request-mm`로 백엔드 관점 질문을, `/fe-harness:request`로 프론트엔드 관점 질문을 각각 수행한다 (Skill tool, 대화형이므로 순차).
 
 > Phase 1 진입 시 MUST: `references/contract-templates.md`를 Read하고 "Feature Matrix 템플릿"대로 표를 작성한다.
 
@@ -204,7 +204,7 @@ for iteration in 1..5:
 ## Phase 8: 도메인별 품질 루프 (최대 3회)
 
 - **백엔드 루프**: ① `simplify-loop-mm` ② `convention-check-mm` ③ `e2e-test-loop-mm` ④ API 계약이 바뀌었으면 `e2e-apidog-schema-gen-mm`
-- **프론트엔드 루프**: ① build + type-check ② `simplify-loop-hd` ③ `convention-check-hd` ④ `test-loop-hd` ⑤ `lint-check-hd`
+- **프론트엔드 루프**: ① build + type-check ② `/fe-harness:simplify-loop` ③ `/fe-harness:convention-check` ④ `/fe-harness:test-loop` ⑤ `/fe-harness:lint-check`
 
 | 규칙 | 내용 |
 |------|------|

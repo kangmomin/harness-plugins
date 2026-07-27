@@ -2,6 +2,8 @@
 
 범용 프론트엔드 개발 워크플로우 하네스. `hyeondongs-harness`에서 프로젝트 특화 요소를 걷어내고 **프로젝트 profile** 기반으로 재구성한 범용판.
 
+> v0.8.0 부터 `hyeondongs-harness` 의 프론트엔드 스킬 10종을 흡수했다. 기존 `.hyeondong-config.json` 은 **2순위 profile** 로 그대로 읽히므로 설정을 다시 만들 필요는 없다 (읽기 전용, 필드 매핑은 `PROFILE.md`).
+
 ## 설치
 
 commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 선행 설치해야 한다.
@@ -104,5 +106,5 @@ commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 �
 
 ## 파생 관계
 
-- `hyeondongs-harness` → 팀 내부용
-- **`fe-harness`** → 내부 특화 제거 + profile 기반 범용판
+- `hyeondongs-harness` → 팀 내부용 fork 였으나, 중복 스킬 10종을 **`fe-harness` 로 흡수**(hyeondongs-harness v2.0.0). 지금은 환경 세팅/진단과 minmos 연계 풀스택만 남았다.
+- **`fe-harness`** → 내부 특화 제거 + profile 기반 범용판. `.hyeondong-config.json` 폴백으로 기존 프로젝트를 그대로 받는다.

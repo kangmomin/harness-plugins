@@ -3,7 +3,7 @@ name: component
 description: "하네스별 컴포넌트 생성 스킬로 위임하는 라우터. '컴포넌트 만들어줘', '보일러플레이트 생성' 요청 시 사용. 대상 플래그가 없으면 설치된 하네스 중에서 선택지를 제시한다."
 user-invocable: true
 allowed-tools: AskUserQuestion, Read, Glob, Bash, Skill
-argument-hint: "[--fe|--hd] <컴포넌트 설명>"
+argument-hint: "[--fe] <컴포넌트 설명>"
 ---
 
 > **Project Overrides**: 실행 전 `.claude/common/common.md`와 `.claude/common/skills/component.md`를 Read.
@@ -20,8 +20,7 @@ argument-hint: "[--fe|--hd] <컴포넌트 설명>"
 | 플래그 | 대상 스킬 | 설정 출처 |
 |--------|----------|----------|
 | `--fe` | `/fe-harness:component` | `.claude/fe-harness.local.md` |
-| `--hd` | `/hyeondongs-harness:component-hd` | `.hyeondong-config.json` |
 
 ## 특이사항
 
-- 두 대상은 절차가 거의 같고 **설정 파일 위치만 다르다.** 후보가 둘 다일 때는 프로젝트에 실제로 존재하는 설정 파일 쪽을 권장으로 표시한다.
+- 백엔드 계열에는 대응 스킬이 없다. 컴포넌트 생성은 프론트엔드 하네스 전용이다.

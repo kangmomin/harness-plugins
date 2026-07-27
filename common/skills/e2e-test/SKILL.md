@@ -3,7 +3,7 @@ name: e2e-test
 description: "하네스별 E2E 테스트 스킬로 위임하는 라우터. 'E2E 돌려줘', 'API 실제로 테스트해줘', 구현 검증이 필요할 때 사용. 대상 플래그가 없으면 설치된 하네스 중에서 선택지를 제시한다."
 user-invocable: true
 allowed-tools: AskUserQuestion, Read, Glob, Bash, Skill
-argument-hint: "[--be|--fe|--mm|--hd] <대상 설명 또는 시나리오 ID>"
+argument-hint: "[--be|--fe|--mm] <대상 설명 또는 시나리오 ID>"
 ---
 
 > **Project Overrides**: 실행 전 `.claude/common/common.md`와 `.claude/common/skills/e2e-test.md`를 Read.
@@ -22,7 +22,6 @@ argument-hint: "[--be|--fe|--mm|--hd] <대상 설명 또는 시나리오 ID>"
 | `--be` | `/be-harness:e2e-test` | 서버 기동 + curl 실제 HTTP 요청 |
 | `--fe` | `/fe-harness:e2e-test` | Playwright 브라우저 시나리오 |
 | `--mm` | `/minmos-harness:e2e-test-mm` | REST/gRPC + Apidog 스펙 대조 + status code 정합성 |
-| `--hd` | `/hyeondongs-harness:e2e-test-hd` | Playwright 브라우저 시나리오 |
 
 ## 특이사항
 

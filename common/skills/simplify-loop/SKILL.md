@@ -3,7 +3,7 @@ name: simplify-loop
 description: "하네스별 코드 단순화 반복 루프로 위임하는 라우터. '심플리파이 돌려줘', '코드 간소화', 구현 직후 정리가 필요할 때 사용. 대상 플래그가 없으면 설치된 하네스 중에서 선택지를 제시한다."
 user-invocable: true
 allowed-tools: AskUserQuestion, Read, Glob, Bash, Skill
-argument-hint: "[--be|--fe|--mm|--hd] [--dry-run] [--max-iter N]"
+argument-hint: "[--be|--fe|--mm] [--dry-run] [--max-iter N]"
 ---
 
 > **Project Overrides**: 실행 전 `.claude/common/common.md`와 `.claude/common/skills/simplify-loop.md`를 Read.
@@ -22,7 +22,6 @@ argument-hint: "[--be|--fe|--mm|--hd] [--dry-run] [--max-iter N]"
 | `--be` | `/be-harness:simplify-loop` | 빌트인 `/simplify` 반복 (최대 10회) |
 | `--fe` | `/fe-harness:simplify-loop` | 빌트인 `/simplify` 반복 (최대 10회) |
 | `--mm` | `/minmos-harness:simplify-loop-mm` | Workflow tool 기반 4관점 리뷰 + Devil's Advocate + Arbiter, 3단 폴백 |
-| `--hd` | `/hyeondongs-harness:simplify-loop-hd` | 빌트인 `/simplify` 반복 |
 
 ## 특이사항
 

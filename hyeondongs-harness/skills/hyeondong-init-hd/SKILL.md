@@ -9,6 +9,10 @@ user-invocable: true
 
 플러그인에서 사용하는 모든 환경 설정을 한 번에 세팅한다.
 
+> **관련 스킬은 `fe-harness` 에 있다.** 아래 표의 스킬 이름(`component`, `unit-test` 등)은 `/fe-harness:{이름}` 을 가리킨다.
+> 이 스킬이 만드는 `.hyeondong-config.json` 은 fe-harness 스킬이 **2순위 profile**로 읽는다 (필드 매핑: fe-harness 루트 `PROFILE.md`).
+> 새 프로젝트는 `/fe-harness:init` 으로 `.claude/fe-harness.local.md` 를 만드는 쪽이 기능이 더 완전하다 (빌드/검증 명령, Git·커밋 컨벤션 포함).
+
 ## Language Rule
 
 유저와의 모든 대화는 **한국어**로 진행한다.
@@ -162,7 +166,7 @@ user-invocable: true
   "typescript": true,
   "storybook": false,
   "conventions": [
-    { "name": "default-conventions", "source": "plugin", "skill": "hyeondongs-harness:default-conventions-hd" },
+    { "name": "default-conventions", "source": "plugin", "skill": "fe-harness:default-conventions" },
     { "name": "CLAUDE.md", "source": "project", "path": "CLAUDE.md" }
   ]
 }

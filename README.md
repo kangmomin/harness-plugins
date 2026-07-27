@@ -43,7 +43,7 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 | **fe-harness** | 범용 프론트엔드 | React/Next.js 중심의 컴포넌트 생성, lint/a11y, 단위/E2E 테스트, PR 워크플로우 |
 | **fs-harness** | 풀스택 | BE/FE 하네스를 병렬로 사용해 계약 정의, 교차 리뷰, 통합 검증, 단일 PR까지 오케스트레이션 |
 | **minmos-harness** | Post-Math 백엔드 | 커밋/PR, 컨벤션 검사, Feature Spec 생성, E2E 테스트(REST+gRPC+PubSub), Apidog 스키마 생성 |
-| **hyeondongs-harness** | React 프론트엔드 | 컴포넌트 생성, 커밋/PR, 단위/E2E 테스트, 코드 품질 검사(ESLint, a11y) |
+| **hyeondongs-harness** | hyeondongs 부속 | 환경 세팅/진단(`.hyeondong-config.json`)과 minmos 백엔드 연계 풀스택 워크플로우. 프론트엔드 개발 스킬은 fe-harness 로 통합됨 |
 
 ## 빠른 시작
 
@@ -89,7 +89,7 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 ├── fe-harness/             # 범용 프론트엔드 Claude Code 플러그인
 ├── fs-harness/             # 풀스택 Claude Code 오케스트레이터
 ├── minmos-harness/         # Post-Math 백엔드 Claude Code 플러그인
-├── hyeondongs-harness/     # 프로젝트 특화 프론트엔드 Claude Code 플러그인
+├── hyeondongs-harness/     # hyeondongs 전용 세팅/진단 + 풀스택 오케스트레이터
 ├── docs/                   # 저장소 차원 문서 (스킬 작성 표준 등)
 └── .claude-plugin/         # Claude Code marketplace 정의
 ```
@@ -102,4 +102,4 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 - `fe-harness/README.md`: 범용 프론트엔드 하네스
 - `fs-harness/README.md`: 풀스택 오케스트레이터
 - `minmos-harness/README.md`: Post-Math 백엔드 하네스
-- `hyeondongs-harness/README.md`: 프로젝트 특화 프론트엔드 하네스
+- `hyeondongs-harness/README.md`: hyeondongs 전용 부속 하네스 (세팅/진단 + 풀스택)

@@ -43,24 +43,26 @@
 
 여러 하네스가 같은 이름의 스킬을 제공한다. 매번 `/be-harness:`, `/fe-harness:` 같은 접두를 기억하는 대신 `/common:` 으로 진입하고 대상만 고른다.
 
-**대상 플래그**: `--be`(백엔드) · `--fe`(프론트엔드) · `--fs`(풀스택) · `--mm`(minmos) · `--hd`(hyeondongs)
+**대상 플래그**: `--be`(백엔드) · `--fe`(프론트엔드) · `--fs`(풀스택) · `--mm`(minmos) · `--hd`(hyeondongs — 세팅/진단/풀스택 전용, 그 외는 `--fe` 로 처리)
 **플래그를 생략하면** 설치된 하네스 중에서 선택지를 제시한다. 후보가 하나뿐이면 묻지 않고 바로 실행한다.
 
 | 스킬 | 호출 | 위임 대상 |
 |------|------|----------|
-| **start-workflow** | `/common:start-workflow` | be · fe · fs · mm · hd (+ `--mm-fs` / `--hd-fs` 풀스택 변형) |
-| **request** | `/common:request` | be · fe · mm · hd |
-| **e2e-test** | `/common:e2e-test` | be · fe · mm · hd |
+| **start-workflow** | `/common:start-workflow` | be · fe · fs · mm (+ `--mm-fs` / `--hd-fs` 풀스택 변형) |
+| **request** | `/common:request` | be · fe · mm |
+| **e2e-test** | `/common:e2e-test` | be · fe · mm |
 | **e2e-test-loop** | `/common:e2e-test-loop` | be · mm |
-| **simplify-loop** | `/common:simplify-loop` | be · fe · mm · hd |
-| **convention-check** | `/common:convention-check` | be · fe · mm · hd |
-| **default-conventions** | `/common:default-conventions` | be · fe · mm · hd |
+| **simplify-loop** | `/common:simplify-loop` | be · fe · mm |
+| **convention-check** | `/common:convention-check` | be · fe · mm |
+| **default-conventions** | `/common:default-conventions` | be · fe · mm |
 | **doctor** | `/common:doctor` | be · fe · mm · hd (후보 전체 순차 실행 가능) |
 | **init** | `/common:init` | be · fe · mm · hd |
-| **component** | `/common:component` | fe · hd |
-| **unit-test** | `/common:unit-test` | fe · hd |
-| **lint-check** | `/common:lint-check` | fe · hd |
-| **test-loop** | `/common:test-loop` | fe · hd |
+| **component** | `/common:component` | fe |
+| **unit-test** | `/common:unit-test` | fe |
+| **lint-check** | `/common:lint-check` | fe |
+| **test-loop** | `/common:test-loop` | fe |
+
+`--hd` 는 `init` · `doctor` · `start-workflow --hd-fs` 에서만 고유 대상을 가진다. 나머지 라우터에서는 `--fe` 로 처리하고 한 줄 고지한다 (hyeondongs 프론트엔드 스킬 10종이 fe-harness 로 통합됨).
 
 라우터는 **절차를 갖지 않는다.** 실제 동작은 위임 대상 하네스 스킬이 정의하며, 라우터는 대상 결정과 인자 전달만 한다. 공통 규약: 플러그인 루트 [`ROUTING.md`](./ROUTING.md).
 

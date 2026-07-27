@@ -67,9 +67,37 @@ projectConventions: ["CLAUDE.md"]
 ## 읽기 우선순위
 
 1. `.claude/fe-harness.local.md` 의 YAML 값
-2. `package.json` 의 `scripts` 자동 감지 (예: `scripts.build` 있으면 `pnpm build`)
-3. lock 파일로 패키지 매니저 추정 (`pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn 등)
-4. 사용자에게 `/fe-harness:init` 실행 안내
+2. `.hyeondong-config.json` (레거시 호환 — 아래 참조)
+3. `package.json` 의 `scripts` 자동 감지 (예: `scripts.build` 있으면 `pnpm build`)
+4. lock 파일로 패키지 매니저 추정 (`pnpm-lock.yaml` → pnpm, `yarn.lock` → yarn 등)
+5. 사용자에게 `/fe-harness:init` 실행 안내
+
+## 레거시 profile 호환 (`.hyeondong-config.json`)
+
+구 `hyeondongs-harness` 는 fe-harness 스킬을 복제하고 설정만 JSON으로 바꾼 fork였다(자체 에이전트 없이 fe-harness 에이전트에 의존).
+중복 스킬 10종을 fe-harness 로 흡수하면서, 기존 프로젝트가 설정을 다시 만들지 않아도 되도록 이 파일을 2순위 profile로 읽는다.
+
+1순위(`.claude/fe-harness.local.md`)가 있으면 이 파일은 **읽지 않는다.**
+
+### 필드 매핑
+
+키는 대부분 동일하다. 다른 것만 아래에 정의한다.
+
+| fe-harness.local.md | .hyeondong-config.json | 처리 |
+|---------------------|------------------------|------|
+| `framework` · `uiLibrary` · `stateManagement` · `testRunner` · `e2eRunner` · `packageManager` · `componentPattern` · `typescript` · `storybook` | 같은 키 | 그대로 사용 |
+| `language` | (없음) | 기본값 `ko` |
+| 빌드/검증 명령, 서버, 소스 레이아웃, Git, 커밋 컨벤션 | (없음) | 위 "읽기 우선순위" 3·4순위(자동 감지)로 채우고, 못 채우면 해당 단계 `SKIPPED` |
+| `projectConventions: ["CLAUDE.md"]` | `conventions: [{name, source, path\|skill}]` | `source: "project"` 항목의 `path` 만 모아 배열로. `source: "plugin"` 항목은 무시하고 `/fe-harness:default-conventions` 를 쓴다 |
+
+`.hyeondong-config.json` 에만 있는 키는 무시한다.
+
+### 쓰기 규칙
+
+- **레거시 파일에 쓰지 않는다.** `.hyeondong-config.json` 은 읽기 전용으로 취급한다.
+- 설정 갱신이 필요한 스킬(`convention-check` 의 `projectConventions` 업데이트 등)은 레거시 profile을 쓰는 중이면 갱신을 건너뛰고 안내한다:
+  > "`.hyeondong-config.json` 은 읽기 전용입니다. 설정을 갱신하려면 `/fe-harness:init` 으로 `.claude/fe-harness.local.md` 를 생성하세요 (기존 값이 기본값으로 채워집니다)."
+- `/fe-harness:init` 은 `.hyeondong-config.json` 이 있으면 그 값을 기본값으로 제시해 마이그레이션을 돕는다. 원본은 삭제하지 않는다.
 
 ## 명령 실행 규칙
 

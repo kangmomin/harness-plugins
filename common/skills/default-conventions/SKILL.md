@@ -3,7 +3,7 @@ name: default-conventions
 description: "하네스별 개발 가이드라인 문서로 위임하는 라우터. '컨벤션 알려줘', '이 프로젝트 규칙이 뭐야', 코드 작성 기준이 필요할 때 사용. 대상 플래그가 없으면 설치된 하네스 중에서 선택지를 제시한다."
 user-invocable: true
 allowed-tools: AskUserQuestion, Read, Glob, Bash, Skill
-argument-hint: "[--be|--fe|--mm|--hd]"
+argument-hint: "[--be|--fe|--mm]"
 ---
 
 > **Project Overrides**: 실행 전 `.claude/common/common.md`와 `.claude/common/skills/default-conventions.md`를 Read.
@@ -22,7 +22,6 @@ argument-hint: "[--be|--fe|--mm|--hd]"
 | `--be` | `/be-harness:default-conventions` | 범용 백엔드 가이드라인 |
 | `--fe` | `/fe-harness:default-conventions` | 범용 프론트엔드 가이드라인 |
 | `--mm` | `/minmos-harness:default-conventions-mm` | minmos 로컬 컨벤션 (Go/Gorm/UoW, go-conventions SSOT 참조) |
-| `--hd` | `/hyeondongs-harness:default-conventions-hd` | hyeondongs 로컬 컨벤션 |
 
 ## 특이사항
 
