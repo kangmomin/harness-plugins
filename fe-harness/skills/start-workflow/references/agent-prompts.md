@@ -1,9 +1,10 @@
-> 이 문서는 `start-workflow` 스킬의 Phase 5(구현), 6(빌드/타입 체크), 7(품질 루프), 8(리뷰), 9(PR), 10(성찰)에서 로드된다. 단독 실행 금지.
+> 이 문서는 `start-workflow` 스킬의 Phase 5.2(구현), 6(빌드/타입 체크), 7(품질 루프), 8(리뷰), 9(PR), 10(성찰)에서 로드된다. 단독 실행 금지.
+> Phase 5.1(Red)의 프롬프트는 `references/tdd.md`에 있다.
 > `{STATE_FILE}`, `{buildCommand}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
 
 # 서브 에이전트 프롬프트 모음
 
-## Phase 5: 구현 (workflow-implementer)
+## Phase 5.2: 구현 (workflow-implementer)
 
 ```
 Agent tool:
@@ -13,7 +14,7 @@ Agent tool:
   prompt: |
     상태 파일 `{STATE_FILE}`을 읽고 Plan에 따라 코드를 구현하세요.
     프로젝트 루트: {현재 작업 디렉토리}
-    현재 Phase: Phase 5
+    현재 Phase: Phase 5.2
     남은 Phase: Phase 6, 7, 8, 9, 10, 11
     배정 model/effort: {model}/{effort}
 
@@ -25,10 +26,26 @@ Agent tool:
     컴포넌트 1개 = 커밋 1개를 원칙으로 합니다.
     관련 없는 컴포넌트 변경을 하나의 커밋에 묶지 마세요.
 
-    구현 완료 후 변경 파일 목록, 커밋 수, Plan 대비 차이점, [Assumption] 목록을 보고하세요.
+    {TDD 활성 시: 아래 "TDD 규칙" 블록을 여기에 삽입}
+
+    구현 완료 후 변경 파일 목록, 커밋 수, Plan 대비 차이점, [Assumption]·[TestConflict] 목록을 보고하세요.
 ```
 
-완료 후 유저에게 간략 보고: "Phase 5 완료: [변경 파일 수]개 파일, [커밋 수]개 커밋"
+### TDD 활성 시 추가 블록
+
+`$TDD = true` 이고 Phase 5.1이 `SKIPPED:*`가 아니면 아래를 프롬프트에 추가한다:
+
+```
+    ## TDD 규칙 (Phase 5.1에서 테스트가 선작성되었습니다)
+    - **테스트 파일을 수정하지 마세요.** 테스트를 고쳐서 통과시키는 것은 금지입니다.
+    - 테스트가 잘못되었다고 판단되면 코드와 테스트 어느 쪽도 고치지 말고
+      `[TestConflict]` 태그로 보고하세요. 판정은 오케스트레이터가 합니다.
+    - Phase 5.1이 만든 스텁 컴포넌트를 실제 구현으로 채우세요.
+    - 통과 기준: 상태 파일 `## TDD Test Map`의 모든 테스트 통과
+      AND `## Test Baseline` 대비 신규 실패 0건
+```
+
+완료 후 유저에게 간략 보고: "Phase 5.2 완료: [변경 파일 수]개 파일, [커밋 수]개 커밋"
 
 ## Phase 6: 빌드 실패 수정 에이전트
 
@@ -92,7 +109,15 @@ Agent tool:
     프로젝트 루트 {CWD}에서 Skill tool로 /fe-harness:test-loop 를 실행하세요.
     상태 파일 `{STATE_FILE}`을 읽고 Phase 7.4 상태를 갱신하세요.
     배정 model/effort: {model}/{effort}
-    완료 후 "이슈: N건, 수정: Y/N" 형식으로 보고하세요.
+
+    {TDD 활성 시}
+    상태 파일에 `## TDD Test Map` 이 있으므로 test-loop은 **frozen 모드**로 동작합니다.
+    테스트 파일을 수정하지 말고 소스만 고치세요. 테스트 자체가 잘못되었다고 판단되면
+    `[TestConflict]` 태그로 보고만 하세요.
+    실패는 `## Test Baseline` 과 대조해 regression / pre_existing / new_red / flaky 로 분류해
+    보고하세요. `pre_existing` 은 이번 범위 밖이므로 손대지 마세요.
+
+    완료 후 "이슈: N건, 수정: Y/N, 분류: regression N / new_red N / pre_existing N / flaky N" 형식으로 보고하세요.
 ```
 
 ### Phase 7.5: Scope Review
@@ -149,8 +174,9 @@ Agent tool:
 1. `{STATE_FILE}` 경로를 전달하지 않고, 읽지 말라고 명시한다 (Spec·Plan·엣지 케이스 표 전문이 들어있다).
 2. Spec / Plan / 엣지 케이스 표를 프롬프트 본문에 넣지 않는다.
 3. 다른 Phase 프롬프트와 달리 **"상태 파일을 읽고 상태를 갱신하세요" 문구를 넣지 않는다.** 상태 갱신은 오케스트레이터가 대신 수행한다.
+4. **`## TDD Test Map`을 전달하지 않는다.** Test Map은 Spec ID ↔ 테스트 매핑이므로, 이를 본 에이전트는 Spec을 역추론하게 되어 격리가 무너진다. Test Map은 오케스트레이터의 대조 입력으로만 쓴다.
 
-> 이 세 줄이 Phase 7.7의 유일한 실효 장치다. 하나라도 빠지면 에이전트가 Spec을 읽고 그대로 옮겨 적어 **Diff가 항상 0건**이 되고, 이 단계는 요식 행위가 된다.
+> 이 네 줄이 Phase 7.7의 유일한 실효 장치다. 하나라도 빠지면 에이전트가 Spec을 읽고 그대로 옮겨 적어 **Diff가 항상 0건**이 되고, 이 단계는 요식 행위가 된다.
 
 ```
 Agent tool:

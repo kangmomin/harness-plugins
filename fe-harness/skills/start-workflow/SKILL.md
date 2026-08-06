@@ -26,8 +26,9 @@ user-invocable: true
 | 플래그 | 단축 | 효과 |
 |--------|------|------|
 | `--hard` | `-h` | 브랜치 생성/검증을 건너뛰고 현재 브랜치에서 바로 push. PR 생략. |
+| `--no-tdd` | | Phase 5.1(테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. |
 
-`$ARGUMENTS`에 `--hard`/`-h`가 있으면 `$HARD_MODE = true`.
+`$ARGUMENTS`에 `--hard`/`-h`가 있으면 `$HARD_MODE = true`, `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`).
 
 | Phase | 일반 모드 | --hard 모드 |
 |-------|----------|------------|
@@ -65,7 +66,7 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 
 ```
 [유저 대화] Phase 1~3 : Spec, 난이도, Plan+리뷰
-[상태 저장] Phase 4   : 브랜치 + 상태 파일 생성
+[상태 저장] Phase 4   : 브랜치 + 상태 파일 + 회귀 baseline 수집
 [자율 실행] Phase 5~10: 서브 에이전트 순차 위임 — 묻지 않고 자동 실행
 [유저 대화] Phase 11  : 최종 보고 + 보완점 적용
 ```
@@ -183,7 +184,7 @@ for iteration in 1..5:
 
 루프 종료 후 `ExitPlanMode` 실행. 상태 파일 하단에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
 
-## Phase 4: 브랜치 + 상태 파일 + 자율 실행 시작
+## Phase 4: 브랜치 + 상태 파일 + Baseline + 자율 실행 시작
 
 **브랜치 생성**:
 - `$HARD_MODE = false`: 구현 전 반드시 feature 브랜치 생성 (`git checkout -b feat/{작업 요약 kebab-case}`). 이미 `feat/**`·`hotfix/**`면 건너뜀. main/master에 직접 커밋 금지.
@@ -192,7 +193,14 @@ for iteration in 1..5:
 **상태 파일 생성**:
 
 > Phase 4 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고 "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다.
-> Spec 전문, 엣지 케이스 목록, 확정 Plan 전문, profile 주요 설정을 복사해 넣는다.
+> Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, profile 주요 설정을 복사해 넣는다.
+
+**회귀 Baseline 수집 (TDD 활성 시)**:
+
+> Phase 4 진입 시 MUST: 같은 폴더의 `references/tdd.md`를 Read하고 "TDD 적용 판정"과 "Phase 4: 회귀 Baseline 수집" 절차를 따른다.
+
+여기가 **유저와 대화 가능한 마지막 지점**이다. baseline 수집이 실패하면 자율 실행에 들어가기 전에 선택지를 제시한다.
+TDD SKIP 판정 시 사유를 `## Test Baseline`에 기록하고, Phase 5는 기존 단일 구현 흐름으로 진행한다.
 
 출력: **"자율 실행을 시작합니다. Phase 5~10을 서브 에이전트로 순차 실행합니다."**
 
@@ -202,9 +210,30 @@ for iteration in 1..5:
 
 각 Phase 시작 직전 `{STATE_FILE}`의 `Current Phase`, `Phase Assignments.Status`, `Remaining Phases`를 갱신하고, 완료 후 결과를 append한다.
 
-### Phase 5: 구현
+### Phase 5: TDD 구현 (Red → Green)
+
+> Phase 5 진입 시 MUST: 같은 폴더의 `references/tdd.md`를 Read한다. Phase 5.1의 프롬프트·판정은 이 문서를 따른다.
+
+`$TDD = false`이거나 Phase 4에서 `SKIPPED:*` 판정이면 **Phase 5.1을 건너뛰고 5.2만 실행한다** (기존 단일 구현 흐름과 동일).
+
+#### Phase 5.1: 테스트 우선 (Red)
+
+Spec의 추적 ID(`AC-nn`·`EC-nn`)를 근거로 **실패하는 테스트를 먼저 작성**한다. 근거 표 밖의 테스트는 작성하지 않는다.
+`general-purpose` 에이전트가 `/fe-harness:unit-test --red` 를 실행하고, 오케스트레이터가 Test Map 기록과 Red 커밋을 수행한다.
+
+| 종료 조건 | 결과 |
+|----------|------|
+| 모든 ID가 `red_assertion` / `already_satisfied` / `deferred_e2e` | `DONE` → Phase 5.2 |
+| 일부 ID가 `cannot_compile` | `DONE` — 해당 ID 제외하고 Phase 5.2 |
+| 전체 ID가 `cannot_compile` | `BLOCKED:NO_VALID_RED` — TDD SKIP 후 Phase 5.2 진행 |
+| baseline에 없던 기존 테스트가 실패 | `BLOCKED:REGRESSION_AT_RED` — 기록 후 Phase 5.2 진행 |
+
+`BLOCKED:*`여도 자율 실행은 멈추지 않는다. 선택지 제시는 Phase 11로 이연한다.
+
+#### Phase 5.2: 구현 (Green)
 
 `fe-harness:workflow-implementer` 에이전트로 구현 + 커밋 (컴포넌트 1개 = 커밋 1개 원칙).
+TDD 활성 시 **테스트 파일 수정 금지** 규칙과 `[TestConflict]` 보고 규칙을 프롬프트에 추가한다 (`references/tdd.md`).
 
 ### Phase 6: 빌드/타입 체크 (MANDATORY — 구현 직후 강제 실행)
 
@@ -228,18 +257,26 @@ for iteration in 1..3:
   7.1 build + type-check      → Bash 직접 실행 (비어있으면 SKIPPED, 실패 시 수정 위임)
   7.2 simplify-loop           → general-purpose 에이전트
   7.3 convention-check        → general-purpose 에이전트
-  7.4 test-loop               → general-purpose 에이전트
+  7.4 test-loop               → general-purpose 에이전트 (TDD 활성 시 frozen 모드)
   7.5 scope-reviewer          → scope-reviewer 에이전트
   7.6 lint-check              → general-purpose 에이전트
 
 [루프 종료 후 1회] 7.7 Spec 정합 Read-back — 판정만, 코드 수정 없음
 ```
 
+7.1·7.4의 테스트 실패는 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (절차: `references/tdd.md`의 "Phase 7: 회귀 대조").
+
+**테스트 판정**: `PASS` = `regression` 0건 + `new_red` 0건 / `WARN` = `flaky`만 / `FAIL` = 그 외
+
 | 종료 조건 | 결과 |
 |----------|------|
-| iteration 내 수정 0건 (`modified == false`) | 루프 탈출 → Phase 7.7 |
-| `modified == true` | 커밋 후 다음 iteration |
-| 3회 도달 | 미해결 사항 보고 후 강제 탈출 → Phase 7.7 |
+| `modified == false` **AND** 테스트 판정 `PASS` | 루프 탈출 → Phase 7.7 |
+| `modified == false` (TDD SKIP 시) | 루프 탈출 → Phase 7.7 |
+| 그 외 | 커밋 후 다음 iteration |
+| 3회 도달 & 미PASS | `BLOCKED:TEST_NOT_GREEN` 기록 → 강제 탈출 → Phase 7.7 |
+
+수정이 0건이어도 테스트가 깨져 있으면 탈출하지 않는다 — 얼어붙은 테스트가 실패하는데 소스 수정이 없으면 루프가 "성공"으로 오종료되기 때문이다.
+`BLOCKED:TEST_NOT_GREEN`이어도 **자율 실행은 중단하지 않고** 이후 Phase를 계속 진행하며, 선택지는 Phase 11에서 제시한다.
 
 **Phase 7.7은 루프 밖에서 1회만 실행한다.** Spec을 모르는 격리된 에이전트가 테스트·구현 산출물에서 보장 동작을 복원하고, 오케스트레이터가 그것을 Spec·기존 코드와 대조해 이탈을 판정한다. 코드는 수정하지 않으며 결과는 Phase 11에서 유저에게 보고한다. 판정이 `FAIL`이어도 자율 실행은 멈추지 않는다.
 프롬프트·Diff 분류·판정 기준: `references/agent-prompts.md`의 "Phase 7.7" 섹션.
@@ -265,13 +302,15 @@ for iteration in 1..3:
 > Phase 11 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고 "Workflow Report 템플릿"과 "보완점 적용 상세"를 따른다.
 
 1. Phase 5~10 결과를 종합해 **Workflow Report**를 작성한다 (템플릿 준수 — 섹션 머리글 변경 금지).
-2. **Read-back Diff 처리** (Phase 7.7 판정이 `WARN`/`FAIL`일 때만): 보고서 8번 섹션의 각 항목을 유저에게 제시하고 결정을 받는다.
+2. **TDD 미해결 항목 처리** (보고서 4.1 섹션이 비어있지 않을 때만): 자율 실행 중 이연된 `BLOCKED:*`·`[TestConflict]`·`[Breaking]`·`cannot_compile`을 각각 제시하고 결정을 받는다.
+   Phase 5~7에서 유저 질문이 금지되어 이연된 항목들이므로 **여기가 첫 결정 지점**이다.
+3. **Read-back Diff 처리** (Phase 7.7 판정이 `WARN`/`FAIL`일 때만): 보고서 8번 섹션의 각 항목을 유저에게 제시하고 결정을 받는다.
    보완점 질문보다 **먼저** 처리한다 — 코드·Spec에 직접 영향을 주는 결정이기 때문이다.
    - 결정에 따른 코드/Spec 수정이 필요하면 그 자리에서 수행하고 커밋한다. 유저가 승인하기 전에는 수정하지 않는다.
    - 유저가 "이번 범위 외"로 판단한 항목은 보고서에 `보류`로 남기고 넘어간다.
-3. 보완점 반영 방식을 질문한다: ① 로컬에만 저장 (기본) ② 로컬 저장 + `/common:submit-feedback`으로 PR ③ 건너뛰기.
-4. 적용 절차·append 규칙은 templates.md의 "보완점 적용 상세"를 따른다. 플러그인 원본은 절대 수정하지 않는다.
-5. 정리: 상태 파일의 모든 Phase를 `DONE`/`SKIPPED:{사유}`로 갱신, `Remaining Phases`를 `없음`으로 기록.
+4. 보완점 반영 방식을 질문한다: ① 로컬에만 저장 (기본) ② 로컬 저장 + `/common:submit-feedback`으로 PR ③ 건너뛰기.
+5. 적용 절차·append 규칙은 templates.md의 "보완점 적용 상세"를 따른다. 플러그인 원본은 절대 수정하지 않는다.
+6. 정리: 상태 파일의 모든 Phase를 `DONE`/`SKIPPED:{사유}`로 갱신, `Remaining Phases`를 `없음`으로 기록.
    기본은 보관, 사용자가 정리를 요청한 경우에만 `rm -f {STATE_FILE}`.
 
 ## 상태 코드
@@ -279,15 +318,20 @@ for iteration in 1..3:
 | 코드 | 의미 |
 |------|------|
 | `DONE` / `IN_PROGRESS` / `PENDING` | Phase 진행 상태 |
-| `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 (예: `SKIPPED:PROFILE_EMPTY`, `SKIPPED:TASK_TYPE`) |
-| `BLOCKED:{사유}` | 진행 불가 — 사용자 개입 필요 (예: `BLOCKED:BUILD_FAIL`, `BLOCKED:MAX_ITERATIONS`) |
+| `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 (예: `SKIPPED:PROFILE_EMPTY`, `SKIPPED:TASK_TYPE`, `SKIPPED:USER_OPT_OUT`) |
+| `BLOCKED:{사유}` | 진행 불가 — 사용자 개입 필요 (예: `BLOCKED:BUILD_FAIL`, `BLOCKED:MAX_ITERATIONS`, `BLOCKED:NO_VALID_RED`, `BLOCKED:TEST_NOT_GREEN`) |
+| `PASS` / `WARN` / `FAIL` | 테스트 판정, Read-back 판정 |
+
+TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`deferred_e2e`·`regression`·`pre_existing`·`new_red`·`flaky`)는 **상태 코드가 아니라 데이터**다.
+`## TDD Test Map`과 회귀 대조 표의 셀 안에서만 쓰고, Phase Assignments의 Status 열에는 등장시키지 않는다 (`docs/skill-authoring.md` §5).
 
 ## References
 
 | 파일 | 로드 시점 |
 |------|----------|
 | `references/templates.md` | Phase 4 (상태 파일), Phase 11 (보고서·보완점) |
-| `references/agent-prompts.md` | Phase 5 진입 시 (Phase 5~10 프롬프트) |
+| `references/tdd.md` | Phase 4 (TDD 판정·baseline), Phase 5 진입 시 |
+| `references/agent-prompts.md` | Phase 5 진입 시 (Phase 5.2~10 프롬프트) |
 
 ## 흐름 요약
 
@@ -296,12 +340,14 @@ for iteration in 1..3:
 Phase 1: EnterPlanMode → /request로 Technical Spec (유저 확인)
 Phase 2: 난이도 산정 (1-10)
 Phase 3: Plan 작성 → 다관점 1회 보강 → Codex 검증 루프 (최대 5회) → ExitPlanMode
-Phase 4: feature 브랜치 + 상태 파일 생성 → "자율 실행 시작"
+Phase 4: feature 브랜치 + 상태 파일 + 회귀 baseline 수집 → "자율 실행 시작"
 
 [자율 실행 — 유저 확인 없이 완주]
-Phase 5: workflow-implementer           → 구현 + 커밋
+Phase 5.1: 테스트 우선 (Red) — Spec ID 근거로 실패 테스트 선작성 + 스텁, Red 커밋
+Phase 5.2: 구현 (Green) — workflow-implementer, 테스트 파일 수정 금지
 Phase 6: {buildCommand}+{typeCheckCommand} 체크 (실패 시 수정 최대 3회)
 Phase 7: 품질 루프 최대 3회 (7.1 빌드 → 7.2 simplify → 7.3 convention → 7.4 test → 7.5 scope → 7.6 lint)
+         탈출 조건 = 수정 0건 AND 테스트 판정 PASS (회귀 3분류 대조)
 Phase 8: component-reviewer + a11y-reviewer (병렬, 컴포넌트 변경 시만)
 Phase 9: workflow-pr (--hard: push만)
 Phase 10: workflow-reflection
