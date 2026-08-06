@@ -1,6 +1,6 @@
 {
   "name": "hyeondongs-harness",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "hyeondongs 프로젝트 전용 부속 하네스. 환경 세팅/진단(.hyeondong-config.json)과 minmos 백엔드와의 풀스택 오케스트레이션만 제공한다. 프론트엔드 개발 스킬은 fe-harness 로 통합되었다.",
   "keywords": [
     "frontend",
