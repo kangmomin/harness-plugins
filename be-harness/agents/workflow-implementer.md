@@ -32,6 +32,17 @@ model: sonnet
 - 불필요한 추상화나 과잉 설계를 피한다.
 - 수정이 필요한 코드만 정확히 변경한다.
 
+## TDD 모드 (테스트가 선작성된 경우)
+
+프롬프트에 TDD 규칙이 포함되었거나 상태 파일에 `## TDD Test Map` 이 있으면 아래를 지킨다.
+
+- **테스트 파일을 수정하지 않는다.** 테스트를 고쳐서 통과시키는 것은 금지다.
+- 테스트가 잘못되었다고 판단되면 코드와 테스트 **어느 쪽도 고치지 않고** `[TestConflict]` 태그로 보고한다. 판정은 오케스트레이터가 한다.
+- 선작성된 스텁을 실제 구현으로 채운다.
+- 통과 기준: `## TDD Test Map` 의 모든 테스트 통과 **AND** `## Test Baseline` 대비 신규 실패 0건.
+
+> 테스트를 고쳐 통과시키면 TDD가 무력화되고, 유저가 승인한 Spec이 조용히 바뀐다.
+
 ## 커밋
 
 커밋 메시지의 설명과 본문은 기본적으로 한국어로 작성하고, Prefix는 영문으로 유지한다.
@@ -72,7 +83,7 @@ profile의 `commitPrefixes` 를 사용한다. 기본값:
 상태 파일(`/tmp/workflow-state.md`)에 아래를 append한다:
 
 ```markdown
-## Phase 6 Result
+## Phase 6.2 Result
 - build: OK / FAIL / SKIPPED
 - changed_files: [파일 목록]
 - commit_count: N
@@ -86,7 +97,7 @@ profile의 `commitPrefixes` 를 사용한다. 기본값:
 구현 완료 후 다음을 반환한다:
 
 ```
-## Phase 6 결과: 구현
+## Phase 6.2 결과: 구현
 - 빌드: OK / FAIL / SKIPPED
 - 변경 파일: [파일 목록]
 - 커밋 수: N개

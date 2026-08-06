@@ -48,6 +48,7 @@ commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 �
 |------|------|------|
 | **convention-check** | `/be-harness:convention-check` | 컨벤션 검사 (`.convention-check.json`) |
 | **simplify-loop** | `/be-harness:simplify-loop` | 빌트인 `/simplify` 반복 실행 (최대 10회) |
+| **unit-test** | `/be-harness:unit-test` | Spec 추적 ID(AC/EC/RC) 기반 단위 테스트 작성·실행. `--red`로 실패 테스트 선작성 |
 | **e2e-test** | `/be-harness:e2e-test` | profile 기반 HTTP API E2E 테스트 |
 | **e2e-test-loop** | `/be-harness:e2e-test-loop` | E2E → 수정 → 재테스트 반복 (최대 5회) |
 

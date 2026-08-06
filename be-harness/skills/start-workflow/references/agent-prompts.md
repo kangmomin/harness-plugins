@@ -1,10 +1,26 @@
-> 이 문서는 `start-workflow` 스킬의 Phase 6(구현), 7(빌드 체크), 9(문서 동기화), 10(PR), 11(성찰)에서 로드된다. 단독 실행 금지.
-> Phase 8(품질 루프)의 프롬프트는 `references/quality-loop.md`에 있다.
+> 이 문서는 `start-workflow` 스킬의 Phase 6.2(구현), 7(빌드 체크), 9(문서 동기화), 10(PR), 11(성찰)에서 로드된다. 단독 실행 금지.
+> Phase 6.1(Red)의 프롬프트는 `references/tdd.md`, Phase 8(품질 루프)의 프롬프트는 `references/quality-loop.md`에 있다.
 > `{STATE_FILE}`, `{buildCommand}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
 
 # 서브 에이전트 프롬프트 모음
 
-## Phase 6: 구현
+## Phase 6.2: 구현 (Green)
+
+### TDD 활성 시 공통 추가 블록
+
+TDD가 활성이면(`$TDD = true` 이고 Phase 6.1이 `SKIPPED:*`가 아니면) 아래 블록을 **모든 구현 프롬프트에 추가**한다:
+
+```
+    ## TDD 규칙 (Phase 6.1에서 테스트가 선작성되었습니다)
+    - **테스트 파일을 수정하지 마세요.** 테스트를 고쳐서 통과시키는 것은 금지입니다.
+    - 테스트가 잘못되었다고 판단되면 코드와 테스트 어느 쪽도 고치지 말고
+      `[TestConflict]` 태그로 보고하세요. 판정은 오케스트레이터가 합니다.
+    - Phase 6.1이 만든 스텁을 실제 구현으로 채우세요.
+    - 통과 기준: 상태 파일 `## TDD Test Map`의 모든 테스트 통과
+      AND `## Test Baseline` 대비 신규 실패 0건
+```
+
+`[TestConflict]` 판정 절차는 `references/tdd.md`의 "Phase 6.2" 섹션을 따른다.
 
 ### sequential 모드 (기본)
 
@@ -16,7 +32,7 @@ Agent tool:
   prompt: |
     상태 파일 `{STATE_FILE}`을 읽고 Plan에 따라 코드를 구현하세요.
     프로젝트 루트: {현재 작업 디렉토리}
-    현재 Phase: Phase 6
+    현재 Phase: Phase 6.2
     남은 Phase: Phase 7, 8, 9, 10, 11, 12
     배정 model/effort: {model}/{effort}
 
@@ -24,10 +40,12 @@ Agent tool:
     Spec에 명시되지 않은 동작 변경(예: 필터 추가, 정렬 변경 등)을 수행한 경우,
     해당 항목에 반드시 [Assumption] 태그를 붙여 보고하세요.
 
-    구현 완료 후 변경 파일 목록, 커밋 수, Plan 대비 차이점, [Assumption] 목록을 보고하세요.
+    {TDD 활성 시: 위 "TDD 규칙" 블록을 여기에 삽입}
+
+    구현 완료 후 변경 파일 목록, 커밋 수, Plan 대비 차이점, [Assumption]·[TestConflict] 목록을 보고하세요.
 ```
 
-완료 후 유저에게 간략 보고: "Phase 6 완료: [변경 파일 수]개 파일, [커밋 수]개 커밋"
+완료 후 유저에게 간략 보고: "Phase 6.2 완료: [변경 파일 수]개 파일, [커밋 수]개 커밋"
 
 ### parallel-slices 모드
 
@@ -50,7 +68,7 @@ Agent tool:  (× 슬라이스 수)
   prompt: |
     상태 파일 `{STATE_FILE}`을 읽고, 아래 슬라이스만 구현하세요.
     프로젝트 루트: {현재 작업 디렉토리}
-    현재 Phase: Phase 6 parallel-slices
+    현재 Phase: Phase 6.2 parallel-slices
     남은 Phase: Phase 7, 8, 9, 10, 11, 12
     배정 model/effort: {model}/{effort}
 
@@ -80,7 +98,7 @@ git commit -m "Add: [작업 요약] (병렬 슬라이스 구현)"
 
 (profile의 `{commitCoAuthor}`가 비어있지 않으면 `Co-Authored-By` 라인을 본문에 추가한다)
 
-완료 후 유저에게 간략 보고: "Phase 6 완료: [N]개 슬라이스 병렬 구현, [변경 파일 수]개 파일"
+완료 후 유저에게 간략 보고: "Phase 6.2 완료: [N]개 슬라이스 병렬 구현, [변경 파일 수]개 파일"
 
 ## Phase 7: 빌드 실패 수정 에이전트
 
