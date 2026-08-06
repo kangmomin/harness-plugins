@@ -1,9 +1,65 @@
-> 이 문서는 `start-workflow`(fs-harness) 스킬의 Phase 6(병렬 구현)과 Phase 8.1(계약 격리 Read-back)에서 로드된다. 단독 실행 금지.
+> 이 문서는 `start-workflow`(fs-harness) 스킬의 Phase 6.1(Red)·6.2(병렬 구현)과 Phase 8.1(계약 격리 Read-back)에서 로드된다. 단독 실행 금지.
+> Red 단계의 소유권·배리어 규칙은 `references/tdd.md`가 canonical이다.
 > `{STATE_FILE}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
 
-# 구현 에이전트 프롬프트 (Phase 6)
+# Red 에이전트 프롬프트 (Phase 6.1)
+
+TDD 활성 시에만 실행한다. 두 에이전트를 **같은 메시지 내에서 병렬 호출**하고, 검증·기록·커밋은 오케스트레이터가 배리어에서 단독 수행한다.
+
+```
+Agent tool:  (× 2 — 백엔드 / 프론트엔드)
+  subagent_type: general-purpose
+  model: [계약 조항 수·도메인 복잡도 기준 선택]
+  effort: [동일 기준]
+  prompt: |
+    상태 파일 `{STATE_FILE}`을 읽고, **{Backend|Frontend} 담당 범위**의 계약 기반 테스트를 작성하세요.
+    프로젝트 루트: {CWD}
+    현재 Phase: Phase 6.1 (Red) — {Backend|Frontend}
+    남은 Phase: Phase 6.2, 7, 8, 9, 10
+    배정 model/effort: {model}/{effort}
+
+    ## 근거 (이것만 사용)
+    frozen Integration Contract의 `CT-nn` / Feature Matrix의 `F-nn`
+    / 해당 도메인 Spec의 `EC-nn` (있을 때만)
+    근거 밖의 테스트는 작성하지 마세요.
+
+    ## 담당 범위
+    - 백엔드: handler·usecase 단위 테스트 — 계약이 약속한 **응답**을 검증
+    - 프론트엔드: 컴포넌트·훅 테스트 — 계약이 약속한 **소비**를 검증
+
+    ## 금지 (CRITICAL)
+    - 상대 도메인 파일을 수정하지 마세요.
+    - **공용 계약 스키마 테스트를 수정하지 마세요.** 오케스트레이터 소유입니다.
+    - 실제 구현을 작성하지 마세요. 컴파일을 위한 **빈 스텁**만 허용됩니다.
+    - git commit 을 하지 마세요. 커밋은 오케스트레이터가 처리합니다.
+
+    ## 보고
+    { 근거 ID, 테스트명, 파일, 진단 분류 } 매핑 표를 반환하세요.
+    이번 계약 변경이 담당 도메인의 관측 가능한 동작을 바꾸지 않으면
+    `N/A(영향 없음)` 과 그 **근거를 파일 단위로** 제시하세요.
+```
+
+**배리어**: 두 에이전트가 모두 유효 Red 또는 근거 있는 `N/A`를 반환해야 Phase 6.2로 진행한다.
+그 뒤 오케스트레이터가 공용 계약 테스트를 작성하고, 도메인별 TDD Test Map을 기록하고, 단일 Red 커밋을 만든다.
+
+---
+
+# 구현 에이전트 프롬프트 (Phase 6.2)
 
 두 구현 에이전트를 **같은 메시지 내에서 병렬 호출**한다 (Agent tool × 2).
+
+TDD 활성 시 아래 블록을 두 프롬프트에 **모두 추가**한다:
+
+```
+    ## TDD 규칙 (Phase 6.1에서 계약 기반 테스트가 선작성되었습니다)
+    - **테스트 파일을 수정하지 마세요.** 공용 계약 테스트는 열어보되 수정 금지입니다.
+    - 테스트가 잘못되었다고 판단되면 코드와 테스트 어느 쪽도 고치지 말고
+      `[TestConflict]` 태그로 보고하세요. 계약 조항과 연결된 충돌이면
+      오케스트레이터가 Phase 2(계약 정의)로 되돌립니다.
+    - Phase 6.1이 만든 스텁을 실제 구현으로 채우세요.
+    - 통과 기준: 담당 도메인 `## TDD Test Map` 전체 통과
+      AND 해당 도메인 `## Test Baseline` 대비 신규 실패 0건
+```
 
 ## 백엔드 구현 에이전트
 
@@ -15,7 +71,7 @@ Agent tool:
   prompt: |
     상태 파일 `{STATE_FILE}`을 읽고, **Backend Plan** 섹션만 구현하세요.
     프로젝트 루트: {CWD}
-    현재 Phase: Phase 6 Backend
+    현재 Phase: Phase 6.2 Backend
     남은 Phase: Phase 7, 8, 9, 10
     배정 model/effort: {model}/{effort}
     profile: .claude/be-harness.local.md 를 읽어 빌드/커밋 명령을 결정하세요.
@@ -33,7 +89,7 @@ Agent tool:
   prompt: |
     상태 파일 `{STATE_FILE}`을 읽고, **Frontend Plan** 섹션만 구현하세요.
     프로젝트 루트: {CWD}
-    현재 Phase: Phase 6 Frontend
+    현재 Phase: Phase 6.2 Frontend
     남은 Phase: Phase 7, 8, 9, 10
     배정 model/effort: {model}/{effort}
     profile: .claude/fe-harness.local.md 를 읽어 빌드/커밋 명령을 결정하세요.
@@ -57,7 +113,7 @@ Agent tool:
 두 에이전트를 **같은 메시지 내에서 병렬 호출**한다 (Agent tool × 2). 서로의 결과도, frozen contract도 주지 않는다.
 
 > **격리 규칙 (CRITICAL)**: 아래 세 조건을 모두 지킨다.
-> ① `{STATE_FILE}` 경로를 전달하지 않고 읽지 말라고 명시 ② frozen contract·Plan·Feature Matrix를 프롬프트 본문에 넣지 않음 ③ "상태 파일을 읽고 갱신하세요" 문구를 넣지 않음(상태 갱신은 오케스트레이터가 수행).
+> ① `{STATE_FILE}` 경로를 전달하지 않고 읽지 말라고 명시 ② frozen contract·Plan·Feature Matrix를 프롬프트 본문에 넣지 않음 ③ "상태 파일을 읽고 갱신하세요" 문구를 넣지 않음(상태 갱신은 오케스트레이터가 수행) ④ **도메인별 `## TDD Test Map`을 전달하지 않음** (`CT-nn` ↔ 테스트 매핑이라 계약을 역추론하게 된다).
 > 하나라도 빠지면 에이전트가 계약을 읽고 그대로 옮겨 적어 **Diff가 항상 0건**이 된다.
 
 ## 백엔드 계약 복원 에이전트

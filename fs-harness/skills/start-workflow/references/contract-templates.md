@@ -9,7 +9,10 @@
 ## Feature Matrix
 | ID | 사용자 흐름 | 프론트 책임 | 백엔드 책임 | 완료 조건 |
 |----|------------|------------|------------|----------|
+| F-01 | | | | |
 ```
+
+**ID 규칙**: `F-01`부터 2자리 순번. 확정 후 재배열·재사용하지 않는다 — Phase 6.1 테스트 근거와 Phase 8.1 대조가 이 ID로 매칭한다. 행 삭제 시 번호를 당기지 않는다.
 
 반드시 정리할 항목:
 
@@ -46,7 +49,16 @@
 - Backend owner
 - Frontend owner
 - Shared artifact owner
+- **공용 계약 테스트 owner**: 오케스트레이터 (도메인 에이전트 수정 금지)
+
+### 검증 조항 (`CT-nn`)
+| ID | 조항 | 검증 방법 | 담당 도메인 |
+|----|------|----------|------------|
+| CT-01 | | | BE / FE / 양쪽 |
 ```
+
+**`CT-nn`이 Phase 6.1 계약 테스트의 근거다.** 필드·status·에러 코드·상태 전이 중 **외부에서 검증 가능한 것**에만 부여한다.
+"올바르게 동작한다" 같은 검증 불가 문장은 조항이 아니다. 계약이 바뀌면 번호를 유지한 채 내용만 갱신하고, 연결된 테스트를 다시 Red로 되돌린다.
 
 계약에 빠지면 안 되는 항목:
 
@@ -103,18 +115,41 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | 3 | contract review agents | 계약 복잡도 기준 | 계약 복잡도 기준 | DONE |
 | 4 | orchestrator | 현재 세션 | 현재 세션 | DONE |
 | 5 | orchestrator | 현재 세션 | 현재 세션 | IN_PROGRESS |
-| 6 | BE workflow-implementer + FE workflow-implementer | 도메인별 기준 | 도메인별 기준 | PENDING |
+| 6.1 | BE/FE Red 에이전트 + 오케스트레이터 배리어 | 도메인별 기준 | 도메인별 기준 | PENDING |
+| 6.2 | BE workflow-implementer + FE workflow-implementer | 도메인별 기준 | 도메인별 기준 | PENDING |
 | 7 | BE/FE quality agents | 도메인별 기준 | 도메인별 기준 | PENDING |
 | 8 | integration review agents | 계약 복잡도 기준 | 계약 복잡도 기준 | PENDING |
 | 9 | orchestrator + PR skill | PR 복잡도 기준 | PR 복잡도 기준 | PENDING |
 | 10 | workflow-reflection | 변경량 기준 | 변경량 기준 | PENDING |
 
 ## Remaining Phases
-- Phase 6: 프론트/백엔드 병렬 구현
+- Phase 6.1: 계약 테스트 우선 (Red)
+- Phase 6.2: 프론트/백엔드 병렬 구현 (Green)
 - Phase 7: 도메인별 품질 루프
 - Phase 8: 통합 검증
 - Phase 9: 커밋/PR
 - Phase 10: 회고 + 정리
+
+## Test Baseline (도메인별)
+[Phase 5에서 수집. TDD SKIP 도메인은 사유만 기록. **불변 — 이후 갱신하지 않는다**]
+
+- 커밋: {SHA}   |   수집 Phase: 5 (자율 실행 진입 전)
+
+| 도메인 | suite | 명령 | 러너 완주 | 통과 | 실패 | 실패 목록 (식별자 :: 정규화 시그니처) |
+|--------|-------|------|----------|------|------|--------------------------------------|
+| BE | unit | {testCommand} | Y | 142 | 0 | 없음 |
+| FE | unit | {testCommand} | Y | 88 | 1 | `ProductList > 빈 목록` :: `unable to find role=list` |
+
+## TDD Test Map (도메인별)
+[Phase 6.1에서 오케스트레이터가 기록. Phase 7 회귀 대조와 Phase 10 보고의 기준]
+> **Phase 8.1 계약 복원 에이전트에 이 표를 전달하지 않는다** — 계약 역추론으로 격리가 무너진다.
+
+| 근거 ID | 도메인 | 테스트 | 파일 | Red | Green |
+|---------|--------|--------|------|-----|-------|
+| CT-01 | BE | Test_Create_201 | handler_test.go:20 | red_assertion | PASS |
+| CT-01 | FE | 생성 성공 시 목록 갱신 | useCreate.test.ts:14 | red_assertion | PASS |
+| CT-02 | 공용 | 응답 스키마 일치 | contract.test.ts:8 | red_assertion | PASS |
+| F-02 | BE | — | — | N/A(영향 없음) | - |
 
 ## Backend Plan
 [Phase 4.1]
@@ -164,7 +199,23 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 - Layer Analysis: ...
 - Simplicity Check: ...
 
-### 4. Status
+### 4. 테스트 / 회귀
+- **BE 테스트 판정**: [PASS/WARN/FAIL] — regression [n] / new_red [n] / flaky [n] / pre_existing [n](범위 밖)
+- **FE 테스트 판정**: [PASS/WARN/FAIL] — 동일 형식
+- **계약 커버리지**: `CT-nn` 중 테스트로 고정된 비율 [n/m] (`N/A(영향 없음)` 제외)
+
+### 4.1 TDD 미해결 항목 (유저 결정 필요)
+> TDD가 SKIP이거나 미해결 항목이 없으면 "없음"으로 적고 이 섹션을 비운다.
+
+| 유형 | 도메인 | 항목 | 필요한 결정 |
+|------|--------|------|------------|
+| `BLOCKED:TEST_NOT_GREEN` | BE/FE | [실패 목록] | 추가 수정 / 범위 제외 |
+| `BLOCKED:NO_VALID_RED` | BE/FE | [사유] | 테스트 재작성 / TDD 없이 유지 |
+| `[TestConflict]` (계약) | — | [테스트 ↔ `CT-nn`] | **계약 재정의 (Phase 2 복귀)** |
+| `[Breaking]` | BE/FE | [테스트명, 변경 내용] | 호환성 검토 |
+| `cannot_compile` | BE/FE | [근거 ID] | 수동 작성 / 범위 제외 |
+
+### 5. Status
 - Verification: ...
 - Cleanup: ...
 ```

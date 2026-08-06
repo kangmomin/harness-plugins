@@ -35,6 +35,9 @@ user-invocable: true
 | 플래그 | 단축 | 효과 |
 |--------|------|------|
 | `--hard` | `-h` | feature 브랜치 생성과 PR 생성을 건너뛰고 현재 브랜치에서 마무리한다. |
+| `--no-tdd` | | Phase 6.1(계약 테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. |
+
+`$ARGUMENTS`에 `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`).
 
 ## Language Rule
 
@@ -74,7 +77,8 @@ user-invocable: true
 | 3 | 읽기 전용 리뷰 에이전트 2개 이상 | 계약/분업 리뷰 |
 | 4 | 오케스트레이터 | 프론트/백엔드 Plan 분리 + 검증 루프 |
 | 5 | 오케스트레이터 | 브랜치 + 상태 파일 |
-| 6 | BE/FE workflow-implementer | 병렬 구현 |
+| 6.1 | BE/FE 에이전트 + 오케스트레이터 배리어 | 계약 기반 실패 테스트 선작성 (Red) |
+| 6.2 | BE/FE workflow-implementer | 병렬 구현 (Green) |
 | 7 | 각 도메인 품질 루프 | 영역별 안정화 |
 | 8 | 읽기 전용 리뷰 에이전트 | 통합 검증 |
 | 9 | 오케스트레이터 + PR 스킬 | 최종 커밋/PR |
@@ -188,26 +192,59 @@ for iteration in 1..5:
 
 `--hard`가 아니면 feature 브랜치를 만든다: `git checkout -b feat/{작업-요약-kebab-case}`
 
-> Phase 5 진입 시 MUST: `references/contract-templates.md`의 "상태 파일 템플릿"대로 `{STATE_FILE}`을 작성한다.
+> Phase 5 진입 시 MUST: `references/contract-templates.md`의 "상태 파일 템플릿"대로 `{STATE_FILE}`을 작성하고,
+> `references/tdd.md`의 "TDD 적용 판정"과 "Phase 5: 도메인별 회귀 Baseline 수집"을 수행한다.
 
-## Phase 6: 프론트/백엔드 병렬 구현
+여기가 **유저와 대화 가능한 마지막 지점**이다 — baseline 수집이 실패하면 자율 실행 진입 전에 선택지를 제시한다.
+TDD 판정은 **도메인별로 따로** 한다. BE만 SKIP되고 FE는 활성일 수 있다.
 
-> Phase 6 진입 시 MUST: 같은 폴더의 `references/agent-prompts.md`를 Read하고 BE/FE 구현 에이전트를 **같은 메시지에서 병렬 호출**한다.
+## Phase 6: 계약 기반 TDD 구현 (Red → Green)
 
+> Phase 6 진입 시 MUST: 같은 폴더의 `references/tdd.md`와 `references/agent-prompts.md`를 Read한다.
+
+`$TDD = false`이거나 Phase 5에서 양 도메인 모두 `SKIPPED:*`면 **6.1을 건너뛰고 6.2만 실행한다** (기존 단일 구현 흐름과 동일).
+
+### Phase 6.1: 계약 테스트 우선 (Red) — 배리어 필수
+
+`CT-nn`·`F-nn`·`EC-nn`을 근거로 실패하는 테스트를 먼저 작성한다. 근거 밖의 테스트는 작성하지 않는다.
+
+| 테스트 종류 | owner |
+|------------|-------|
+| BE 로컬 / FE 로컬 | 각 도메인 에이전트 |
+| **공용 계약 스키마** | **오케스트레이터** (도메인 에이전트는 수정 금지) |
+
+**배리어**: 계약이 영향을 주는 **모든 도메인**이 유효 Red 또는 근거를 동반한 `N/A(영향 없음)`를 반환해야 6.2로 넘어간다.
+한쪽만 Red인 상태로 Green을 시작하면, 먼저 구현된 쪽이 계약을 대체해버린다.
+
+종료 판정과 후속 처리는 `references/tdd.md`의 "Phase 6.1 종료 판정"을 따른다.
+**계약 조항 자체가 모호해 테스트를 쓸 수 없으면 Phase 2로 복귀한다.**
+
+### Phase 6.2: 병렬 구현 (Green)
+
+> BE/FE 구현 에이전트를 `references/agent-prompts.md`대로 **같은 메시지에서 병렬 호출**한다.
+
+TDD 활성 시 **테스트 파일 수정 금지**와 `[TestConflict]` 보고 규칙을 프롬프트에 추가한다.
 구현 중 계약 변경이 필요하면 즉시 Phase 2로 돌아간다 (No Silent Contract Drift).
+`[TestConflict]`가 계약 조항과 연결되어 있으면 오케스트레이터가 임의 판정하지 않고 **Phase 2로 복귀**한다.
 
 ## Phase 7: 도메인별 품질 루프 (최대 3회)
 
 Phase 7 시작 전 `{STATE_FILE}`의 상태를 갱신한다. 각 도메인 루프의 서브 에이전트는 도메인별 실패 심각도에 맞는 model/effort를 명시한다.
 
-- **백엔드 루프**: ① `/be-harness:simplify-loop` ② `/be-harness:convention-check` ③ `/be-harness:e2e-test-loop` ④ API 계약 변경 + `apiDocsPath` 존재 시 문서 동기화
+- **백엔드 루프**: ① build + `{testCommand}` ② `/be-harness:simplify-loop` ③ `/be-harness:convention-check` ④ `/be-harness:e2e-test-loop` ⑤ API 계약 변경 + `apiDocsPath` 존재 시 문서 동기화
 - **프론트엔드 루프**: ① build + type-check ② `/fe-harness:simplify-loop` ③ `/fe-harness:convention-check` ④ `/fe-harness:test-loop` ⑤ `/fe-harness:lint-check`
+
+각 도메인의 테스트 실패는 해당 도메인 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (`references/tdd.md`의 "Phase 7: 도메인별 회귀 대조").
+**공용 계약 테스트의 실패는 도메인 루프가 고치지 않는다** — 오케스트레이터가 원인 도메인을 판정해 배정하고, 계약 자체가 문제면 Phase 2로 복귀한다.
+
+**도메인별 테스트 판정**: `PASS` = `regression` 0건 + `new_red` 0건 / `WARN` = `flaky`만 / `FAIL` = 그 외
 
 | 규칙 | 내용 |
 |------|------|
 | 독립 반복 | 각 도메인은 자기 루프만 다시 돈다 |
 | 계약 위협 | 한쪽 루프 결과가 계약을 흔들면 둘 다 멈추고 Phase 2로 복귀 |
-| 상한 | 최대 3회. 도달 시 미해결 사항 보고 후 Phase 8로 강제 진행 |
+| 탈출 | 해당 도메인 수정 0건 **AND** 테스트 판정 `PASS` (TDD SKIP 도메인은 수정 0건만) |
+| 상한 | 최대 3회. 도달 시 `BLOCKED:TEST_NOT_GREEN` 기록 후 Phase 8로 강제 진행 (자율 실행은 유지) |
 
 ## Phase 8: 통합 검증
 
@@ -270,11 +307,15 @@ Phase 8.1이 보고한 불일치를 먼저 확인한 뒤 위 항목을 점검한
 |------|------|
 | `DONE` / `IN_PROGRESS` / `PENDING` | Phase 진행 상태 |
 | `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 |
-| `BLOCKED:{사유}` | 진행 불가 — 사용자 개입 필요 (예: `BLOCKED:MAX_ITERATIONS`, 계약 불일치) |
+| `BLOCKED:{사유}` | 진행 불가 — 사용자 개입 필요 (예: `BLOCKED:MAX_ITERATIONS`, `BLOCKED:NO_VALID_RED`, `BLOCKED:TEST_NOT_GREEN`, 계약 불일치) |
+| `PASS` / `WARN` / `FAIL` | 도메인별 테스트 판정 |
+
+TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`deferred_e2e`·`regression`·`pre_existing`·`new_red`·`flaky`)는 상태 코드가 아니라 **데이터**다. `## TDD Test Map`과 회귀 대조 표에만 쓴다 (`docs/skill-authoring.md` §5).
 
 ## References
 
 | 파일 | 로드 시점 |
 |------|----------|
 | `references/contract-templates.md` | Phase 1, 2, 3, 5, 9, 10 (템플릿·리뷰 기준) |
-| `references/agent-prompts.md` | Phase 6 진입 시 |
+| `references/tdd.md` | Phase 5 (TDD 판정·baseline), Phase 6 진입 시 |
+| `references/agent-prompts.md` | Phase 6.2 진입 시 |
