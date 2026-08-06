@@ -58,7 +58,7 @@
 | **doctor** | `/common:doctor` | be · fe · mm · hd (후보 전체 순차 실행 가능) |
 | **init** | `/common:init` | be · fe · mm · hd |
 | **component** | `/common:component` | fe |
-| **unit-test** | `/common:unit-test` | fe |
+| **unit-test** | `/common:unit-test` | be · fe |
 | **lint-check** | `/common:lint-check` | fe |
 | **test-loop** | `/common:test-loop` | fe |
 

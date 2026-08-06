@@ -24,3 +24,5 @@ argument-hint: "[--fe]"
 ## 특이사항
 
 - 이 루프는 **단위/통합 테스트** 대상이다. 브라우저 E2E 반복은 `/common:e2e-test` 를, 백엔드 HTTP E2E 반복은 `/common:e2e-test-loop` 를 쓴다.
+- 백엔드 계열에는 대응 루프 스킬이 없다. 백엔드는 profile의 `testCommand` 가 `start-workflow` 품질 루프에서 직접 실행된다.
+- 대상 스킬은 상태 파일에 `## TDD Test Map` 이 있으면 **frozen 모드**(테스트 파일 수정 금지)로 동작한다. 라우터는 이 판정에 관여하지 않는다.
