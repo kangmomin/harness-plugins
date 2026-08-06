@@ -1,0 +1,369 @@
+---
+name: init
+description: "minmos-harness 플러그인의 모든 사전 세팅(MCP·secret·훅)을 한 번에 진행한다. 플러그인 최초 설정, '초기화해줘', doctor가 MISSING을 보고할 때 사용."
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
+user-invocable: true
+---
+
+# minmos-harness Init
+
+플러그인에서 사용하는 모든 외부 의존성을 한 번에 세팅한다.
+
+## Language Rule
+
+유저와의 모든 대화는 **한국어**로 진행한다.
+
+---
+
+## 세팅 대상
+
+| # | 항목 | 관련 스킬 |
+|---|------|----------|
+| 1 | Apidog MCP 서버 | apidog-schema-gen, e2e-apidog-schema-gen, e2e-test |
+| 2 | Apidog 환경 변수 (Push용) | apidog-schema-gen, e2e-apidog-schema-gen |
+| 3 | PostgreSQL MCP 서버 | e2e-test, e2e-test-loop |
+| 4 | db-tools 플러그인 | db-gen-committed |
+| 5 | 컨벤션 선택 | convention-check |
+| 6 | grpcurl (선택) | e2e-test (gRPC) |
+| 7 | Dev PubSub CLI (선택) | e2e-test (PubSub) |
+| 8 | Worktree 자동 복사 hook (선택) | git worktree 사용 시 (Claude Code 전용) |
+
+---
+
+## 실행 흐름
+
+### Step 1: 현재 상태 스캔
+
+먼저 모든 항목의 현재 상태를 조용히 점검한다:
+
+- 실제 MCP 연결 probe 실행 → Apidog MCP OAS 읽기, PostgreSQL MCP `SELECT 1`
+- MCP tool 호출이 불가할 때만 `.mcp.json` 등 현재 클라이언트의 설정 파일을 참고하여 설정 안내
+- 환경 변수 확인 → `APIDOG_ACCESS_TOKEN`, `APIDOG_PROJECT_ID`
+- `secret/.env` 존재 여부 → DB 접속 정보 추출 가능 여부
+- db-tools 플러그인 설치 여부
+- `.convention-check.json` 존재 여부
+- `dev-pubsub-cli` 설치 여부 → `which dev-pubsub-cli` 또는 `uv tool list` 확인
+- Worktree 자동 복사 hook 설치 여부 → `~/.claude/hooks/worktree-init.sh` 존재 + `~/.claude/settings.json`의 `hooks.SessionStart`에 등록되었는지 (Claude Code 전용)
+
+> **MCP 판정**: 실제 MCP tool 호출 성공 = 연결 OK. `.mcp.json` 존재 여부는 단독 기준으로 쓰지 않는다 (상세: `/minmos-harness:doctor`).
+
+### Step 2: 상태 요약 보고
+
+스캔 결과를 유저에게 보여준다:
+
+```markdown
+## minmos-harness 환경 스캔 결과
+
+| # | 항목 | 상태 | 필요한 스킬 |
+|---|------|------|-----------|
+| 1 | Apidog MCP | OK / MISSING | apidog-schema-gen, e2e-test |
+| 2 | APIDOG_ACCESS_TOKEN | SET / UNSET | apidog-schema-gen (Push) |
+| 3 | APIDOG_PROJECT_ID | SET / UNSET | apidog-schema-gen (Push) |
+| 4 | PostgreSQL MCP | OK / MISSING | e2e-test |
+| 5 | secret/.env | OK / MISSING | e2e-test |
+| 6 | db-tools 플러그인 | OK / MISSING | db-gen-committed |
+| 7 | 컨벤션 설정 | OK / DEFAULT | convention-check |
+| 8 | grpcurl | OK / MISSING | e2e-test (gRPC, 선택) |
+| 9 | Dev PubSub CLI | OK / MISSING | e2e-test (PubSub, 선택) |
+| 10 | Worktree 자동 복사 hook | OK / MISSING / SKIP | git worktree (Claude Code 전용, 선택) |
+```
+
+### Step 2.5: 설정 가이드 / 세팅 선택
+
+상태 요약 보고 후, 유저에게 다음 행동을 선택하게 한다:
+
+> "어떻게 진행할까요?"
+>
+> **설정 가이드 보기** — 번호를 입력하면 해당 항목의 설정 방법을 안내합니다.
+> **세팅 시작** — `all`을 입력하면 MISSING 항목을 순서대로 세팅합니다.
+>
+> 예: `1` (Apidog MCP 설정 방법 보기), `1,4` (복수 선택), `all` (바로 세팅 시작)
+
+- **번호 입력 시**: 해당 항목의 설정 방법만 출력하고, 다시 선택 프롬프트로 돌아온다.
+- **`all` 입력 시**: Step 3으로 진행하여 MISSING 항목을 순서대로 세팅한다.
+- **`q` 입력 시**: init을 종료한다.
+
+#### 설정 가이드 내용 (번호 선택 시 표시)
+
+| # | 항목 | 가이드 요약 |
+|---|------|-----------|
+| 1 | Apidog MCP | 프로젝트 ID(+선택: 액세스 토큰)로 MCP 클라이언트에 등록. 새 형식(`type: stdio`, `--project=<ID>`, `env.APIDOG_ACCESS_TOKEN`) 권장. 구 형식(`--project-id=<ID>`)도 호환 |
+| 2 | APIDOG_ACCESS_TOKEN | Apidog → Settings → API Access Token에서 생성 후 `export` |
+| 3 | APIDOG_PROJECT_ID | Apidog 프로젝트 URL에서 확인 후 `export` |
+| 4 | PostgreSQL MCP | DATABASE_URL을 현재 MCP 클라이언트에 등록. `secret/.env`에서 자동 추출 가능 |
+| 5 | secret/.env | 프로젝트 담당자에게 요청하거나 `secret/.env.example`에서 복사 |
+| 6 | db-tools 플러그인 | `/plugin marketplace add postmath-plugins/db-tools` 실행 |
+| 7 | 컨벤션 설정 | 적용할 컨벤션을 선택하여 `.convention-check.json` 생성 |
+| 8 | grpcurl | `grpcurl --version` 확인. 없으면 설치 안내 |
+| 9 | Dev PubSub CLI | `dev-pubsub-cli --help` 확인. 없으면 global/local 설치 안내 |
+| 10 | Worktree 자동 복사 hook | git 워크트리 생성 시 메인의 `.mcp.json`/`.env`를 자동 복사하는 SessionStart hook 설치 (Claude Code 전용) |
+
+### Step 3: 세팅 진행
+
+**MISSING인 항목만** 순서대로 세팅을 진행한다. 각 항목마다 유저에게 진행 여부를 확인한다.
+
+#### 3.1 Apidog MCP (MISSING인 경우)
+
+Apidog MCP는 두 가지 형식 모두 지원한다. **새 형식(`env` 인라인)** 을 권장한다.
+
+1. 사용자에게 입력을 받는다:
+   > "Apidog MCP를 설정합니다."
+   > 1. **Apidog 프로젝트 ID** (필수): 예) `1233589`
+   > 2. **Apidog 액세스 토큰** (선택): 지금 같이 등록하면 Step 3.2의 별도 `export`가 불필요합니다. 비워두면 Step 3.2에서 환경 변수로 따로 안내합니다.
+
+2. Claude/Codex처럼 `.mcp.json`을 쓰는 환경이면 아래 설정을 병합한다.
+
+   **새 형식 (권장, 토큰 인라인)**:
+   ```json
+   {
+     "mcpServers": {
+       "apidog": {
+         "type": "stdio",
+         "command": "npx",
+         "args": ["-y", "apidog-mcp-server@latest", "--project=<ID>"],
+         "env": {
+           "APIDOG_ACCESS_TOKEN": "<token>"
+         }
+       }
+     }
+   }
+   ```
+
+   **구 형식 (호환, 토큰은 별도 export)**:
+   ```json
+   {
+     "mcpServers": {
+       "apidog": {
+         "command": "npx",
+         "args": ["-y", "apidog-mcp-server@latest", "--project-id=<ID>"]
+       }
+     }
+   }
+   ```
+
+   - 토큰을 입력하지 않았으면 `env` 필드를 통째로 생략하고 Step 3.2에서 별도 환경 변수 안내로 이어진다.
+   - `.mcp.json`이 없으면 새로 생성, 있으면 기존 내용에 병합한다.
+
+3. **보안 경고**: 토큰을 `env`에 인라인하면 `.mcp.json` 노출 시 토큰도 함께 노출된다.
+   - `.gitignore`에 `.mcp.json`이 포함됐는지 확인하고, 없으면 추가를 안내한다.
+   - 토큰 노출 위험이 큰 환경(공유 레포 등)에서는 구 형식 + Step 3.2 방식을 권장한다.
+
+4. 별도 MCP 설정을 쓰는 클라이언트 환경이면 `.mcp.json` 자동 추가 대신 해당 클라이언트의 MCP 설정 위치에 같은 `type`/`command`/`args`/`env`를 등록하도록 안내한다.
+
+#### 3.2 Apidog 환경 변수 (UNSET인 경우)
+
+> "Apidog Push 기능을 사용하려면 액세스 토큰이 필요합니다.
+> Step 3.1에서 `env`에 토큰을 인라인했다면 이 단계는 건너뛸 수 있습니다.
+> 지금 별도 환경 변수로 설정할까요? (Y/건너뛰기)"
+
+- Y: 토큰 입력 안내
+  > "Apidog → Settings → API Access Token에서 토큰을 생성한 뒤 아래 명령을 실행하세요:"
+  > ```
+  > export APIDOG_ACCESS_TOKEN='your-token'
+  > export APIDOG_PROJECT_ID='your-project-id'
+  > ```
+- 건너뛰기: Push 기능 없이 진행 가능하다고 안내
+
+#### 3.3 PostgreSQL MCP (MISSING인 경우)
+
+> "PostgreSQL MCP를 설정합니다."
+
+1. `secret/.env`가 있으면 DB 접속 정보를 자동으로 읽어 DATABASE_URL을 구성하고 제안:
+   > "secret/.env에서 DB 정보를 찾았습니다: `postgres://user:***@host:port/db`
+   > 이 정보로 PostgreSQL MCP를 설정할까요?"
+2. `secret/.env`가 없으면 직접 입력을 요청:
+   > "DATABASE_URL을 입력해주세요 (예: `postgres://user:pass@localhost:5432/dbname`):"
+3. 현재 클라이언트의 MCP 설정 방식에 맞게 추가한다. `.mcp.json`을 쓰는 환경이면 아래 설정을 추가한다:
+   ```json
+   {
+     "mcpServers": {
+       "postgres": {
+         "command": "npx",
+         "args": ["-y", "@anthropic/postgres-mcp", "<DATABASE_URL>"]
+       }
+     }
+   }
+   ```
+   별도 MCP 설정을 쓰는 클라이언트 환경이면 `.mcp.json` 자동 추가 대신 해당 클라이언트의 MCP 설정 위치에 같은 command/args를 등록하도록 안내한다.
+
+#### 3.4 db-tools 플러그인 (MISSING인 경우)
+
+> "db-tools 플러그인이 설치되어 있지 않습니다. 아래 명령으로 설치하세요:"
+> ```
+> claude plugin add postmath-plugins/db-tools
+> ```
+
+설치는 유저가 직접 해야 하므로 안내만 한다.
+
+#### 3.6 grpcurl (MISSING인 경우, 선택)
+
+> "gRPC E2E 테스트를 사용하려면 grpcurl이 필요합니다. 설치할까요? (Y/건너뛰기)"
+
+- Y: 플랫폼별 설치 안내:
+  > ```bash
+  > # macOS
+  > brew install grpcurl
+  > # Linux (Go)
+  > go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest
+  > # Linux (binary)
+  > # https://github.com/fullstorydev/grpcurl/releases
+  > ```
+- 건너뛰기: REST 테스트만으로도 e2e-test 사용 가능하다고 안내.
+
+#### 3.7 Dev PubSub CLI (MISSING인 경우, 선택)
+
+> "PubSub E2E 테스트를 사용하려면 Dev PubSub CLI가 필요합니다. 설치할까요? (Y/건너뛰기)"
+
+- Y: 먼저 `uv` 설치 여부를 확인한다 (`which uv`).
+  - `uv`가 없으면:
+    > "uv가 설치되어 있지 않습니다. 먼저 uv를 설치하세요:"
+    > ```bash
+    > curl -LsSf https://astral.sh/uv/install.sh | sh
+    > ```
+  - `uv`가 있으면 설치 방식을 선택하게 한다:
+    > "설치 방식을 선택하세요:"
+    > 1. **Global** — 시스템 전역에 설치 (어디서든 `dev-pubsub-cli` 사용 가능)
+    > 2. **Local** — 프로젝트 디렉토리에 클론하여 `uv run`으로 사용
+    >
+    > 추천: PubSub E2E 테스트를 여러 프로젝트에서 사용하면 Global, 단일 프로젝트면 Local
+  - **Global 선택 시**: 아래 명령을 실행한다:
+    ```bash
+    uv tool install git+https://github.com/Jiyong-Jeon/dev_pubsub_emulator.git
+    ```
+    설치 후 `dev-pubsub-cli --help`로 정상 설치를 확인한다.
+  - **Local 선택 시**: 아래 절차를 안내한다:
+    > ```bash
+    > git clone https://github.com/Jiyong-Jeon/dev_pubsub_emulator.git
+    > cd dev_pubsub_emulator
+    > uv sync
+    > # 실행: uv run dev-pubsub (에뮬레이터) / uv run dev-pubsub-cli (CLI)
+    > ```
+- 건너뛰기: PubSub 테스트 없이 REST/gRPC E2E 테스트만 사용 가능하다고 안내.
+
+#### 3.8 Worktree 자동 복사 hook (Claude Code 전용, MISSING인 경우, 선택)
+
+> "git worktree를 사용한다면 워크트리 생성 시 메인의 `.mcp.json`/`.env`를 자동 복사하는 SessionStart hook을 설치할 수 있습니다. 설치할까요? (Y/건너뛰기)"
+
+**Claude Code가 아닌 클라이언트 환경에서는 안내만 하고 건너뛴다.**
+
+Y 선택 시 다음을 실행한다 (스크립트 본문은 항상 덮어써서 최신 내용으로 갱신, settings 등록은 idempotent).
+
+1. `~/.claude/hooks/worktree-init.sh` 작성 (존재해도 덮어쓰기):
+   ```bash
+   mkdir -p ~/.claude/hooks
+   cat > ~/.claude/hooks/worktree-init.sh <<'EOF'
+   #!/usr/bin/env bash
+   # SessionStart hook: 보조 worktree에 진입 시 메인 worktree의
+   # .mcp.json / .env 중 현재에 없는 파일을 자동 복사한다.
+   set -u
+   input=$(cat 2>/dev/null || true)
+   cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)
+   [ -z "${cwd:-}" ] && cwd="$PWD"
+   cd "$cwd" 2>/dev/null || exit 0
+   git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+   main_worktree=$(git worktree list --porcelain 2>/dev/null | awk '/^worktree / {print $2; exit}')
+   [ -z "${main_worktree:-}" ] && exit 0
+   [ ! -d "$main_worktree" ] && exit 0
+   main_abs=$(realpath "$main_worktree" 2>/dev/null) || exit 0
+   cur_worktree=$(git rev-parse --show-toplevel 2>/dev/null)
+   [ -z "${cur_worktree:-}" ] && exit 0
+   cur_abs=$(realpath "$cur_worktree" 2>/dev/null) || exit 0
+   [ "$cur_abs" = "$main_abs" ] && exit 0
+   copied=()
+   for file in .mcp.json .env; do
+     src="$main_worktree/$file"
+     dst="$cur_worktree/$file"
+     [ -e "$dst" ] && continue
+     [ ! -f "$src" ] && continue
+     cp -p "$src" "$dst" 2>/dev/null && copied+=("$file")
+   done
+   [ ${#copied[@]} -gt 0 ] && echo "[worktree-init] Copied from $main_worktree -> $cur_worktree: ${copied[*]}" >&2
+   exit 0
+   EOF
+   chmod +x ~/.claude/hooks/worktree-init.sh
+   ```
+
+2. `~/.claude/settings.json`의 `hooks.SessionStart`에 등록 (이미 있으면 skip):
+   ```bash
+   if ! jq -e '.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("worktree-init.sh"))' ~/.claude/settings.json >/dev/null 2>&1; then
+     jq '.hooks.SessionStart = ((.hooks.SessionStart // []) + [{"matcher":"","hooks":[{"type":"command","command":"~/.claude/hooks/worktree-init.sh"}]}])' \
+       ~/.claude/settings.json > ~/.claude/settings.json.tmp \
+       && mv ~/.claude/settings.json.tmp ~/.claude/settings.json
+   fi
+   ```
+
+설치 후: 다음 워크트리에서 SessionStart 시 자동으로 `.mcp.json`/`.env`가 메인에서 복사된다. 이미 존재하는 파일은 절대 덮어쓰지 않는다.
+
+#### 3.5 컨벤션 선택 (DEFAULT인 경우)
+
+> "convention-check에서 사용할 컨벤션을 설정합니다.
+> 어떤 컨벤션을 적용할까요? (복수 선택 가능, 쉼표 구분)"
+>
+> 1. `default-conventions` — 에러 처리, VO 패턴, 트랜잭션
+> 2. `pagenation` — 커서 기반 페이지네이션
+> 3. `CLAUDE.md` — 프로젝트 아키텍처 컨벤션
+>
+> 예: `1,2,3` (전체)
+
+선택에 따라 `.convention-check.json`을 생성한다.
+
+#### 3.9 be-harness 오버레이 설치 (경로 B, 선택)
+
+minmos 오버레이는 두 경로로 적용된다 (`docs/overlay.md` §2):
+
+| 경로 | 적용 시점 |
+|------|----------|
+| **A. 플러그인 내장** (기본, 설정 불필요) | `/minmos-harness:start-workflow` 호출 시에만 적용 |
+| **B. 프로젝트 복사** (이 단계) | `/be-harness:*` 를 **직접** 호출해도 적용 |
+
+`/be-harness:start-workflow` 나 `/be-harness:e2e-test` 를 직접 호출하는 팀이라면 경로 B를 설치한다.
+
+**선택지 제시**:
+> "be-harness 오버레이를 프로젝트에 설치할까요? 설치하면 `/be-harness:*` 를 직접 호출해도 minmos 규칙(Post-Math 컨벤션, gRPC E2E, Apidog 동기화)이 적용됩니다.
+> 1. 설치 — `.claude/be-harness/` 에 오버레이 복사 (팀 전체 적용을 위해 커밋 권장)
+> 2. 건너뛰기 — `/minmos-harness:*` 로만 오버레이 사용 (기본값)"
+
+**1번 선택 시 절차**:
+
+```bash
+mkdir -p .claude/be-harness/skills
+```
+
+`${CLAUDE_PLUGIN_ROOT}/overlay/` 아래 각 파일을 Read해 아래 대응으로 Write한다. **각 파일 첫 줄의 `<!-- overlay-source: minmos-harness@{version} -->` 마커를 반드시 유지한다** — 위임 스킬이 이 마커로 중복 적용을 판정한다.
+
+| 원본 | 사본 |
+|------|------|
+| `overlay/common.md` | `.claude/be-harness/common.md` |
+| `overlay/start-workflow.md` | `.claude/be-harness/skills/start-workflow.md` |
+| `overlay/request.md` | `.claude/be-harness/skills/request.md` |
+| `overlay/convention-check.md` | `.claude/be-harness/skills/convention-check.md` |
+| `overlay/default-conventions.md` | `.claude/be-harness/skills/default-conventions.md` |
+| `overlay/e2e-test.md` | `.claude/be-harness/skills/e2e-test.md` |
+| `overlay/e2e-test-loop.md` | `.claude/be-harness/skills/e2e-test-loop.md` |
+
+**references 경로 재작성 (CRITICAL)**: 오버레이 문서는 `references/*.md` 를 자기 플러그인 상대 경로로 참조한다. 사본에서는 이 경로가 유효하지 않으므로, 복사 시 `references/` 를 `${CLAUDE_PLUGIN_ROOT}/overlay/references/` 로 치환한다. 예: `references/db-safety.md` → `${CLAUDE_PLUGIN_ROOT}/overlay/references/db-safety.md`.
+
+**기존 파일 처리**:
+- 마커가 있는 기존 사본 → 덮어쓴다 (버전 갱신).
+- 마커가 없는 기존 파일 → **사용자가 직접 작성한 오버라이드**다. 덮어쓰지 않고 경고한다:
+  > "`.claude/be-harness/skills/{name}.md` 가 이미 있으나 minmos 오버레이 마커가 없습니다. 사용자 작성 오버라이드로 판단해 건너뜁니다. 병합하려면 수동으로 추가하세요."
+
+### Step 4: 최종 결과
+
+```markdown
+## Init 완료
+
+| # | 항목 | 결과 |
+|---|------|------|
+| 1 | Apidog MCP | 설정 완료 / 이미 설정됨 / 건너뜀 |
+| 2 | Apidog 환경 변수 | 안내 완료 / 이미 설정됨 / 건너뜀 |
+| 3 | PostgreSQL MCP | 설정 완료 / 이미 설정됨 / 건너뜀 |
+| 4 | db-tools 플러그인 | 안내 완료 / 이미 설치됨 |
+| 5 | 컨벤션 선택 | 설정 완료 / 이미 설정됨 / 기본값 사용 |
+| 6 | grpcurl | 설치됨 / 안내 완료 / 건너뜀 |
+| 7 | Dev PubSub CLI | 설치됨 (Global/Local) / 안내 완료 / 건너뜀 |
+| 8 | Worktree 자동 복사 hook | 설치 완료 / 이미 설치됨 / 건너뜀 / 미지원(Claude Code 외) |
+| 9 | be-harness 오버레이 (경로 B) | 설치 완료 / 건너뜀 (경로 A만 사용) |
+
+다음 단계: `/minmos-harness:doctor`로 전체 상태를 검증하세요.
+```

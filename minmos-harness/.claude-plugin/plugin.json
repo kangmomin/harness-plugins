@@ -1,15 +1,16 @@
 {
   "name": "minmos-harness",
-  "version": "1.13.0",
-  "description": "Post-Math 개발 워크플로우를 위한 개인 하네스. 커밋/PR 관리, 컨벤션 검사, Feature Spec 생성, E2E 테스트(REST+gRPC+PubSub), Apidog 스키마 생성 등 개발 생산성 도구 모음.",
+  "version": "2.0.0",
+  "description": "Post-Math 백엔드 개발을 위한 be-harness 오버레이 플러그인. 워크플로우 절차는 be-harness 가 정의하고, 여기서는 Apidog 문서 동기화·gRPC/PubSub E2E·PostgreSQL MCP DB 안전 규칙·Post-Math 컨벤션을 앵커 기반 오버레이로 얹는다. be-harness 선행 설치 필수.",
   "keywords": [
+    "overlay",
+    "backend",
     "workflow",
     "conventions",
-    "commit",
-    "testing",
     "apidog",
-    "feature-spec",
     "grpc",
-    "pubsub"
+    "pubsub",
+    "postgres",
+    "post-math"
   ]
 }

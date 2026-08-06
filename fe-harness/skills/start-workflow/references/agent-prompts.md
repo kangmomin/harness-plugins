@@ -6,6 +6,20 @@
 
 ## Phase 5.2: 구현 (workflow-implementer)
 
+### Implementation Notes 공통 추가 블록
+
+**파일을 수정하는 모든 자율 실행 에이전트 프롬프트에 아래 블록을 추가한다.** 읽기 전용 스캔 에이전트에는 넣지 않는다 (이슈 보고서로 대신 전달되고, 통합 수정 단계가 기록한다).
+
+```
+    [Implementation Notes 규칙]
+    설계 결정·편차·트레이드오프·미결 질문이 발생하면 **코드 수정 전에**
+    `{IMPL_NOTES}`의 해당 섹션(`## 설계 결정` / `## 편차` / `## 트레이드오프` / `## 미결 질문`)에
+    한 줄을 append 하세요.
+    기존 줄 수정 금지(append-only), 마크다운만 작성(HTML/JSON 금지).
+    [Assumption] 항목은 `## 편차` 섹션에도 동시 기록하세요.
+```
+
+
 ```
 Agent tool:
   subagent_type: fe-harness:workflow-implementer
