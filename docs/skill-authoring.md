@@ -136,7 +136,7 @@ argument-hint: {인자를 받는 스킬만 — 선택}
   > 이 문서는 `start-workflow` 스킬의 Phase 4~8에서 로드된다. 단독 실행 금지.
   ```
 - 플레이스홀더(`{STATE_FILE}` 등) 정의는 **본문 단일 위치**에만 둔다. reference에서는 사용만 한다.
-- 기존 검증된 패턴: `minmos-harness/skills/apidog-schema-gen-mm/references/extraction-patterns.md`
+- 기존 검증된 패턴: `minmos-harness/skills/apidog-schema-gen/references/extraction-patterns.md`
   (스킬 폴더 내부 + SKILL.md 기준 상대 경로 — 실배포에서 동작 확인됨). 신규 분리는 전부 이 구조를 따른다.
 
 ## 9. 스킬 간 참조 규칙

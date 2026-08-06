@@ -71,6 +71,14 @@ updated: 2026-04-21
 
 자유 markdown만 있어도 된다. 스킬이 읽어서 문맥에 맞게 반영한다.
 
+### 오버레이 플러그인이 쓰는 경로
+
+특화 하네스(`hyeondongs-harness`)는 이 레이어를 **경로 B**로 사용한다. `/hyeondongs-harness:init` 이 자기 `overlay/*.md` 를 위 경로에 복사하면, `/fe-harness:*` 를 직접 호출해도 특화 규칙이 적용된다.
+
+복사된 파일은 첫 줄에 `<!-- overlay-source: hyeondongs-harness@{version} -->` 마커를 갖는다. 마커가 있는 파일은 오버레이 플러그인이 관리하므로 **수동 편집하지 않는다** (init 재실행 시 덮어써진다). 프로젝트 고유 규칙은 마커 없는 별도 파일에 쓴다 — 둘은 함께 적용된다.
+
+오버레이 규약의 canonical: `docs/overlay.md`.
+
 ## 보완점 자동 반영 (2-Tier 경로)
 
 Phase 11 에서 유저가 반영 방식을 선택한다.

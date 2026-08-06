@@ -2,6 +2,8 @@
 
 범용 백엔드 개발 워크플로우 하네스. `minmos-harness`에서 Post-Math 특화 요소를 걷어내고 **Go/Node 프리셋 + 프로젝트 profile** 기반으로 재구성한 범용판.
 
+> 이 플러그인은 **오버레이 베이스**다. `minmos-harness`(Post-Math 특화)가 이 절차 위에 델타를 얹는다 — 규약: [`docs/overlay.md`](../docs/overlay.md).
+
 ## 설치
 
 commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 선행 설치해야 한다.

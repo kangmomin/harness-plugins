@@ -2,6 +2,8 @@
 
 범용 프론트엔드 개발 워크플로우 하네스. `hyeondongs-harness`에서 프로젝트 특화 요소를 걷어내고 **프로젝트 profile** 기반으로 재구성한 범용판.
 
+> 이 플러그인은 **오버레이 베이스**다. `hyeondongs-harness`(hyeondongs 특화)가 이 절차 위에 델타를 얹는다 — 규약: [`docs/overlay.md`](../docs/overlay.md).
+
 > v0.8.0 부터 `hyeondongs-harness` 의 프론트엔드 스킬 10종을 흡수했다. 기존 `.hyeondong-config.json` 은 **2순위 profile** 로 그대로 읽히므로 설정을 다시 만들 필요는 없다 (읽기 전용, 필드 매핑은 `PROFILE.md`).
 
 ## 설치

@@ -341,7 +341,7 @@ mkdir -p .claude/be-harness/skills
 | `overlay/e2e-test.md` | `.claude/be-harness/skills/e2e-test.md` |
 | `overlay/e2e-test-loop.md` | `.claude/be-harness/skills/e2e-test-loop.md` |
 
-**references 경로 재작성 (CRITICAL)**: 오버레이 문서는 `references/*.md` 를 자기 플러그인 상대 경로로 참조한다. 사본에서는 이 경로가 유효하지 않으므로, 복사 시 `references/` 를 `${CLAUDE_PLUGIN_ROOT}/overlay/references/` 로 치환한다. 예: `references/db-safety.md` → `${CLAUDE_PLUGIN_ROOT}/overlay/references/db-safety.md`.
+**references 경로 재작성 (CRITICAL)**: 오버레이 문서는 `references/*.md` 를 자기 플러그인 상대 경로로 참조한다. 사본에서는 이 경로가 유효하지 않으므로, 복사 시 `references/` 를 `${CLAUDE_PLUGIN_ROOT}/overlay/references/` 로 치환한다. 예: `references/{파일명}.md` → `${CLAUDE_PLUGIN_ROOT}/overlay/references/{파일명}.md`.
 
 **기존 파일 처리**:
 - 마커가 있는 기존 사본 → 덮어쓴다 (버전 갱신).
