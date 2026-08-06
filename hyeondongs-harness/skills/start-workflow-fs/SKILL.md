@@ -31,6 +31,9 @@ user-invocable: true
 | 플래그 | 단축 | 효과 |
 |--------|------|------|
 | `--hard` | `-h` | feature 브랜치 생성과 PR 생성을 건너뛰고 현재 브랜치에서 마무리한다. |
+| `--no-tdd` | | Phase 7.1(계약 테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. |
+
+`$ARGUMENTS`에 `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`).
 
 ## Language Rule
 
@@ -182,11 +185,35 @@ for iteration in 1..5:
 
 `--hard`가 아니면 feature 브랜치를 만든다: `git checkout -b feat/{작업-요약-kebab-case}`
 
-> Phase 6 진입 시 MUST: `references/contract-templates.md`의 "상태 파일 템플릿"대로 `{STATE_FILE}`을 작성한다.
+> Phase 6 진입 시 MUST: `references/contract-templates.md`의 "상태 파일 템플릿"대로 `{STATE_FILE}`을 작성하고,
+> `references/tdd.md`의 "TDD 적용 판정"과 "Phase 6: 도메인별 회귀 Baseline 수집"을 수행한다.
 
-## Phase 7: 프론트/백엔드 병렬 구현
+여기가 **유저와 대화 가능한 마지막 지점**이다 — baseline 수집이 실패하면 자율 실행 진입 전에 선택지를 제시한다.
+TDD 판정은 **도메인별로 따로** 한다. BE만 SKIP되고 FE는 활성일 수 있다.
 
-두 구현 에이전트를 **병렬**로 실행한다 (도메인별 작업량에 맞는 model/effort 명시, 상태 파일의 Phase 7 Backend/Frontend 상태 갱신).
+## Phase 7: 계약 기반 TDD 구현 (Red → Green)
+
+> Phase 7 진입 시 MUST: 같은 폴더의 `references/tdd.md`를 Read한다. Phase 7.1의 프롬프트·소유권·배리어는 이 문서를 따른다.
+
+`$TDD = false`이거나 Phase 6에서 양 도메인 모두 `SKIPPED:*`면 **7.1을 건너뛰고 7.2만 실행한다** (기존 단일 구현 흐름과 동일).
+
+### Phase 7.1: 계약 테스트 우선 (Red) — 배리어 필수
+
+`CT-nn`·`F-nn`·`EC-nn`을 근거로 실패하는 테스트를 먼저 작성한다. 근거 밖의 테스트는 작성하지 않는다.
+
+| 테스트 종류 | owner |
+|------------|-------|
+| BE 로컬 / FE 로컬 | 각 도메인 에이전트 |
+| **공용 계약 스키마** | **오케스트레이터** (도메인 에이전트는 수정 금지) |
+
+**배리어**: 계약이 영향을 주는 모든 도메인이 유효 Red 또는 근거를 동반한 `N/A(영향 없음)`를 반환해야 7.2로 진행한다.
+한쪽만 Red인 상태로 Green을 시작하면 먼저 구현된 쪽이 계약을 대체해버린다.
+**계약 조항 자체가 모호해 테스트를 쓸 수 없으면 Phase 3으로 복귀한다.**
+
+### Phase 7.2: 프론트/백엔드 병렬 구현 (Green)
+
+두 구현 에이전트를 **병렬**로 실행한다 (도메인별 작업량에 맞는 model/effort 명시, 상태 파일의 Phase 7.2 Backend/Frontend 상태 갱신).
+TDD 활성 시 **테스트 파일 수정 금지**와 `[TestConflict]` 보고 규칙을 두 프롬프트에 추가한다 (`references/tdd.md`).
 
 **백엔드 구현 에이전트**
 - 입력: 상태 파일 전체
@@ -198,19 +225,26 @@ for iteration in 1..5:
 - 책임: 프론트엔드 Plan의 소유 파일만 수정
 - 금지: 백엔드 파일 수정, 계약 외 필드 가정
 
-두 에이전트 모두 보고해야 할 것: 변경 파일 목록 / 계약 대비 차이점 / `[Assumption]` 목록 / 막힌 계약 항목.
+두 에이전트 모두 보고해야 할 것: 변경 파일 목록 / 계약 대비 차이점 / `[Assumption]`·`[TestConflict]` 목록 / 막힌 계약 항목.
 구현 중 계약 변경이 필요하면 즉시 Phase 3으로 돌아간다 (No Silent Contract Drift).
+`[TestConflict]`가 계약 조항과 연결되어 있으면 오케스트레이터가 임의 판정하지 않고 **Phase 3으로 복귀**한다.
 
 ## Phase 8: 도메인별 품질 루프 (최대 3회)
 
-- **백엔드 루프**: ① `simplify-loop-mm` ② `convention-check-mm` ③ `e2e-test-loop-mm` ④ API 계약이 바뀌었으면 `e2e-apidog-schema-gen-mm`
+- **백엔드 루프**: ① go build + `go test ./internal/...` ② `simplify-loop-mm` ③ `convention-check-mm` ④ `e2e-test-loop-mm` ⑤ API 계약이 바뀌었으면 `e2e-apidog-schema-gen-mm`
 - **프론트엔드 루프**: ① build + type-check ② `/fe-harness:simplify-loop` ③ `/fe-harness:convention-check` ④ `/fe-harness:test-loop` ⑤ `/fe-harness:lint-check`
+
+각 도메인의 테스트 실패는 해당 도메인 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (`references/tdd.md`).
+**공용 계약 테스트의 실패는 도메인 루프가 고치지 않는다** — 오케스트레이터가 원인 도메인을 판정해 배정하고, 계약 자체가 문제면 Phase 3으로 복귀한다.
+
+**도메인별 테스트 판정**: `PASS` = `regression` 0건 + `new_red` 0건 / `WARN` = `flaky`만 / `FAIL` = 그 외
 
 | 규칙 | 내용 |
 |------|------|
 | 독립 반복 | 각 도메인은 자기 루프만 다시 돈다 |
 | 계약 위협 | 한쪽 루프 결과가 계약을 흔들면 둘 다 멈추고 Phase 3으로 복귀 |
-| 상한 | 최대 3회. 도달 시 미해결 사항 보고 후 Phase 9로 강제 진행 |
+| 탈출 | 해당 도메인 수정 0건 **AND** 테스트 판정 `PASS` (TDD SKIP 도메인은 수정 0건만) |
+| 상한 | 최대 3회. 도달 시 `BLOCKED:TEST_NOT_GREEN` 기록 후 Phase 9로 강제 진행 (자율 실행은 유지) |
 
 ## Phase 9: Codex 품질 리뷰 (항상)
 
@@ -238,6 +272,7 @@ Phase 10.2는 frozen contract를 **보면서** 코드를 검증하므로 "대충
 > Phase 10.1 진입 시 MUST: 같은 폴더의 `references/contract-templates.md`를 Read하고 "Phase 10.1" 섹션의 프롬프트와 3방향 대조 절차를 따른다.
 
 > **격리 규칙 (CRITICAL)**: 두 에이전트에게 `{STATE_FILE}` 경로와 frozen contract를 **전달하지 않고, 읽지 말라고 명시**한다. 다른 Phase와 달리 "상태 파일을 읽고 기록하세요" 지시를 넣지 않으며, 상태 갱신은 오케스트레이터가 대신 수행한다.
+> 도메인별 `## TDD Test Map`도 **전달하지 않는다** — `CT-nn` ↔ 테스트 매핑이라 계약을 역추론하게 되어 격리가 무너진다.
 > 이 규칙이 빠지면 에이전트가 계약을 읽고 그대로 옮겨 적어 **Diff가 항상 0건**이 되고, 이 단계는 요식 행위가 된다.
 
 Phase 10.1은 코드를 수정하지 않는다. 불일치 항목을 Phase 10.2 검증 대상의 **우선 항목**으로 넘긴다.
@@ -281,3 +316,4 @@ Phase 10.1이 보고한 불일치를 먼저 확인한 뒤 위 항목을 점검�
 | 파일 | 로드 시점 |
 |------|----------|
 | `references/contract-templates.md` | Phase 1, 3, 4, 6, 11, 12 (템플릿·리뷰 기준) |
+| `references/tdd.md` | Phase 6 (TDD 판정·baseline), Phase 7 진입 시 |

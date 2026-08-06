@@ -9,7 +9,10 @@
 ## Feature Matrix
 | ID | 사용자 흐름 | 프론트 책임 | 백엔드 책임 | 완료 조건 |
 |----|------------|------------|------------|----------|
+| F-01 | | | | |
 ```
+
+**ID 규칙**: `F-01`부터 2자리 순번. 확정 후 재배열·재사용하지 않는다 — Phase 7.1 테스트 근거와 Phase 10.1 대조가 이 ID로 매칭한다.
 
 반드시 정리할 항목:
 
@@ -46,7 +49,16 @@
 - Backend owner
 - Frontend owner
 - Shared artifact owner
+- **공용 계약 테스트 owner**: 오케스트레이터 (도메인 에이전트 수정 금지)
+
+### 검증 조항 (`CT-nn`)
+| ID | 조항 | 검증 방법 | 담당 도메인 |
+|----|------|----------|------------|
+| CT-01 | | | BE / FE / 양쪽 |
 ```
+
+**`CT-nn`이 Phase 7.1 계약 테스트의 근거다.** 외부에서 검증 가능한 조항에만 부여한다.
+계약이 바뀌면 번호를 유지한 채 내용만 갱신하고, 연결된 테스트를 다시 Red로 되돌린다.
 
 계약에 빠지면 안 되는 항목: 인증/인가 · 페이지네이션/커서 규칙 · 날짜/금액/enum 포맷 · 정렬/필터 파라미터 · 캐시 무효화/재조회 규칙 · 하위 호환성 여부
 
@@ -95,7 +107,8 @@ Phase 6 - 자율 실행 시작 (agent: orchestrator (이 세션), model/effort: 
 | 4 | contract review agents | 계약 복잡도 기준 (default Complex) | 계약 복잡도 기준 (default Complex) | DONE |
 | 5 | orchestrator + Codex reviewer | 계약 복잡도 기준 (default Complex) | 계약 복잡도 기준 (default Complex) | DONE |
 | 6 | orchestrator | 이 세션 (최상위) | 이 세션 (최상위) | IN_PROGRESS |
-| 7 | BE implementer + FE implementer | 도메인별 등급표 (default Standard) | 도메인별 등급표 (default Standard) | PENDING |
+| 7.1 | BE/FE Red 에이전트 + 오케스트레이터 배리어 | 도메인별 등급표 (default Standard) | 도메인별 등급표 (default Standard) | PENDING |
+| 7.2 | BE implementer + FE implementer | 도메인별 등급표 (default Standard) | 도메인별 등급표 (default Standard) | PENDING |
 | 8 | BE/FE quality agents | 도메인별 등급표 (default Standard) | 도메인별 등급표 (default Standard) | PENDING |
 | 9 | Codex reviewer | default Complex | default Complex | PENDING |
 | 10 | integration review agents | 계약 복잡도 기준 (default Complex) | 계약 복잡도 기준 (default Complex) | PENDING |
@@ -105,12 +118,33 @@ Phase 6 - 자율 실행 시작 (agent: orchestrator (이 세션), model/effort: 
 > "이 세션" = orchestrator 자신 (최상위 고정). 서브 에이전트는 등급표를 따르며 세션 effort를 상속하지 않는다.
 
 ## Remaining Phases
-- Phase 7: 프론트/백엔드 병렬 구현
+- Phase 7.1: 계약 테스트 우선 (Red)
+- Phase 7.2: 프론트/백엔드 병렬 구현 (Green)
 - Phase 8: 도메인별 품질 루프
 - Phase 9: Codex 품질 리뷰
 - Phase 10: 통합 검증
 - Phase 11: 커밋/PR
 - Phase 12: 회고 + 정리
+
+## Test Baseline (도메인별)
+[Phase 6에서 수집. TDD SKIP 도메인은 사유만 기록. **불변 — 이후 갱신하지 않는다**]
+
+- 커밋: {SHA}   |   수집 Phase: 6 (자율 실행 진입 전)
+
+| 도메인 | suite | 명령 | 러너 완주 | 통과 | 실패 | 실패 목록 (식별자 :: 정규화 시그니처) |
+|--------|-------|------|----------|------|------|--------------------------------------|
+| BE | unit | go test ./internal/... | Y | 142 | 0 | 없음 |
+| FE | unit | {testCommand} | Y | 88 | 1 | `ProductList > 빈 목록` :: `unable to find role=list` |
+
+## TDD Test Map (도메인별)
+[Phase 7.1에서 오케스트레이터가 기록. Phase 8 회귀 대조와 최종 보고의 기준]
+> **Phase 10.1 계약 복원 에이전트에 이 표를 전달하지 않는다** — 계약 역추론으로 격리가 무너진다.
+
+| 근거 ID | 도메인 | 테스트 | 파일 | Red | Green |
+|---------|--------|--------|------|-----|-------|
+| CT-01 | BE | Test_Create_201 | handler_test.go:20 | red_assertion | PASS |
+| CT-01 | FE | 생성 성공 시 목록 갱신 | useCreate.test.ts:14 | red_assertion | PASS |
+| CT-02 | 공용 | 응답 스키마 일치 | contract.test.ts:8 | red_assertion | PASS |
 
 ## Backend Plan
 [Phase 5.1]
