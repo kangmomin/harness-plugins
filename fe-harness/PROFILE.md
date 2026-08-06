@@ -26,6 +26,7 @@ uiLibrary: tailwind           # tailwind | styled-components | shadcn | mui | an
 stateManagement: tanstack-query   # tanstack-query | redux-toolkit | swr | zustand | jotai
 testRunner: vitest            # vitest | jest
 e2eRunner: playwright         # playwright | cypress | none
+reportDir: ""                 # 리포트(HTML 등) 저장 디렉토리. 비우면 `.claude/harness-reports`
 packageManager: pnpm          # pnpm | yarn | npm | bun
 componentPattern: feature-based   # feature-based | atomic | flat
 typescript: true

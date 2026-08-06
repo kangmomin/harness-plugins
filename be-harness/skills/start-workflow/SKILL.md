@@ -17,6 +17,8 @@ user-invocable: true
 **플레이스홀더 정의** (본문·references 공통, 값 변경은 여기 한 곳만 수정):
 
 - `{STATE_FILE}` = `/tmp/workflow-state.md`
+- `{IMPL_NOTES}` = `/tmp/implementation-notes.md`
+- `{REPORT_DIR}` = profile의 `reportDir` (없으면 `.claude/harness-reports`)
 - `{CWD}` = 현재 작업 디렉토리 (프로젝트 루트)
 - `{buildCommand}` 등 profile 변수 = Pre-flight에서 로드
 
@@ -106,6 +108,18 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 - Phase 6 완료 → 즉시 Phase 7 (같은 턴). Phase 8 내 각 단계도 완료 즉시 다음 단계. Phase 9~11 동일.
 - **유저 응답 대기, 진행 여부 질문, 중간 보고 후 멈춤은 금지.**
 - 유일한 정지 지점은 **Phase 12 (최종 보고)** 뿐이다.
+
+### Implementation Notes (라이브 판단 기록)
+
+자율 실행 중 발생하는 **설계 결정·편차·트레이드오프·미결 질문**을 코드와 분리해 `{IMPL_NOTES}`에 실시간으로 누적한다.
+유저는 자율 실행 중에도 파일을 직접 열어 비동기로 피드백할 수 있고, Phase 12에서 HTML로 일괄 렌더링된다.
+
+핵심 규칙 (파일 초기화 템플릿·4-섹션 구조: `references/templates.md`):
+
+- 파일을 수정하는 자율 실행 에이전트는 4종 사건 발생 시 **코드 수정 전에** 해당 섹션에 한 줄 append.
+- 읽기 전용 스캔 에이전트는 직접 쓰지 않는다 — 이슈 보고서에 포함하면 통합 수정 단계가 대신 기록.
+- `[Assumption]` 보고와 동일한 항목은 `## 편차` 섹션에 동시 기록 (보고서와 라이브 노트 동기화).
+- **append-only** — 기존 줄 수정·삭제 금지. 마크다운만 작성 (HTML/JSON 금지 — 렌더링이 깨진다).
 
 ## Pre-flight: 세션 환경 점검 (모든 모드 공통)
 
@@ -201,13 +215,18 @@ Technical Spec을 분석하여 1~10 난이도를 산정한다. **종합 난이�
 |------|------|------|
 | `sequential` | 위 조건 미충족 (기본값) | Phase 6 순차 실행 |
 | `parallel-slices` | 5가지 조건 모두 충족, 슬라이스 2~3개 | Phase 6에서 슬라이스별 병렬 구현 |
-| `fullstack` | FE+BE 동시 변경 | `/fs-harness:start-workflow`로 리다이렉트 후 종료 |
+| `fullstack` | FE+BE 동시 변경 | `/common:start-workflow --fs`로 전환 후 종료 |
 
 > **대부분의 작업은 `sequential`이다.** 판단이 애매하면 `sequential` — 병렬화의 이점보다 잘못된 분리의 비용이 훨씬 크다.
 
 출력: `실행 전략: [sequential/parallel-slices/fullstack] — [근거]`
 
-`fullstack` 판정 시: "FE+BE 동시 변경이 필요합니다. `/fs-harness:start-workflow`로 전환합니다." → Skill tool로 호출 후 현재 워크플로우 종료.
+`fullstack` 판정 시:
+
+| 감지 | 행동 | 고지 문구 |
+|------|------|----------|
+| `/common:start-workflow` 가 세션에 존재 | Skill tool로 `--fs` 와 함께 호출 후 현재 워크플로우 종료 | "FE+BE 동시 변경이 필요합니다. `/common:start-workflow --fs`로 전환합니다." |
+| common 미설치 | 선택지 제시 후 대기 | "FE+BE 동시 변경이 필요하지만 풀스택 오케스트레이션을 제공하는 `common` 이 설치되어 있지 않습니다.<br>1. `common` 설치 후 재시작 (권장) — `/plugin install common@harness-plugins`<br>2. 백엔드만 진행 — 프론트엔드 변경은 별도 작업으로 분리<br>3. 중단" |
 
 ## Phase 4: Plan 작성 + 리뷰
 
@@ -289,8 +308,9 @@ for iteration in 1..5:
 
 **상태 파일 생성**:
 
-> Phase 5 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고 "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다.
-> Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, 실행 전략, (parallel-slices 시) Slices를 복사해 넣는다.
+> Phase 5 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고
+> ① "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다. Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, 실행 전략, (parallel-slices 시) Slices를 복사해 넣는다.
+> ② "Implementation Notes 라이브 파일 초기화" 템플릿대로 `{IMPL_NOTES}`를 생성한다 (기존 파일 덮어쓰기).
 
 **회귀 Baseline 수집 (TDD 활성 시)**:
 
@@ -408,9 +428,10 @@ Phase 8.1 결과는 `## Test Baseline`과 대조해 `regression` / `pre_existing
 
 ## Phase 12: 최종 보고
 
-> Phase 12 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고 "Workflow Report 템플릿"과 "보완점 적용 상세"를 따른다.
+> Phase 12 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고 "Implementation Notes HTML 렌더링", "Workflow Report 템플릿", "보완점 적용 상세"를 따른다.
 
-1. Phase 6~11 결과를 종합해 **Workflow Report**를 작성한다 (템플릿 준수 — 섹션 머리글 변경 금지).
+1. **HTML 렌더링**: `{IMPL_NOTES}` → `{REPORT_DIR}/{YYYYMMDD}-{task-name-kebab}-impl-notes.html` (템플릿 준수, 디렉토리 없으면 생성).
+   그 다음 Phase 6~11 결과를 종합해 **Workflow Report**를 작성한다 (템플릿 준수 — 섹션 머리글 변경 금지). `## 미결 질문`이 1건 이상이면 보고서 최상단에 "사용자 확인 필요" 블록을 자동 삽입한다.
 2. **TDD 미해결 항목 처리** (보고서 4.1 섹션이 비어있지 않을 때만): 자율 실행 중 이연된 `BLOCKED:*`·`[TestConflict]`·`[Breaking]`·`cannot_compile`을 각각 제시하고 결정을 받는다.
    Phase 6~8에서 유저 질문이 금지되어 이연된 항목들이므로 **여기가 첫 결정 지점**이다.
    - 결정에 따른 수정이 필요하면 그 자리에서 수행하고 커밋한다. 승인 전에는 수정하지 않는다.
@@ -422,7 +443,8 @@ Phase 8.1 결과는 `## Test Baseline`과 대조해 `regression` / `pre_existing
 4. 보완점 반영 방식을 질문한다: ① 로컬에만 저장 (기본) ② 로컬 저장 + `/common:submit-feedback`으로 PR ③ 건너뛰기.
 5. 적용 절차·append 규칙은 templates.md의 "보완점 적용 상세"를 따른다. 플러그인 원본은 절대 수정하지 않는다.
 6. 정리: 상태 파일의 모든 Phase를 `DONE`/`SKIPPED:{사유}`로 갱신하고 `Remaining Phases`를 `없음`으로 기록.
-   기본은 보관, 사용자가 정리를 요청한 경우에만 `rm -f {STATE_FILE}`.
+   기본은 상태 파일과 라이브 노트를 **보관** (HTML 산출물은 `{REPORT_DIR}`에 영구 저장). 사용자가 정리를 요청한 경우에만 `rm -f {STATE_FILE} {IMPL_NOTES}`.
+   HTML 산출물(`*-impl-notes.html`, `*-e2e-report.html`)은 자동 삭제하지 않는다.
 
 ## 상태 코드
 
@@ -441,7 +463,7 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 | 파일 | 로드 시점 |
 |------|----------|
 | `references/analyze-verify-modes.md` | `--analyze` / `--verify` 모드 진입 시 |
-| `references/templates.md` | Phase 5 (상태 파일), Phase 12 (보고서·보완점) |
+| `references/templates.md` | Phase 5 (상태 파일·라이브 노트), Phase 12 (HTML 렌더링·보고서·보완점) |
 | `references/tdd.md` | Phase 5 (TDD 판정·baseline), Phase 6 진입 시 |
 | `references/agent-prompts.md` | Phase 6 진입 시 (Phase 6.2/7/9/10/11 프롬프트) |
 | `references/quality-loop.md` | Phase 8 진입 시 |
@@ -452,9 +474,9 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 [유저 대화] — Phase 1~4 전체가 단일 EnterPlanMode 컨텍스트
 Phase 1: EnterPlanMode → /request로 Technical Spec (유저 확인)
 Phase 2: 난이도 산정 (1-10)
-Phase 3: 실행 전략 판정 (sequential / parallel-slices / fullstack → fs-harness로 전환)
+Phase 3: 실행 전략 판정 (sequential / parallel-slices / fullstack → /common:start-workflow --fs 로 전환)
 Phase 4: Plan 작성 → 다관점 1회 보강 → Codex 검증 루프 (최대 5회) → ExitPlanMode
-Phase 5: feature 브랜치 + 상태 파일 + 회귀 baseline 수집 → "자율 실행 시작"
+Phase 5: feature 브랜치 + 상태 파일 + implementation-notes.md + 회귀 baseline → "자율 실행 시작"
 
 [자율 실행 — 유저 확인 없이 완주]
 Phase 6.1: 테스트 우선 (Red) — Spec ID 근거로 실패 테스트 선작성 + 스텁, Red 커밋
@@ -468,5 +490,5 @@ Phase 10: PR 생성 (--hard: push만)
 Phase 11: 성찰
 
 [유저 대화]
-Phase 12: 최종 보고 → 보완점 적용 (유저 선택) → 정리
+Phase 12: impl-notes HTML 렌더링 → 최종 보고 (미결 질문 상단 표면화) → 보완점 적용 → 정리
 ```

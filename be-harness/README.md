@@ -2,6 +2,8 @@
 
 범용 백엔드 개발 워크플로우 하네스. `minmos-harness`에서 Post-Math 특화 요소를 걷어내고 **Go/Node 프리셋 + 프로젝트 profile** 기반으로 재구성한 범용판.
 
+> 이 플러그인은 **오버레이 베이스**다. `minmos-harness`(Post-Math 특화)가 이 절차 위에 델타를 얹는다 — 규약: [`docs/overlay.md`](../docs/overlay.md).
+
 ## 설치
 
 commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 선행 설치해야 한다.
@@ -47,10 +49,10 @@ commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 �
 | 스킬 | 호출 | 설명 |
 |------|------|------|
 | **convention-check** | `/be-harness:convention-check` | 컨벤션 검사 (`.convention-check.json`) |
-| **simplify-loop** | `/be-harness:simplify-loop` | 빌트인 `/simplify` 반복 실행 (최대 10회) |
+| **simplify-loop** | `/be-harness:simplify-loop` | 4관점 리뷰(Correctness/Readability/Performance/Stability) → Devil's Advocate → Arbiter 판정을 수렴까지 반복 (최대 10회, Workflow 미지원 시 빌트인 `/simplify` 폴백) |
 | **unit-test** | `/be-harness:unit-test` | Spec 추적 ID(AC/EC/RC) 기반 단위 테스트 작성·실행. `--red`로 실패 테스트 선작성 |
 | **e2e-test** | `/be-harness:e2e-test` | profile 기반 HTTP API E2E 테스트 |
-| **e2e-test-loop** | `/be-harness:e2e-test-loop` | E2E → 수정 → 재테스트 반복 (최대 5회) |
+| **e2e-test-loop** | `/be-harness:e2e-test-loop` | E2E → 수정 → 재테스트 반복 (최대 5회). 종료 시 정직한 자기 점검 HTML 리포트 생성 |
 
 ### 컨벤션 레퍼런스
 

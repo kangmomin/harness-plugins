@@ -6,33 +6,28 @@
   "plugins": [
     {
       "name": "common",
-      "description": "여러 harness에서 공통으로 사용하는 범용 스킬 모음. 다른 하네스를 설치하기 전에 먼저 설치해야 한다.",
+      "description": "워크플로우 단일 진입점(start-workflow — 도메인 판정 + 풀스택 오케스트레이션)과 커밋/PR/문서 스킬 모음. 다른 하네스를 설치하기 전에 먼저 설치해야 한다.",
       "source": "./common"
     },
     {
-      "name": "minmos-harness",
-      "description": "Post-Math 개발 워크플로우를 위한 개인 하네스. 커밋/PR 관리, 컨벤션 검사, Feature Spec 생성, E2E 테스트(REST+gRPC+PubSub), Apidog 스키마 생성 등 개발 생산성 도구 모음.",
-      "source": "./minmos-harness"
-    },
-    {
-      "name": "hyeondongs-harness",
-      "description": "hyeondongs 전용 부속 하네스. 환경 세팅/진단과 minmos 백엔드 연계 풀스택 워크플로우. 프론트엔드 개발 스킬은 fe-harness 사용.",
-      "source": "./hyeondongs-harness"
-    },
-    {
       "name": "be-harness",
-      "description": "범용 백엔드 개발 워크플로우 하네스. Technical Spec→Plan→구현→품질 루프→PR. Go/Node 프리셋 내장.",
+      "description": "범용 백엔드 개발 워크플로우 하네스. Technical Spec→Plan→구현→품질 루프→PR. Go/Node 프리셋 내장. 특화 하네스(minmos)의 베이스.",
       "source": "./be-harness"
     },
     {
       "name": "fe-harness",
-      "description": "범용 프론트엔드 개발 워크플로우 하네스. 컴포넌트 중심 Spec→Plan→구현→품질/접근성/E2E 루프→PR.",
+      "description": "범용 프론트엔드 개발 워크플로우 하네스. 컴포넌트 중심 Spec→Plan→구현→품질/접근성/E2E 루프→PR. 특화 하네스(hyeondongs)의 베이스.",
       "source": "./fe-harness"
     },
     {
-      "name": "fs-harness",
-      "description": "풀스택 오케스트레이터 하네스. be-harness와 fe-harness를 병렬 사용하는 풀스택 워크플로우.",
-      "source": "./fs-harness"
+      "name": "minmos-harness",
+      "description": "be-harness 오버레이. Post-Math 백엔드 특화 — Apidog 문서 동기화, gRPC/PubSub E2E, PostgreSQL MCP DB 안전 규칙, Post-Math 컨벤션. be-harness 선행 설치 필수.",
+      "source": "./minmos-harness"
+    },
+    {
+      "name": "hyeondongs-harness",
+      "description": "fe-harness 오버레이. hyeondongs 환경 세팅/진단(.hyeondong-config.json)과 풀스택 전환 시 minmos 백엔드 연계. fe-harness 선행 설치 필수.",
+      "source": "./hyeondongs-harness"
     }
   ]
 }

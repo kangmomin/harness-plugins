@@ -1,5 +1,5 @@
-> 이 문서는 `start-workflow` 스킬의 Phase 5(상태 파일 생성)와 Phase 12(최종 보고·보완점 적용)에서 로드된다. 단독 실행 금지.
-> `{STATE_FILE}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
+> 이 문서는 `start-workflow` 스킬의 Phase 5(상태 파일·라이브 노트 생성)와 Phase 12(HTML 렌더링·최종 보고·보완점 적용)에서 로드된다. 단독 실행 금지.
+> `{STATE_FILE}`, `{IMPL_NOTES}`, `{REPORT_DIR}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
 
 # 템플릿 모음
 
@@ -99,6 +99,75 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 ## Slices
 [Plan에서 정의한 Slice 정보 그대로 복사]
 ```
+
+## Phase 5: Implementation Notes 라이브 파일 초기화
+
+상태 파일과 별개로 `{IMPL_NOTES}`를 Write tool로 생성한다. 기존 파일이 있으면 덮어쓴다.
+
+```markdown
+# Implementation Notes — {작업 요약}
+
+> 자율 실행 중 발생한 판단·편차·트레이드오프·미결 질문이 실시간으로 누적됩니다.
+> 유저는 언제든 이 파일을 열어 비동기로 피드백할 수 있으며, Phase 12에서 HTML로 일괄 렌더링됩니다.
+
+## 설계 결정
+<!-- "- {Phase} | {file:line 또는 범위} — 선택: {택1} (대안: {택2}) — 근거: {1~2줄}" -->
+
+## 편차
+<!-- "- {Phase} | {file:line 또는 범위} — Spec: {원래 기대 동작} → 실제: {바뀐 동작} — 사유: {1~2줄}" — [Assumption] 보고와 1:1 대응 -->
+
+## 트레이드오프
+<!-- "- {Phase} | {결정} — 채택안: {A} / 기각안: {B,C} — 이유: {1~2줄}" -->
+
+## 미결 질문
+<!-- "- [ ] {Phase} | {질문} — 영향: {핵심 동작/주변 영향/판단 보류}" -->
+```
+
+> 4개 섹션 헤더(`## 설계 결정`, `## 편차`, `## 트레이드오프`, `## 미결 질문`)는 정확히 이 형태로 유지한다. Phase 12 HTML 렌더링이 헤더 텍스트로 섹션을 식별한다.
+
+## Phase 12: Implementation Notes HTML 렌더링
+
+보고서 작성 직전, 라이브 노트를 HTML 산출물로 변환한다.
+
+1. **출력 디렉토리 보장**: `mkdir -p {REPORT_DIR}`
+2. **출력 경로 결정**: `{REPORT_DIR}/{YYYYMMDD}-{task-name-kebab}-impl-notes.html`
+   - `YYYYMMDD`: 현재 날짜 (Bash `date +%Y%m%d`)
+   - `task-name-kebab`: Phase 5 브랜치명 또는 Spec 제목을 kebab-case로 변환
+3. **렌더링**: `{IMPL_NOTES}`를 Read한 뒤, 4개 섹션을 각각 색상 카드로 변환하여 Write tool로 HTML 파일을 생성한다. 권장 템플릿:
+
+```html
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>Implementation Notes — {task}</title>
+<style>
+ body{font-family:system-ui,sans-serif;max-width:880px;margin:32px auto;padding:0 16px;color:#222;line-height:1.55}
+ h1{font-size:1.5rem;margin-bottom:.25rem}
+ .meta{color:#666;font-size:.9rem;margin-bottom:1.5rem}
+ section{border-left:4px solid;padding:12px 16px;margin:16px 0;border-radius:6px;background:#fafafa}
+ section.decision{border-color:#2563eb}
+ section.deviation{border-color:#ea580c}
+ section.tradeoff{border-color:#16a34a}
+ section.open{border-color:#dc2626}
+ section h2{margin:0 0 8px;font-size:1.1rem}
+ ul{margin:0;padding-left:1.2rem}
+ .empty{color:#888;font-style:italic}
+ .alert{background:#fef2f2;border:1px solid #fecaca;padding:12px 16px;border-radius:6px;margin-bottom:16px}
+</style></head><body>
+<h1>Implementation Notes — {task}</h1>
+<div class="meta">생성: {ISO timestamp} · 브랜치: {branch} · 워크플로우: be-harness:start-workflow</div>
+{미결 질문이 1건 이상이면 아래 alert 블록 삽입}
+<div class="alert"><strong>사용자 확인 필요</strong> — 미결 질문 {N}건이 있습니다. 아래 빨간 카드 참고.</div>
+<section class="decision"><h2>설계 결정</h2>{ul 또는 empty}</section>
+<section class="deviation"><h2>편차</h2>{ul 또는 empty}</section>
+<section class="tradeoff"><h2>트레이드오프</h2>{ul 또는 empty}</section>
+<section class="open"><h2>미결 질문</h2>{ul 또는 empty}</section>
+</body></html>
+```
+
+> 각 섹션이 비어 있으면(헤더 외에 항목 없음) `<p class="empty">기록 없음</p>`로 표기한다.
+> `## 미결 질문`의 체크박스(`- [ ]`)는 `<input type="checkbox" disabled>`로 변환해 시각적으로 유지한다.
+
+4. **결과 경로를 메모**: Phase 12 보고서의 `Implementation Notes` 섹션에 절대 경로를 명시.
 
 ## Phase 12: Workflow Report 템플릿
 

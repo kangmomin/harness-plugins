@@ -33,6 +33,9 @@ serverUrl: "http://localhost:8080"
 e2eEnabled: true           # false면 e2e-test, e2e-test-loop 스킵
 apiDocsPath: ""            # OpenAPI/Swagger 스펙 파일 경로. 없으면 생략.
 
+# 리포트 출력
+reportDir: ""              # E2E 자기 점검 HTML 등 리포트 저장 디렉토리. 비우면 `.claude/harness-reports`
+
 # 소스 레이아웃
 sourceDirs: ["internal/", "cmd/", "pkg/"]
 testDirs:   ["internal/", "pkg/"]
