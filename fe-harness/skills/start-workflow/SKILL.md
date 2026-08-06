@@ -102,6 +102,23 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 
 > 어느 경우든 Spec을 유저에게 보여주고 확인을 받는다.
 
+### 풀스택 판정
+
+Spec 확정 시 **백엔드 변경이 함께 필요한지** 판정한다. 아래 중 하나라도 해당하면 `fullstack`이다:
+
+- 신규 API 엔드포인트가 필요하다 (기존 API 조합으로 해결 불가)
+- 기존 API의 요청/응답 구조·에러 코드·인증 방식 변경이 필요하다
+- 화면이 요구하는 데이터가 현재 백엔드에 존재하지 않는다
+
+| 감지 | 행동 | 고지 문구 |
+|------|------|----------|
+| `/common:start-workflow` 가 세션에 존재 | Skill tool로 `--fs` 와 함께 호출 후 현재 워크플로우 종료 | "FE+BE 동시 변경이 필요합니다. `/common:start-workflow --fs`로 전환합니다." |
+| common 미설치 | 선택지 제시 후 대기 | "FE+BE 동시 변경이 필요하지만 풀스택 오케스트레이션을 제공하는 `common` 이 설치되어 있지 않습니다.<br>1. `common` 설치 후 재시작 (권장) — `/plugin install common@harness-plugins`<br>2. 프론트엔드만 진행 — 백엔드 변경은 별도 작업으로 분리<br>3. 중단" |
+
+> **기존 API로 해결 가능하면 `fullstack`이 아니다.** 판단이 애매하면 유저에게 확인한다 — 풀스택 전환은 계약 확정부터 다시 시작하므로 비용이 크다.
+
+출력: `도메인 판정: [frontend/fullstack] — [근거]`
+
 ## Phase 2: 난이도 산정
 
 Technical Spec을 분석하여 1~10 난이도를 산정한다.
@@ -337,7 +354,7 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 
 ```
 [유저 대화] — Phase 1~3 전체가 단일 EnterPlanMode 컨텍스트
-Phase 1: EnterPlanMode → /request로 Technical Spec (유저 확인)
+Phase 1: EnterPlanMode → /request로 Technical Spec (유저 확인) + 풀스택 판정
 Phase 2: 난이도 산정 (1-10)
 Phase 3: Plan 작성 → 다관점 1회 보강 → Codex 검증 루프 (최대 5회) → ExitPlanMode
 Phase 4: feature 브랜치 + 상태 파일 + 회귀 baseline 수집 → "자율 실행 시작"

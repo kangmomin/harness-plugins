@@ -50,7 +50,7 @@ commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 �
 | 스킬 | 호출 | 설명 |
 |------|------|------|
 | **convention-check** | `/fe-harness:convention-check` | 컨벤션 검사 |
-| **simplify-loop** | `/fe-harness:simplify-loop` | 빌트인 `/simplify` 반복 |
+| **simplify-loop** | `/fe-harness:simplify-loop` | 4관점 리뷰(Correctness/Readability/Performance/Stability) → Devil's Advocate → Arbiter 판정을 수렴까지 반복 (최대 10회, Workflow 미지원 시 빌트인 `/simplify` 폴백) |
 | **lint-check** | `/fe-harness:lint-check` | ESLint/Prettier/TypeScript 체크 |
 | **unit-test** | `/fe-harness:unit-test` | Vitest/Jest 단위 테스트. Spec 추적 ID(AC/EC) 기반 또는 변경 파일 기반, `--red`로 실패 테스트 선작성 |
 | **test-loop** | `/fe-harness:test-loop` | 테스트 → 수정 반복. TDD 시 frozen 모드(테스트 수정 금지) |

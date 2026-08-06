@@ -201,13 +201,18 @@ Technical Spec을 분석하여 1~10 난이도를 산정한다. **종합 난이�
 |------|------|------|
 | `sequential` | 위 조건 미충족 (기본값) | Phase 6 순차 실행 |
 | `parallel-slices` | 5가지 조건 모두 충족, 슬라이스 2~3개 | Phase 6에서 슬라이스별 병렬 구현 |
-| `fullstack` | FE+BE 동시 변경 | `/fs-harness:start-workflow`로 리다이렉트 후 종료 |
+| `fullstack` | FE+BE 동시 변경 | `/common:start-workflow --fs`로 전환 후 종료 |
 
 > **대부분의 작업은 `sequential`이다.** 판단이 애매하면 `sequential` — 병렬화의 이점보다 잘못된 분리의 비용이 훨씬 크다.
 
 출력: `실행 전략: [sequential/parallel-slices/fullstack] — [근거]`
 
-`fullstack` 판정 시: "FE+BE 동시 변경이 필요합니다. `/fs-harness:start-workflow`로 전환합니다." → Skill tool로 호출 후 현재 워크플로우 종료.
+`fullstack` 판정 시:
+
+| 감지 | 행동 | 고지 문구 |
+|------|------|----------|
+| `/common:start-workflow` 가 세션에 존재 | Skill tool로 `--fs` 와 함께 호출 후 현재 워크플로우 종료 | "FE+BE 동시 변경이 필요합니다. `/common:start-workflow --fs`로 전환합니다." |
+| common 미설치 | 선택지 제시 후 대기 | "FE+BE 동시 변경이 필요하지만 풀스택 오케스트레이션을 제공하는 `common` 이 설치되어 있지 않습니다.<br>1. `common` 설치 후 재시작 (권장) — `/plugin install common@harness-plugins`<br>2. 백엔드만 진행 — 프론트엔드 변경은 별도 작업으로 분리<br>3. 중단" |
 
 ## Phase 4: Plan 작성 + 리뷰
 
@@ -452,7 +457,7 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 [유저 대화] — Phase 1~4 전체가 단일 EnterPlanMode 컨텍스트
 Phase 1: EnterPlanMode → /request로 Technical Spec (유저 확인)
 Phase 2: 난이도 산정 (1-10)
-Phase 3: 실행 전략 판정 (sequential / parallel-slices / fullstack → fs-harness로 전환)
+Phase 3: 실행 전략 판정 (sequential / parallel-slices / fullstack → /common:start-workflow --fs 로 전환)
 Phase 4: Plan 작성 → 다관점 1회 보강 → Codex 검증 루프 (최대 5회) → ExitPlanMode
 Phase 5: feature 브랜치 + 상태 파일 + 회귀 baseline 수집 → "자율 실행 시작"
 
