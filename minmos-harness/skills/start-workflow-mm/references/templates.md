@@ -31,7 +31,8 @@ Phase 6 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | 4 | orchestrator | 현재 세션 | 현재 세션 | DONE |
 | 5 | review agents + orchestrator | 난이도 기준 | 난이도 기준 | DONE |
 | 6 | orchestrator | 현재 세션 | 현재 세션 | IN_PROGRESS |
-| 7 | workflow-implementer/general-purpose | 난이도 기준 | 난이도 기준 | PENDING |
+| 7.1 | unit-test agent (Red) | 난이도 기준 | 난이도 기준 | PENDING |
+| 7.2 | workflow-implementer/general-purpose | 난이도 기준 | 난이도 기준 | PENDING |
 | 8 | orchestrator/build-fix agent | 난이도 기준 | 난이도 기준 | PENDING |
 | 9 | quality agents | 난이도 기준 | 난이도 기준 | PENDING |
 | 10 | orchestrator + Codex | Complex 이상 | Complex 이상 | PENDING |
@@ -41,7 +42,8 @@ Phase 6 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | 14 | orchestrator | 현재 세션 | 현재 세션 | PENDING |
 
 ## Remaining Phases
-- Phase 7: 구현
+- Phase 7.1: 테스트 우선 (Red)
+- Phase 7.2: 구현 (Green)
 - Phase 8: 빌드 체크
 - Phase 9: 품질 루프
 - Phase 10: Codex 품질 리뷰
@@ -53,8 +55,32 @@ Phase 6 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 ## Execution Strategy
 [sequential/parallel-slices]
 
+## Acceptance Criteria
+[Spec의 정상 흐름 표(`AC-nn`)를 그대로 복사. 없으면 `없음`. Phase 7.1 테스트 근거의 일부다]
+
 ## Edge Cases
 [Spec의 엣지 케이스 표를 **ID·참조 구현 열까지 그대로** 복사. Phase 9.6 커버리지 대조와 Phase 9.8 Diff 판정의 기준이므로 ID를 생략하거나 다시 매기지 않는다]
+
+## Test Baseline
+[Phase 6에서 수집. TDD SKIP 시 사유만 기록 — 예: `SKIPPED:USER_OPT_OUT`]
+
+- 커밋: {SHA}   |   수집 Phase: 6 (자율 실행 진입 전)   |   **불변 — 이후 갱신하지 않는다**
+
+| suite | 명령 | 러너 완주 | 통과 | 실패 | 실패 목록 (식별자 :: 정규화 시그니처) |
+|-------|------|----------|------|------|--------------------------------------|
+| unit | go test ./internal/... | Y | 142 | 2 | `TestFoo` :: `nil pointer` |
+
+**Tombstone** (Spec이 승인한 테스트 이름 변경·삭제만 기록):
+- `{구 식별자}` → `{신 식별자}` 또는 `삭제({근거})`
+
+## TDD Test Map
+[Phase 7.1에서 기록. Phase 9 회귀 대조와 Phase 14 보고서의 기준]
+> **Phase 9.8 read-back 에이전트에 이 표를 전달하지 않는다** — Spec 역추론으로 격리가 무너진다.
+
+| Spec ID | 테스트 | 파일 | Red | Green |
+|---------|--------|------|-----|-------|
+| AC-01 | Test_Create_정상 | user_test.go:12 | red_assertion | PASS |
+| EC-01 | Test_Create_중복 | user_test.go:42 | already_satisfied | PASS |
 
 ## E2E 메인 플로우
 [Phase 4에서 사용자가 서술한 메인 플로우 전문, 또는 "자동 도출 (git diff 기반)"]
@@ -175,12 +201,14 @@ Phase 6 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 - **커밋 수**: [N]개
 - **핵심 로직**: [요약]
 
-### 3. 엣지 케이스 대응
-| ID | 케이스 | 대응 방법 | E2E | Read-back |
-|----|--------|----------|-----|-----------|
-| EC-01 | [케이스] | [대응] | PASS | 일치 |
-| EC-02 | [케이스] | [대응] | `UNCOVERED:{사유}` | A 검증 누락 |
+### 3. 요구사항 대응
+| ID | 케이스 | 대응 방법 | Unit | E2E | Read-back |
+|----|--------|----------|------|-----|-----------|
+| AC-01 | [정상 흐름] | [대응] | PASS | PASS | 일치 |
+| EC-01 | [케이스] | [대응] | PASS | PASS | 일치 |
+| EC-02 | [케이스] | [대응] | deferred_e2e | `UNCOVERED:{사유}` | A 검증 누락 |
 
+- `Unit` 열: Phase 7.1 TDD Test Map의 Green 결과 또는 진단 분류. TDD SKIP이면 `-`
 - `E2E` 열: Phase 9.6 리포트의 해당 ID 판정. 미실행이면 `-`
 - `Read-back` 열: Phase 9.8 Diff 유형(A~E) 또는 `일치`. Phase 9.8이 SKIP이면 `-`
 
@@ -193,7 +221,19 @@ Phase 6 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | scope-review | N | M |
 
 - **E2E 리포트 HTML**: [Phase 9.6 마지막 실행이 보고한 경로 (여러 번 돌렸으면 최종 iteration 산출물). 미생성이면 "미생성 (E2E SKIP 또는 미실행)"]
+- **테스트 판정**: [PASS/WARN/FAIL] — regression [n]건 / new_red [n]건 / flaky [n]건 / pre_existing [n]건(범위 밖)
 - **Read-back 판정**: [PASS/WARN/FAIL] — A [n]건 / C [n]건 / E [n]건 (소스: 테스트 파일 / E2E 리포트 / 구현 코드)
+
+### 4.1 TDD 미해결 항목 (유저 결정 필요)
+> TDD가 SKIP이거나 미해결 항목이 없으면 "없음"으로 적고 이 섹션을 비운다.
+
+| 유형 | 항목 | 상세 | 필요한 결정 |
+|------|------|------|------------|
+| `BLOCKED:TEST_NOT_GREEN` | 품질 루프 3회 후에도 테스트 미통과 | [실패 목록] | 추가 수정 / 범위 제외 |
+| `BLOCKED:NO_VALID_RED` | 유효 Red를 만들지 못함 | [사유] | 테스트 재작성 / TDD 없이 유지 |
+| `[TestConflict]` | Spec 조항이 모호해 판정 보류 | [테스트 ↔ 조항] | Spec 확정 |
+| `[Breaking]` | 기존 테스트의 기대 동작을 변경함 | [테스트명, 변경 내용] | 호환성 검토 |
+| `cannot_compile` | 3회 시도 후 되돌린 테스트 | [Spec ID] | 수동 작성 / 범위 제외 |
 
 ### 5. 문서 동기화
 - Apidog 업데이트: [Y/N, 요약]

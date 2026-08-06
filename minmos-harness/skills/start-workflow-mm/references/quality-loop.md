@@ -23,6 +23,19 @@ go build ./cmd/main.go && go test ./internal/... 2>&1
 
 에러 로그를 Batch A 결과에 수집한다. 파일 수정 없음.
 
+**회귀 대조 (TDD 활성 시)**: 테스트 실패를 `{STATE_FILE}`의 `## Test Baseline`과 대조해 분류한다. 상세 절차는 `references/tdd.md`의 "Phase 9: 회귀 대조".
+
+| # | 조건 | 분류 |
+|---|------|------|
+| 1 | `## TDD Test Map`에 등재된 테스트의 실패 | `new_red` |
+| 2 | baseline에 동일 식별자 + **동일** 시그니처 | `pre_existing` |
+| 3 | baseline에 동일 식별자 + **다른** 시그니처 | `regression` |
+| 4 | baseline에 없는 식별자의 실패 | `regression` |
+| 5 | 3·4 판정 전 1회 재실행, 결과가 뒤집히면 | `flaky` |
+
+Phase 9.5에 전달하는 이슈 순서는 `regression` → `new_red` 다. `pre_existing`은 **이번 범위 밖이므로 전달하지 않고 보고만** 한다.
+TDD가 SKIP된 경우 분류 없이 기존대로 전체 실패 로그를 수집한다.
+
 ### Phase 9.2: Simplify Scan
 
 ```
@@ -86,8 +99,14 @@ Agent tool:
     남은 Phase: Phase 9.6, 9.7, 9.8, 10, 11, 12, 13, 14
     배정 model/effort: {model}/{effort}
 
+    ## 규칙
+    {TDD 활성 시}
+    - **테스트 파일을 수정하지 마세요.** 실패한 테스트는 소스를 고쳐서 통과시킵니다.
+    - 테스트 자체가 잘못되었다고 판단되면 `[TestConflict]` 태그로 보고만 하세요.
+    - `pre_existing` 분류는 이번 범위 밖입니다. 손대지 마세요.
+
     ## 이슈 목록
-    ### 빌드/테스트 에러 (최우선)
+    ### 빌드/테스트 에러 (최우선 — regression → new_red 순)
     {go build / go test 로그}
 
     ### Scope 누락
@@ -181,13 +200,14 @@ make test
 
 ## 격리 규칙 (CRITICAL)
 
-에이전트 프롬프트는 아래 세 조건을 **모두** 만족해야 한다:
+에이전트 프롬프트는 아래 네 조건을 **모두** 만족해야 한다:
 
 1. `{STATE_FILE}`·`{IMPL_NOTES}` 경로를 전달하지 않고, 읽지 말라고 명시한다 (각각 Spec·Plan·엣지 케이스 표 전문과 설계 결정·편차 기록이 들어있다).
 2. Spec / Plan / 엣지 케이스 표를 프롬프트 본문에 넣지 않는다.
 3. 다른 Phase 프롬프트와 달리 **"상태 파일을 읽고 상태를 갱신하세요" 문구를 넣지 않는다.** 상태 갱신은 오케스트레이터가 대신 수행한다.
+4. **`## TDD Test Map`을 전달하지 않는다.** Test Map은 Spec ID ↔ 테스트 매핑이므로, 이를 본 에이전트는 Spec을 역추론하게 되어 격리가 무너진다. Test Map은 오케스트레이터의 대조 입력으로만 쓴다.
 
-> 이 세 줄이 Phase 9.8의 유일한 실효 장치다. 하나라도 빠지면 에이전트가 Spec을 읽고 그대로 옮겨 적어 **Diff가 항상 0건**이 되고, 이 단계는 요식 행위가 된다.
+> 이 네 줄이 Phase 9.8의 유일한 실효 장치다. 하나라도 빠지면 에이전트가 Spec을 읽고 그대로 옮겨 적어 **Diff가 항상 0건**이 되고, 이 단계는 요식 행위가 된다.
 
 ## Read-back 에이전트
 

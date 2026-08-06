@@ -1,10 +1,26 @@
-> 이 문서는 `start-workflow-mm` 스킬의 Phase 7(구현), 8(빌드 체크), 11(문서 동기화), 12(PR), 13(성찰)에서 로드된다. 단독 실행 금지.
+> 이 문서는 `start-workflow-mm` 스킬의 Phase 7.2(구현), 8(빌드 체크), 11(문서 동기화), 12(PR), 13(성찰)에서 로드된다. 단독 실행 금지.
 > Phase 9(품질 루프)·10(Codex 품질 리뷰)의 프롬프트는 `references/quality-loop.md`에 있다.
 > `{STATE_FILE}`, `{IMPL_NOTES}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
 
 # 서브 에이전트 프롬프트 모음
 
-## Phase 7: 구현
+## Phase 7.2: 구현 (Green)
+
+### TDD 활성 시 공통 추가 블록
+
+`$TDD = true` 이고 Phase 7.1이 `SKIPPED:*`가 아니면 아래 블록을 **모든 구현 프롬프트에 추가**한다:
+
+```
+    ## TDD 규칙 (Phase 7.1에서 테스트가 선작성되었습니다)
+    - **테스트 파일을 수정하지 마세요.** 테스트를 고쳐서 통과시키는 것은 금지입니다.
+    - 테스트가 잘못되었다고 판단되면 코드와 테스트 어느 쪽도 고치지 말고
+      `[TestConflict]` 태그로 보고하세요. 판정은 오케스트레이터가 합니다.
+    - Phase 7.1이 만든 스텁을 실제 구현으로 채우세요.
+    - 통과 기준: 상태 파일 `## TDD Test Map`의 모든 테스트 통과
+      AND `## Test Baseline` 대비 신규 실패 0건
+```
+
+`[TestConflict]` 판정 절차는 `references/tdd.md`의 "Phase 7.2" 섹션을 따른다.
 
 ### sequential 모드 (기본)
 
@@ -16,7 +32,7 @@ Agent tool:
   prompt: |
     상태 파일 `{STATE_FILE}`을 읽고 Plan에 따라 코드를 구현하세요.
     프로젝트 루트: {현재 작업 디렉토리}
-    현재 Phase: Phase 7
+    현재 Phase: Phase 7.2
     남은 Phase: Phase 8, 9, 10, 11, 12, 13, 14
     배정 model/effort: {model}/{effort}
 
@@ -32,7 +48,7 @@ Agent tool:
     구현 완료 후 변경 파일 목록, 커밋 수, Plan 대비 차이점, [Assumption] 목록을 보고하세요.
 ```
 
-완료 후 유저에게 간략 보고: "Phase 7 완료: [변경 파일 수]개 파일, [커밋 수]개 커밋"
+완료 후 유저에게 간략 보고: "Phase 7.2 완료: [변경 파일 수]개 파일, [커밋 수]개 커밋"
 
 ### parallel-slices 모드
 
@@ -55,7 +71,7 @@ Agent tool:  (× 슬라이스 수)
   prompt: |
     상태 파일 `{STATE_FILE}`을 읽고, 아래 슬라이스만 구현하세요.
     프로젝트 루트: {현재 작업 디렉토리}
-    현재 Phase: Phase 7 parallel-slices
+    현재 Phase: Phase 7.2 parallel-slices
     남은 Phase: Phase 8, 9, 10, 11, 12, 13, 14
     배정 model/effort: {model}/{effort}
 
@@ -94,7 +110,7 @@ EOF
 )"
 ```
 
-완료 후 유저에게 간략 보고: "Phase 7 완료: [N]개 슬라이스 병렬 구현, [변경 파일 수]개 파일"
+완료 후 유저에게 간략 보고: "Phase 7.2 완료: [N]개 슬라이스 병렬 구현, [변경 파일 수]개 파일"
 
 ## Phase 8: 빌드 실패 수정 에이전트
 
