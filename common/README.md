@@ -1,8 +1,8 @@
 # common
 
-여러 harness(be/fe/fs/특화 하네스)에서 공통으로 사용하는 스킬 모음.
+여러 harness(be/fe/특화 하네스)에서 공통으로 사용하는 스킬 모음.
 
-`be-harness`, `fe-harness`, `fs-harness`, `minmos-harness`, `hyeondongs-harness` 등 어떤 하네스를 쓰더라도 **먼저 설치되어야 하는 베이스 플러그인**이다. 도메인 종속성이 없는 범용 스킬만 둔다.
+`be-harness`, `fe-harness`, `minmos-harness`, `hyeondongs-harness` 등 어떤 하네스를 쓰더라도 **먼저 설치되어야 하는 베이스 플러그인**이다. 도메인 종속성이 없는 범용 스킬만 둔다.
 
 ## 설치
 
@@ -39,32 +39,18 @@
 | **commit-hard-push** | `/common:commit-hard-push` | 보호 브랜치 제한 없이 commit + push |
 | **merge** | `/common:merge` | PR 을 머지. doc-gen 으로 요약 컨펌 후 머지 방식(일반/스쿼시/리베이스/취소) 선택 |
 
-### 하네스 공용 진입점 (라우터)
+### 워크플로우 진입점
 
-여러 하네스가 같은 이름의 스킬을 제공한다. 매번 `/be-harness:`, `/fe-harness:` 같은 접두를 기억하는 대신 `/common:` 으로 진입하고 대상만 고른다.
+| 스킬 | 호출 | 설명 |
+|------|------|------|
+| **start-workflow** | `/common:start-workflow` | 개발 워크플로우의 **단일 진입점**. 요청을 분석해 백엔드/프론트엔드/풀스택을 판정하고, 단일 도메인이면 해당 하네스로 위임하고 풀스택이면 계약 기반 병렬 오케스트레이션을 직접 실행 |
 
-**대상 플래그**: `--be`(백엔드) · `--fe`(프론트엔드) · `--fs`(풀스택) · `--mm`(minmos) · `--hd`(hyeondongs — 세팅/진단/풀스택 전용, 그 외는 `--fe` 로 처리)
-**플래그를 생략하면** 설치된 하네스 중에서 선택지를 제시한다. 후보가 하나뿐이면 묻지 않고 바로 실행한다.
+**도메인 플래그**: `--be`(백엔드) · `--fe`(프론트엔드) · `--fs`(풀스택) · `--mm`(백엔드 + minmos 오버레이) · `--hd`(프론트엔드 + hyeondongs 오버레이)
+**플래그를 생략하면** 프로젝트 신호(`go.mod`, `package.json`, profile 파일 등)와 요청 내용으로 도메인을 판정하고 **확인을 거친 뒤** 실행한다.
 
-| 스킬 | 호출 | 위임 대상 |
-|------|------|----------|
-| **start-workflow** | `/common:start-workflow` | be · fe · fs · mm (+ `--mm-fs` / `--hd-fs` 풀스택 변형) |
-| **request** | `/common:request` | be · fe · mm |
-| **e2e-test** | `/common:e2e-test` | be · fe · mm |
-| **e2e-test-loop** | `/common:e2e-test-loop` | be · mm |
-| **simplify-loop** | `/common:simplify-loop` | be · fe · mm |
-| **convention-check** | `/common:convention-check` | be · fe · mm |
-| **default-conventions** | `/common:default-conventions` | be · fe · mm |
-| **doctor** | `/common:doctor` | be · fe · mm · hd (후보 전체 순차 실행 가능) |
-| **init** | `/common:init` | be · fe · mm · hd |
-| **component** | `/common:component` | fe |
-| **unit-test** | `/common:unit-test` | be · fe |
-| **lint-check** | `/common:lint-check` | fe |
-| **test-loop** | `/common:test-loop` | fe |
+단일 도메인 위임 시 절차는 위임 대상 하네스가 정의한다. 풀스택 절차는 `skills/start-workflow/references/fullstack.md` 가 canonical이다.
 
-`--hd` 는 `init` · `doctor` · `start-workflow --hd-fs` 에서만 고유 대상을 가진다. 나머지 라우터에서는 `--fe` 로 처리하고 한 줄 고지한다 (hyeondongs 프론트엔드 스킬 10종이 fe-harness 로 통합됨).
-
-라우터는 **절차를 갖지 않는다.** 실제 동작은 위임 대상 하네스 스킬이 정의하며, 라우터는 대상 결정과 인자 전달만 한다. 공통 규약: 플러그인 루트 [`ROUTING.md`](./ROUTING.md).
+워크플로우 외 스킬(`request`, `e2e-test`, `convention-check`, `doctor`, `init` 등)은 하네스를 직접 지정해 호출한다: `/be-harness:request`, `/fe-harness:component`.
 
 ### 하네스 무관 스킬
 
@@ -105,6 +91,13 @@
 # PR 머지 (doc-gen 요약 컨펌 + 머지 방식 선택)
 /common:merge          # 현재 브랜치에 연결된 PR
 /common:merge 42       # 특정 PR
+
+# 워크플로우 시작 (도메인 자동 판정 후 확인)
+/common:start-workflow "주문 취소 기능 추가"
+
+# 도메인 고정
+/common:start-workflow --be "정산 배치 API 추가"
+/common:start-workflow --fs "쿠폰 등록 화면과 API"
 ```
 
 자세한 동작 흐름은 각 스킬의 `skills/<name>/SKILL.md` 참고.
@@ -122,5 +115,6 @@
     ├── commit-push.md              # /common:commit-push 오버라이드
     ├── commit-pr.md                # /common:commit-pr 오버라이드
     ├── commit-hard-push.md         # /common:commit-hard-push 오버라이드
-    └── merge.md                    # /common:merge 오버라이드
+    ├── merge.md                    # /common:merge 오버라이드
+    └── start-workflow.md           # /common:start-workflow 오버라이드
 ```

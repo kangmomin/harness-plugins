@@ -1,6 +1,6 @@
-> 이 문서는 `start-workflow`(fs-harness) 스킬의 Phase 6.1(Red)·6.2(병렬 구현)과 Phase 8.1(계약 격리 Read-back)에서 로드된다. 단독 실행 금지.
-> Red 단계의 소유권·배리어 규칙은 `references/tdd.md`가 canonical이다.
-> `{STATE_FILE}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
+> 이 문서는 `/common:start-workflow` 의 **풀스택 경로**(`references/fullstack.md`)에서 Phase 6.1(Red)·6.2(병렬 구현)과 Phase 8.1(계약 격리 Read-back)에 로드된다. 단독 실행 금지.
+> Red 단계의 소유권·배리어 규칙은 `fullstack-tdd.md` 가 canonical이다.
+> `{STATE_FILE}` 등 플레이스홀더 정의는 `fullstack.md` 를 따른다.
 
 # Red 에이전트 프롬프트 (Phase 6.1)
 

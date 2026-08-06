@@ -47,7 +47,7 @@ argument-hint: {인자를 받는 스킬만 — 선택}
 
 ## 4. Project Overrides 축약형
 
-오버라이드를 지원하는 플러그인(common/be/fe/fs)의 모든 스킬·에이전트 머리말은 아래 3행 표준형을 사용한다:
+오버라이드를 지원하는 플러그인(common/be/fe)의 모든 스킬·에이전트 머리말은 아래 3행 표준형을 사용한다:
 
 ```markdown
 > **Project Overrides**: 실행 전 `.claude/{plugin}/common.md`와 `.claude/{plugin}/skills/{skill}.md`를 Read.
@@ -147,6 +147,16 @@ argument-hint: {인자를 받는 스킬만 — 선택}
 - 같은 플러그인 안에서도 다른 스킬의 절차를 재사용할 때는 파일 경로가 아닌 스킬 이름으로 위임한다
   (예: commit-pr → "`/common:commit-push` 절차를 수행한 뒤 PR을 생성한다").
 - 절차를 위임받는 canonical 스킬을 하나 정하고, 나머지는 차이점만 기술한다. 복붙 금지.
+
+### 특화 하네스의 오버레이
+
+특화 하네스(`minmos-harness`, `hyeondongs-harness`)는 베이스 하네스(`be-harness`, `fe-harness`)의 절차를 복제하지 않고 **델타만** 얹는다.
+
+- 오버레이 문서는 `{plugin}/overlay/{skill}.md`에 두고, 위치 지정은 **절대 Phase 번호가 아니라 앵커**로 한다.
+- 위임 스킬은 절차를 갖지 않는다 (목표 50줄 이내).
+- 오버레이가 베이스보다 나은 **범용** 절차를 갖게 되면 베이스로 승격한다.
+
+상세 규약의 canonical은 `docs/overlay.md`다. 이 문서에 중복 서술하지 않는다.
 
 ## 10. 기타
 

@@ -2,7 +2,7 @@
 name: submit-feedback
 description: "harness 플러그인 사용 중 수집된 범용 보완점을 플러그인 레포(kangmomin/harness-plugins)의 community-feedback 영역에 PR로 제출한다. '피드백 보내줘', '보완점 PR 올려줘' 요청 시 사용. 실패 시 로컬 저장으로 fallback."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
-argument-hint: "[--be|--fe|--fs|--mm|--hd] <보완점 항목 JSON> 또는 대화 컨텍스트에서 수집"
+argument-hint: "[--be|--fe|--mm|--hd] <보완점 항목 JSON> 또는 대화 컨텍스트에서 수집"
 user-invocable: true
 ---
 
@@ -17,7 +17,7 @@ user-invocable: true
 
 **플레이스홀더 정의** (값 변경은 여기 한 곳만 수정):
 
-- `{PLUGIN}` = 피드백 대상 하네스 플러그인 이름 (`be-harness` / `fe-harness` / `fs-harness` / `minmos-harness` / `hyeondongs-harness`) — Step 1에서 확정
+- `{PLUGIN}` = 피드백 대상 하네스 플러그인 이름 (`be-harness` / `fe-harness` / `minmos-harness` / `hyeondongs-harness`) — Step 1에서 확정
 
 ## 언제 쓰나
 
@@ -78,7 +78,7 @@ feedback_items:
 
 | 순위 | 근거 | 판정 |
 |------|------|------|
-| 1 | 대상 플래그(`--be` / `--fe` / `--fs` / `--mm` / `--hd`) | 그대로 사용 |
+| 1 | 대상 플래그(`--be` / `--fe` / `--mm` / `--hd`) | 그대로 사용 |
 | 2 | 호출자가 전달한 보완점 항목의 `저장 경로` 필드 (`.claude/{plugin}/...`) | 그 플러그인 |
 | 3 | 프로젝트에 존재하는 오버라이드 디렉토리 `.claude/{plugin}/` 가 정확히 하나 | 그 플러그인 |
 | 4 | 위 어느 것도 확정 못 함 | `AskUserQuestion` 으로 후보 제시 |

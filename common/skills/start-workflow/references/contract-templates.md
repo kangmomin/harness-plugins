@@ -1,5 +1,5 @@
-> 이 문서는 `start-workflow`(fs-harness) 스킬의 Phase 1(Feature Matrix), 2(계약), 3(계약 리뷰), 5(상태 파일), 10(최종 보고)에서 로드된다. 단독 실행 금지.
-> `{STATE_FILE}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
+> 이 문서는 `/common:start-workflow` 의 **풀스택 경로**(`references/fullstack.md`)에서 Phase 1(Feature Matrix), 2(계약), 3(계약 리뷰), 5(상태 파일), 10(최종 보고)에 로드된다. 단독 실행 금지.
+> `{STATE_FILE}` 등 플레이스홀더 정의는 `fullstack.md` 를 따른다.
 
 # 계약·템플릿 모음
 

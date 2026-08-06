@@ -1,34 +1,22 @@
----
-name: start-workflow
-description: "프론트엔드와 백엔드를 분리된 에이전트로 병렬 오케스트레이션한다. 기능 정의 → 통신 계약 → 교차 리뷰 → 병렬 구현 → 통합 검증 → 단일 PR의 애자일 풀스택 워크플로우. 화면과 API가 함께 바뀌는 작업, '풀스택으로 진행해줘' 요청 시 사용."
-allowed-tools: AskUserQuestion, Read, Write, Edit, Glob, Grep, Bash, Agent, EnterPlanMode, ExitPlanMode, Skill
-argument-hint: <작업 설명 또는 빈 값>
-user-invocable: true
----
+> 이 문서는 `/common:start-workflow` 가 **도메인 판정 결과가 `fullstack`일 때** Read한다. 단독 실행 금지.
+> 단일 도메인(`backend` / `frontend`)으로 판정되면 이 문서를 읽지 않고 해당 하네스 스킬에 위임한다.
 
-> **Project Overrides**: 실행 전 `.claude/fs-harness/common.md`와 `.claude/fs-harness/skills/start-workflow.md`를 Read.
-> 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
-> 이 스킬이 be/fe 에이전트를 호출할 때 각 에이전트는 **자기 플러그인의 오버라이드**를 별도 로드한다 (`.claude/be-harness/...`, `.claude/fe-harness/...`).
-
-# Start Workflow Full Stack — Agile Orchestrator
+# 풀스택 오케스트레이션 (Agile Fullstack)
 
 프론트엔드와 백엔드를 하나의 큰 구현 덩어리로 취급하지 않는다.
 먼저 **기능 단위와 통신 계약**을 고정하고, 그 다음 **프론트/백엔드 전용 에이전트**가 병렬로 구현한 뒤, 마지막에 통합 검증으로 닫는다.
 
-**플레이스홀더 정의** (본문·references 공통, 값 변경은 여기 한 곳만 수정):
+**플레이스홀더 정의** (이 문서와 3개 reference 공통, 값 변경은 여기 한 곳만 수정):
 
 - `{STATE_FILE}` = `/tmp/fullstack-workflow-state.md`
 - `{CWD}` = 현재 작업 디렉토리 (프로젝트 루트)
 
-## 언제 쓰는가 / 쓰지 않는가
-
-- **사용**: 화면과 API가 함께 바뀌는 기능, 요청/응답 구조·에러 모델·인증 방식이 같이 정리되어야 하는 작업.
-- **미사용**: 백엔드만 바뀌면 `/be-harness:start-workflow`, 프론트엔드만 바뀌면 `/fe-harness:start-workflow`.
-
 ## 전제 조건
 
-- **be-harness와 fe-harness 플러그인이 모두 설치**되어 있어야 한다 (request, workflow-implementer, scope-reviewer, component-reviewer, a11y-reviewer, workflow-reflection 사용).
-- 한쪽 하네스가 없으면 이 스킬로 억지로 진행하지 말고, 단일 도메인 워크플로우로 안내 후 종료한다.
+- **be-harness와 fe-harness가 모두 설치**되어 있어야 한다 (request, workflow-implementer, scope-reviewer, component-reviewer, a11y-reviewer, workflow-reflection 사용).
+- 한쪽 하네스가 없으면 이 경로로 억지로 진행하지 않는다. 설치된 쪽의 단일 도메인 워크플로우로 안내 후 종료한다:
+  > "풀스택 작업이지만 `{누락 플러그인}` 이 설치되어 있지 않습니다. `/plugin install {누락 플러그인}@harness-plugins` 로 설치하거나, `{설치된 하네스}` 단일 도메인으로 진행하세요."
+- 특화 하네스가 설치되어 있으면 각 도메인 호출을 그쪽 위임 스킬로 대체한다 (§호출 방식 규칙).
 
 ## Flags
 
@@ -51,6 +39,8 @@ user-invocable: true
 | be/fe의 `workflow-implementer` (Phase 6) | **Agent tool**로 `subagent_type: be-harness:workflow-implementer` / `fe-harness:workflow-implementer` 병렬 호출 |
 | be/fe의 품질 스킬 (Phase 7) | **Agent tool**(general-purpose)을 만들고 그 안에서 Skill tool로 해당 스킬 호출 |
 | 리뷰어 (Phase 3, 8) | **Agent tool**로 읽기 전용 호출 |
+
+**특화 하네스 오버레이**: 세션에 `/minmos-harness:start-workflow` 또는 `/hyeondongs-harness:start-workflow` 가 존재하면, 해당 도메인의 **Phase 1 request 호출**과 **Phase 7 품질 루프**를 그 하네스의 오버레이가 적용된 경로로 실행한다. 구체적으로는 해당 위임 스킬을 호출하는 대신, 그 플러그인의 오버레이 요약을 해당 도메인 에이전트 프롬프트에 전달한다 (전체 워크플로우를 중첩 실행하지 않는다 — 오케스트레이션 주체는 이 문서다).
 
 ## Advisor / Executor 원칙
 
@@ -86,7 +76,7 @@ user-invocable: true
 
 ## 상태 추적
 
-워크플로우 시작 시 `{STATE_FILE}`을 새로 만들고, Phase 진입/완료 때마다 갱신한다 (템플릿: `references/contract-templates.md`).
+워크플로우 시작 시 `{STATE_FILE}`을 새로 만들고, Phase 진입/완료 때마다 갱신한다 (템플릿: `contract-templates.md`).
 에이전트 생성 전 `IN_PROGRESS`, 완료 후 `DONE` / `SKIPPED:{사유}` / `BLOCKED:{사유}`와 결과를 기록한다.
 모든 에이전트 프롬프트에 상태 파일 경로, 현재 Phase, 남은 Phase, 배정 model/effort를 포함한다.
 
@@ -122,17 +112,17 @@ Spec 또는 계약에 없는 변경이 필요하면: ① 코드를 먼저 바꾸
 상세 명세가 이미 충분하면 그 내용을 정리해서 시작한다.
 부족하면 `/be-harness:request`로 백엔드 관점 질문을, `/fe-harness:request`로 프론트엔드 관점 질문을 각각 수행한다.
 
-> Phase 1 진입 시 MUST: `references/contract-templates.md`를 Read하고 "Feature Matrix 템플릿"대로 표를 작성한다.
+> Phase 1 진입 시 MUST: `contract-templates.md`를 Read하고 "Feature Matrix 템플릿"대로 표를 작성한다.
 
-이 결과가 한쪽 도메인만 필요하면 풀스택 워크플로우를 중단하고 단일 도메인 스킬로 전환한다.
+이 결과가 한쪽 도메인만 필요하면 풀스택 경로를 중단하고 단일 도메인 스킬로 전환한다.
 
 ## Phase 2: 통신 계약 정의
 
-구현 전에 반드시 **Integration Contract**를 작성한다 (`references/contract-templates.md`의 "Integration Contract 템플릿" 준수 — 인증/페이지네이션/포맷/캐시/호환성 필수 항목 포함).
+구현 전에 반드시 **Integration Contract**를 작성한다 (`contract-templates.md`의 "Integration Contract 템플릿" 준수 — 인증/페이지네이션/포맷/캐시/호환성 필수 항목 포함).
 
 ## Phase 3: 계약 리뷰
 
-계약 초안이 나오면 읽기 전용 리뷰를 병렬로 수행한다 (출력 형식·REJECT 기준: `references/contract-templates.md`).
+계약 초안이 나오면 읽기 전용 리뷰를 병렬로 수행한다 (출력 형식·REJECT 기준: `contract-templates.md`).
 
 - **Batch 1 (병렬)**: 백엔드 advisor (데이터 정합성·비즈니스 규칙·에러 모델) + 프론트엔드 advisor (화면 상태·사용자 흐름·소비 가능성)
 - **Batch 2 (병렬)**: 프론트가 계약을 소비하는 데 빠진 필드가 없는지 + 백엔드가 프론트 요구를 과도하게 책임지지 않는지 교차 리뷰
@@ -192,15 +182,15 @@ for iteration in 1..5:
 
 `--hard`가 아니면 feature 브랜치를 만든다: `git checkout -b feat/{작업-요약-kebab-case}`
 
-> Phase 5 진입 시 MUST: `references/contract-templates.md`의 "상태 파일 템플릿"대로 `{STATE_FILE}`을 작성하고,
-> `references/tdd.md`의 "TDD 적용 판정"과 "Phase 5: 도메인별 회귀 Baseline 수집"을 수행한다.
+> Phase 5 진입 시 MUST: `contract-templates.md`의 "상태 파일 템플릿"대로 `{STATE_FILE}`을 작성하고,
+> `fullstack-tdd.md`의 "TDD 적용 판정"과 "Phase 5: 도메인별 회귀 Baseline 수집"을 수행한다.
 
 여기가 **유저와 대화 가능한 마지막 지점**이다 — baseline 수집이 실패하면 자율 실행 진입 전에 선택지를 제시한다.
 TDD 판정은 **도메인별로 따로** 한다. BE만 SKIP되고 FE는 활성일 수 있다.
 
 ## Phase 6: 계약 기반 TDD 구현 (Red → Green)
 
-> Phase 6 진입 시 MUST: 같은 폴더의 `references/tdd.md`와 `references/agent-prompts.md`를 Read한다.
+> Phase 6 진입 시 MUST: 같은 폴더의 `fullstack-tdd.md`와 `fullstack-agent-prompts.md`를 Read한다.
 
 `$TDD = false`이거나 Phase 5에서 양 도메인 모두 `SKIPPED:*`면 **6.1을 건너뛰고 6.2만 실행한다** (기존 단일 구현 흐름과 동일).
 
@@ -216,12 +206,12 @@ TDD 판정은 **도메인별로 따로** 한다. BE만 SKIP되고 FE는 활성�
 **배리어**: 계약이 영향을 주는 **모든 도메인**이 유효 Red 또는 근거를 동반한 `N/A(영향 없음)`를 반환해야 6.2로 넘어간다.
 한쪽만 Red인 상태로 Green을 시작하면, 먼저 구현된 쪽이 계약을 대체해버린다.
 
-종료 판정과 후속 처리는 `references/tdd.md`의 "Phase 6.1 종료 판정"을 따른다.
+종료 판정과 후속 처리는 `fullstack-tdd.md`의 "Phase 6.1 종료 판정"을 따른다.
 **계약 조항 자체가 모호해 테스트를 쓸 수 없으면 Phase 2로 복귀한다.**
 
 ### Phase 6.2: 병렬 구현 (Green)
 
-> BE/FE 구현 에이전트를 `references/agent-prompts.md`대로 **같은 메시지에서 병렬 호출**한다.
+> BE/FE 구현 에이전트를 `fullstack-agent-prompts.md`대로 **같은 메시지에서 병렬 호출**한다.
 
 TDD 활성 시 **테스트 파일 수정 금지**와 `[TestConflict]` 보고 규칙을 프롬프트에 추가한다.
 구현 중 계약 변경이 필요하면 즉시 Phase 2로 돌아간다 (No Silent Contract Drift).
@@ -234,7 +224,7 @@ Phase 7 시작 전 `{STATE_FILE}`의 상태를 갱신한다. 각 도메인 루�
 - **백엔드 루프**: ① build + `{testCommand}` ② `/be-harness:simplify-loop` ③ `/be-harness:convention-check` ④ `/be-harness:e2e-test-loop` ⑤ API 계약 변경 + `apiDocsPath` 존재 시 문서 동기화
 - **프론트엔드 루프**: ① build + type-check ② `/fe-harness:simplify-loop` ③ `/fe-harness:convention-check` ④ `/fe-harness:test-loop` ⑤ `/fe-harness:lint-check`
 
-각 도메인의 테스트 실패는 해당 도메인 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (`references/tdd.md`의 "Phase 7: 도메인별 회귀 대조").
+각 도메인의 테스트 실패는 해당 도메인 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (`fullstack-tdd.md`의 "Phase 7: 도메인별 회귀 대조").
 **공용 계약 테스트의 실패는 도메인 루프가 고치지 않는다** — 오케스트레이터가 원인 도메인을 판정해 배정하고, 계약 자체가 문제면 Phase 2로 복귀한다.
 
 **도메인별 테스트 판정**: `PASS` = `regression` 0건 + `new_red` 0건 / `WARN` = `flaky`만 / `FAIL` = 그 외
@@ -256,7 +246,7 @@ Phase 8.2는 frozen contract를 **보면서** 코드를 검증하므로 "대충 
 > **격리 규칙 (CRITICAL)**: 두 에이전트에게 `{STATE_FILE}` 경로와 frozen contract를 **전달하지 않고, 읽지 말라고 명시**한다. 다른 Phase와 달리 "상태 파일을 읽고 갱신하세요" 문구를 넣지 않으며, 상태 갱신은 오케스트레이터가 대신 수행한다.
 > 이 규칙이 빠지면 에이전트가 계약을 읽고 그대로 옮겨 적어 **Diff가 항상 0건**이 되고, 이 단계는 요식 행위가 된다.
 
-프롬프트: `references/agent-prompts.md`의 "Phase 8.1" 섹션. 두 에이전트를 **병렬 실행**한다.
+프롬프트: `fullstack-agent-prompts.md`의 "Phase 8.1" 섹션. 두 에이전트를 **병렬 실행**한다.
 
 복원 결과를 받으면 **오케스트레이터가** frozen contract와 3방향 대조한다:
 
@@ -286,19 +276,19 @@ Phase 8.1이 보고한 불일치를 먼저 확인한 뒤 위 항목을 점검한
 둘 다 green이면 단일 PR로 묶는다.
 
 - 커밋은 프론트/백엔드 단위를 분리한다.
-- PR 본문은 `references/contract-templates.md`의 "PR 본문 순서"를 따른다.
+- PR 본문은 `contract-templates.md`의 "PR 본문 순서"를 따른다.
 - `--hard`면 push/PR 단계를 생략하고 현재 브랜치에서 종료한다.
 
 ## Phase 10: 회고 + 정리
 
 1. `workflow-reflection`으로 회고를 남긴다 (변경량 기준 model/effort, 상태 파일 갱신).
-2. 보완점은 **대상 도메인별로** 분류한다: BE → `.claude/be-harness/...`, FE → `.claude/fe-harness/...`, 풀스택(계약·Feature Matrix 등) → `.claude/fs-harness/...`. 플러그인 원본은 수정하지 않는다.
+2. 보완점은 **대상 도메인별로** 분류한다: BE → `.claude/be-harness/...`, FE → `.claude/fe-harness/...`, 풀스택 공통(계약·Feature Matrix 등) → `.claude/common/skills/start-workflow.md`. 플러그인 원본은 수정하지 않는다.
 3. 보완점 반영 방식 질문:
    > "1. **로컬에만 저장** (기본값) — 각 도메인의 로컬 오버라이드 파일에 append.
    > 2. **로컬 저장 + 플러그인 레포 PR** — 도메인별 submit-feedback 호출.
    > 3. **건너뛰기**."
-4. 옵션 2: 로컬 저장 먼저 → 도메인별(BE/FE/풀스택) 후보 분리 → 각 도메인마다 `/common:submit-feedback`을 대상 플래그(`--be` / `--fe` / `--fs`)와 함께 **따로** 호출. 도메인별로 별도 PR이 생성된다. 각 호출은 독립적 — 한쪽이 `SKIPPED:*`/FAILED여도 다른 쪽은 계속 진행. PR URL과 SKIP 사유를 모두 수집해 최종 보고서에 병기.
-5. 최종 보고: `references/contract-templates.md`의 "최종 보고 형식"을 따른다.
+4. 옵션 2: 로컬 저장 먼저 → 도메인별(BE/FE) 후보 분리 → 각 도메인마다 `/common:submit-feedback`을 대상 플래그(`--be` / `--fe`)와 함께 **따로** 호출. 도메인별로 별도 PR이 생성된다. 각 호출은 독립적 — 한쪽이 `SKIPPED:*`/FAILED여도 다른 쪽은 계속 진행. PR URL과 SKIP 사유를 모두 수집해 최종 보고서에 병기. 풀스택 공통 항목은 로컬 저장만 하고 PR 대상에서 제외한다.
+5. 최종 보고: `contract-templates.md`의 "최종 보고 형식"을 따른다.
 6. 정리: `{STATE_FILE}`의 모든 Phase를 `DONE`/`SKIPPED:{사유}`로 갱신, `Remaining Phases`를 `없음`으로. 기본은 보관, 사용자 요청 시에만 `rm -f {STATE_FILE}`.
 
 ## 상태 코드
@@ -316,6 +306,6 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 
 | 파일 | 로드 시점 |
 |------|----------|
-| `references/contract-templates.md` | Phase 1, 2, 3, 5, 9, 10 (템플릿·리뷰 기준) |
-| `references/tdd.md` | Phase 5 (TDD 판정·baseline), Phase 6 진입 시 |
-| `references/agent-prompts.md` | Phase 6.2 진입 시 |
+| `contract-templates.md` | Phase 1, 2, 3, 5, 9, 10 (템플릿·리뷰 기준) |
+| `fullstack-tdd.md` | Phase 5 (TDD 판정·baseline), Phase 6 진입 시 |
+| `fullstack-agent-prompts.md` | Phase 6.1·6.2·8.1 진입 시 |

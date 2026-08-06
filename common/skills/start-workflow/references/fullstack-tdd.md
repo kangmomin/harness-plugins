@@ -1,5 +1,5 @@
-> 이 문서는 `start-workflow`(fs-harness) 스킬의 Phase 5(baseline 수집), Phase 6.1(Red), Phase 6.2(Green), Phase 7(도메인 품질 루프)에서 로드된다. 단독 실행 금지.
-> `{STATE_FILE}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
+> 이 문서는 `/common:start-workflow` 의 **풀스택 경로**(`references/fullstack.md`)에서 Phase 5(baseline 수집), Phase 6.1(Red), Phase 6.2(Green), Phase 7(도메인 품질 루프)에 로드된다. 단독 실행 금지.
+> `{STATE_FILE}` 등 플레이스홀더 정의는 `fullstack.md` 를 따른다.
 
 # 계약 기반 TDD 통합 규약
 
@@ -36,7 +36,7 @@ Phase 5에서 확인하고, 하나라도 걸리면 TDD를 SKIP한다. **도메�
 
 **자율 실행 진입 직전에 수집한다.** 유저와 대화 가능한 마지막 지점이므로 수집 실패 시 선택지를 제시할 수 있다.
 
-BE·FE **각각** 수집해 `{STATE_FILE}`에 도메인별로 기록한다 (템플릿: `references/contract-templates.md`).
+BE·FE **각각** 수집해 `{STATE_FILE}`에 도메인별로 기록한다 (템플릿: `contract-templates.md`).
 
 | 필드 | 의미 |
 |------|------|
@@ -66,7 +66,7 @@ BE·FE **각각** 수집해 `{STATE_FILE}`에 도메인별로 기록한다 (템�
 | FE 로컬 | 프론트엔드 에이전트 | 컴포넌트·훅 테스트 — `CT-nn`의 클라이언트 측 소비 |
 | **공용 계약 스키마** | **오케스트레이터** | 양쪽이 공유하는 DTO·스키마·generated client 검증 |
 
-공용 계약 테스트를 도메인 에이전트가 수정하면 파일 소유권 원칙(SKILL.md `Split By Ownership`) 위반이다.
+공용 계약 테스트를 도메인 에이전트가 수정하면 파일 소유권 원칙(`fullstack.md` 의 `Split By Ownership`) 위반이다.
 
 ## 실행 순서
 
@@ -114,7 +114,7 @@ git commit -m "Test: {기능 요약} — 계약 기반 실패 테스트 선작�
 
 # Phase 6.2: 병렬 구현 (Green)
 
-기존 BE/FE 구현 프롬프트(`references/agent-prompts.md`)에 아래를 **추가로** 전달한다.
+기존 BE/FE 구현 프롬프트(`fullstack-agent-prompts.md`)에 아래를 **추가로** 전달한다.
 
 ```
     ## TDD 규칙 (Phase 6.1에서 계약 기반 테스트가 선작성되었습니다)
@@ -165,7 +165,7 @@ git commit -m "Test: {기능 요약} — 계약 기반 실패 테스트 선작�
 | `WARN` | `flaky`만 존재 |
 | `FAIL` | `regression` 1건+ 또는 `new_red` 1건+ |
 
-**양 도메인이 모두 `PASS`여야** Phase 7 루프를 탈출한다 (SKILL.md 본문 참조).
+**양 도메인이 모두 `PASS`여야** Phase 7 루프를 탈출한다 (`fullstack.md` 참조).
 
 ---
 
