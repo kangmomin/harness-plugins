@@ -2,7 +2,9 @@
 
 개발 워크플로우 자동화를 위한 Claude Code 하네스 모음.
 
-Technical Spec 작성, Plan 리뷰, 구현, 품질 루프, 커밋/PR까지 반복되는 개발 절차를 플러그인과 스킬로 묶어 제공한다.
+Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루프, 커밋/PR까지 반복되는 개발 절차를 플러그인과 스킬로 묶어 제공한다.
+
+`start-workflow` 계열은 **Spec의 추적 ID(`AC`/`EC`/`RC`)를 근거로 실패 테스트를 먼저 고정한 뒤 구현한다.** 테스트 범위는 Spec이 상한이며, 구현 직전에 수집한 회귀 baseline과 대조해 이번 변경이 깨뜨린 것과 원래 깨져 있던 것을 구분한다. TDD가 맞지 않는 상황(`--no-tdd`, 테스트 인프라 부재 등)에서는 자동으로 기존 흐름으로 되돌아간다.
 
 ## 설치
 
@@ -39,7 +41,7 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 | 플러그인 | 대상 | 설명 |
 |---------|------|------|
 | **common** | 모든 하네스 베이스 | 여러 하네스 공용 스킬(`/common:doc-gen`, 커밋/PR 워크플로우)과 **하네스 공용 진입점 라우터**. 다른 하네스 설치 전에 먼저 설치 |
-| **be-harness** | 범용 백엔드 | Go/Node 프리셋과 project profile 기반의 Spec→Plan→구현→품질 루프→PR 워크플로우 |
+| **be-harness** | 범용 백엔드 | Go/Node 프리셋과 project profile 기반의 Spec→Plan→Red→Green→품질 루프→PR 워크플로우 |
 | **fe-harness** | 범용 프론트엔드 | React/Next.js 중심의 컴포넌트 생성, lint/a11y, 단위/E2E 테스트, PR 워크플로우 |
 | **fs-harness** | 풀스택 | BE/FE 하네스를 병렬로 사용해 계약 정의, 교차 리뷰, 통합 검증, 단일 PR까지 오케스트레이션 |
 | **minmos-harness** | Post-Math 백엔드 | 커밋/PR, 컨벤션 검사, Feature Spec 생성, E2E 테스트(REST+gRPC+PubSub), Apidog 스키마 생성 |
