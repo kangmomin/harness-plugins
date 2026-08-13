@@ -322,8 +322,9 @@ for iteration in 1..3:
 ### Phase 9: PR / Push
 
 - `$HARD_MODE = false`: `fe-harness:workflow-pr` 에이전트로 PR 생성. PR URL 보고 필수.
-- `$HARD_MODE = true`: PR 생략, `git push origin $(git branch --show-current)` 후
-  "Phase 9 완료: `{브랜치명}`에 push 완료 (--hard 모드, PR 생략)" 출력.
+- `$HARD_MODE = true`: PR 생략, push 전에 Assumption Gate 스캔(base와의 diff 추가 라인 + 미push 커밋 메시지에서 `[Assumption]` 검색)을 수행한다. 0건이면 `git push origin $(git branch --show-current)` 후
+  "Phase 9 완료: `{브랜치명}`에 push 완료 (--hard 모드, PR 생략)" 출력. 발견 시 push를 보류하고 아래 BLOCKED 절차를 따른다.
+- **Assumption Gate BLOCKED 처리**: workflow-pr이 `BLOCKED:ASSUMPTION_UNRESOLVED`를 보고하면(또는 --hard 스캔에서 발견되면) push/PR 없이 다음 Phase로 진행하고, 최종 보고서에 태그 목록을 포함해 항목별 유저 확인을 받는다. 승인(태그 제거)·수정으로 태그가 모두 제거된 뒤 **Phase 9만 재실행**한다. 태그가 남아 있는 동안 push/PR은 금지.
 
 ### Phase 10: 성찰
 

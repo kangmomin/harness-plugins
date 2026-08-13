@@ -23,8 +23,11 @@ model: sonnet
 2. 현재 브랜치 상태를 확인한다 (`git branch`, `git status`).
 3. VERSION 파일이 있으면 패치 버전을 올린다.
 4. 적절한 브랜치를 생성한다 (이미 feature 브랜치면 건너뜀).
-5. 모든 변경사항을 push한다.
-6. Draft PR을 생성한다.
+5. **Assumption Gate (push 전 필수)**: base 브랜치와의 diff 추가 라인(`git diff {base}...HEAD | grep '^+.*\[Assumption\]'`)과 미push 커밋 메시지 본문에서 `[Assumption]`을 검색한다.
+   - 0건 → 다음 단계로 진행.
+   - 발견 → **push/PR을 수행하지 않고** `BLOCKED:ASSUMPTION_UNRESOLVED`로 태그 목록을 보고하고 종료한다. 유저 확인·태그 정리·재실행은 오케스트레이터(start-workflow) 담당.
+6. 모든 변경사항을 push한다.
+7. Draft PR을 생성한다. 본문에 `[Assumption]` 태그를 남기지 않는다. 게이트 재실행으로 승인·제거된 항목이 상태 파일에 있으면 본문 `### 확정된 결정` 섹션에 태그 없이 기록한다.
 
 ### 브랜치 네이밍
 
@@ -67,4 +70,12 @@ EOF
 ## Phase 9 결과: PR
 - 브랜치: [브랜치명]
 - PR URL: [URL]
+```
+
+Assumption Gate에 걸린 경우:
+
+```
+## Phase 9 결과: PR
+- 상태: BLOCKED:ASSUMPTION_UNRESOLVED
+- 태그 목록: [파일:라인 — 내용 / 커밋 해시 — 메시지]
 ```
