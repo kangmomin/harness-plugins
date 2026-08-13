@@ -15,7 +15,12 @@ user-invocable: true
 
 `/common:commit` 절차를 수행해 변경사항을 논리 단위별로 커밋한다.
 
-## Step 2: Push
+## Step 2: Assumption Gate
+
+`/common:commit-push`의 Step 3(Assumption Gate) 절차를 수행한다. `[Assumption]` 태그가 모두 해소되기 전에는 push하지 않는다.
+(base 폴백: `@{upstream}` → 기본 브랜치와의 merge-base. 보호 브랜치에서 직접 push하는 경우 upstream이 곧 base다.)
+
+## Step 3: Push
 
 ```bash
 git push -u origin {현재 브랜치}

@@ -65,6 +65,7 @@ gh pr view --json number,state,url,isDraft,baseRefName
 1. 변경사항을 분석해 PR 제목과 본문을 작성한다.
    - 제목: 커밋 메시지 컨벤션과 동일한 `Prefix: 한국어 설명` 형식
    - 본문: 변경 요약, 주요 변경 파일, 테스트/검증 결과
+   - 본문에 `[Assumption]` 태그를 남기지 않는다. Assumption Gate(`/common:commit-push` Step 3)에서 승인된 항목은 `### 확정된 결정` 섹션에 태그 없이 기록한다 (검토 이력 보존)
 2. base는 Step 2에서 결정한 값을 사용한다.
 3. **브랜치 모델 조합 검증** (오버라이드 선언 시): `{현재 브랜치 prefix} → {base}` 조합이 선언된 모델과 다르면 선택지를 제시한다. 모델에 없는 prefix면 현행 규칙(바로 상위 브랜치)으로 폴백하고 경고만 남긴다.
    > 1. 허용 base로 변경해 PR 생성
@@ -89,7 +90,7 @@ Step 1의 단락 규칙을 적용하지 않는다 — open PR이 있어도 범�
    > 2. 중단
 2. `/common:commit-push`의 **Step 1(브랜치 판정)만** 수행한다 — 보호 브랜치면 새 브랜치 생성.
 3. Step 2 절차로 범프하되 **VERSION 파일만 스테이징해 단독 커밋**한다 (`git add {VERSION파일}` 한정 — 작업 트리의 다른 변경은 건드리지 않는다).
-4. `/common:commit-push`의 Step 3(push)을 수행한다.
+4. `/common:commit-push`의 Step 3(Assumption Gate)과 Step 4(push)를 수행한다.
 5. PR: open PR이 없으면 Step 4로 생성한다 (`--ready` 반영). 이미 있으면 생성은 생략하고, `--ready`+draft면 `gh pr ready {번호}`만 수행한다.
 
 ## 상태 코드

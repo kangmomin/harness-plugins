@@ -90,7 +90,52 @@ git branch --show-current
 
 `/common:commit` 절차를 수행해 변경사항을 논리 단위별로 커밋한다.
 
-## Step 3: Push
+## Step 3: Assumption Gate (push 전 필수)
+
+**추론/추측의 원격 유출 차단이 목적** — `[Assumption]` 태그는 로컬 개발 단계의 기록이며, 원격에 올라가는 시점에는 모두 사용자 확인을 거쳐 제거되어야 한다. **태그가 남아 있으면 push하지 않는다.**
+**Assumption Gate의 canonical은 본 섹션이다** (commit-hard-push, commit-pr, 각 하네스의 workflow-pr이 이 절차를 따른다).
+
+### Step 3.1: 스캔
+
+| 대상 | 범위 | 처리 |
+|------|------|------|
+| 코드 태그 | 브랜치 전체 diff(`{base}...HEAD`)의 **추가된 라인** | 하드 게이트 — 해소 전 push 금지 |
+| 커밋 메시지 태그 | **미push 커밋**(`@{upstream}..HEAD`, upstream 없으면 `{base}..HEAD`)의 본문 | 하드 게이트 — 해소 전 push 금지 |
+| 이미 push된 커밋 메시지의 태그 | 재작성 불가 (force-push 금지) | WARN 보고만 |
+
+```bash
+# 코드 태그: 브랜치 전체 diff의 추가 라인
+git diff {base}...HEAD | grep -n '^+.*\[Assumption\]'
+# 커밋 메시지 태그: 미push 커밋 본문
+git log @{upstream}..HEAD --format='%h %s%n%b' | grep -B1 '\[Assumption\]'
+```
+
+- `{base}`는 이미 알려진 값이 있으면 재사용한다 — 기존 open PR의 `baseRefName`, `/common:commit-pr` Step 2에서 결정한 base. 없으면 `@{upstream}`, 그것도 없으면 기본 브랜치(`origin/HEAD`)와의 merge-base.
+- 브랜치 diff 밖(이 브랜치가 만들지 않은 라인)의 레거시 태그는 검사하지 않는다 — surgical 원칙.
+- **모두 0건이면 조용히 통과**하고 Step 4로 진행한다.
+
+### Step 3.2: 항목별 사용자 확인
+
+발견 시 push를 중단하고, 전체 목록(`파일:라인 — 내용` / `커밋 해시 — 메시지`)을 보여준 뒤 항목별로 확인을 받는다:
+
+> `[Assumption]` {N}건이 남아 있습니다. 모두 해소되어야 push/PR이 가능합니다.
+> `{파일:라인}` — "{추측 내용}"
+> 1. 승인 — 추측이 맞음. 태그 제거 후 진행
+> 2. 수정 — 추측이 틀림. 지시받은 방향으로 코드 수정 후 재검사
+> 3. 중단 — push 없이 종료 (`BLOCKED:ASSUMPTION_UNRESOLVED`)
+
+### Step 3.3: 태그 제거
+
+- **코드 주석**: `[Assumption]` 마커를 제거한다. 사유 설명이 코드 이해에 필요하면 태그 없는 일반 주석으로 전환하고, 아니면 라인을 삭제한다. "수정" 항목은 지시에 따라 코드를 고친다.
+- **커밋 메시지** (미push 한정): 마지막 커밋이면 `git commit --amend`, 그 이전 커밋이면 `git reset --soft {범위 시작}` 후 `/common:commit` 절차로 재커밋한다.
+- 제거/수정 변경은 관련 논리 단위 커밋에 amend하거나 `Chore: 확인된 Assumption 태그 정리`로 커밋한다.
+- 승인된 항목은 **확정된 결정**으로 기록을 이관한다 — PR 흐름(`/common:commit-pr`)이면 PR 본문의 "확정된 결정" 섹션, 아니면 최종 보고에 포함한다.
+
+### Step 3.4: 재검사
+
+Step 3.1을 다시 수행한다. **코드 태그 0건 + 미push 메시지 태그 0건**이 될 때까지 반복하며, 그 전에는 Step 4로 진행하지 않는다.
+
+## Step 4: Push
 
 ```bash
 git push -u origin {현재 브랜치}
@@ -99,3 +144,10 @@ git push -u origin {현재 브랜치}
 실패 시 (인증 실패, push 거부, 원격 충돌 등): 에러 원문과 원인 분석을 보고하고 선택지를 제시한다.
 > 1. 안내된 조치(예: `git pull --rebase`, `gh auth login`) 후 재시도
 > 2. 중단 — 현재 상태 그대로 종료 (커밋은 로컬에 보존됨)
+
+## 상태 코드
+
+| 코드 | 의미 |
+|------|------|
+| `DONE` | push 완료 |
+| `BLOCKED:ASSUMPTION_UNRESOLVED` | Assumption Gate 미해소 — 사용자 중단 선택 또는 확인 대기 |
