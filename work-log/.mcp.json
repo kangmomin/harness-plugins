@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "work-log": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/server.js"],
+      "env": {
+        "WORK_LOG_ROOT": "${WORK_LOG_ROOT:-}"
+      }
+    }
+  }
+}

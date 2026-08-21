@@ -28,6 +28,11 @@
       "name": "hyeondongs-harness",
       "description": "fe-harness 오버레이. hyeondongs 환경 세팅/진단(.hyeondong-config.json)과 풀스택 전환 시 minmos 백엔드 연계. fe-harness 선행 설치 필수.",
       "source": "./hyeondongs-harness"
+    },
+    {
+      "name": "work-log",
+      "description": "작업 기록 폴더를 LLM wiki 로 관리한다. 전역 vault 또는 프로젝트별(<repo>/work-log/) 스코프 선택, 조회/동기화/수정 스킬과 의존성 0 의 MCP 서버 제공. 인덱스를 vault 밖에 두어 기존 문서를 건드리지 않는다.",
+      "source": "./work-log"
     }
   ]
 }
