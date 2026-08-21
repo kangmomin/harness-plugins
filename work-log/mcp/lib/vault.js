@@ -12,6 +12,14 @@ import crypto from 'node:crypto';
 import { cacheDirFor, DEFAULT_EXCLUDES } from './config.js';
 
 const MD = '.md';
+
+// [[...]] 대상이 이 확장자면 문서 링크가 아니라 첨부 임베드다 (![[Pasted image.png]]).
+// 링크 그래프에 넣으면 brokenLinks 가 전부 첨부로 채워져 진짜 깨진 링크가 묻힌다.
+const ATTACHMENT_EXT = new Set([
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.avif',
+  '.pdf', '.mp4', '.mov', '.webm', '.mp3', '.wav', '.m4a', '.ogg',
+  '.zip', '.xlsx', '.pptx', '.docx',
+]);
 const HTML = '.html';
 export const INDEX_VERSION = 1;
 
@@ -174,9 +182,17 @@ function parseMarkdown(rel, text, stat) {
     .replace(/\s+/g, ' ')
     .trim();
 
+  // 링크는 코드를 걷어낸 본문에서만 뽑는다. Obsidian 도 코드 안의 [[...]] 는 링크로 만들지
+  // 않는다 — bash 의 [[ "$f" == x* ]] 조건문과 문서화 예시가 그대로 오탐이 된다.
+  const linkable = body
+    .replace(/```[\s\S]*?```/g, ' ')
+    .replace(/`[^`\n]*`/g, ' ');
+
   const links = [];
-  for (const m of body.matchAll(/\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/g)) {
-    links.push(nfc(m[1].trim()));
+  for (const m of linkable.matchAll(/\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/g)) {
+    const target = nfc(m[1].trim());
+    if (ATTACHMENT_EXT.has(path.extname(target).toLowerCase())) continue;
+    links.push(target);
   }
 
   const title = nfc(frontmatter?.title || h1 || stemToTitle(rel));
@@ -487,7 +503,10 @@ export async function writeDoc(cfg, { relPath, content, frontmatter, mode = 'cre
 
   // 비파괴 규칙: frontmatter 가 없는 기존 문서에는 어떤 경로로도 주입하지 않는다.
   const contentStartsFm = content.trimStart().startsWith('---');
-  if (existing !== null && !existingFm && (frontmatter || contentStartsFm)) {
+  // append 는 내용을 파일 끝에 붙이므로 선두 "---" 는 markdown 수평선이지 frontmatter 가
+  // 될 수 없다 (frontmatter 는 파일 맨 앞에서만 성립). frontmatter 인자 차단은 전 모드 유지.
+  const injectsFm = Boolean(frontmatter) || (mode !== 'append' && contentStartsFm);
+  if (existing !== null && !existingFm && injectsFm) {
     throw new Error(
       `frontmatter 가 없는 기존 문서에는 frontmatter 를 주입하지 않습니다: ${rel} ` +
       `(content 가 "---" 로 시작하거나 frontmatter 인자가 전달되었습니다)`
