@@ -32,6 +32,9 @@ runServerCommand: ""       # 로컬 서버 기동 커맨드 (백그라운드 실
 serverUrl: "http://localhost:8080"
 e2eEnabled: true           # false면 e2e-test, e2e-test-loop 스킵
 apiDocsPath: ""            # OpenAPI/Swagger 스펙 파일 경로. 없으면 생략.
+e2eLockDir: ""             # E2E 실행 락 디렉토리. 비우면 자동 해석
+                           # (work-log vault의 .wiki/e2e-locks → 없으면 /tmp/harness-e2e-locks).
+                           # 환경변수 HARNESS_E2E_LOCK_DIR 로도 지정 가능.
 
 # 리포트 출력
 reportDir: ""              # E2E 자기 점검 HTML 등 리포트 저장 디렉토리. 비우면 `.claude/harness-reports`

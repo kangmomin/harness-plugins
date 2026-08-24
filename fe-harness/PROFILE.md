@@ -42,6 +42,9 @@ e2eCommand: "pnpm e2e"
 # 로컬 서버
 runServerCommand: "pnpm dev"
 serverUrl: "http://localhost:3000"
+e2eLockDir: ""                # E2E 실행 락 디렉토리. 비우면 자동 해석
+                              # (work-log vault의 .wiki/e2e-locks → 없으면 /tmp/harness-e2e-locks).
+                              # 환경변수 HARNESS_E2E_LOCK_DIR 로도 지정 가능.
 
 # 소스 레이아웃
 sourceDirs: ["src/"]

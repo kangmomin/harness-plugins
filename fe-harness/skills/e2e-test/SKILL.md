@@ -73,6 +73,12 @@ E2E 테스트 실행 전, Playwright와 Vitest 간 충돌 가능성을 점검한
 
 ## Execution
 
+### 플래그
+
+| 플래그 | 효과 |
+|--------|------|
+| `--no-lock` | 실행 락을 건너뛴다. 단독 실행/디버깅 전용 — 다른 에이전트와 동시에 돌면 dev 서버 포트가 충돌한다 |
+
 ### Step 1: 테스트 대상 파악
 
 1. `git diff --name-only`로 변경된 파일 목록을 확인한다.
@@ -131,11 +137,37 @@ test('API 에러 시 에러 메시지를 표시한다', async ({ page }) => {
 });
 ```
 
+### Step 2.5: 실행 락 획득
+
+여러 에이전트가 동시에 E2E를 돌리면 같은 dev 서버 포트를 두고 충돌한다. 테스트를 실행하기 전에 **실행 락**을 잡고, 잡을 때까지 기다린다. `--no-lock` 이면 이 Step 전체를 건너뛴다.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh \
+  acquire "{profile의 serverUrl}" --label "e2e-test {브랜치명 또는 대상 요약}"
+```
+
+profile 에 `e2eLockDir` 이 지정돼 있으면 `HARNESS_E2E_LOCK_DIR={e2eLockDir}` 을 앞에 붙여 실행한다 (비어있으면 자동 해석).
+
+**이 Bash 호출은 `timeout: 600000` 으로 실행한다** (기본 대기 상한 540초 + 여유).
+
+| 종료 코드 | 처리 |
+|-----------|------|
+| 0 (`ACQUIRED` / `ALREADY_HELD`) | Step 3으로 진행 |
+| 2 (`TIMEOUT`) | `SKIPPED:LOCK_TIMEOUT` 반환 후 종료. 출력의 `holder_label` 을 함께 보고한다 |
+
+대기 중이면 사용자에게 한 줄로 알린다: "다른 에이전트가 `{serverUrl}` E2E 실행 중 — 순번을 기다립니다."
+
+락 키는 `serverUrl` 의 host:port 라, 다른 포트를 쓰는 에이전트끼리는 서로 기다리지 않는다.
+보유자가 heartbeat 없이 15분을 넘기면(에이전트가 죽은 경우) 락은 자동 회수된다.
+
 ### Step 3: 테스트 실행
 
 ```bash
 npx playwright test {테스트 파일들} --reporter=list
 ```
+
+테스트가 오래 걸리면 중간에 heartbeat 를 보낸다 —
+`bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh beat "{serverUrl}"`.
 
 개발 서버가 필요한 경우, `playwright.config.ts`의 `webServer` 설정을 확인한다.
 설정이 없으면 유저에게 개발 서버 실행을 안내한다:
@@ -181,6 +213,17 @@ npx playwright test {테스트 파일들} --reporter=list
 | `FAILURES FOUND` | 실패 1건 이상 |
 
 미커버는 구현 결함이 아니라 **검증 공백**이므로 수정 루프의 트리거가 아니다. 사유와 함께 남겨 호출자가 판단하게 한다.
+
+### Step 4.5: 실행 락 해제
+
+Step 2.5에서 락을 잡았다면 반드시 해제한다. **정상 종료·SKIP·실패 어느 경로에서도 빠뜨리지 않는다** —
+TTL(15분) 자동 회수는 안전망이지 해제 수단이 아니며, 그동안 다른 에이전트가 대기한다.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh release "{serverUrl}"
+```
+
+`RELEASE_DENIED` 가 나오면 이미 TTL 회수 후 다른 에이전트가 락을 가져간 것이다 (해당 실행 결과는 오염 가능성이 있으므로 리포트에 경고로 남긴다).
 
 ---
 

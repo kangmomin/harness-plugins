@@ -34,15 +34,17 @@ user-invocable: true
 | 플래그 | 단축 | 효과 |
 |--------|------|------|
 | `--doctor` | | prerequisite 상태 진단 후 종료 |
-| `--skip-server` | `-ss` | 서버 기동/종료를 건너뛰고 이미 떠있는 서버를 사용 |
+| `--skip-server` | `-ss` | 서버 기동/종료를 건너뛰고 이미 떠있는 서버를 사용 (**실행 락은 그대로 획득한다** — Step 3.5 참조) |
 | `--tag <id>` | | 특정 시나리오 ID(`EC-03`, `BASE-01` 등)만 실행 |
+| `--no-lock` | | 실행 락을 건너뛴다. 단독 실행/디버깅 전용 — 다른 에이전트와 동시에 돌면 포트·DB 시드가 충돌한다 |
 
 ### `--doctor`
 
 1. profile 읽고 `e2eEnabled`, `serverUrl`, `runServerCommand` 유효성 확인
 2. `curl --version` 확인
 3. 포트 충돌 여부 (`ss -tlnp` 또는 `lsof -i :PORT`) 확인
-4. 결과 표 출력 후 종료
+4. 실행 락 현황 확인 — `bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh status`
+5. 결과 표 출력 후 종료
 
 ---
 
@@ -101,6 +103,34 @@ Spec에 엣지 케이스 표가 없거나 ID가 없으면(구버전 Spec) `EC-*`
 
 입력받은 방법은 `projectNotes` 업데이트를 제안한다 (사용자 승인 시에만).
 
+## Step 3.5: 실행 락 획득
+
+여러 에이전트가 동시에 E2E를 돌리면 같은 포트와 DB 시드를 두고 충돌한다. 서버를 건드리기 전에 **실행 락**을 잡고, 잡을 때까지 기다린다.
+
+> Step 번호를 소수로 둔 이유: 특화 하네스(minmos 등)의 오버레이가 베이스 Step 번호를 앵커로 참조하므로 기존 번호를 재부여하지 않는다.
+
+`--no-lock` 이면 이 Step 전체를 건너뛴다.
+**`--skip-server` 여도 이 Step은 수행한다** — 이미 떠 있는 공유 서버를 여러 에이전트가 두드리는 상황이야말로 락이 가장 필요하다.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh \
+  acquire "{serverUrl}" --label "e2e-test {브랜치명 또는 대상 요약}"
+```
+
+profile 에 `e2eLockDir` 이 지정돼 있으면 `HARNESS_E2E_LOCK_DIR={e2eLockDir}` 을 앞에 붙여 실행한다 (비어있으면 자동 해석).
+
+**이 Bash 호출은 `timeout: 600000` 으로 실행한다** (기본 대기 상한 540초 + 여유).
+
+| 종료 코드 | 처리 |
+|-----------|------|
+| 0 (`ACQUIRED` / `ALREADY_HELD`) | Step 4로 진행 |
+| 2 (`TIMEOUT`) | `SKIPPED:LOCK_TIMEOUT` 반환 후 종료. 출력의 `holder_label` 을 함께 보고한다 |
+
+대기 중이면 사용자에게 한 줄로 알린다: "다른 에이전트가 `{serverUrl}` E2E 실행 중 — 순번을 기다립니다."
+
+락 키는 `serverUrl` 의 host:port 라, 다른 서비스를 테스트하는 에이전트끼리는 서로 기다리지 않는다.
+보유자가 heartbeat 없이 15분을 넘기면(에이전트가 죽은 경우) 락은 자동 회수된다.
+
 ## Step 4: 서버 기동
 
 `--skip-server`가 아니고 `runServerCommand` 가 있으면 백그라운드로 기동:
@@ -112,9 +142,13 @@ run_in_background:
 
 기동 후 `serverUrl` 이 응답할 때까지 대기 (최대 30초). `curl -sf {serverUrl}/healthz` 또는 루트 경로에 대한 HEAD 요청으로 확인.
 
-30초 내 응답이 없으면 로그를 읽고 실패 원인을 보고하고 `SKIPPED:SERVER_START_FAIL` 반환.
+30초 내 응답이 없으면 로그를 읽고 실패 원인을 보고하고, **락을 해제한 뒤**(Step 6.5) `SKIPPED:SERVER_START_FAIL` 반환.
 
 ## Step 5: 요청 실행
+
+> 락을 잡았다면(`--no-lock` 아님) 시나리오를 몇 개 처리할 때마다 heartbeat 를 보낸다 —
+> `bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh beat "{serverUrl}"`.
+> heartbeat 가 15분 끊기면 다른 에이전트가 죽은 락으로 보고 회수한다.
 
 각 시나리오에 대해:
 
@@ -145,6 +179,17 @@ curl -sS -o /tmp/be-harness-e2e-response.json \
 ## Step 6: 서버 종료
 
 Step 4에서 기동한 프로세스를 종료한다. `--skip-server`면 skip.
+
+## Step 6.5: 실행 락 해제
+
+Step 3.5에서 락을 잡았다면 반드시 해제한다. **정상 종료·SKIP·실패 어느 경로에서도 빠뜨리지 않는다** —
+TTL(15분) 자동 회수는 안전망이지 해제 수단이 아니며, 그동안 다른 에이전트가 대기한다.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh release "{serverUrl}"
+```
+
+`RELEASE_DENIED` 가 나오면 이미 TTL 회수 후 다른 에이전트가 락을 가져간 것이다 (해당 실행 결과는 오염 가능성이 있으므로 리포트에 경고로 남긴다).
 
 ## Step 7: 리포트
 
@@ -202,8 +247,12 @@ Step 4에서 기동한 프로세스를 종료한다. `--skip-server`면 skip.
 | `runServerCommand` 없고 `--skip-server`도 아님, 기존 서버도 응답 없음 | `SKIPPED:NO_SERVER` |
 | 인증 토큰 확보 실패 | `SKIPPED:NO_AUTH` |
 | 변경된 HTTP API 없음 | `SKIPPED:NO_CHANGED_API` |
+| 실행 락 대기 시간 초과 (다른 에이전트가 계속 보유) | `SKIPPED:LOCK_TIMEOUT` |
 
 SKIP은 오케스트레이터의 루프 재시작 트리거가 아니다.
+
+**SKIP 경로의 락 해제**: Step 3.5 이후에 발생하는 SKIP(`NO_AUTH`, `SERVER_START_FAIL`)은 종료 전에 반드시 Step 6.5를 수행한다.
+Step 3.5 이전의 SKIP(`NO_PROFILE`, `DISABLED`, `NO_SERVER_URL`, `NO_SERVER`, `NO_CHANGED_API`)과 `LOCK_TIMEOUT`은 애초에 락을 잡지 않았으므로 해제할 것이 없다.
 
 ## 주의사항
 

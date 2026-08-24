@@ -46,6 +46,14 @@ user-invocable: true
 
 ---
 
+## 플래그
+
+| 플래그 | 효과 |
+|--------|------|
+| `--no-lock` | E2E 단계(Step 2)의 실행 락을 건너뛴다. 단독 실행/디버깅 전용 — 다른 에이전트와 동시에 돌면 dev 서버 포트가 충돌한다 |
+
+---
+
 ## 실행 흐름
 
 ```
@@ -79,6 +87,23 @@ profile의 `testCommand` 를 우선 사용:
 ### Step 2: E2E 테스트 실행
 
 `e2eRunner` 가 `none` 이거나 `e2eCommand` 가 비어있으면 건너뛴다.
+
+**실행 락**: 여러 에이전트가 동시에 E2E를 돌리면 dev 서버 포트가 충돌한다. E2E 명령을 돌리기 전에 락을 잡고, 끝나면(실패해도) 해제한다. `--no-lock` 이면 건너뛴다.
+
+```bash
+# 획득 — 이 Bash 호출은 timeout: 600000 으로 실행한다
+bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh \
+  acquire "{serverUrl}" --label "test-loop iteration {N}"
+```
+
+종료 코드 2(`TIMEOUT`)면 E2E 단계만 `SKIPPED:LOCK_TIMEOUT` 으로 기록하고 루프 판정으로 넘어간다 (유닛 테스트 결과는 유효하다).
+해제는 매 iteration 의 E2E 실행 직후:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh release "{serverUrl}"
+```
+
+수정 단계에서는 락을 놓아 다른 에이전트가 순번을 가져갈 수 있게 한다.
 
 profile의 `e2eCommand` 를 우선 사용:
 
