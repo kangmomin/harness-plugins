@@ -1,5 +1,6 @@
 > 이 문서는 `start-workflow` 스킬의 Phase 8(품질 루프)에서 로드된다. 단독 실행 금지.
 > `{STATE_FILE}`, `{buildCommand}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
+> 각 프롬프트의 "남은 Phase" 목록은 예시다 — 실제 값은 상태 파일 `Remaining Phases` 기준으로 치환한다 (예: `--reflect` 미지정 시 Phase 11 제외).
 
 # Phase 8: 품질 루프 상세 (병렬 스캔 → 통합 수정 → 순차 실행 → Read-back)
 
@@ -9,7 +10,7 @@ Phase 8.1~8.7은 **루프 안**에서 최대 3회 반복되고, Phase 8.8은 **�
 
 ## Batch A: 병렬 스캔 (Phase 8.1 ~ 8.4)
 
-네 단계를 **하나의 메시지에서 동시에 호출**한다. 모든 서브 에이전트는 **이슈 목록만 반환하며 파일을 수정하지 않는다**.
+세 실행 단위(8.1 Bash 직접 / 8.2·8.3 통합 스캐너 / 8.4 scope-reviewer)를 **하나의 메시지에서 동시에 호출**한다. 모든 서브 에이전트는 **이슈 목록만 반환하며 파일을 수정하지 않는다**.
 파일 수정은 Phase 8.5(통합 수정)에서 일괄 처리하여 에이전트 간 파일 편집 경합을 제거한다.
 
 > **CRITICAL**: Batch A의 에이전트는 모두 읽기/분석만 수행한다. 같은 메시지에서 병렬 실행해도 편집 충돌이 발생하지 않는다.
@@ -36,7 +37,10 @@ Phase 8.1~8.7은 **루프 안**에서 최대 3회 반복되고, Phase 8.8은 **�
 Phase 8.5에 전달하는 이슈 순서는 `regression` → `new_red` 다. `pre_existing`은 **이번 범위 밖이므로 전달하지 않고 보고만** 한다.
 TDD가 SKIP된 경우 분류 없이 기존대로 전체 실패 로그를 수집한다.
 
-### Phase 8.2: Simplify Scan
+### Phase 8.2 + 8.3: 품질 스캔 — Simplify + Convention (통합 스캐너 1에이전트)
+
+두 Phase는 **ID·상태·집계를 각각 유지**하되, 하나의 에이전트가 두 스킬을 순차 실행한다
+(검사 내용·판정 기준은 각 스킬 그대로 — 에이전트 부팅 고정 비용만 루프 반복마다 1회 절감).
 
 ```
 Agent tool:
@@ -44,29 +48,24 @@ Agent tool:
   model: [품질 스캔 범위 기준 선택]
   effort: [품질 스캔 범위 기준 선택]
   prompt: |
-    프로젝트 루트 {CWD}에서 /be-harness:simplify-loop 를 **dry-run** 관점으로 실행하세요.
-    상태 파일 `{STATE_FILE}`을 읽고 Phase 8.2 상태를 갱신하세요.
+    프로젝트 루트 {CWD}에서 아래 두 스캔을 순서대로 실행하세요.
+    상태 파일 `{STATE_FILE}`은 참고로만 읽으세요 (상태 갱신은 오케스트레이터가 수행 — 갱신하지 마세요).
     배정 model/effort: {model}/{effort}
-    **파일을 수정하지 말고** 단순화 후보 목록만 반환하세요.
+    **파일을 수정하지 말고** 목록만 반환하세요.
+
+    ## 스캔 1 — Simplify (Phase 8.2)
+    /be-harness:simplify-loop 를 **dry-run** 관점으로 실행하세요.
     각 항목: {file:line, 현재 코드 요약, 제안 변경, 근거}.
-    완료 후 "후보: N건" 형식으로 보고하세요.
-```
 
-### Phase 8.3: Convention Check Scan
-
-```
-Agent tool:
-  subagent_type: general-purpose
-  model: [품질 스캔 범위 기준 선택]
-  effort: [품질 스캔 범위 기준 선택]
-  prompt: |
-    프로젝트 루트 {CWD}에서 /be-harness:convention-check 를 실행하세요.
-    상태 파일 `{STATE_FILE}`을 읽고 Phase 8.3 상태를 갱신하세요.
-    배정 model/effort: {model}/{effort}
-    **파일을 수정하지 말고** 위반 목록만 반환하세요.
+    ## 스캔 2 — Convention (Phase 8.3)
+    /be-harness:convention-check 를 실행하세요.
     각 항목: {file:line, 위반 규칙, 제안 수정}.
-    완료 후 "위반: N건" 형식으로 보고하세요.
+
+    두 결과를 섞지 말고 별도 목록으로 유지한 채,
+    완료 후 "simplify 후보: N건 / convention 위반: M건" 형식으로 보고하세요.
 ```
+
+결과 수신 후 **오케스트레이터가** 8.2/8.3 상태를 각각 갱신한다 — `Phase Assignments`는 기존 Phase 8 통합 행을 유지하고, 개별 상태·건수는 `Phase Results` 표에 8.2/8.3 행으로 기록한다.
 
 ### Phase 8.4: Scope Review
 
@@ -198,8 +197,8 @@ TDD가 활성이면 Phase 6.1이 테스트를 선작성하므로 1순위 소스�
 ```
 Agent tool:
   subagent_type: general-purpose
-  model: [복원 범위 기준 선택]
-  effort: [복원 범위 기준 선택]
+  model: sonnet   # 작업 성격 '이해·요약' — SKILL.md Model/Effort 규칙. 판정(Diff)은 오케스트레이터 몫이라 강등이 검출력을 깎지 않는다
+  effort: medium
   prompt: |
     프로젝트 루트 {CWD}에서 아래 파일만 읽고, 이 코드가 **실제로 보장하는 동작**을 자연어로 복원하세요.
 

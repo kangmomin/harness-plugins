@@ -90,7 +90,11 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 [Phase 8.8 결과. Phase 8.8 실행 전에는 `미실행`]
 
 ## Phase Results
-[Phase 완료 시 결과 append]
+[Phase 완료 시 아래 표에 행 append. `Status`는 상태 코드(8.2/8.3처럼 Phase Assignments에 개별 행이 없는 하위 단계도 여기에 기록).
+`진단` 열은 발생 시에만 — `agent_retry({원인})` / `degraded_fallback({원인} / {축소 내용})`, 없으면 `-`]
+
+| Phase | Status | 결과 요약 | 진단 |
+|-------|--------|----------|------|
 ```
 
 `parallel-slices`인 경우 아래를 추가한다:
@@ -99,6 +103,8 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 ## Slices
 [Plan에서 정의한 Slice 정보 그대로 복사]
 ```
+
+`--reflect` 미지정 시(기본): 생성 시점에 Phase 11 행의 Status를 `SKIPPED:REFLECT_NOT_REQUESTED`로 기록하고, `Remaining Phases`에서 "Phase 11: 성찰"을 제외한다.
 
 ## Phase 5: Implementation Notes 라이브 파일 초기화
 
@@ -124,6 +130,27 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 ```
 
 > 4개 섹션 헤더(`## 설계 결정`, `## 편차`, `## 트레이드오프`, `## 미결 질문`)는 정확히 이 형태로 유지한다. Phase 12 HTML 렌더링이 헤더 텍스트로 섹션을 식별한다.
+
+## Phase 12 실행 절차
+
+> SKILL.md Phase 12의 "절차 요약" ①~⑤의 상세 규칙이다. 순서를 바꾸지 않는다.
+
+1. **HTML 렌더링**: `{IMPL_NOTES}` → `{REPORT_DIR}/{YYYYMMDD}-{task-name-kebab}-impl-notes.html` (아래 템플릿 준수, 디렉토리 없으면 생성).
+   그 다음 Phase 6~11 결과를 종합해 **Workflow Report**를 작성한다 (템플릿 준수 — 섹션 머리글 변경 금지). `## 미결 질문`이 1건 이상이면 보고서 최상단에 "사용자 확인 필요" 블록을 자동 삽입한다.
+2. **TDD 미해결 항목 처리** (보고서 4.1 섹션이 비어있지 않을 때만): 자율 실행 중 이연된 `BLOCKED:*`·`[TestConflict]`·`[Breaking]`·`cannot_compile`을 각각 제시하고 결정을 받는다.
+   Phase 6~8에서 유저 질문이 금지되어 이연된 항목들이므로 **여기가 첫 결정 지점**이다.
+   - 결정에 따른 수정이 필요하면 그 자리에서 수행하고 커밋한다. 승인 전에는 수정하지 않는다.
+   - "이번 범위 외" 판단 항목은 보고서에 `보류`로 남긴다.
+3. **Read-back Diff 처리** (Phase 8.8 판정이 `WARN`/`FAIL`일 때만): 보고서 8번 섹션의 각 항목을 유저에게 제시하고 결정을 받는다.
+   보완점 질문보다 **먼저** 처리한다 — 코드·Spec에 직접 영향을 주는 결정이기 때문이다.
+   - 결정에 따른 코드/Spec 수정이 필요하면 그 자리에서 수행하고 커밋한다. 유저가 승인하기 전에는 수정하지 않는다 (Spec 외 변경 금지 원칙).
+   - 유저가 "이번 범위 외"로 판단한 항목은 보고서에 `보류`로 남기고 넘어간다.
+4. **보완점 적용** (Phase 11이 `DONE`일 때만): 반영 방식을 질문한다: ① 로컬에만 저장 (기본) ② 로컬 저장 + `/common:submit-feedback`으로 PR ③ 건너뛰기.
+   적용 절차·append 규칙은 아래 "보완점 적용 상세"를 따른다. 플러그인 원본은 절대 수정하지 않는다.
+   Phase 11이 `SKIPPED:*`면 이 단계를 건너뛰고 보고서 §6에 **실제 상태 코드**로 스킵 사유를 기입한다 (§6 템플릿의 사유별 분기 문구를 따른다).
+5. **정리**: 상태 파일의 모든 Phase를 `DONE`/`SKIPPED:{사유}`로 갱신하고 `Remaining Phases`를 `없음`으로 기록.
+   기본은 상태 파일과 라이브 노트를 **보관** (HTML 산출물은 `{REPORT_DIR}`에 영구 저장). 사용자가 정리를 요청한 경우에만 `rm -f {STATE_FILE} {IMPL_NOTES}`.
+   HTML 산출물(`*-impl-notes.html`, `*-e2e-report.html`)은 자동 삭제하지 않는다.
 
 ## Phase 12: Implementation Notes HTML 렌더링
 
@@ -223,9 +250,12 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 - API 문서 동기화: [Y/N/SKIPPED, 요약]
 
 ### 6. 성찰
-[성찰 에이전트 결과]
+[성찰 에이전트 결과. Phase 11이 `SKIPPED:*`면 "성찰 생략(`{실제 상태 코드}`)" 한 줄만 기입하고 사유별 안내를 덧붙인다 —
+`REFLECT_NOT_REQUESTED`: "`--reflect`로 주기 실행 권장(워크플로우 5~10회마다 1회)" / 그 외(`BUDGET_PRESERVED`, `AGENT_DIED` 등): "§9 축소 실행 내역 참조"]
 
 ### 7. 보완점 (프로젝트 오버라이드로 반영)
+> Phase 11이 `SKIPPED:*`면 표 대신 "없음 (성찰 생략)"으로 적는다.
+
 | # | 대상 스킬/에이전트 | 보완 내용 | 저장 경로 | 적용 여부 |
 |---|----------|----------|----------|----------|
 | 1 | /be-harness:request | [내용] | `.claude/be-harness/skills/request.md` | Y/N |
@@ -241,6 +271,15 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | B Spec 밖 | body 길이 2000자 제한 | 없음 | 400 반환 | - | Spec에 반영 / 제거 |
 | E 컨벤션 이탈 | `now == startAt` (EC-02) | 예정 | 예정 | `promotion.go:41` → 진행중 | 기존 컨벤션 따를지 |
 | D 해석 불가 | `assert.Eventually` (`x_test.go:103`) | - | 불명 | - | 의도 확인 |
+
+### 9. 축소 실행 내역
+> `agent_retry`·`degraded_fallback`·`SKIPPED:BUDGET_PRESERVED`·`SKIPPED:AGENT_DIED`가 한 건도 없으면 "없음"으로 적고 이 섹션을 비운다.
+> `Status`는 상태 코드, `진단`은 진단 분류 — 두 어휘를 한 열에 섞지 않는다 (`docs/skill-authoring.md` §5).
+
+| Phase | Status | 진단 | 원인·축소 내용 | 재실행 권장 |
+|-------|--------|------|---------------|------------|
+| 8.4 | DONE | `degraded_fallback` | 세션 한계 사망 ×2 — 오케스트레이터 직접 scope 검토 (독립성 상실) | Y — `/be-harness:start-workflow --verify` |
+| 9 | SKIPPED:BUDGET_PRESERVED | - | 검증 예산 보존 | Y — 문서 동기화 별도 실행 |
 ```
 
 ## Phase 12: 보완점 적용 상세
