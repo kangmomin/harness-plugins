@@ -38,6 +38,7 @@
 | **commit-pr** | `/common:commit-pr` | commit + push + 브랜치 생성 + PR 오픈(기본 draft, `--ready`로 ready 전환, `--bump-only`로 VERSION 범프 전용 PR). base 브랜치 대조 VERSION 자동 범프, 기존 open PR 본문 동기화 확인 포함. Assumption Gate 승인 항목은 PR 본문 "확정된 결정" 섹션에 기록 |
 | **commit-hard-push** | `/common:commit-hard-push` | 보호 브랜치 제한 없이 commit + push (Assumption Gate 적용) |
 | **merge** | `/common:merge` | PR 을 머지. doc-gen 으로 요약 컨펌 후 머지 방식(일반/스쿼시/리베이스/취소) 선택 |
+| **resolve-assumption** | `/common:resolve-assumption` | 코드·미push 커밋 메시지에 남은 `[Assumption]` 태그를 항목별로 하나씩 확인받아 해소. 승인 시 태그만 삭제하고 `[확정]` 류 대체 워딩을 남기지 않음. 게이트가 아니므로 보류 가능하며 push 하지 않음 |
 
 ### 워크플로우 진입점
 
@@ -116,5 +117,6 @@
     ├── commit-pr.md                # /common:commit-pr 오버라이드
     ├── commit-hard-push.md         # /common:commit-hard-push 오버라이드
     ├── merge.md                    # /common:merge 오버라이드
+    ├── resolve-assumption.md       # /common:resolve-assumption 오버라이드
     └── start-workflow.md           # /common:start-workflow 오버라이드
 ```
