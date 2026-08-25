@@ -28,6 +28,7 @@ user-invocable: true
 |--------|------|------|
 | `--hard` | `-h` | 브랜치 생성/검증을 건너뛰고 현재 브랜치에서 바로 push. `/common:commit-hard-push` 방식. |
 | `--no-tdd` | | Phase 6.1(테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. |
+| `--reflect` | | Phase 11(성찰)을 실행한다. 미지정 시 Phase 11은 `SKIPPED:REFLECT_NOT_REQUESTED` (주기 실행 권장 — 워크플로우 5~10회마다 1회). |
 | `--analyze` | `-a` | **Analyze 모드**. 전체 또는 특정 범위의 코드를 분석하여 보고서를 생성한다. |
 | `--verify` | `-v` | **Verify 모드**. 보안·성능·잠재 버그·안정성을 검증하고 PASS/WARN/FAIL 판정한다. |
 
@@ -42,15 +43,9 @@ user-invocable: true
 - `--analyze`와 `--verify`는 상호 배타적이다. 동시 지정 시 유저에게 하나를 선택하도록 안내한다.
 - `--hard`는 Build 모드에서만 유효하다. Analyze/Verify 모드에서는 무시한다. `$ARGUMENTS`에 `--hard`/`-h`가 있으면 `$HARD_MODE = true`.
 - `--no-tdd`도 Build 모드 전용이다. `$ARGUMENTS`에 있으면 `$TDD = false` (기본값 `true`). Analyze/Verify 모드는 구현 Phase를 경유하지 않으므로 해당 없음.
+- `--reflect`도 Build 모드 전용이다. `$ARGUMENTS`에 있으면 `$REFLECT = true` (기본값 `false`) — Phase 11 실행 여부를 결정한다.
 - **범위 지정**: 플래그 뒤 경로가 있으면 분석/검증 범위로 사용한다. 없으면 전체 코드베이스 (profile의 `sourceDirs` 기준).
   예: `--analyze src/book`, `--verify src/book/handler.go`
-
-### --hard 모드 영향
-
-| Phase | 일반 모드 | --hard 모드 |
-|-------|----------|------------|
-| Phase 5 브랜치 | feature 브랜치 생성 필수 | **건너뜀** (현재 브랜치 유지) |
-| Phase 10 PR | workflow-pr (PR 생성) | 현재 브랜치에서 바로 push, PR 생략 |
 
 > **Analyze/Verify 모드 진입 시 MUST**: 같은 폴더의 `references/analyze-verify-modes.md`를 Read하고 해당 모드 절차를 따른다. 이하 본문은 Build 모드를 정의한다.
 
@@ -72,6 +67,14 @@ user-invocable: true
 Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `effort`를 명시한다.
 환경별 모델명이 다르면 같은 등급의 사용 가능한 최신 모델로 치환한다.
 
+등급표 적용 전 **작업 성격을 먼저 판정**한다 — 탐색·이해 작업에 상위 모델을 쓰지 않는 것이 컨텍스트 절감의 핵심이다:
+
+| 작업 성격 | 예 | model / effort |
+|----------|-----|----------------|
+| 탐색·수집 | 파일/심볼 위치 찾기, 사용처 나열, 패턴 grep, 설정값 수집 | haiku / low |
+| 이해·요약 | 모듈 동작 요약, 코드 흐름 설명, Phase 8.8 복원 | sonnet / medium |
+| 판단·구현 | 코드 수정, 리뷰 판정(Phase 8.4 scope 등), 설계 결정 | 아래 등급표 적용 |
+
 | 등급 | 기준 | Claude 계열 | Codex 계열 | effort |
 |------|------|-------------|------------|--------|
 | Simple | 난이도 1-3, 1-3개 파일, 문서/단순 수정 | sonnet | gpt-5.3-codex-spark | low |
@@ -81,6 +84,7 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 
 읽기 전용 리뷰는 기본 `Standard`, 보안/데이터 정합성/계약 변경 검토는 `Complex` 이상.
 코드 수정 에이전트는 담당 파일 수와 실패 반복 횟수에 따라 한 단계 높일 수 있다.
+검증·리뷰의 **판정**을 탐색·이해 작업으로 분류해 강등하지 않는다 (검출력 보존. 유일한 예외: 사망 복구 2차 재시도의 1단계 강등 — "축소 실행 내역"으로 고지).
 
 ## 자율 실행 규칙
 
@@ -109,6 +113,18 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 - **유저 응답 대기, 진행 여부 질문, 중간 보고 후 멈춤은 금지.**
 - 유일한 정지 지점은 **Phase 12 (최종 보고)** 뿐이다.
 
+### 탐색 위임 규칙 (오케스트레이터 컨텍스트 규율)
+
+탐색·수집 작업(위치/사용처/패턴 grep/설정값 확인)이 3건 이상 쌓이면 오케스트레이터가 직접 실행하지 않고, **탐색 에이전트 1개에 3~10개 질문을 묶어** 위임한다 (haiku/low — 부팅 고정 비용 때문에 1질문 1에이전트 금지).
+반환 계약(프롬프트에 명시): 답변 = `file:line` + 핵심 스니펫 최대 5줄 + 한 줄 결론. 파일 전문 붙여넣기 금지. **'없음' 답변은 검색한 패턴·경로 목록을 반드시 동반**한다 (부재 주장을 검증 가능하게).
+예외: ① 부재 여부가 Plan을 바꾸는 결정적 질문은 sonnet 이상 위임 또는 오케스트레이터 직접 확인 ② 단발 1~2건은 직접 실행이 더 싸다. 탐색 결과의 **채택 판단은 항상 오케스트레이터**가 한다.
+
+### 에이전트 사망 처리 (공통 규약)
+
+서브 에이전트가 결과 없이 종료(오류·세션 한계)하면 MUST: `references/agent-prompts.md`의 "공통 규약: 에이전트 사망 처리"를 따른다 (미로드 상태면 해당 섹션을 Read).
+요약: Phase당 최대 2회 재시도(동일 조건 1회 → model 1단계 강등 1회) → 그래도 실패 시 구현·수정류는 `BLOCKED:AGENT_DIED` 보고 후 중단, 격리 필수 단계(8.8)는 `SKIPPED:AGENT_DIED`, 그 외는 오케스트레이터 축소 폴백(`degraded_fallback` 기록) 후 계속. 세션 한계 사망 2회 누적 시 검증 위임(8.4·8.8)을 최후 보존한다.
+Codex 호출 실패는 이 규약 대상이 아니다 — Phase 4.3의 `CODEX-UNAVAILABLE` 처리(특화 하네스는 해당 오버레이 규약)를 따른다.
+
 ### Implementation Notes (라이브 판단 기록)
 
 자율 실행 중 발생하는 **설계 결정·편차·트레이드오프·미결 질문**을 코드와 분리해 `{IMPL_NOTES}`에 실시간으로 누적한다.
@@ -116,10 +132,8 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 
 핵심 규칙 (파일 초기화 템플릿·4-섹션 구조: `references/templates.md`):
 
-- 파일을 수정하는 자율 실행 에이전트는 4종 사건 발생 시 **코드 수정 전에** 해당 섹션에 한 줄 append.
-- 읽기 전용 스캔 에이전트는 직접 쓰지 않는다 — 이슈 보고서에 포함하면 통합 수정 단계가 대신 기록.
+- 파일을 수정하는 자율 실행 에이전트는 4종 사건 발생 시 **코드 수정 전에** 해당 섹션에 한 줄 append. **append-only**, 마크다운만 (HTML/JSON 금지 — 렌더링이 깨진다). 읽기 전용 스캔 에이전트는 직접 쓰지 않는다 — 이슈 보고서에 포함하면 통합 수정 단계가 대신 기록.
 - `[Assumption]` 보고와 동일한 항목은 `## 편차` 섹션에 동시 기록 (보고서와 라이브 노트 동기화).
-- **append-only** — 기존 줄 수정·삭제 금지. 마크다운만 작성 (HTML/JSON 금지 — 렌더링이 깨진다).
 
 ## Pre-flight: 세션 환경 점검 (모든 모드 공통)
 
@@ -380,7 +394,7 @@ TDD 활성 시 **테스트 파일 수정 금지** 규칙과 `[TestConflict]` 보
 
 ```
 for iteration in 1..3:
-  [Batch A — 병렬 스캔, 읽기 전용] 8.1 빌드+테스트 / 8.2 simplify / 8.3 convention / 8.4 scope
+  [Batch A — 병렬 스캔, 읽기 전용] 8.1 빌드+테스트(Bash) / 8.2+8.3 품질 스캔(통합 1에이전트) / 8.4 scope
       → 이슈만 수집, 파일 수정 금지
   [Phase 8.5 — 통합 수정] 수집 이슈를 단일 에이전트가 일괄 수정
   [Batch B — 순차, 서버 점유] 8.6 e2e-test-loop → 8.7 통합 테스트
@@ -423,41 +437,31 @@ Phase 8.1 결과는 `## Test Baseline`과 대조해 `regression` / `pre_existing
   "Phase 10 완료: `{브랜치명}`에 push 완료 (--hard 모드, PR 생략)" 출력. 발견 시 push를 보류하고 아래 BLOCKED 절차를 따른다.
 - **Assumption Gate BLOCKED 처리**: workflow-pr이 `BLOCKED:ASSUMPTION_UNRESOLVED`를 보고하면(또는 --hard 스캔에서 발견되면) push/PR 없이 Phase 11로 진행하고, Phase 12 보고서에 태그 목록을 포함해 항목별 유저 확인을 받는다. 승인(태그 제거)·수정으로 태그가 모두 제거된 뒤 **Phase 10만 재실행**한다. 태그가 남아 있는 동안 push/PR은 금지.
 
-### Phase 11: 성찰
+### Phase 11: 성찰 (조건부 — `--reflect` 시)
 
-`be-harness:workflow-reflection` 에이전트 실행 (`references/agent-prompts.md`의 "Phase 11" 섹션).
+`$REFLECT = true`면 `be-harness:workflow-reflection` 에이전트 실행 (`references/agent-prompts.md`의 "Phase 11" 섹션).
+`false`(기본)면 `SKIPPED:REFLECT_NOT_REQUESTED` 기록 후 Phase 12로 — 성찰은 매 실행이 아닌 주기 실행(워크플로우 5~10회마다 1회)을 권장하며, 스킵 사실과 권장 주기는 Phase 12 보고서가 고지한다.
 
 ## Phase 12: 최종 보고
 
-> Phase 12 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고 "Implementation Notes HTML 렌더링", "Workflow Report 템플릿", "보완점 적용 상세"를 따른다.
+> Phase 12 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고 "Phase 12 실행 절차", "Implementation Notes HTML 렌더링", "Workflow Report 템플릿", "보완점 적용 상세"를 따른다.
 
-1. **HTML 렌더링**: `{IMPL_NOTES}` → `{REPORT_DIR}/{YYYYMMDD}-{task-name-kebab}-impl-notes.html` (템플릿 준수, 디렉토리 없으면 생성).
-   그 다음 Phase 6~11 결과를 종합해 **Workflow Report**를 작성한다 (템플릿 준수 — 섹션 머리글 변경 금지). `## 미결 질문`이 1건 이상이면 보고서 최상단에 "사용자 확인 필요" 블록을 자동 삽입한다.
-2. **TDD 미해결 항목 처리** (보고서 4.1 섹션이 비어있지 않을 때만): 자율 실행 중 이연된 `BLOCKED:*`·`[TestConflict]`·`[Breaking]`·`cannot_compile`을 각각 제시하고 결정을 받는다.
-   Phase 6~8에서 유저 질문이 금지되어 이연된 항목들이므로 **여기가 첫 결정 지점**이다.
-   - 결정에 따른 수정이 필요하면 그 자리에서 수행하고 커밋한다. 승인 전에는 수정하지 않는다.
-   - "이번 범위 외" 판단 항목은 보고서에 `보류`로 남긴다.
-3. **Read-back Diff 처리** (Phase 8.8 판정이 `WARN`/`FAIL`일 때만): 보고서 8번 섹션의 각 항목을 유저에게 제시하고 결정을 받는다.
-   보완점 질문보다 **먼저** 처리한다 — 코드·Spec에 직접 영향을 주는 결정이기 때문이다.
-   - 결정에 따른 코드/Spec 수정이 필요하면 그 자리에서 수행하고 커밋한다. 유저가 승인하기 전에는 수정하지 않는다 (Spec 외 변경 금지 원칙).
-   - 유저가 "이번 범위 외"로 판단한 항목은 보고서에 `보류`로 남기고 넘어간다.
-4. 보완점 반영 방식을 질문한다: ① 로컬에만 저장 (기본) ② 로컬 저장 + `/common:submit-feedback`으로 PR ③ 건너뛰기.
-5. 적용 절차·append 규칙은 templates.md의 "보완점 적용 상세"를 따른다. 플러그인 원본은 절대 수정하지 않는다.
-6. 정리: 상태 파일의 모든 Phase를 `DONE`/`SKIPPED:{사유}`로 갱신하고 `Remaining Phases`를 `없음`으로 기록.
-   기본은 상태 파일과 라이브 노트를 **보관** (HTML 산출물은 `{REPORT_DIR}`에 영구 저장). 사용자가 정리를 요청한 경우에만 `rm -f {STATE_FILE} {IMPL_NOTES}`.
-   HTML 산출물(`*-impl-notes.html`, `*-e2e-report.html`)은 자동 삭제하지 않는다.
+절차 요약 (각 항목의 상세 규칙: templates.md의 "Phase 12 실행 절차" — 순서 변경 금지):
+① impl-notes HTML 렌더링 + Workflow Report 작성 → ② TDD 미해결 항목 유저 결정 (첫 결정 지점) → ③ Read-back Diff 유저 결정 (보완점보다 먼저 — 코드·Spec에 직접 영향) → ④ 보완점 적용 질문 (Phase 11이 `DONE`일 때만 — `SKIPPED:*`면 생략하고 **실제 상태 코드**와 사유별 문구로 고지: templates §6 분기) → ⑤ 상태 파일 마감·산출물 보관.
+수정이 필요한 결정은 유저 승인 후에만 수행한다 (Spec 외 변경 금지 원칙).
 
 ## 상태 코드
 
 | 코드 | 의미 |
 |------|------|
 | `DONE` / `IN_PROGRESS` / `PENDING` | Phase 진행 상태 |
-| `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 (예: `SKIPPED:PROFILE_EMPTY`, `SKIPPED:USER_OPT_OUT`, `SKIPPED:NO_TEST_BASIS`) |
-| `BLOCKED:{사유}` | 진행 불가 — 사용자 개입 필요 (예: `BLOCKED:BUILD_FAIL`, `BLOCKED:MAX_ITERATIONS`, `BLOCKED:NO_VALID_RED`, `BLOCKED:REGRESSION_AT_RED`, `BLOCKED:TEST_NOT_GREEN`) |
+| `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 (예: `SKIPPED:PROFILE_EMPTY`, `SKIPPED:USER_OPT_OUT`, `SKIPPED:NO_TEST_BASIS`, `SKIPPED:REFLECT_NOT_REQUESTED`, `SKIPPED:BUDGET_PRESERVED`, `SKIPPED:AGENT_DIED`) |
+| `BLOCKED:{사유}` | 진행 불가 — 사용자 개입 필요 (예: `BLOCKED:BUILD_FAIL`, `BLOCKED:MAX_ITERATIONS`, `BLOCKED:NO_VALID_RED`, `BLOCKED:REGRESSION_AT_RED`, `BLOCKED:TEST_NOT_GREEN`, `BLOCKED:AGENT_DIED`) |
 | `PASS` / `WARN` / `FAIL` | Verify 모드 판정, 테스트 판정, Read-back 판정 |
 
-TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`deferred_e2e`·`regression`·`pre_existing`·`new_red`·`flaky`)는 **상태 코드가 아니라 데이터**다.
-`## TDD Test Map`과 회귀 대조 표의 셀 안에서만 쓰고, Phase Assignments의 Status 열에는 등장시키지 않는다 (`docs/skill-authoring.md` §5).
+TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`deferred_e2e`·`regression`·`pre_existing`·`new_red`·`flaky`)는 `## TDD Test Map`·회귀 대조 표의 셀 안에서만,
+에이전트 사망 처리의 `agent_retry`·`degraded_fallback`은 `Phase Results` 표·보고서 "축소 실행 내역" 표의 `진단` 셀 안에서만 쓴다.
+모두 **상태 코드가 아니라 데이터**다 — Phase Assignments의 Status 열에는 등장시키지 않는다 (`docs/skill-authoring.md` §5).
 
 ## References
 
@@ -466,7 +470,7 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 | `references/analyze-verify-modes.md` | `--analyze` / `--verify` 모드 진입 시 |
 | `references/templates.md` | Phase 5 (상태 파일·라이브 노트), Phase 12 (HTML 렌더링·보고서·보완점) |
 | `references/tdd.md` | Phase 5 (TDD 판정·baseline), Phase 6 진입 시 |
-| `references/agent-prompts.md` | Phase 6 진입 시 (Phase 6.2/7/9/10/11 프롬프트) |
+| `references/agent-prompts.md` | Phase 6 진입 시 (Phase 6.2/7/9/10/11 프롬프트) + 에이전트 사망 시 (공통 규약 — 미로드면 즉시 Read) |
 | `references/quality-loop.md` | Phase 8 진입 시 |
 
 ## 흐름 요약 (Build)
@@ -488,7 +492,7 @@ Phase 8: 품질 루프 최대 3회 (병렬 스캔 8.1~8.4 → 통합 수정 8.5 
          루프 종료 후 8.8 Spec 정합 Read-back 1회 (격리 복원 → Diff 판정, 수정 없음)
 Phase 9: API 문서 동기화 (API 변경 시만)
 Phase 10: PR 생성 (--hard: push만)
-Phase 11: 성찰
+Phase 11: 성찰 (--reflect 지정 시만 — 기본 SKIPPED:REFLECT_NOT_REQUESTED)
 
 [유저 대화]
 Phase 12: impl-notes HTML 렌더링 → 최종 보고 (미결 질문 상단 표면화) → 보완점 적용 → 정리
