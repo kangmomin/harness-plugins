@@ -53,6 +53,8 @@ argument-hint: "[--be|--fe|--mm|--hd] [스킬명]"
 ---
 **워크플로우는 `/common:start-workflow` 하나로 시작합니다.** 요청을 분석해 백엔드/프론트엔드/풀스택을 판정하고 확인을 거쳐 실행합니다.
 도메인을 미리 알면 플래그로 고정할 수 있습니다: `/common:start-workflow --be`, `--fe`, `--fs`
+성찰은 기본 off입니다 — 주기적으로 `--reflect`를 붙여 실행하세요. 검증 티어(light/standard)는 Spec 점수로 자동 판정되며 `--tier standard`로 상향을 강제할 수 있습니다.
+Codex 사용 모드는 `--codex none|mix|max`로 지정하면 profile `codexMode`에 저장됩니다 (기본 mix — Plan 리뷰만 Codex, max는 서브에이전트까지 Codex 위임).
 그 외 스킬은 하네스를 직접 지정합니다: `/be-harness:request`, `/fe-harness:component`
 ```
 

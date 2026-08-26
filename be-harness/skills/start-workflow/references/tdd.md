@@ -31,18 +31,20 @@ SKIP 판정을 `{STATE_FILE}`의 `## Test Baseline` 섹션에 사유와 함께 �
 **자율 실행 진입 직전에 수집한다.** 이 시점은 유저와 대화가 가능한 마지막 지점이므로, 수집이 실패해도 선택지를 제시할 수 있다.
 
 ```bash
-git rev-parse HEAD          # 기준 커밋
-{testCommand}               # suite별로 각각 실행
-{makeTestCommand}           # 비어있지 않으면 별도 suite로 수집
+git rev-parse HEAD          # 기준 커밋 (= `## Flags`의 START_SHA)
+{testCommand} > /tmp/baseline-unit.log 2>&1; EXIT=$?
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --runner auto --exit-code $EXIT --suite unit --emit-baseline /tmp/baseline-unit.log
+{makeTestCommand}           # 비어있지 않으면 같은 방식으로 --suite integration 수집
 ```
 
-수집 결과를 `{STATE_FILE}`에 기록한다 (템플릿: `references/templates.md`).
+`--emit-baseline` 출력(표 행)을 `{STATE_FILE}`의 `## Test Baseline`에 그대로 붙인다 (템플릿: `references/templates.md`). 스크립트가 exit ≠ 0이면 아래 필드 규칙대로 수동 기록하고 진단 `script_fallback(test_failures:{사유})`를 남긴다.
 
 | 필드 | 의미 |
 |------|------|
-| `러너 완주` | 러너가 전체 스위트를 발견·실행 완료했는지. `N`이면 실패 목록을 신뢰할 수 없다 |
-| `실패 목록` | `{테스트 식별자} :: {정규화 시그니처}` 형식 |
-| `정규화 시그니처` | 실패 메시지 첫 줄에서 **경로·라인 번호·타임스탬프·메모리 주소를 제거**한 문자열 |
+| `러너 완주` | 러너가 전체 스위트를 발견·실행 완료했는지. `N`이면 실패 목록을 신뢰할 수 없다. 판정 매트릭스: 종료 마커(go `ok/FAIL {pkg}` 요약 줄, jest `Tests:`, vitest `Test Files`) 있음 → `Y` (exit ≠ 0은 "실패 있음"으로만 해석) / 마커 없음 → `N` (중단·크래시·설정 오류) / 마커 있음 ∧ 실패 0 ∧ exit ≠ 0 → `Y` + `unparsed` 1건(실패 없는 비정상 종료) / 테스트 0건 → `Y` + `unparsed`(테스트 0건) |
+| `실패 목록` | 항목 = `` `{식별자}` :: `{정규화 시그니처}` ``, 항목 구분은 닫는 백틱과 여는 백틱 사이의 ` / `만. 식별자는 러너 네이티브 전체 ID(go `TestX/sub`, jest·vitest `describe › it` 전체 경로), 키 = suite + 식별자. 내부 백틱은 `'`로, `\|`는 escape |
+| `정규화 시그니처` | 실패 메시지 **첫 줄**에서 경로·라인 번호·타임스탬프·메모리 주소(`0x…`)·goroutine id를 제거하고 공백을 축약한 문자열. **비교 키는 정규화된 첫 줄 전체**(절단 없음), 표시만 120자 + 해시 8자 |
+| `unparsed` | 지원 러너(go · jest · vitest) 밖이거나 파싱이 불확실한 항목. 대조 불가 데이터 — 잔존 시 테스트 판정 `PASS` 불가 |
 
 **시그니처가 이 설계의 핵심이다.** 식별자만 기록하면 "원래 깨져 있던 테스트가 이번 변경으로 **다른 이유로** 깨진 것"을 놓친다.
 
@@ -57,7 +59,7 @@ git rev-parse HEAD          # 기준 커밋
 > 2. **중단** — 기존 테스트를 먼저 고치고 워크플로우를 다시 시작합니다
 > 3. **`--no-tdd`로 전환** — TDD 없이 기존 워크플로우로 진행합니다"
 
-1번 선택 시 `## Test Baseline`에 `수집 실패 — regression 판정 불가`를 명시 기록한다.
+1번 선택 시 `## Test Baseline`에 `수집 실패 — regression 판정 불가`를 명시 기록한다. 검증 티어가 light면 승격 ④로 standard 전환을 함께 기록한다 (`references/verification-tier.md` §4).
 
 ---
 
@@ -91,6 +93,7 @@ Agent tool:
 ```
 
 에이전트가 `/be-harness:unit-test` 를 찾지 못하면(스킬 미설치) 같은 프롬프트에 `unit-test` 스킬의 Step 1~4 규칙을 인라인해 `general-purpose`로 수행한다.
+`codexMode: max`(`## Flags` `CODEX`)면 러너 프롬프트에 `references/codex-mode.md` §8 포인터 1줄을 추가하고, 테스트·스텁 작성 리프는 Codex sol(`workspace-write`)이 `${CLAUDE_PLUGIN_ROOT}/skills/unit-test/SKILL.md` Step 1~4를 직접 읽어 수행한다 (§5 쓰기 안전 적용, 커밋 금지 동일). none·mix는 위 Skill tool 경로 그대로.
 
 ## parallel-slices 모드 (배리어 필수)
 
@@ -109,6 +112,7 @@ Agent tool:
 ```
 
 **슬라이스별 테스트 실행을 금지하는 이유**: 다른 슬라이스의 미완성 스텁 때문에 자기 슬라이스가 `cannot_compile`로 오판된다.
+`codexMode: max`면 ①의 슬라이스 에이전트는 Codex sol(`workspace-write`)이다 — 금지 항목 동일, 실패 시 항상 이어서(`references/codex-mode.md` §5).
 
 배리어가 끝나기 전에는 어떤 슬라이스도 Phase 6.2를 시작하지 않는다.
 
@@ -168,9 +172,11 @@ Phase 6의 기존 구현 프롬프트(`references/agent-prompts.md`)를 사용�
 
 # Phase 8: 회귀 대조
 
-Phase 8.1에서 `{testCommand}` 실행 결과를 `## Test Baseline`과 대조해 실패를 분류한다.
+Phase 8.1에서 `{testCommand}` 실행 결과를 `## Test Baseline`과 대조해 실패를 분류한다. 대조는 `assets/test_failures.py --baseline {STATE_FILE}`이 수행한다 (호출: `references/quality-loop.md` Phase 8.1). 스크립트가 exit ≠ 0이면 오케스트레이터가 아래 규칙으로 직접 대조하고 진단 `script_fallback(test_failures:{사유})`를 남긴다.
 
 ## 분류 우선순위 (위에서부터 먼저 적용)
+
+Tombstone 매핑(`## Test Baseline`)은 분류 **전에** 식별자에 적용한다. 셀 파싱 실패·항목 수 불일치·Tombstone 중복 매핑이면 해당 suite 행 전체를 `unparsed`로 취급한다.
 
 | # | 조건 | 분류 |
 |---|------|------|
@@ -181,6 +187,8 @@ Phase 8.1에서 `{testCommand}` 실행 결과를 `## Test Baseline`과 대조해
 | 5 | 3·4 판정 전 **1회 재실행**, 결과가 뒤집히면 | `flaky` |
 
 - `flaky`는 regression 집계에서 제외하고 보고만 한다. 유령을 쫓는 수정을 막기 위한 장치다.
+  재실행은 러너별 verbose 옵션 필수(go `-v`, jest `--verbose`, vitest `--reporter=verbose`) — `--rerun FILE2 --rerun-exit-code M`으로 전달한다. `flaky` ⇔ 재실행이 완주했고 **그 식별자가 PASS로 명시**됨(go `--- PASS: {ID}`, jest/vitest `✓ {ID}`). 그 외(미완주·PASS 줄 부재)는 원 분류 유지 + `rerun_incomplete` 표기 — 필터 문자열·테스트 수는 증거로 인정하지 않는다.
+- `unparsed`·러너 완주 `N`이 남아 있으면 `PASS` 판정을 내릴 수 없다. 오케스트레이터가 로그를 직접 읽어 분류하고, 그래도 분류하지 못하면 **판정 불가** = 테스트 판정 `FAIL`로 취급한다 (light: 승격 ③).
 - **이름 변경·삭제**: Spec이 승인한 경우에만 허용하고 `## Test Baseline`에 tombstone(`{구 식별자} → {신 식별자}` 또는 `{식별자} → 삭제(근거)`)을 append한다. 승인 없는 소멸은 `regression`으로 취급한다.
   tombstone은 baseline의 **판정 데이터를 바꾸지 않는다** — 대조 시 매핑에만 쓰인다.
 
@@ -195,7 +203,7 @@ Phase 8.5 통합 수정 에이전트에는 이 순서대로 이슈를 전달하�
 |------|------|
 | `PASS` | `regression` 0건 + `new_red` 0건 |
 | `WARN` | `flaky`만 존재 |
-| `FAIL` | `regression` 1건+ 또는 `new_red` 1건+ |
+| `FAIL` | `regression` 1건+ 또는 `new_red` 1건+ 또는 판정 불가(`unparsed`·완주 `N` 잔존을 분류하지 못함) |
 
 이 판정이 Phase 8 루프의 종료 조건에 들어간다 (SKILL.md 본문 참조).
 
@@ -219,6 +227,6 @@ Phase 8.5 통합 수정 에이전트에는 이 순서대로 이슈를 전달하�
 |------|--------|----------|
 | Phase 상태 | `DONE` `IN_PROGRESS` `PENDING` `SKIPPED:{사유}` `BLOCKED:{사유}` `FAIL` | Phase Assignments의 Status 열 |
 | 판정 | `PASS` `WARN` `FAIL` | 테스트 판정, Read-back 판정 |
-| **진단 분류 (데이터)** | `red_assertion` `already_satisfied` `cannot_compile` `deferred_e2e` `regression` `pre_existing` `new_red` `flaky` | `## TDD Test Map` 과 회귀 대조 표의 셀 안에서만 |
+| **진단 분류 (데이터)** | `red_assertion` `already_satisfied` `cannot_compile` `deferred_e2e` `regression` `pre_existing` `new_red` `flaky` `unparsed` `rerun_incomplete` | `## TDD Test Map` 과 회귀 대조 표의 셀 안에서만 |
 
 **진단 분류가 Phase Assignments의 Status 열에 등장하면 규약 위반이다** (`docs/skill-authoring.md` §5).

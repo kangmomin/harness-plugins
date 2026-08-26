@@ -90,10 +90,29 @@
 
 ## Phase 5: 상태 파일 템플릿
 
+`RUN_ID`·`START_SHA`는 상태 파일 **최초 작성 시 1회** 생성한다 (이후 재생성 금지):
+
+```bash
+SHA7=$(git rev-parse --short=7 HEAD 2>/dev/null || echo nogit)
+HEX8=$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')
+RUN_ID="$(date +%Y%m%d-%H%M%S)-${SHA7}-${HEX8}"
+START_SHA=$(git rev-parse HEAD 2>/dev/null || echo 없음)
+```
+
 Write tool로 `{STATE_FILE}`을 작성한다:
 
 ```markdown
 # Fullstack Workflow State
+
+## Flags
+- MODE: fs
+- HARD_MODE: {true|false}
+- TDD: {true|false}
+- REFLECT: {true|false}
+- TIER: standard(고정)
+- CODEX: {none|mix|max}
+- RUN_ID: {RUN_ID}
+- START_SHA: {START_SHA}
 
 ## Spec
 [합쳐진 Technical Spec]
@@ -103,6 +122,13 @@ Write tool로 `{STATE_FILE}`을 작성한다:
 
 ## Integration Contract
 [Phase 2 결과]
+
+## Codex Runtime
+- 상태: {active | fallback({mcp_missing|quota_exhausted|auth_failed|model_unavailable})} — 생성 시 `$CODEX_RUNTIME` 값 그대로 (`codex-mode.md` §7). `CODEX: none`이면 `N/A`
+
+| 호출 ID | 사용 종류 | 범위 | S0 | 핸들 |
+|---------|----------|------|----|------|
+[§5 쓰기 안전 `pending` 표 — Codex 쓰기 호출 dispatch 전에 행 기록, `VERIFIED`/종료 조건 도달 시 삭제. 재개 시 행이 남아 있으면 마지막 호출 사망으로 판정]
 
 ## Current Phase
 Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effort: 현재 세션)
@@ -120,7 +146,8 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | 7 | BE/FE quality agents | 도메인별 기준 | 도메인별 기준 | PENDING |
 | 8 | integration review agents | 계약 복잡도 기준 | 계약 복잡도 기준 | PENDING |
 | 9 | orchestrator + PR skill | PR 복잡도 기준 | PR 복잡도 기준 | PENDING |
-| 10 | workflow-reflection | 변경량 기준 | 변경량 기준 | PENDING |
+| 10 | workflow-reflection | 변경량 기준 | 변경량 기준 | PENDING (`--reflect` 미지정 시 SKIPPED:REFLECT_NOT_REQUESTED) |
+| 11 | orchestrator | 현재 세션 | 현재 세션 | PENDING |
 
 ## Remaining Phases
 - Phase 6.1: 계약 테스트 우선 (Red)
@@ -128,7 +155,8 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 - Phase 7: 도메인별 품질 루프
 - Phase 8: 통합 검증
 - Phase 9: 커밋/PR
-- Phase 10: 회고 + 정리
+- Phase 10: 회고 (`--reflect` 미지정 시 목록에서 제외)
+- Phase 11: 최종 보고 + 정리
 
 ## Test Baseline (도메인별)
 [Phase 5에서 수집. TDD SKIP 도메인은 사유만 기록. **불변 — 이후 갱신하지 않는다**]
@@ -141,7 +169,7 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | FE | unit | {testCommand} | Y | 88 | 1 | `ProductList > 빈 목록` :: `unable to find role=list` |
 
 ## TDD Test Map (도메인별)
-[Phase 6.1에서 오케스트레이터가 기록. Phase 7 회귀 대조와 Phase 10 보고의 기준]
+[Phase 6.1에서 오케스트레이터가 기록. Phase 7 회귀 대조와 Phase 11 보고의 기준]
 > **Phase 8.1 계약 복원 에이전트에 이 표를 전달하지 않는다** — 계약 역추론으로 격리가 무너진다.
 
 | 근거 ID | 도메인 | 테스트 | 파일 | Red | Green |
@@ -164,11 +192,22 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 [없으면 "없음"]
 
 ## Plan Verification Log
-[Phase 4.4 검증 루프의 Iteration Diff Log]
+[Phase 4.4 검증 루프의 Iteration Diff Log — Phase 5 상태 파일 생성 시 복사]
 
 ## Phase Results
 [Phase 완료 시 결과 append]
+
+## Final Decisions
+[Phase 11 ②에서 받은 유저 결정을 받는 즉시 append. 재개 시 기록된 항목은 다시 묻지 않는다]
+
+| 항목 | 결정 | 시각 |
+|------|------|------|
+
+## Artifacts
+- workflow-report: {아카이브 경로 | 미생성}
 ```
+
+`--reflect` 미지정 시(기본): 생성 시점에 Phase 10 행의 Status를 `SKIPPED:REFLECT_NOT_REQUESTED`로 기록하고, `Remaining Phases`에서 "Phase 10: 회고"를 제외한다.
 
 ## Phase 9: PR 본문 순서
 
@@ -181,12 +220,13 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 ## Assumptions
 ```
 
-## Phase 10: 최종 보고 형식
+## Phase 11: 최종 보고 형식
 
 ```markdown
 ## 📋 Task Report: [작업명]
 
 ### 1. Pre-Review (Plan)
+- Codex 모드: [none | mix | max]{ · runtime: fallback({사유})}
 - Codex Feedback: ...
 - Claude Feedback: ...
 - Refinement: ...
@@ -218,6 +258,12 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 ### 5. Status
 - Verification: ...
 - Cleanup: ...
+
+### 6. 회고
+- [Phase 10 DONE: 보완점 항목 — 도메인 분류 · 반영 방식 결정 · submit-feedback PR URL / SKIP 사유. 없으면 "없음"]
+- [그 외: SKIPPED:REFLECT_NOT_REQUESTED]
 ```
+
+머리글 1~6은 Phase 11 아카이브의 `--require-headings` 검증 대상이다 — 이름을 바꾸지 않는다. `### 6. 회고`는 회고를 건너뛴 경우에도 반드시 존재해야 한다 (회고 결과의 유무가 md 기록에서 누락되지 않게).
 
 Claude 또는 Codex 교차 리뷰를 실제로 수행할 수 없는 환경이면 그 사실을 적고, 누락을 숨기지 않는다.

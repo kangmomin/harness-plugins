@@ -19,6 +19,7 @@ YAML frontmatter + 선택적 마크다운 본문.
 ---
 preset: go            # go | node | custom
 language: ko          # ko | en (유저 대화 언어)
+codexMode: mix        # none | mix | max — start-workflow의 Codex 사용 모드 (none: Codex 미사용·Claude 패널 리뷰 / mix: Plan 리뷰만 Codex / max: 탐색·판정·구현 서브에이전트까지 Codex 위임). `--codex` 또는 첫 실행 질문으로 저장
 
 # 빌드/검증 명령 (preset 기본값을 override 하고 싶을 때만 작성)
 buildCommand: "go build ./..."
@@ -37,7 +38,7 @@ e2eLockDir: ""             # E2E 실행 락 디렉토리. 비우면 자동 해�
                            # 환경변수 HARNESS_E2E_LOCK_DIR 로도 지정 가능.
 
 # 리포트 출력
-reportDir: ""              # E2E 자기 점검 HTML 등 리포트 저장 디렉토리. 비우면 `.claude/harness-reports`
+reportDir: ""              # E2E 자기 점검·Workflow Report(md) 저장 디렉토리. 비우면 `.claude/harness-reports`. work-log vault 하위 경로를 지정하면 wiki 인덱싱 대상이 된다
 
 # 소스 레이아웃
 sourceDirs: ["internal/", "cmd/", "pkg/"]

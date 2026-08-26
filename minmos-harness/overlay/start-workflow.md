@@ -1,4 +1,4 @@
-<!-- overlay-source: minmos-harness@2.0.0 -->
+<!-- overlay-source: minmos-harness@2.3.0 -->
 
 ## Base
 
@@ -15,8 +15,8 @@
 | 앵커 | 위치 | 삽입 단계 | 절차 |
 |------|------|----------|------|
 | `Phase 1 (작업 범위 수집)` | 직후 | **E2E 메인 플로우 수집** | 아래 §E2E 메인 플로우 수집 |
-| `Phase 4 (Plan 작성 + 리뷰)` | 내부: Plan Verification Loop | **Codex quota 폴백 보강** | 아래 §Plan 검증 루프 보강 |
-| `Phase 8 (품질 루프)` | 직후 | **Codex 품질 리뷰** | `references/codex-review.md` |
+| `Phase 4 (Plan 작성 + 리뷰)` | 내부: Plan Verification Loop | **Codex 실패 폴백 기록** | 아래 §Plan 검증 루프 보강 |
+| `Phase 8 (품질 루프)` | 직후 | **Codex 품질 리뷰** (검증 티어 light면 총 2회 상한 — §검증 티어 연동. 리뷰어는 베이스 `codexMode`를 따른다 — `none`이면 Claude 패널 1개가 정규 리뷰어) | `references/codex-review.md` |
 
 ## Phase 치환
 
@@ -57,13 +57,14 @@ E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직
 
 ## Plan 검증 루프 보강
 
-베이스의 Plan Verification Loop는 Codex 사용 불가를 `CODEX-UNAVAILABLE` 한 갈래로만 처리한다. 오버레이는 **quota 차단을 분리**해 리뷰를 계속 진행시킨다.
+베이스의 Codex 실패 정책(`codexMode` 계약 §7 — 실행 전체 latch·Claude 패널 폴백·`## Codex Runtime` 기록)을 그대로 따르되, minmos 고유 상태 코드(`SKIPPED:CODEX_*`)를 함께 기록한다. `codexMode: none`이면 이 절은 적용하지 않는다 (패널이 정규 경로, 기록 없음).
 
 | 감지 패턴 | 분류 | 행동 |
 |----------|------|------|
-| CLI/MCP 부재 (command not found, 도구 미존재) | 환경 부재 | 베이스대로 `CODEX-UNAVAILABLE` — 사유 기록 후 진행 |
+| MCP 부재 (`mcp_missing` — 베이스 runtime latch) | 환경 부재 | Claude 다관점 패널로 리뷰어 대체 + `SKIPPED:CODEX_UNAVAILABLE` 기록 (검증 루프는 계속 실행된다) |
+| 인증 오류 / 모델·effort 미지원 (`auth_failed` / `model_unavailable`) | 환경 부재 | 위와 동일 (패널 + `SKIPPED:CODEX_UNAVAILABLE`) |
 | quota/rate-limit (429, "usage limit", "rate limit", "quota", "try again at") | quota 차단 | **Claude 다관점 패널로 리뷰어 대체** + 상태 파일에 `SKIPPED:CODEX_QUOTA_BLOCKED` 기록 (Phase가 아닌 Codex 호출 항목에 대한 기록 — 검증 루프 자체는 계속 실행된다) |
-| 기타 일시 오류 (타임아웃, 5xx) | 모호 | 1회 재시도 → 재실패 시 quota 차단과 동일 취급 |
+| 기타 일시 오류 (타임아웃, 5xx) | `tool_error` | 1회 재시도 → 재실패 시 **이 호출만** 패널로 대체 (latch 없음, 진단 `codex_fallback(plan_review:tool_error)`) |
 
 **Claude 다관점 패널 (대체 리뷰어)**: Logic / Architecture / Edge Cases 3관점 `general-purpose` 에이전트 병렬 실행.
 
@@ -73,9 +74,22 @@ E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직
 | REJECT 1개 이상 | 지적 반영 후 다음 iteration |
 | CONCERN | 베이스의 CONCERN 처리 규칙 준용 |
 
-패널 대체 시에도 **루프 카운터는 승계**한다 (리셋 없음, 최대 반복 상한 동일).
+패널 대체 시에도 **루프 카운터는 승계**한다 (리셋 없음, 최대 반복 상한 동일). 슬롯 사망·무효 verdict·정족수(유효 verdict 3개, 미달 시 `CODEX-UNAVAILABLE`) 처리는 베이스 `codexMode` 계약 §6을 따른다.
 
 **고지 문구**: "Codex quota 차단 감지 — Claude 다관점 패널로 대체해 계속 진행합니다 (`SKIPPED:CODEX_QUOTA_BLOCKED` 기록)."
+
+## 검증 티어 연동
+
+베이스 Phase 2가 판정한 검증 티어(`{STATE_FILE}`의 `## Verification Tier` 최종 티어, 없으면 `## Flags`의 `TIER`)를 오버레이 단계도 따른다.
+
+| 단계 | light | standard |
+|------|-------|----------|
+| Phase 1+ E2E 메인 플로우 수집 | 동일 (항상 질문) | 동일 |
+| Phase 4 Plan 검증 루프 보강 | quota 폴백 패널 그대로 — 패널 대체는 리뷰 수행으로 간주(베이스 승격 ⑤ 아님) | 동일 |
+| Phase 8 내부 e2e-test / e2e-test-loop | `--smoke` 실효 수준에 따라 `overlay/e2e-test.md` §smoke 분기 | 동일 (삽입 전부) |
+| Phase 8+ Codex 품질 리뷰 | **총 2회** (초회 + 재리뷰 1회), quota 폴백 패널 1 에이전트 | 총 4회 (초회 + 재리뷰 3회) |
+
+베이스 승격 ⑦(Phase 10 진입 직전 재평가)로 Phase 8을 standard 루프로 재진입한 경우: 재진입 루프에서 파일이 1회라도 수정됐으면(`modified == true`) Codex 품질 리뷰를 그 검증 트리에 대해 **1회 재실행**한다 — standard 규칙(REJECT 시 `codex-review.md`의 수정·재검증·재리뷰)을 따르되 총 4회 상한의 **잔여 횟수**만 쓰고, 잔여 0이면 `BLOCKED:CODEX_REVIEW`. 수정이 없었으면 기존 APPROVE가 유효하다.
 
 ## 상태 코드 추가
 
@@ -85,6 +99,7 @@ E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직
 | `SKIPPED:APIDOG_MCP_UNAVAILABLE` | Apidog MCP 미연결 — 문서 동기화 불가 |
 | `SKIPPED:POSTGRES_MCP_UNAVAILABLE` | PostgreSQL MCP 미연결 |
 | `SKIPPED:CODEX_QUOTA_BLOCKED` | Codex quota 차단 — Claude 패널로 대체 실행됨 |
+| `SKIPPED:CODEX_UNAVAILABLE` | Codex MCP 부재·인증 오류·모델 미지원 — Claude 패널로 대체 실행됨 |
 | `BLOCKED:CODEX_REVIEW` | Codex 품질 리뷰 REJECT 상한 도달 |
 
 ## References

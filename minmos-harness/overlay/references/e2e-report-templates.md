@@ -46,8 +46,10 @@
 | EC-02 | — | `UNCOVERED:외부 결제사 타임아웃 재현 불가` |
 
 - Spec 엣지 케이스 [N]건 중 [M]건 실행, [K]건 미커버 (Spec에 ID가 없으면 `대조 기준 없음`)
-- 자체 도출 케이스: [N]건 (`SELF-*`)
+- 자체 도출 케이스: [N]건 (`SELF-*`) — 실효 수준 smoke면 `생략(smoke)`
 - 판정: [PASS / WARN / FAIL]
+- 실행 수준: smoke | full | full(smoke 미적용: {사유})
+- 생략 시나리오: `SMOKE_OMITTED` {BASE-nn 목록} (--smoke) / 없음
 
 | 판정 | 조건 |
 |------|------|
@@ -77,7 +79,7 @@
 
 ## gRPC 결과 보고 (`$PROTOCOL`이 `GRPC` 또는 `MIXED`)
 
-`MIXED`이면 REST와 gRPC 결과를 **섹션 분리**하여 보고한다.
+`MIXED`이면 REST와 gRPC 결과를 **섹션 분리**하여 보고한다. `- 실행 수준:` 줄은 리포트에 **정확히 1회** — `MIXED`는 REST 섹션의 것을 쓰고, `GRPC` 단독이면 아래 템플릿 끝의 줄을 쓴다.
 
 ```markdown
 ### gRPC 테스트 결과
@@ -114,6 +116,8 @@
 | # | RPC | 유형 | 사유 |
 |---|-----|------|------|
 | 1 | {ServiceName}/{MethodName} | Client Streaming / Bidirectional | SKIP:STREAMING grpcurl 미지원 |
+
+- 실행 수준: smoke | full | full(smoke 미적용: {사유})   ← `$PROTOCOL`이 `GRPC` 단독일 때만
 
 ### gRPC Status Code 오분류 ([GRPC_STATUS_MISMATCH])
 | # | RPC | 시나리오 | 에러 원인 | 기대 Status | 실제 Status | 위치 (파일:라인) |

@@ -51,7 +51,7 @@ user-invocable: true
 | **be-harness (필수)** | `/be-harness:start-workflow` 스킬 존재 여부 | start-workflow 전체 — minmos 는 be-harness 위에 오버레이를 얹는 플러그인 |
 | common (권장) | `/common:start-workflow` 스킬 존재 여부 | 풀스택 전환·커밋/PR 워크플로우 |
 | db-tools | `db-tools:db-gen` 스킬 사용 가능 여부 | db-gen-committed |
-| Codex (선택) | `mcp__codex__codex` 호출 가능 여부 | start-workflow (Plan 검증 루프 상시) |
+| Codex (선택) | 세션 도구 목록에 `mcp__codex__codex` 존재 (be profile `codexMode` ≠ none일 때) | start-workflow (Plan 검증 루프·Phase 8+ 리뷰 — codexMode mix/max) |
 
 ### 4.1 오버레이 적용 상태
 
@@ -120,7 +120,7 @@ user-invocable: true
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | db-tools | OK / MISSING | |
-| Codex | OK / MISSING | 선택 (Plan 검증 루프 상시) |
+| Codex | OK / WARN / N/A(codexMode=none) | 선택 — WARN이면 실행 시 Claude 패널 폴백 (비차단) |
 
 ### 빌드 환경
 | 항목 | 상태 | 비고 |
@@ -164,7 +164,7 @@ user-invocable: true
 | db-tools | **필수** | migration 생성 |
 | APIDOG_ACCESS_TOKEN | 선택 | Push 기능 전용 |
 | APIDOG_PROJECT_ID | 선택 | Push 기능 전용 |
-| Codex | 선택 | Plan 검증 루프 상시 사용 |
+| Codex | 선택 | codexMode mix/max에서 사용, 없으면 Claude 패널 폴백 |
 | .convention-check.json | 선택 | 없으면 기본값 사용 |
 | grpcurl | 선택 | gRPC E2E 테스트 전용 |
 | GRPC_PORT | 선택 | gRPC E2E 테스트 전용 |

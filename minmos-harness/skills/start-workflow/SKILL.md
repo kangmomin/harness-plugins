@@ -27,7 +27,7 @@ argument-hint: "<작업 설명> | --analyze [경로] | --verify [경로]"
 | Pre-flight 추가 | `secret/.env` · Apidog MCP · PostgreSQL MCP 연결 점검 |
 | Phase 삽입 | `Phase 1` 직후 **E2E 메인 플로우 수집** / `Phase 8` 직후 **Codex 품질 리뷰** |
 | Phase 치환 | `Phase 9 (API 문서 동기화)` → **Apidog 동기화** (`minmos-harness:workflow-doc-sync` 에이전트) |
-| Plan 검증 보강 | Codex quota 차단 시 Claude 다관점 패널로 대체 (루프 카운터 승계) |
+| Plan 검증 보강 | Codex 실패(quota·MCP 부재 등) 시 Claude 다관점 패널로 대체 + `SKIPPED:CODEX_*` 기록 (루프 카운터 승계, 모드는 베이스 `codexMode`) |
 | 스킬 오버레이 | `request` · `e2e-test` · `e2e-test-loop` · `convention-check` · `default-conventions` |
 
 ## 전제 조건
