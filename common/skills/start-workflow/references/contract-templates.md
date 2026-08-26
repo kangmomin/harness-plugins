@@ -110,6 +110,7 @@ Write tool로 `{STATE_FILE}`을 작성한다:
 - TDD: {true|false}
 - REFLECT: {true|false}
 - TIER: standard(고정)
+- CODEX: {none|mix|max}
 - RUN_ID: {RUN_ID}
 - START_SHA: {START_SHA}
 
@@ -121,6 +122,13 @@ Write tool로 `{STATE_FILE}`을 작성한다:
 
 ## Integration Contract
 [Phase 2 결과]
+
+## Codex Runtime
+- 상태: {active | fallback({mcp_missing|quota_exhausted|auth_failed|model_unavailable})} — 생성 시 `$CODEX_RUNTIME` 값 그대로 (`codex-mode.md` §7). `CODEX: none`이면 `N/A`
+
+| 호출 ID | 사용 종류 | 범위 | S0 | 핸들 |
+|---------|----------|------|----|------|
+[§5 쓰기 안전 `pending` 표 — Codex 쓰기 호출 dispatch 전에 행 기록, `VERIFIED`/종료 조건 도달 시 삭제. 재개 시 행이 남아 있으면 마지막 호출 사망으로 판정]
 
 ## Current Phase
 Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effort: 현재 세션)
@@ -184,7 +192,7 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 [없으면 "없음"]
 
 ## Plan Verification Log
-[Phase 4.4 검증 루프의 Iteration Diff Log]
+[Phase 4.4 검증 루프의 Iteration Diff Log — Phase 5 상태 파일 생성 시 복사]
 
 ## Phase Results
 [Phase 완료 시 결과 append]
@@ -218,6 +226,7 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 ## 📋 Task Report: [작업명]
 
 ### 1. Pre-Review (Plan)
+- Codex 모드: [none | mix | max]{ · runtime: fallback({사유})}
 - Codex Feedback: ...
 - Claude Feedback: ...
 - Refinement: ...

@@ -27,7 +27,7 @@ argument-hint: "[--be|--fe|--fs] <작업 설명> | --analyze [경로] | --verify
 | `--hd` | 프론트엔드 + `hyeondongs-harness` 오버레이로 확정 |
 
 - 대상 플래그는 **인자 어느 위치에나** 올 수 있다. 플래그를 제거한 나머지 인자는 그대로 대상에 전달한다.
-- 대상 스킬 고유 플래그(`--hard`, `--no-tdd`, `--reflect`, `--tier standard`, `--analyze`, `--verify` 등)는 **해석하지 않고 그대로 넘긴다.**
+- 대상 스킬 고유 플래그(`--hard`, `--no-tdd`, `--reflect`, `--tier standard`, `--codex`, `--analyze`, `--verify` 등)는 **해석하지 않고 그대로 넘긴다.**
 - 두 개 이상의 대상 플래그가 오면 오류로 처리한다: "대상 플래그는 하나만 지정하세요: {입력된 목록}".
 
 ### 통과 플래그 (단일 도메인 vs 풀스택)
@@ -37,6 +37,7 @@ argument-hint: "[--be|--fe|--fs] <작업 설명> | --analyze [경로] | --verify
 | `--reflect` | 그대로 전달 — 해당 하네스의 성찰 Phase 활성화 (기본 off) | **이 스킬이 소비** — 풀스택 Phase 10 회고를 1회만 실행하고 하위 도메인 에이전트에 전달하지 않는다 |
 | `--tier standard` | 그대로 전달 — 검증 티어 상향 강제 | 무시 (풀스택은 항상 standard) |
 | `--hard` / `--no-tdd` | 그대로 전달 | `references/fullstack.md` Flags 참조 |
+| `--codex {none\|mix\|max}` | 그대로 전달 — 해당 하네스가 profile `codexMode`에 저장 | **이 스킬이 소비** — `references/fullstack.md` Pre-flight에서 해석하고 be·fe profile 양쪽에 기록 (`references/codex-mode.md`) |
 
 ## Language Rule
 
@@ -157,3 +158,4 @@ Skill tool로 Step 3에서 정한 스킬을 호출하고, **대상 플래그를 
 | `references/contract-templates.md` | 풀스택 Phase 1, 2, 3, 5, 9, 11 |
 | `references/fullstack-tdd.md` | 풀스택 Phase 5, 6 |
 | `references/fullstack-agent-prompts.md` | 풀스택 Phase 6.1·6.2·8.1 |
+| `references/codex-mode.md` | 풀스택 첫 리뷰어/위임 dispatch 직전 1회 (Codex 모드 정의·호출 계약·실패 정책) |

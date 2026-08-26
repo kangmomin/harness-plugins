@@ -25,6 +25,7 @@
 | `--hard` | `-h` | feature 브랜치 생성과 PR 생성을 건너뛰고 현재 브랜치에서 마무리한다. |
 | `--no-tdd` | | Phase 6.1(계약 테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. |
 | `--reflect` | | Phase 10(회고)을 실행한다. 미지정 시 Phase 10은 `SKIPPED:REFLECT_NOT_REQUESTED` (기본 off). |
+| `--codex {none\|mix\|max}` | | Codex 사용 모드. 이 오케스트레이터가 소비해 be·fe profile `codexMode` 양쪽에 저장한다 (Pre-flight). 정의·호출 계약·실패 정책: `codex-mode.md` |
 
 `$ARGUMENTS`에 `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`), `--reflect`가 있으면 `$REFLECT = true` (기본값 `false`).
 `--reflect`는 이 오케스트레이터가 **소비**한다 — 하위 도메인 에이전트에 전달하지 않는다 (풀스택은 하위 워크플로우를 중첩 실행하지 않으므로 회고는 Phase 10 한 곳뿐). `--tier standard`는 무시한다 — 풀스택은 계약 변경 자체가 리스크 높음이므로 검증 티어가 항상 `standard`(축소 없음)다.
@@ -87,15 +88,16 @@
 
 ### Model / Effort 선택 규칙
 
-| 등급 | 기준 | Claude 계열 | Codex 계열 | effort |
-|------|------|-------------|------------|--------|
-| Simple | 단일 도메인에 가까운 보조 작업, 문서/단순 리뷰 | sonnet | gpt-5.3-codex-spark | low |
-| Standard | 일반 FE+BE 계약/구현/검증 | sonnet | gpt-5.3-codex | medium |
-| Complex | 다중 API, shared artifact, 상태/DB/권한 영향 | opus | gpt-5.4 | high |
-| Critical | 대규모 계약 변경, 보안/데이터 마이그레이션, 릴리즈 위험 | opus | gpt-5.5 | xhigh |
+| 등급 | 기준 | model | effort |
+|------|------|-------|--------|
+| Simple | 단일 도메인에 가까운 보조 작업, 문서/단순 리뷰 | sonnet | low |
+| Standard | 일반 FE+BE 계약/구현/검증 | sonnet | medium |
+| Complex | 다중 API, shared artifact, 상태/DB/권한 영향 | opus | high |
+| Critical | 대규모 계약 변경, 보안/데이터 마이그레이션, 릴리즈 위험 | opus | xhigh |
 
 FE/BE 구현 에이전트는 각 도메인의 작업량으로 등급을 따로 산정한다.
 통합 계약 리뷰와 contract drift 판정은 기본 `Complex` 이상.
+등급표는 Claude 경로에만 적용한다 — `codexMode: max`의 실행 주체·모델(Codex luna/sol)과 리뷰어 effort는 `codex-mode.md`가 정의한다 (첫 리뷰어/위임 dispatch 직전 1회 Read).
 
 ## 자율 실행 규칙
 
@@ -108,6 +110,13 @@ FE/BE 구현 에이전트는 각 도메인의 작업량으로 등급을 따로 �
 Spec 또는 계약에 없는 변경이 필요하면: ① 코드를 먼저 바꾸지 않는다 ② `{STATE_FILE}`의 `Assumptions` 섹션에 `[Assumption]`으로 기록한다 ③ 계약 리뷰를 다시 거친 뒤에만 반영한다.
 
 ---
+
+## Pre-flight: Codex 모드 resolve
+
+Phase 1(`EnterPlanMode`) 직전에 1회 수행한다 (`codex-mode.md` §2·플러그인 매핑):
+- 재개(상태 파일 존재)면 `## Flags`의 `CODEX`가 기준 — `--codex`는 무시 + 고지.
+- 신규면 `--codex` > be profile `codexMode` > fe profile `codexMode` > (대화형) 3지선다 질문 / (비대화형) `mix` ephemeral. 명시 입력(`--codex`·질문 응답)은 존재하는 writable `.claude/be-harness.local.md`·`.claude/fe-harness.local.md` **모두**에 동일 값으로 기록한다 (부재·기록 실패 대상은 ephemeral 경고 1줄). 양쪽 값이 다르고 명시 입력이 없으면 be 값을 **이번 실행만** 사용 + 고지. 값은 exact `none|mix|max`로 검증한다.
+- `none`이 아니면 도구 목록에 `mcp__codex__codex` 존재를 확인한다 — 없으면 `$CODEX_RUNTIME = fallback(mcp_missing)` + 고지(profile 불변). `max`이고 세션 모델이 opus/fable 계열이 아니면 1줄 고지한다.
 
 ## Phase 1: 기능 정의 + Feature Matrix (Plan 모드 진입)
 
@@ -152,13 +161,13 @@ Plan 규칙:
 - 프론트는 계약 확정 전 mock shape를 임의로 만들지 않는다.
 - 백엔드는 프론트 화면 로직을 추측해서 응답 필드를 늘리지 않는다.
 
-### Phase 4.4: Plan Verification Loop (Codex 검증, 최대 5회)
+### Phase 4.4: Plan Verification Loop (최대 5회)
 
-통신 계약 + BE/FE/공용 Plan에 대해 Codex 검증 루프를 통과해야 확정된다.
+통신 계약 + BE/FE/공용 Plan에 대해 검증 루프를 통과해야 확정된다. **리뷰어 = `codexMode`** (`codex-mode.md` §1·§6 — `mix`/`max`: Codex sol, effort는 등급 Simple·Standard → xhigh / Complex·Critical → max, `none`: Claude 3관점 패널).
 
 ```
 for iteration in 1..5:
-  ① Codex Plan 리뷰 (Architect 관점) — stateless 보완을 위해 매회 전달:
+  ① Plan 리뷰 (Architect 관점, 리뷰어 = codexMode) — stateless 보완을 위해 매회 전달:
      Spec / 통신 계약 v최신 / BE·FE·공용 Plan v최신
      / (N≥2) 이전 iteration Diff 요약 + 기각 피드백·사유
      리뷰 관점: 계약-Plan 추적성, 파일 소유권 충돌, shared artifact owner 명확성,
@@ -170,9 +179,9 @@ for iteration in 1..5:
 
 | 종료 조건 | 결과 |
 |----------|------|
-| Codex `APPROVE` | **PROCEED** → ExitPlanMode로 Plan 확정 |
+| 리뷰어 `APPROVE` | **PROCEED** → ExitPlanMode로 Plan 확정 |
 | 사용자가 명시적으로 루프 종료 지시 | **USER-INTERRUPTED** → 잔존 이슈 기록 후 진행 |
-| Codex 사용 불가 환경 | **CODEX-UNAVAILABLE** → 사유 기록 후 진행 |
+| Claude 패널 실패 (유효 verdict 3개 미달 — codex-mode.md §6) | **CODEX-UNAVAILABLE** → 사유 기록 후 진행. Codex 호출 실패 자체는 §7대로 패널 폴백이며 이 코드가 아니다 |
 | 5회 도달, 미APPROVE | **BLOCKED:MAX_ITERATIONS** → 아래 선택지 제시 |
 
 5회 도달 시 선택지:
@@ -190,7 +199,7 @@ for iteration in 1..5:
 > Phase 5 진입 시 MUST: `contract-templates.md`의 "상태 파일 템플릿"대로 `{STATE_FILE}`을 작성하고,
 > `fullstack-tdd.md`의 "TDD 적용 판정"과 "Phase 5: 도메인별 회귀 Baseline 수집"을 수행한다.
 
-상태 파일의 `## Flags`(`MODE: fs / HARD_MODE / TDD / REFLECT / TIER: standard(고정) / RUN_ID / START_SHA`)는 **최초 작성 시 1회** 기록한다. `RUN_ID`·`START_SHA`는 템플릿의 생성 명령으로 만들고 이후 재생성·수정하지 않는다 (풀스택은 Test Baseline이 도메인별이라 `START_SHA`가 유일한 시작 커밋 기록이다).
+상태 파일의 `## Flags`(`MODE: fs / HARD_MODE / TDD / REFLECT / TIER: standard(고정) / CODEX / RUN_ID / START_SHA`)·`## Codex Runtime`(`$CODEX_RUNTIME` 값 그대로 — `active`로 초기화하지 않음)·`## Plan Verification Log`(Phase 4.4 누적분 복사)는 **최초 작성 시 1회** 기록한다. `RUN_ID`·`START_SHA`는 템플릿의 생성 명령으로 만들고 이후 재생성·수정하지 않는다 (풀스택은 Test Baseline이 도메인별이라 `START_SHA`가 유일한 시작 커밋 기록이다).
 
 여기가 **유저와 대화 가능한 마지막 지점**이다 — baseline 수집이 실패하면 자율 실행 진입 전에 선택지를 제시한다.
 TDD 판정은 **도메인별로 따로** 한다. BE만 SKIP되고 FE는 활성일 수 있다.
@@ -207,7 +216,7 @@ TDD 판정은 **도메인별로 따로** 한다. BE만 SKIP되고 FE는 활성�
 
 | 테스트 종류 | owner |
 |------------|-------|
-| BE 로컬 / FE 로컬 | 각 도메인 에이전트 |
+| BE 로컬 / FE 로컬 | 각 도메인 에이전트 (`codexMode: max`: Codex sol `workspace-write`, 실패 시 항상 이어서 — codex-mode.md §5) |
 | **공용 계약 스키마** | **오케스트레이터** (도메인 에이전트는 수정 금지) |
 
 **배리어**: 계약이 영향을 주는 **모든 도메인**이 유효 Red 또는 근거를 동반한 `N/A(영향 없음)`를 반환해야 6.2로 넘어간다.
@@ -218,7 +227,7 @@ TDD 판정은 **도메인별로 따로** 한다. BE만 SKIP되고 FE는 활성�
 
 ### Phase 6.2: 병렬 구현 (Green)
 
-> BE/FE 구현 에이전트를 `fullstack-agent-prompts.md`대로 **같은 메시지에서 병렬 호출**한다.
+> BE/FE 구현 에이전트를 `fullstack-agent-prompts.md`대로 **같은 메시지에서 병렬 호출**한다. `codexMode: max`면 두 호출 모두 Codex sol(`workspace-write`, 역할 파일 = 해당 프롬프트 절)로 치환하고 §5 쓰기 안전(병렬 = 항상 이어서)을 적용한다.
 
 TDD 활성 시 **테스트 파일 수정 금지**와 `[TestConflict]` 보고 규칙을 프롬프트에 추가한다.
 구현 중 계약 변경이 필요하면 즉시 Phase 2로 돌아간다 (No Silent Contract Drift).
@@ -253,7 +262,7 @@ Phase 8.2는 frozen contract를 **보면서** 코드를 검증하므로 "대충 
 > **격리 규칙 (CRITICAL)**: 두 에이전트에게 `{STATE_FILE}` 경로와 frozen contract를 **전달하지 않고, 읽지 말라고 명시**한다. 다른 Phase와 달리 "상태 파일을 읽고 갱신하세요" 문구를 넣지 않으며, 상태 갱신은 오케스트레이터가 대신 수행한다.
 > 이 규칙이 빠지면 에이전트가 계약을 읽고 그대로 옮겨 적어 **Diff가 항상 0건**이 되고, 이 단계는 요식 행위가 된다.
 
-프롬프트: `fullstack-agent-prompts.md`의 "Phase 8.1" 섹션. 두 에이전트를 **병렬 실행**한다.
+프롬프트: `fullstack-agent-prompts.md`의 "Phase 8.1" 섹션. 두 에이전트를 **병렬 실행**한다. `codexMode: max`면 8.1 복원은 Codex luna medium, 8.2 리뷰어는 Codex luna xhigh(`read-only`)로 위임한다 (`codex-mode.md` 매핑).
 
 복원 결과를 받으면 **오케스트레이터가** frozen contract와 3방향 대조한다:
 
@@ -326,7 +335,7 @@ Phase 8.1이 보고한 불일치를 먼저 확인한 뒤 위 항목을 점검한
 | `BLOCKED:{사유}` | 진행 불가 — 사용자 개입 필요 (예: `BLOCKED:MAX_ITERATIONS`, `BLOCKED:NO_VALID_RED`, `BLOCKED:TEST_NOT_GREEN`, 계약 불일치) |
 | `PASS` / `WARN` / `FAIL` | 도메인별 테스트 판정 |
 
-TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`deferred_e2e`·`regression`·`pre_existing`·`new_red`·`flaky`)는 상태 코드가 아니라 **데이터**다. `## TDD Test Map`과 회귀 대조 표에만 쓴다 (`docs/skill-authoring.md` §5). `script_fallback({스크립트}:{사유})`도 같은 데이터 진단으로 `Phase Results` 셀에만 쓴다.
+TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`deferred_e2e`·`regression`·`pre_existing`·`new_red`·`flaky`)는 상태 코드가 아니라 **데이터**다. `## TDD Test Map`과 회귀 대조 표에만 쓴다 (`docs/skill-authoring.md` §5). `script_fallback({스크립트}:{사유})`·`codex_fallback({단계}:{사유})`도 같은 데이터 진단으로 `Phase Results` 셀에만 쓴다.
 
 ## References
 
@@ -335,3 +344,4 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 | `contract-templates.md` | Phase 1, 2, 3, 5, 9, 11 (템플릿·리뷰 기준) |
 | `fullstack-tdd.md` | Phase 5 (TDD 판정·baseline), Phase 6 진입 시 |
 | `fullstack-agent-prompts.md` | Phase 6.1·6.2·8.1 진입 시 |
+| `codex-mode.md` | 첫 리뷰어/위임 dispatch 직전 1회 (재개 포함) — Codex 모드 정의·호출 계약·쓰기 안전·Claude 패널·실패 정책 |
