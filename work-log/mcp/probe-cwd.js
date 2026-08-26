@@ -5,7 +5,7 @@
  * 플러그인 MCP 서버의 process.cwd() 가 실제로 무엇인지 확인한다.
  * 이 값에 따라 프로젝트 스코프 자동 탐지(.work-log.json walk-up)의 채택 여부가 갈린다.
  *
- * 사용법: .mcp.json 의 args 를 이 파일로 바꾸고 Claude Code 재시작 후
+ * 사용법: 사용하는 클라이언트의 MCP 설정에서 args 를 이 파일로 바꾸고 재시작한 후
  *        서로 다른 두 프로젝트에서 probe 툴을 호출해 값을 비교한다.
  */
 import process from 'node:process';
@@ -42,6 +42,7 @@ process.stdin.on('data', (c) => {
       const payload = {
         cwd: process.cwd(),
         env_PWD: process.env.PWD ?? null,
+        PLUGIN_ROOT: process.env.PLUGIN_ROOT ?? null,
         CLAUDE_PLUGIN_ROOT: process.env.CLAUDE_PLUGIN_ROOT ?? null,
         WORK_LOG_ROOT_raw: JSON.stringify(process.env.WORK_LOG_ROOT ?? null),
         argv: process.argv,

@@ -17,7 +17,7 @@ import {
 } from './lib/vault.js';
 import { rank, extractSection, applyBudget } from './lib/search.js';
 
-const SERVER_INFO = { name: 'work-log', version: '0.1.0' };
+const SERVER_INFO = { name: 'work-log', version: '0.2.0' };
 const SUPPORTED_PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
 const log = (...a) => process.stderr.write(`[work-log] ${a.join(' ')}\n`);
@@ -106,7 +106,7 @@ function requireConfig() {
   const cfg = resolveConfig();
   if (cfg.needsInit) {
     const e = new Error(
-      'work-log 스코프가 설정되지 않았습니다. /work-log:init 을 실행하세요.\n' + cfg.hint
+      'work-log 스코프가 설정되지 않았습니다. init 스킬을 실행하세요.\n' + cfg.hint
     );
     e.userFacing = true;
     throw e;
@@ -117,7 +117,7 @@ function requireConfig() {
 function loadIndex(cfg) {
   const idx = readIndex(cfg.root);
   if (!idx) {
-    const e = new Error('인덱스가 아직 없습니다. wiki_sync 를 먼저 실행하세요 (/work-log:sync).');
+    const e = new Error('인덱스가 아직 없습니다. wiki_sync 를 먼저 실행하세요.');
     e.userFacing = true;
     throw e;
   }

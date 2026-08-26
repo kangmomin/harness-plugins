@@ -7,40 +7,54 @@
 스캔해 인덱스를 만들고, MCP 서버가 그 위에서 **본문 없는 랭킹 → 본문 1개 읽기** 2단
 조회를 제공한다. 수백 개 문서를 컨텍스트에 붓지 않고 필요한 하나만 읽는다.
 
-## 설치
+## 지원 클라이언트와 구조
 
-`marketplace.json` 에 포함되어 있다. 설치 후 **Claude Code 재시작**이 필요하다
-(MCP 서버는 시작 시 로드된다). 런타임 의존성은 없다 — Node 18 이상이면 동작한다.
+- Claude Code: `.claude-plugin/plugin.json` + `.mcp.json`
+- 로컬 Codex 클라이언트(CLI·IDE·desktop): `.codex-plugin/plugin.json` + 번들 stdio MCP
 
-```
-/work-log:init      # 스코프 설정 + 최초 인덱싱
-```
+`work-log` 가 스킬·설정 해석·MCP 서버를 직접 소유한다. `codex-be-harness` 는 이 코드를
+복사하거나 필수 의존하지 않는다. 필요하면 상위 워크플로우에서 공개된 `wiki_*` 툴을 선택적으로
+호출한다.
+
+설치 후에는 현재 클라이언트를 재시작한다. 런타임 의존성은 없고 Node 18 이상이면 동작한다.
+로컬 stdio 서버를 사용하므로 ChatGPT web용 공개 remote plugin 지원을 의미하지 않는다.
+
+| 작업 | Claude Code | Codex |
+|------|-------------|-------|
+| 최초 설정 | `/work-log:init` | `$work-log:init` |
+| 검색 | `/work-log:search <검색어>` | `$work-log:search <검색어>` |
 
 ## 스코프
 
 | 모드 | vault 위치 | 설정 파일 |
 |------|-----------|----------|
-| **전역** | 지정한 절대경로 (예: `~/work-log`) | `~/.claude/work-log.json` |
+| **전역** | 지정한 절대경로 (예: `~/work-log`) | `$XDG_CONFIG_HOME/work-log/config.json` (기본 `~/.config/work-log/config.json`) |
 | **프로젝트** | `<repo>/work-log/` | `<repo>/.work-log.json` |
 
 해석 우선순위 (매 호출마다 재해석 — `init` 후 재시작이 필요 없다):
 
 1. `WORK_LOG_ROOT` 환경변수 (절대경로일 때만)
 2. cwd 에서 위로 `.work-log.json` 탐색 (`.git` 경계까지)
-3. `~/.claude/work-log.json`
-4. 없으면 `needsInit`
+3. `$XDG_CONFIG_HOME/work-log/config.json` (상대경로면 무시하고 `~/.config` 사용)
+4. `~/.claude/work-log.json` (기존 설치 호환 fallback)
+5. 없으면 `needsInit`
 
 잘못된 설정은 조용히 무시되지 않는다 — 깨진 JSON·없는 경로는 오류로 멈춘다(fail-closed).
+신규 전역 설정은 XDG 경로에 쓰며 기존 Claude 설정은 자동 이동·삭제하지 않는다.
+
+Codex 번들 MCP는 플러그인 디렉토리에서 시작한다. 따라서 프로젝트 `.work-log.json` 이 자동으로
+발견되지 않으면 `WORK_LOG_ROOT="<vault 절대경로>" codex` 로 프로젝트 세션을 시작한다.
+manifest가 이 환경변수와 XDG 설정·캐시 경로를 MCP 프로세스에 전달한다.
 
 ## 스킬
 
-| 스킬 | 용도 |
-|------|------|
-| `/work-log:search` | 문서 검색. 후보 랭킹 → 하나만 읽기 |
-| `/work-log:sync` | 재스캔 + 인덱스 갱신 + drift 리포트 |
-| `/work-log:edit` | 문서 작성 · 수정 |
-| `/work-log:init` | 스코프 설정 |
-| `/work-log:doctor` | 연결 · 설정 · 인덱스 진단 |
+| 스킬 | Claude Code / Codex | 용도 |
+|------|---------------------|------|
+| search | `/work-log:search` / `$work-log:search` | 후보 랭킹 → 문서 하나만 읽기 |
+| sync | `/work-log:sync` / `$work-log:sync` | 재스캔 + 인덱스 갱신 + drift 리포트 |
+| edit | `/work-log:edit` / `$work-log:edit` | 문서 작성 · 수정 |
+| init | `/work-log:init` / `$work-log:init` | 스코프 설정 |
+| doctor | `/work-log:doctor` / `$work-log:doctor` | 연결 · 설정 · 인덱스 진단 |
 
 ## MCP 툴
 
@@ -52,9 +66,8 @@
 | `wiki_sync` | 전체 재스캔 + drift 리포트 |
 | `wiki_status` | 스코프 · 인덱스 신선도 · 진단 정보 |
 
-> **툴 이름 접두사**: Claude Code 는 플러그인 MCP 툴에 접두사를 붙인다
-> (`mcp__plugin_work-log_work-log__wiki_resolve` 형태). 실제 접두사는 `/mcp` 출력이
-> 기준이며, 다르게 보이면 `wiki_` 로 시작하는 툴을 찾아 쓰면 된다.
+> **툴 이름 접두사**: Claude Code와 Codex가 서로 다른 접두사를 붙일 수 있다. 클라이언트의
+> MCP 목록을 기준으로 `wiki_` 로 시작하는 기본 이름을 찾아 쓴다.
 
 > **`wiki_write` 는 내부적으로 전체 sync 를 수행한다.** 엔트리 하나만 patch 하지 않는
 > 이유는 새 문서의 링크가 다른 문서의 backlink·brokenLinks·orphans 를 바꾸기 때문이다
@@ -63,7 +76,8 @@
 
 ## 안전 보장
 
-- **sync 는 vault 에 0 바이트를 쓴다.** 인덱스는 `~/.cache/work-log/<vault해시>/index.json`
+- **sync 는 vault 에 0 바이트를 쓴다.** 인덱스는 `$XDG_CACHE_HOME/work-log/<vault해시>/index.json`
+  (기본 `~/.cache/work-log/...`)
   에 저장된다 — vault 안에 `.wiki/` 같은 폴더를 만들지 않으므로 Obsidian 파일 감시자나
   외부 동기화 클라이언트를 건드리지 않는다
 - **기존 문서에 frontmatter 를 주입하지 않는다.** frontmatter 가 없는 문서는 제목(H1)·
@@ -106,4 +120,4 @@ updated: 2026-08-21
 
 `mcp/probe-cwd.js` 는 MCP 서버 프로세스의 `cwd` 를 확인하는 계측 전용 최소 서버다.
 프로젝트 스코프 자동 탐지가 동작하지 않을 때 원인을 확인하는 데 쓴다.
-`.mcp.json` 의 `args` 를 이 파일로 바꾸고 재시작한 뒤 `probe` 툴을 호출한다.
+현재 클라이언트의 MCP 서버 `args` 를 이 파일로 바꾸고 재시작한 뒤 `probe` 툴을 호출한다.
