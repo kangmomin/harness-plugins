@@ -26,7 +26,7 @@ uiLibrary: tailwind           # tailwind | styled-components | shadcn | mui | an
 stateManagement: tanstack-query   # tanstack-query | redux-toolkit | swr | zustand | jotai
 testRunner: vitest            # vitest | jest
 e2eRunner: playwright         # playwright | cypress | none
-reportDir: ""                 # 리포트(HTML 등) 저장 디렉토리. 비우면 `.claude/harness-reports`
+reportDir: ""                 # Workflow Report(md) 등 리포트 저장 디렉토리. 비우면 `.claude/harness-reports`. work-log vault 하위 경로를 지정하면 wiki 인덱싱 대상이 된다
 packageManager: pnpm          # pnpm | yarn | npm | bun
 componentPattern: feature-based   # feature-based | atomic | flat
 typescript: true

@@ -120,7 +120,7 @@ Agent tool:
   model: [테스트 실패 심각도 기준 선택]
   effort: [테스트 실패 심각도 기준 선택]
   prompt: |
-    프로젝트 루트 {CWD}에서 Skill tool로 /fe-harness:test-loop 를 실행하세요.
+    프로젝트 루트 {CWD}에서 Skill tool로 /fe-harness:test-loop {TIER = light면 `--smoke`} 를 실행하세요.
     상태 파일 `{STATE_FILE}`을 읽고 Phase 7.4 상태를 갱신하세요.
     배정 model/effort: {model}/{effort}
 
@@ -131,8 +131,10 @@ Agent tool:
     실패는 `## Test Baseline` 과 대조해 regression / pre_existing / new_red / flaky 로 분류해
     보고하세요. `pre_existing` 은 이번 범위 밖이므로 손대지 마세요.
 
-    완료 후 "이슈: N건, 수정: Y/N, 분류: regression N / new_red N / pre_existing N / flaky N" 형식으로 보고하세요.
+    완료 후 "이슈: N건, 수정: Y/N, 분류: regression N / new_red N / pre_existing N / flaky N, 최종 상태: ALL PASS|UNRESOLVED, E2E 실행 수준: {test-loop 종료 출력의 값 그대로}" 형식으로 보고하세요.
 ```
+
+- `E2E 실행 수준`·최종 상태를 `Phase Results` 7.4 행에 기록한다. light 승격 ③(regression·판정 불가)·⑥(`UNRESOLVED`에 E2E 실패 잔존)은 SKILL.md Phase 2 승격 표 — 종료 조건 평가 전에 적용한다.
 
 ### Phase 7.5: Scope Review
 
@@ -280,6 +282,8 @@ Agent tool (병렬 2):
 
 Critical 이슈가 있으면 general-purpose 에이전트로 수정을 위임한다.
 
+**light**: 병렬 2가 아니라 `a11y-reviewer`만 단독 호출한다. component-reviewer는 `Phase Results`에 `SKIPPED:TIER_LIGHT`로 기록한다 (승격으로 standard가 됐다면 둘 다 실행).
+
 ## Phase 9: PR 생성 (workflow-pr)
 
 ```
@@ -298,6 +302,8 @@ Agent tool:
 ```
 
 ## Phase 10: 성찰 (workflow-reflection)
+
+`$REFLECT = true`일 때만 호출한다 (기본은 `SKIPPED:REFLECT_NOT_REQUESTED` — SKILL.md Phase 10). `## Flags`의 `REFLECT`가 `false`면 이 프롬프트를 실행하지 않는다.
 
 ```
 Agent tool:

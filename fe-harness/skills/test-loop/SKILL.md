@@ -3,6 +3,7 @@ name: test-loop
 description: "단위 테스트 + E2E 테스트를 실행하고, 실패 시 수정 후 재실행을 반복한다 (최대 5회). '테스트 통과할 때까지 고쳐줘' 요청 시 사용. start-workflow 품질 루프에서 자동 호출됨."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
+argument-hint: "[--smoke] [--no-lock]"
 ---
 
 > **Project Overrides**: 실행 전 `.claude/fe-harness/common.md`와 `.claude/fe-harness/skills/test-loop.md`를 Read.
@@ -51,6 +52,7 @@ user-invocable: true
 | 플래그 | 효과 |
 |--------|------|
 | `--no-lock` | E2E 단계(Step 2)의 실행 락을 건너뛴다. 단독 실행/디버깅 전용 — 다른 에이전트와 동시에 돌면 dev 서버 포트가 충돌한다 |
+| `--smoke` | E2E 범위만 축소한다 — 전달받은 상태 파일의 `## Related E2E Specs` 목록 파일만 실행. 단위 테스트·루프 상한 5·frozen 모드는 무변경. 목록이 `없음`·섹션 부재·파일 미존재·custom `e2eCommand`면 전체 실행(fail-safe) |
 
 ---
 
@@ -115,6 +117,17 @@ profile의 `e2eCommand` 를 우선 사용:
 - **playwright**: `npx playwright test --reporter=list`
 - **cypress**: `npx cypress run`
 
+**`--smoke` 범위 판정** (E2E만, 매 iteration 동일):
+
+| 조건 | 실행 | E2E 실행 수준 |
+|------|------|---------------|
+| `## Related E2E Specs`의 파일이 모두 존재 ∧ `e2eCommand` 비어있음 ∧ runner playwright | `npx playwright test --reporter=list {files}` | `smoke` |
+| 위와 같고 runner cypress | `npx cypress run --spec {files 쉼표 결합}` | `smoke` |
+| `e2eCommand`가 있음 (custom) | `{e2eCommand}` 전체 실행 | `full-command` |
+| 목록이 `없음` / 섹션 부재 / 파일 하나라도 미존재 | 전체 실행 (fallback 명령) | `full(smoke 미적용: {사유})` |
+
+어떤 경우에도 E2E를 조용히 건너뛰지 않는다 — `--smoke`가 범위를 줄일 수 없으면 전체를 실행하고 사유를 남긴다. `--smoke`가 없으면 실행 수준은 `full`.
+
 실패 시:
 1. 에러 메시지를 분석한다.
 2. **기본 모드**: 테스트 코드 또는 소스 코드를 수정한다. **frozen 모드**: 소스 코드만 수정한다.
@@ -138,8 +151,11 @@ profile의 `e2eCommand` 를 우선 사용:
 - **단위 테스트 수정**: M건
 - **E2E 테스트 수정**: K건
 - **최종 상태**: ALL PASS / UNRESOLVED ([미해결 목록])
+- **E2E 실행 수준**: smoke / full / full(smoke 미적용: {사유}) / full-command / SKIPPED:{사유}
 
 ### frozen 모드일 때 추가
 - **분류**: regression [n]건 / new_red [n]건 / pre_existing [n]건(범위 밖) / flaky [n]건
 - **`[TestConflict]`**: [테스트 ↔ 의심 사유, 없으면 "없음"]
 ```
+
+> `E2E 실행 수준` 줄은 **의무 출력**이다 — 상위 워크플로우(start-workflow Phase 7.4)가 승격 판단과 보고서에 그대로 쓴다.
