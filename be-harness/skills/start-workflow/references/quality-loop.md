@@ -5,8 +5,9 @@
 # Phase 8: 품질 루프 상세 (병렬 스캔 → 통합 수정 → 순차 실행 → Read-back)
 
 루프 구조·상한·판정은 SKILL.md 본문이 canonical이다. 이 문서는 각 단계의 실행 상세와 에이전트 프롬프트를 정의한다.
+티어별 축소·승격 규칙은 `references/verification-tier.md`가 canonical이다 — light에서 달라지는 단계는 각 절에 **light:** 로 표기한다.
 
-Phase 8.1~8.7은 **루프 안**에서 최대 3회 반복되고, Phase 8.8은 **루프가 종료된 뒤 1회만** 실행된다.
+Phase 8.1~8.7은 **루프 안**에서 최대 `{QL_MAX}`회(standard 3 / light 2) 반복되고, Phase 8.8은 **루프가 종료된 뒤 1회만** 실행된다.
 
 ## Batch A: 병렬 스캔 (Phase 8.1 ~ 8.4)
 
@@ -24,7 +25,12 @@ Phase 8.1~8.7은 **루프 안**에서 최대 3회 반복되고, Phase 8.8은 **�
 
 둘 중 하나라도 비어있으면 해당 단계 SKIP. 에러 로그를 Batch A 결과에 수집한다. 파일 수정 없음.
 
-**회귀 대조 (TDD 활성 시)**: 테스트 실패를 `{STATE_FILE}`의 `## Test Baseline`과 대조해 분류한다. 상세 절차는 `references/tdd.md`의 "Phase 8: 회귀 대조".
+**회귀 대조 (TDD 활성 시)**: 테스트 출력을 `assets/test_failures.py`로 파싱해 `{STATE_FILE}`의 `## Test Baseline`과 대조한다. 상세 절차·폴백은 `references/tdd.md`의 "Phase 8: 회귀 대조".
+
+```bash
+{testCommand} > /tmp/test-output.log 2>&1; EXIT=$?
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --runner auto --exit-code $EXIT --suite unit --baseline {STATE_FILE} /tmp/test-output.log
+```
 
 | # | 조건 | 분류 |
 |---|------|------|
@@ -36,6 +42,8 @@ Phase 8.1~8.7은 **루프 안**에서 최대 3회 반복되고, Phase 8.8은 **�
 
 Phase 8.5에 전달하는 이슈 순서는 `regression` → `new_red` 다. `pre_existing`은 **이번 범위 밖이므로 전달하지 않고 보고만** 한다.
 TDD가 SKIP된 경우 분류 없이 기존대로 전체 실패 로그를 수집한다.
+
+**light 승격 ③**: `regression` ≥ 1, 또는 판정 불가(러너 완주 N / `UNPARSED` 잔존을 오케스트레이터도 분류하지 못함) → 종료 조건 평가 전에 standard 전환(`{QL_MAX}` = 3 복원), 이 iteration의 8.6부터 full E2E, 루프 후 8.8 실행 (`verification-tier.md` §4).
 
 ### Phase 8.2 + 8.3: 품질 스캔 — Simplify + Convention (통합 스캐너 1에이전트)
 
@@ -64,6 +72,8 @@ Agent tool:
     두 결과를 섞지 말고 별도 목록으로 유지한 채,
     완료 후 "simplify 후보: N건 / convention 위반: M건" 형식으로 보고하세요.
 ```
+
+**light (8.2 = `SKIPPED:TIER_LIGHT`)**: 위 프롬프트에서 "## 스캔 1 — Simplify (Phase 8.2)" 블록을 제거하고 스캔 2(convention)만 실행한다. 보고 형식은 "convention 위반: M건". `Phase Results`에 8.2 행을 `SKIPPED:TIER_LIGHT`로 기록한다.
 
 결과 수신 후 **오케스트레이터가** 8.2/8.3 상태를 각각 갱신한다 — `Phase Assignments`는 기존 Phase 8 통합 행을 유지하고, 개별 상태·건수는 `Phase Results` 표에 8.2/8.3 행으로 기록한다.
 
@@ -136,16 +146,19 @@ Agent tool:
   model: [E2E 범위/실패 심각도 기준 선택]
   effort: [E2E 범위/실패 심각도 기준 선택]
   prompt: |
-    프로젝트 루트 {CWD}에서 /be-harness:e2e-test-loop 를 실행하세요.
+    프로젝트 루트 {CWD}에서 /be-harness:e2e-test-loop {TIER = light면 `--smoke`} 를 실행하세요.
     상태 파일 `{STATE_FILE}`을 읽고 Phase 8.6 상태를 갱신하세요.
     남은 Phase: Phase 8.7, 8.8, 9, 10, 11, 12
     배정 model/effort: {model}/{effort}
     결과가 `SKIPPED:*`이면 스킵 사유를 그대로 보고하세요.
-    완료 후 "이슈: N건, 수정: Y/N, 스킵 사유: {있으면}" 형식으로 보고하세요.
+    완료 후 "이슈: N건, 수정: Y/N, 종료 상태: {DONE|BLOCKED:*|SKIPPED:*}, 실행 수준: {smoke|full|full(smoke 미적용: 사유)}, E2E 리포트: {경로|없음 (SKIPPED:사유)}" 형식으로
+    e2e-test-loop의 종료 출력 줄을 **그대로** 옮겨 보고하세요.
 ```
 
-- `SKIPPED:*` 반환 시 → `modified`에 영향 주지 않고 다음 단계 진행 (루프 재시작 트리거 아님)
+- `SKIPPED:*` 반환 시 → `modified`에 영향 주지 않고 다음 단계 진행 (루프 재시작 트리거 아님). `Phase Results` 8.6 행에 `E2E 리포트: 없음 (SKIPPED:{사유})`로 기록
 - "수정: Y" → `modified = true`
+- 실행 수준 줄과 E2E 리포트 경로를 `Phase Results` 8.6 행과 `## Artifacts`(`e2e-report`)에 기록
+- **light 승격 ⑥**: 종료 상태가 `BLOCKED:MAX_ITERATIONS`·`BLOCKED:NO_PROGRESS`이거나 실행 수준이 `full(smoke 미적용: …)`이면 standard 전환 + 현재 iteration 종료 후 standard iteration 1회 추가 (`verification-tier.md` §4)
 
 ### Phase 8.7: 통합 테스트 (조건부)
 
@@ -158,9 +171,15 @@ profile의 `{makeTestCommand}`가 비어있지 않으면 Bash로 직접 실행:
 비어있으면 `SKIPPED:PROFILE_EMPTY`로 기록하고 넘어간다.
 실패 시 `general-purpose` 에이전트로 수정 위임 (Phase 8.5 프롬프트 형식 재사용, 이슈 목록 = 통합 테스트 실패 로그). 수정 발생 시 `modified = true`.
 
+### iteration 종료 시 (light만): 승격 ⑦ 재평가
+
+종료 조건을 평가하기 **전에** `verification-tier.md` §4의 집계 규칙(`START_SHA` 기준 변경 소스 파일 > 3 또는 금지 조건 발견)을 재평가한다. 발화 시 standard 전환 + standard iteration 1회 추가. 승격은 1회뿐이다(latch) — standard가 된 뒤에는 평가하지 않는다.
+
 ---
 
 # Phase 8.8: Spec 정합 Read-back (루프 밖, 1회)
+
+**light: `SKIPPED:TIER_LIGHT`** — 승격으로 standard가 됐다면 실행한다.
 
 품질 루프(8.1~8.7)가 종료된 뒤 **정확히 1회** 실행한다. 루프 안에서 반복하지 않는다 — 수렴 전 산출물을 읽으면 곧 사라질 차이가 Diff로 잡혀 무의미하다.
 

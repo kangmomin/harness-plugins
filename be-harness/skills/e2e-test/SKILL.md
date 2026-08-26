@@ -2,7 +2,7 @@
 name: e2e-test
 description: "기능 추가/수정 후 연관 HTTP API를 실제 요청으로 E2E 테스트한다. 'API 실제로 테스트해줘', 구현 검증이 필요할 때 사용. profile의 runServerCommand/serverUrl 기반, Bash+curl만 사용."
 allowed-tools: Read, Write, Glob, Grep, Bash, AskUserQuestion
-argument-hint: <대상 API 설명 또는 엣지 케이스 ID>
+argument-hint: "<대상 API 설명 또는 엣지 케이스 ID> [--smoke]"
 user-invocable: true
 ---
 
@@ -37,6 +37,7 @@ user-invocable: true
 | `--skip-server` | `-ss` | 서버 기동/종료를 건너뛰고 이미 떠있는 서버를 사용 (**실행 락은 그대로 획득한다** — Step 3.5 참조) |
 | `--tag <id>` | | 특정 시나리오 ID(`EC-03`, `BASE-01` 등)만 실행 |
 | `--no-lock` | | 실행 락을 건너뛴다. 단독 실행/디버깅 전용 — 다른 에이전트와 동시에 돌면 포트·DB 시드가 충돌한다 |
+| `--smoke` | | Spec 유래 시나리오만 실행 — `BASE-01` + `EC-*` 전수. `BASE-02~05`는 `SMOKE_OMITTED`로 기록(판정 영향 없음). 실행 가능 케이스 0건 또는 EC 표 없음이면 Step 2에서 즉시 무시하고 full로 실행한다 |
 
 ### `--doctor`
 
@@ -76,6 +77,8 @@ user-invocable: true
 
 해당 API에 적용되지 않는 항목(예: 인증이 없는 공개 엔드포인트의 `BASE-04`)은 제외하고 사유를 리포트에 적는다.
 
+**`--smoke`**: `BASE-02~05`는 Spec 비유래 범용 시나리오이므로 실행하지 않고 커버리지에 `SMOKE_OMITTED`로 적는다. `BASE-01`(Happy Path = Spec 정상 흐름)은 필수.
+
 ### Spec 엣지 케이스 (`EC-*`)
 
 Spec의 엣지 케이스 표(`/be-harness:request` Phase 4 산출물 — start-workflow에서 호출된 경우 상태 파일의 `## Edge Cases`, 단독 실행이면 사용자가 제공한 Spec)의 **각 행을 빠짐없이** 시나리오로 만든다.
@@ -85,6 +88,8 @@ Spec의 엣지 케이스 표(`/be-harness:request` Phase 4 산출물 — start-w
 **"검증이 번거롭다", "코드를 보면 맞는 것 같다"는 예외 사유가 아니다.**
 
 Spec에 엣지 케이스 표가 없거나 ID가 없으면(구버전 Spec) `EC-*` 매핑을 건너뛰고 기본 시나리오만 실행한다. 이 경우 리포트 커버리지 섹션에 `대조 기준 없음`으로 표기한다.
+
+**`--smoke` 무효화 (Step 2에서 즉시 판정)**: 실행 가능 케이스가 0건(`BASE-01` UNCOVERED ∧ EC 0건)이거나 Spec에 EC 표가 없으면(`대조 기준 없음`) `--smoke`를 무시하고 full로 실행하고, Step 7에 `- 실행 수준: full(smoke 미적용: {사유})`를 적는다. 검증 근거가 부족한 상태에서 범위를 줄이지 않는다.
 
 `$ARGUMENTS` 에 ID(`EC-03`, `BASE-01` 등)가 있으면 해당 시나리오만 실행한다.
 
@@ -198,6 +203,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh release "{serverUr
 
 ### 환경
 - serverUrl: {serverUrl}
+- 실행 수준: smoke | full | full(smoke 미적용: {사유})
 - 실행 시나리오: N개
 - 경과 시간: {total_time}
 
@@ -216,6 +222,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh release "{serverUr
 | EC-03 | EC-03 | 실행됨 |
 
 - Spec 엣지 케이스 [N]건 중 [M]건 실행, [K]건 미커버
+- 생략 시나리오: `SMOKE_OMITTED` BASE-02, BASE-03, BASE-04, BASE-05 (--smoke) / 없음
 - 판정: [PASS / WARN / FAIL]
 
 ### 실패 상세
@@ -233,9 +240,11 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh release "{serverUr
 | `WARN` | 시나리오 실패 0건 **AND** 미커버 1건 이상 (사유가 명시된 것만) |
 | `FAIL` | 시나리오 실패 1건 이상 |
 
-미커버는 **구현 결함이 아니라 검증 공백**이므로 수정 루프의 트리거가 아니다. 사유와 함께 리포트에 남겨 호출자가 판단하게 한다.
+미커버는 **구현 결함이 아니라 검증 공백**이므로 수정 루프의 트리거가 아니다. 사유와 함께 리포트에 남겨 호출자가 판단하게 한다. `SMOKE_OMITTED`는 판정에 영향을 주지 않는다(커버리지 데이터).
 
-실패가 있으면 호출자(start-workflow 또는 e2e-test-loop)가 수정 루프를 돌 수 있도록 `"이슈: N건, 수정: Y/N, 미커버: K건"` 형식 요약을 마지막 줄에 포함한다 (기존 파서 호환을 위해 앞의 두 필드 순서와 표기는 고정).
+`- 실행 수준:` 줄은 **항상** 출력한다 — 호출자(e2e-test-loop·start-workflow)가 승격 판단과 리포트 렌더링 인자에 그대로 사용한다.
+
+실패가 있으면 호출자(start-workflow 또는 e2e-test-loop)가 수정 루프를 돌 수 있도록 `"이슈: N건, 수정: Y/N, 미커버: K건, 실행 수준: {smoke|full|full(smoke 미적용: 사유)}"` 형식 요약을 마지막 줄에 포함한다 (기존 파서 호환을 위해 앞의 두 필드 순서와 표기는 고정).
 
 ## SKIP 조건
 

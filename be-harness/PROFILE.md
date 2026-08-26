@@ -37,7 +37,7 @@ e2eLockDir: ""             # E2E 실행 락 디렉토리. 비우면 자동 해�
                            # 환경변수 HARNESS_E2E_LOCK_DIR 로도 지정 가능.
 
 # 리포트 출력
-reportDir: ""              # E2E 자기 점검 HTML 등 리포트 저장 디렉토리. 비우면 `.claude/harness-reports`
+reportDir: ""              # E2E 자기 점검·Workflow Report(md) 저장 디렉토리. 비우면 `.claude/harness-reports`. work-log vault 하위 경로를 지정하면 wiki 인덱싱 대상이 된다
 
 # 소스 레이아웃
 sourceDirs: ["internal/", "cmd/", "pkg/"]

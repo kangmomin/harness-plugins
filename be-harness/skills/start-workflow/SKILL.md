@@ -19,6 +19,8 @@ user-invocable: true
 - `{STATE_FILE}` = `/tmp/workflow-state.md`
 - `{IMPL_NOTES}` = `/tmp/implementation-notes.md`
 - `{REPORT_DIR}` = profile의 `reportDir` (없으면 `.claude/harness-reports`)
+- `{WORK_REPORT}` = `/tmp/workflow-report-{run_id}.md` (`run_id` = `## Flags`의 `RUN_ID`)
+- `{PLAN_MAX}` = Phase 4.3 상한 (standard 5 / light 2) · `{QL_MAX}` = Phase 8 상한 (standard 3 / light 2)
 - `{CWD}` = 현재 작업 디렉토리 (프로젝트 루트)
 - `{buildCommand}` 등 profile 변수 = Pre-flight에서 로드
 
@@ -27,8 +29,9 @@ user-invocable: true
 | 플래그 | 단축 | 효과 |
 |--------|------|------|
 | `--hard` | `-h` | 브랜치 생성/검증을 건너뛰고 현재 브랜치에서 바로 push. `/common:commit-hard-push` 방식. |
-| `--no-tdd` | | Phase 6.1(테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. |
+| `--no-tdd` | | Phase 6.1(테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. 검증 티어는 standard 강제. |
 | `--reflect` | | Phase 11(성찰)을 실행한다. 미지정 시 Phase 11은 `SKIPPED:REFLECT_NOT_REQUESTED` (주기 실행 권장 — 워크플로우 5~10회마다 1회). |
+| `--tier standard` | | Phase 2 판정과 무관하게 검증 티어를 standard로 강제한다 (light 축소 비활성). light 강제 플래그는 없다. |
 | `--analyze` | `-a` | **Analyze 모드**. 전체 또는 특정 범위의 코드를 분석하여 보고서를 생성한다. |
 | `--verify` | `-v` | **Verify 모드**. 보안·성능·잠재 버그·안정성을 검증하고 PASS/WARN/FAIL 판정한다. |
 
@@ -44,6 +47,7 @@ user-invocable: true
 - `--hard`는 Build 모드에서만 유효하다. Analyze/Verify 모드에서는 무시한다. `$ARGUMENTS`에 `--hard`/`-h`가 있으면 `$HARD_MODE = true`.
 - `--no-tdd`도 Build 모드 전용이다. `$ARGUMENTS`에 있으면 `$TDD = false` (기본값 `true`). Analyze/Verify 모드는 구현 Phase를 경유하지 않으므로 해당 없음.
 - `--reflect`도 Build 모드 전용이다. `$ARGUMENTS`에 있으면 `$REFLECT = true` (기본값 `false`) — Phase 11 실행 여부를 결정한다.
+- `--tier standard`도 Build 모드 전용이다. `$ARGUMENTS`에 있으면 `$TIER_FORCE = true` (기본값 `false`) — Phase 2 게이트에서 standard를 강제한다.
 - **범위 지정**: 플래그 뒤 경로가 있으면 분석/검증 범위로 사용한다. 없으면 전체 코드베이스 (profile의 `sourceDirs` 기준).
   예: `--analyze src/book`, `--verify src/book/handler.go`
 
@@ -56,11 +60,12 @@ user-invocable: true
 ## 상태 추적
 
 워크플로우 시작 시 `{STATE_FILE}`을 새로 만들고, Phase 진입/완료 때마다 갱신한다 (오케스트레이터도 Phase owner로 기록).
-상태 파일은 `Current Phase` / `Phase Assignments` / `Remaining Phases` / `Phase Results` 섹션을 항상 포함한다 (템플릿: `references/templates.md`).
+상태 파일은 `Flags` / `Current Phase` / `Phase Assignments` / `Remaining Phases` / `Verification Tier` / `Phase Results` 섹션을 항상 포함한다 (템플릿: `references/templates.md`).
 
 - 에이전트 생성 전: 해당 Phase를 `IN_PROGRESS`로 갱신
 - 완료 후: `DONE` / `SKIPPED:{사유}` / `BLOCKED:{사유}` 와 결과 기록
 - 모든 에이전트 프롬프트에 상태 파일 경로, 현재 Phase, 남은 Phase, 배정 model/effort를 포함
+- `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·RUN_ID·START_SHA)는 컨텍스트 요약·세션 재개로 CLI 인자를 잃은 뒤 이어갈 때 **유일한 기준** — CLI 인자와 충돌하면 기록값 우선 + 고지. `RUN_ID`는 Phase 5에서 1회 생성하며 재생성하지 않는다.
 
 ### Model / Effort 선택 규칙
 
@@ -128,11 +133,11 @@ Codex 호출 실패는 이 규약 대상이 아니다 — Phase 4.3의 `CODEX-UN
 ### Implementation Notes (라이브 판단 기록)
 
 자율 실행 중 발생하는 **설계 결정·편차·트레이드오프·미결 질문**을 코드와 분리해 `{IMPL_NOTES}`에 실시간으로 누적한다.
-유저는 자율 실행 중에도 파일을 직접 열어 비동기로 피드백할 수 있고, Phase 12에서 HTML로 일괄 렌더링된다.
+유저는 자율 실행 중에도 파일을 직접 열어 비동기로 피드백할 수 있고, Phase 12에서 Workflow Report 부록 C로 원문이 보존된다.
 
 핵심 규칙 (파일 초기화 템플릿·4-섹션 구조: `references/templates.md`):
 
-- 파일을 수정하는 자율 실행 에이전트는 4종 사건 발생 시 **코드 수정 전에** 해당 섹션에 한 줄 append. **append-only**, 마크다운만 (HTML/JSON 금지 — 렌더링이 깨진다). 읽기 전용 스캔 에이전트는 직접 쓰지 않는다 — 이슈 보고서에 포함하면 통합 수정 단계가 대신 기록.
+- 파일을 수정하는 자율 실행 에이전트는 4종 사건 발생 시 **코드 수정 전에** 해당 섹션에 한 줄 append. **append-only**, 마크다운만 (HTML/JSON 금지 — 아카이브 부록에 원문 그대로 삽입된다). 읽기 전용 스캔 에이전트는 직접 쓰지 않는다 — 이슈 보고서에 포함하면 통합 수정 단계가 대신 기록.
 - `[Assumption]` 보고와 동일한 항목은 `## 편차` 섹션에 동시 기록 (보고서와 라이브 노트 동기화).
 
 ## Pre-flight: 세션 환경 점검 (모든 모드 공통)
@@ -186,32 +191,16 @@ profile 값을 근거로 누락 항목이 있으면 어떤 Phase가 SKIP될 것�
 
 > 어느 경우든 Spec을 유저에게 보여주고 확인을 받는다.
 
-## Phase 2: 난이도 산정
+## Phase 2: 난이도 산정 + 검증 티어 판정
 
-Technical Spec을 분석하여 1~10 난이도를 산정한다. **종합 난이도 = max(A, B)**.
+> Phase 2 진입 시 MUST: 같은 폴더의 `references/verification-tier.md`를 Read하고 A/B 점수표·게이트·금지 조건·light 축소 항목·승격 규칙을 따른다.
 
-### A. 코드 복잡도
+Technical Spec을 분석하여 1~10 난이도를 산정한다. **종합 난이도 = max(A, B)**, 각 축 = 요소별 밴드 최댓값, 근거 없는 요소는 `UNKNOWN`(= 높음).
+B축 근거는 Spec `참조 구현` 경로로 `assets/risk_facts.py`를 실행한 사실(변경 빈도·동반 테스트·과거 워크플로우 이력)로 뒷받침한다.
 
-| 요소 | 낮음 (1-3) | 중간 (4-6) | 높음 (7-10) |
-|------|-----------|-----------|------------|
-| 파일 수 | 1-3개 | 4-7개 | 8개+ |
-| 레이어 | 단일 | 2개 | 3개 전체 |
-| DB 변경 | 없음 | 컬럼 추가 | 신규 테이블 |
-| 외부 연동 | 없음 | 기존 gRPC | 신규 gRPC |
-| 비즈니스 복잡도 | 단순 CRUD | 조건 분기 3개 이하 | 상태 머신 |
-| 엣지 케이스 | 1-2개 | 3-5개 | 6개+ |
+**검증 티어**: A ≤ 3 ∧ B ≤ 3 ∧ 금지 조건 0건 ∧ `$TDD = true` ∧ 전략 ≠ parallel-slices ∧ `$TIER_FORCE = false` → `light`(추가 리뷰 레이어·루프 상한·E2E 범위만 축소). 그 외 `standard`(기존 절차 무변경).
 
-### B. 영향 범위 리스크
-
-| 요소 | 낮음 (1-3) | 중간 (4-6) | 높음 (7-10) |
-|------|-----------|-----------|------------|
-| 기존 API 호환성 | Breaking change 없음 | 선택 필드 추가 | 필수 필드/응답 구조 변경 |
-| DB 데이터 영향 | 신규 테이블만 | 기존 테이블 컬럼 추가 | 기존 데이터 마이그레이션 필요 |
-| 공유 모듈 수정 | 없음 | 유틸리티/공통 함수 | 미들웨어/인터셉터/DI |
-| 다른 서비스 의존 | 독립적 | 같은 repo 내 참조 | 외부 서비스 연동 변경 |
-| 롤백 용이성 | 즉시 가능 | 마이그레이션 롤백 필요 | 데이터 복구 필요 |
-
-출력: `난이도: 코드 [A]/10 + 리스크 [B]/10 — [근거]`
+출력: `난이도: 코드 [A]/10 + 리스크 [B]/10 — [근거]` / `검증 티어: light|standard — A [a]/B [b], 금지 조건 [해당 없음|{항목}], [사유]`
 
 ## Phase 3: 실행 전략 판정 (Batch Eligibility Gate)
 
@@ -262,6 +251,7 @@ Spec 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 �
 최대 3개 서브에이전트(`general-purpose`) 병렬 × 2배치:
 - Batch 1: 유지보수성 + 성능 + 엣지 케이스
 - Batch 2: 데이터 정합성 + 보안 + 기존 코드 영향
+- **light**: 배치 없이 `general-purpose` 1개가 3관점(엣지 케이스 · 기존 코드 영향 · 더 단순한 경로)을 한 번에 리뷰한다.
 
 각 에이전트 프롬프트에 Spec 전문 + Plan 전문을 전달하고 아래 형식으로 받는다:
 
@@ -274,12 +264,12 @@ Spec 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 �
 종합: REJECT 1개+ → 해당 이슈를 Plan에 반영. CONCERN → 타당한 항목만 자동 반영.
 → 보강된 Plan을 **Plan v1 (검증 루프 입력)**으로 확정.
 
-### Phase 4.3: Plan Verification Loop (Codex 검증, 최대 5회)
+### Phase 4.3: Plan Verification Loop (Codex 검증, 최대 {PLAN_MAX}회)
 
 Plan은 Codex 검증 루프를 통과해야 확정된다.
 
 ```
-for iteration in 1..5:
+for iteration in 1..{PLAN_MAX}:
   ① Codex Plan 리뷰 (Architect 관점) — stateless 보완을 위해 매회 전달:
      Spec 전문 / Plan vN 전문 / 실행 전략 / 난이도 근거
      / (N≥2) 이전 iteration Diff 요약 + 기각 피드백·사유
@@ -297,11 +287,11 @@ for iteration in 1..5:
 |----------|------|
 | Codex `APPROVE` | **PROCEED** → Phase 4.4 |
 | 사용자가 명시적으로 루프 종료 지시 | **USER-INTERRUPTED** → 잔존 이슈 기록 후 진행 |
-| Codex 사용 불가 환경 | **CODEX-UNAVAILABLE** → 사유를 상태 파일에 기록하고 진행 |
-| 5회 도달, 미APPROVE | **BLOCKED:MAX_ITERATIONS** → 아래 선택지 제시 |
+| Codex 사용 불가 환경 | **CODEX-UNAVAILABLE** → 사유를 상태 파일에 기록하고 진행 (light면 승격 ⑤ → standard) |
+| `{PLAN_MAX}`회 도달, 미APPROVE | **BLOCKED:MAX_ITERATIONS** → 아래 선택지 제시 (light는 상한 평가 전에 승격 ① → `{PLAN_MAX}` = 5로 계속) |
 
-5회 도달 시 선택지:
-> "Plan 검증 루프가 5회에 도달했습니다. 미해결 이슈: {요약}
+`{PLAN_MAX}`회 도달 시 선택지:
+> "Plan 검증 루프가 {PLAN_MAX}회에 도달했습니다. 미해결 이슈: {요약}
 > 1. 현재 Plan으로 진행 — 잔존 이슈를 상태 파일에 기록하고 Phase 4.4로
 > 2. 루프 계속 — 5회 추가 반복
 > 3. 중단 — 워크플로우 종료"
@@ -312,7 +302,7 @@ for iteration in 1..5:
 
 ### Phase 4.4: Plan 확정
 
-루프 종료 후 `ExitPlanMode` 실행. 상태 파일 하단에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
+Plan의 파일 목록으로 금지 조건을 재점검한다(발견 시 즉시 standard). 티어 판정을 Plan과 함께 승인받는다. 루프 종료 후 `ExitPlanMode` 실행. 상태 파일 하단에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
 
 ## Phase 5: 브랜치 + 상태 파일 + Baseline + 자율 실행 시작
 
@@ -323,14 +313,14 @@ for iteration in 1..5:
 **상태 파일 생성**:
 
 > Phase 5 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고
-> ① "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다. Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, 실행 전략, (parallel-slices 시) Slices를 복사해 넣는다.
+> ① "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다. Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, 실행 전략, (parallel-slices 시) Slices를 복사해 넣고, `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·RUN_ID·START_SHA)와 `## Verification Tier`를 기록한다.
 > ② "Implementation Notes 라이브 파일 초기화" 템플릿대로 `{IMPL_NOTES}`를 생성한다 (기존 파일 덮어쓰기).
 
 **회귀 Baseline 수집 (TDD 활성 시)**:
 
 > Phase 5 진입 시 MUST: 같은 폴더의 `references/tdd.md`를 Read하고 "TDD 적용 판정"과 "Phase 5: 회귀 Baseline 수집" 절차를 따른다.
 
-여기가 **유저와 대화 가능한 마지막 지점**이다. baseline 수집이 실패하면 자율 실행에 들어가기 전에 선택지를 제시한다 (절차: `references/tdd.md`).
+여기가 **유저와 대화 가능한 마지막 지점**이다. baseline 수집이 실패하면 자율 실행에 들어가기 전에 선택지를 제시한다 (절차: `references/tdd.md`). 수집 실패 확정 시 light는 승격 ④로 standard.
 TDD SKIP 판정 시 사유를 `## Test Baseline`에 기록하고, 이후 Phase 6은 기존 단일 구현 흐름으로 진행한다.
 
 출력:
@@ -373,6 +363,7 @@ Spec의 추적 ID(`AC-nn`·`EC-nn`·`RC-nn`)를 근거로 **실패하는 테스�
 TDD 활성 시 **테스트 파일 수정 금지** 규칙과 `[TestConflict]` 보고 규칙을 프롬프트에 추가한다 (`references/tdd.md`).
 
 프롬프트·커밋 규칙: `references/agent-prompts.md`의 "Phase 6.2" 섹션.
+완료 직후 **승격 ② 평가**(변경 소스 파일 > 3 또는 금지 조건 발견 — `references/verification-tier.md` §4) → light면 standard 전환을 기록하고 Phase 7로.
 
 ### Phase 7: 빌드 체크 (MANDATORY — 구현 직후 강제 실행)
 
@@ -388,12 +379,12 @@ TDD 활성 시 **테스트 파일 수정 금지** 규칙과 `[TestConflict]` 보
 | 실패 | build-fix 에이전트로 수정 (`references/agent-prompts.md`의 "Phase 7" 섹션) → 커밋 → 재시도 |
 | **3회 시도 후에도 실패** | `BLOCKED:BUILD_FAIL` — 유저에게 에러 요약 보고 후 중단 |
 
-### Phase 8: 품질 루프 (최대 3회)
+### Phase 8: 품질 루프 (최대 {QL_MAX}회)
 
 > Phase 8 진입 시 MUST: 같은 폴더의 `references/quality-loop.md`를 Read하고 각 단계의 프롬프트·실행 상세를 따른다.
 
 ```
-for iteration in 1..3:
+for iteration in 1..{QL_MAX}:
   [Batch A — 병렬 스캔, 읽기 전용] 8.1 빌드+테스트(Bash) / 8.2+8.3 품질 스캔(통합 1에이전트) / 8.4 scope
       → 이슈만 수집, 파일 수정 금지
   [Phase 8.5 — 통합 수정] 수집 이슈를 단일 에이전트가 일괄 수정
@@ -402,7 +393,9 @@ for iteration in 1..3:
 [루프 종료 후 1회] 8.8 Spec 정합 Read-back — 판정만, 코드 수정 없음
 ```
 
-Phase 8.1 결과는 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (절차: `references/tdd.md`의 "Phase 8: 회귀 대조").
+**light**: 8.2 = `SKIPPED:TIER_LIGHT`(통합 스캐너를 convention 전용으로 호출), 8.6 = `e2e-test-loop --smoke`, 8.8 = `SKIPPED:TIER_LIGHT`. 승격 ③·⑥·⑦(회귀 · E2E BLOCKED/smoke 미적용 · 변경 파일 재집계)은 `references/verification-tier.md` §4 — 티어 전환은 아래 종료 조건 평가보다 먼저 적용하고, ⑥·⑦은 standard iteration을 최소 1회 추가한다.
+
+Phase 8.1 결과는 `assets/test_failures.py --baseline {STATE_FILE}`로 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (절차·폴백: `references/tdd.md`의 "Phase 8: 회귀 대조").
 
 **테스트 판정**: `PASS` = `regression` 0건 + `new_red` 0건 / `WARN` = `flaky`만 / `FAIL` = 그 외
 
@@ -411,16 +404,16 @@ Phase 8.1 결과는 `## Test Baseline`과 대조해 `regression` / `pre_existing
 | `modified == false` **AND** 테스트 판정 `PASS` | 루프 탈출 → Phase 8.8 |
 | `modified == false` (TDD SKIP 시) | 루프 탈출 → Phase 8.8 |
 | 그 외 | 커밋 후 다음 iteration |
-| 3회 도달 & 미PASS | `BLOCKED:TEST_NOT_GREEN` 기록 → 강제 탈출 → Phase 8.8 |
+| `{QL_MAX}`회 도달 & 미PASS | `BLOCKED:TEST_NOT_GREEN` 기록 → 강제 탈출 → Phase 8.8 |
 
 수정이 0건이어도 테스트가 깨져 있으면 탈출하지 않는다 — 얼어붙은 테스트가 실패하는데 소스 수정이 없으면 루프가 "성공"으로 오종료되기 때문이다.
 `BLOCKED:TEST_NOT_GREEN`이어도 **자율 실행은 중단하지 않고** 이후 Phase를 계속 진행하며, 선택지는 Phase 12에서 제시한다.
 
 커밋: `git add [수정 파일들] && git commit -m "Fix: 품질 루프 수정 (반복 N)"`
 
-**Phase 8.8은 루프 밖에서 1회만 실행한다.** Spec을 모르는 격리된 에이전트가 구현·검증 산출물에서 보장 동작을 복원하고, 오케스트레이터가 그것을 Spec·기존 코드와 대조해 이탈을 판정한다. 코드는 수정하지 않으며 결과는 Phase 12에서 유저에게 보고한다. 판정이 `FAIL`이어도 자율 실행은 멈추지 않는다.
+**Phase 8.8은 루프 밖에서 1회만 실행한다** (light: `SKIPPED:TIER_LIGHT`). Spec을 모르는 격리된 에이전트가 구현·검증 산출물에서 보장 동작을 복원하고, 오케스트레이터가 그것을 Spec·기존 코드와 대조해 이탈을 판정한다. 코드는 수정하지 않으며 결과는 Phase 12에서 유저에게 보고한다. 판정이 `FAIL`이어도 자율 실행은 멈추지 않는다.
 
-완료 후: "Phase 8 완료: [루프 횟수]회, 총 [수정 건수]건 수정 / Read-back [PASS/WARN/FAIL] (A·C·E [N]건)"
+완료 후: "Phase 8 완료: [루프 횟수]회, 총 [수정 건수]건 수정 / Read-back [PASS/WARN/FAIL | SKIPPED:TIER_LIGHT] (A·C·E [N]건) / 티어 [light|standard|light → standard({트리거})]"
 
 ### Phase 9: API 문서 동기화 (조건부)
 
@@ -432,6 +425,7 @@ Phase 8.1 결과는 `## Test Baseline`과 대조해 `regression` / `pre_existing
 
 ### Phase 10: PR / Push
 
+진입 직전 light면 승격 ⑦ 재평가(`references/verification-tier.md` §4) — 발화 시 Phase 8을 standard로 1회 재진입한 뒤 돌아온다.
 - `$HARD_MODE = false`: `be-harness:workflow-pr` 에이전트로 PR 생성 (`references/agent-prompts.md`의 "Phase 10" 섹션). PR URL 보고 필수.
 - `$HARD_MODE = true`: PR 생략, push 전에 Assumption Gate 스캔(base와의 diff 추가 라인 + 미push 커밋 메시지에서 `[Assumption]` 검색)을 수행한다. 0건이면 `git push origin $(git branch --show-current)` 후
   "Phase 10 완료: `{브랜치명}`에 push 완료 (--hard 모드, PR 생략)" 출력. 발견 시 push를 보류하고 아래 BLOCKED 절차를 따른다.
@@ -444,23 +438,23 @@ Phase 8.1 결과는 `## Test Baseline`과 대조해 `regression` / `pre_existing
 
 ## Phase 12: 최종 보고
 
-> Phase 12 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고 "Phase 12 실행 절차", "Implementation Notes HTML 렌더링", "Workflow Report 템플릿", "보완점 적용 상세"를 따른다.
+> Phase 12 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고 "Phase 12 실행 절차", "Workflow Report 템플릿", "md 아카이브", "보완점 적용 상세"를 따른다.
 
 절차 요약 (각 항목의 상세 규칙: templates.md의 "Phase 12 실행 절차" — 순서 변경 금지):
-① impl-notes HTML 렌더링 + Workflow Report 작성 → ② TDD 미해결 항목 유저 결정 (첫 결정 지점) → ③ Read-back Diff 유저 결정 (보완점보다 먼저 — 코드·Spec에 직접 영향) → ④ 보완점 적용 질문 (Phase 11이 `DONE`일 때만 — `SKIPPED:*`면 생략하고 **실제 상태 코드**와 사유별 문구로 고지: templates §6 분기) → ⑤ 상태 파일 마감·산출물 보관.
-수정이 필요한 결정은 유저 승인 후에만 수행한다 (Spec 외 변경 금지 원칙).
+① `{WORK_REPORT}`에 슬림 Workflow Report 1회 Write(채팅에는 경로·§1·유저 결정 항목만) → ② TDD 미해결 항목 유저 결정 (첫 결정 지점) → ③ Read-back Diff 유저 결정 (보완점보다 먼저 — 코드·Spec에 직접 영향) → ④ 보완점 적용 질문 (Phase 11이 `DONE`일 때만 — `SKIPPED:*`면 생략하고 **실제 상태 코드**와 사유별 문구로 고지: templates §6 분기) → ⑤ 상태 파일 마감 후 `assets/workflow_archive.py`로 `{REPORT_DIR}`에 md 아카이브(부록 A 실행 요약 / B 상태 파일 전문 / C Implementation Notes) 생성.
+수정이 필요한 결정은 유저 승인 후에만 수행한다 (Spec 외 변경 금지 원칙). ②~④의 결정은 받는 즉시 `## Final Decisions`에 기록한다 (재개 시 재질문 금지).
 
 ## 상태 코드
 
 | 코드 | 의미 |
 |------|------|
 | `DONE` / `IN_PROGRESS` / `PENDING` | Phase 진행 상태 |
-| `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 (예: `SKIPPED:PROFILE_EMPTY`, `SKIPPED:USER_OPT_OUT`, `SKIPPED:NO_TEST_BASIS`, `SKIPPED:REFLECT_NOT_REQUESTED`, `SKIPPED:BUDGET_PRESERVED`, `SKIPPED:AGENT_DIED`) |
+| `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 (예: `SKIPPED:PROFILE_EMPTY`, `SKIPPED:USER_OPT_OUT`, `SKIPPED:NO_TEST_BASIS`, `SKIPPED:REFLECT_NOT_REQUESTED`, `SKIPPED:TIER_LIGHT`, `SKIPPED:BUDGET_PRESERVED`, `SKIPPED:AGENT_DIED`) |
 | `BLOCKED:{사유}` | 진행 불가 — 사용자 개입 필요 (예: `BLOCKED:BUILD_FAIL`, `BLOCKED:MAX_ITERATIONS`, `BLOCKED:NO_VALID_RED`, `BLOCKED:REGRESSION_AT_RED`, `BLOCKED:TEST_NOT_GREEN`, `BLOCKED:AGENT_DIED`) |
 | `PASS` / `WARN` / `FAIL` | Verify 모드 판정, 테스트 판정, Read-back 판정 |
 
 TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`deferred_e2e`·`regression`·`pre_existing`·`new_red`·`flaky`)는 `## TDD Test Map`·회귀 대조 표의 셀 안에서만,
-에이전트 사망 처리의 `agent_retry`·`degraded_fallback`은 `Phase Results` 표·보고서 "축소 실행 내역" 표의 `진단` 셀 안에서만 쓴다.
+에이전트 사망 처리의 `agent_retry`·`degraded_fallback`, 티어 승격 `tier_escalated({트리거})`, 스크립트 폴백 `script_fallback({스크립트}:{사유})`은 `Phase Results` 표·보고서 "축소 실행 내역" 표의 `진단` 셀 안에서만 쓴다.
 모두 **상태 코드가 아니라 데이터**다 — Phase Assignments의 Status 열에는 등장시키지 않는다 (`docs/skill-authoring.md` §5).
 
 ## References
@@ -468,7 +462,8 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 | 파일 | 로드 시점 |
 |------|----------|
 | `references/analyze-verify-modes.md` | `--analyze` / `--verify` 모드 진입 시 |
-| `references/templates.md` | Phase 5 (상태 파일·라이브 노트), Phase 12 (HTML 렌더링·보고서·보완점) |
+| `references/verification-tier.md` | Phase 2 (점수·게이트), Phase 4·5·6·8·10 (승격 판정) |
+| `references/templates.md` | Phase 5 (상태 파일·라이브 노트), Phase 12 (보고서·md 아카이브·보완점) |
 | `references/tdd.md` | Phase 5 (TDD 판정·baseline), Phase 6 진입 시 |
 | `references/agent-prompts.md` | Phase 6 진입 시 (Phase 6.2/7/9/10/11 프롬프트) + 에이전트 사망 시 (공통 규약 — 미로드면 즉시 Read) |
 | `references/quality-loop.md` | Phase 8 진입 시 |
@@ -478,16 +473,17 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 ```
 [유저 대화] — Phase 1~4 전체가 단일 EnterPlanMode 컨텍스트
 Phase 1: EnterPlanMode → /request로 Technical Spec (유저 확인)
-Phase 2: 난이도 산정 (1-10)
+Phase 2: 난이도 산정 (1-10) + 검증 티어 판정 (light / standard)
 Phase 3: 실행 전략 판정 (sequential / parallel-slices / fullstack → /common:start-workflow --fs 로 전환)
-Phase 4: Plan 작성 → 다관점 1회 보강 → Codex 검증 루프 (최대 5회) → ExitPlanMode
+Phase 4: Plan 작성 → 다관점 1회 보강 → Codex 검증 루프 (최대 {PLAN_MAX}회) → ExitPlanMode
 Phase 5: feature 브랜치 + 상태 파일 + implementation-notes.md + 회귀 baseline → "자율 실행 시작"
 
 [자율 실행 — 유저 확인 없이 완주]
 Phase 6.1: 테스트 우선 (Red) — Spec ID 근거로 실패 테스트 선작성 + 스텁, Red 커밋
 Phase 6.2: 구현 (Green) — 테스트 파일 수정 금지, baseline 대비 신규 실패 0건까지
 Phase 7: {buildCommand} 빌드 체크 (실패 시 수정 최대 3회)
-Phase 8: 품질 루프 최대 3회 (병렬 스캔 8.1~8.4 → 통합 수정 8.5 → e2e 8.6 → 통합 테스트 8.7)
+Phase 8: 품질 루프 최대 {QL_MAX}회 (병렬 스캔 8.1~8.4 → 통합 수정 8.5 → e2e 8.6 → 통합 테스트 8.7)
+         light: 8.2 SKIP · 8.6 --smoke · 8.8 SKIP — 승격 트리거 발생 시 standard로 전환 (단방향)
          탈출 조건 = 수정 0건 AND 테스트 판정 PASS (회귀 3분류 대조)
          루프 종료 후 8.8 Spec 정합 Read-back 1회 (격리 복원 → Diff 판정, 수정 없음)
 Phase 9: API 문서 동기화 (API 변경 시만)
@@ -495,5 +491,5 @@ Phase 10: PR 생성 (--hard: push만)
 Phase 11: 성찰 (--reflect 지정 시만 — 기본 SKIPPED:REFLECT_NOT_REQUESTED)
 
 [유저 대화]
-Phase 12: impl-notes HTML 렌더링 → 최종 보고 (미결 질문 상단 표면화) → 보완점 적용 → 정리
+Phase 12: 슬림 Workflow Report → 유저 결정 (TDD·Read-back·보완점) → md 아카이브 (부록 A/B/C) → 정리
 ```
