@@ -42,7 +42,7 @@ Post-Math 특화 규칙은 `overlay/` 에 있고, 두 경로로 적용된다 (�
 | 오버레이 | 얹는 내용 |
 |---------|----------|
 | `overlay/common.md` | Pre-flight 추가(`secret/.env` · Apidog MCP · PostgreSQL MCP), 로컬 DB 전용 원칙 |
-| `overlay/start-workflow.md` | `Phase 1` 직후 **E2E 메인 플로우 수집** / `Phase 8` 직후 **Codex 품질 리뷰** / `Phase 9` → **Apidog 동기화** 치환 / Codex quota 폴백 |
+| `overlay/start-workflow.md` | `Phase 1` 직후 **E2E 메인 플로우 수집** / `Phase 8` 직후 **Codex 품질 리뷰** / `Phase 9` → **Apidog 동기화** 치환 / Codex 실패 폴백 기록 (`SKIPPED:CODEX_*` — 리뷰어는 베이스 `codexMode` none/mix/max를 따름) |
 | `overlay/request.md` | Post-Math 계층 매핑 확정, Go 특화 상태 함수 탐색, 구현 체크리스트 |
 | `overlay/e2e-test.md` | 프로토콜 분류(REST/gRPC/MIXED), gRPC 환경, status code 정합성, DB 시드·정리 |
 | `overlay/e2e-test-loop.md` | 환경 probe 보강 |
