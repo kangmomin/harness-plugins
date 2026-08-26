@@ -1,0 +1,42 @@
+{
+  "name": "work-log",
+  "version": "0.2.0",
+  "description": "작업 기록 vault를 검색·동기화·편집하는 로컬 Codex 플러그인. 본문 없는 후보 랭킹과 단일 문서 읽기로 컨텍스트 사용량을 줄인다.",
+  "author": {
+    "name": "kangmomin",
+    "url": "https://github.com/kangmomin"
+  },
+  "homepage": "https://github.com/kangmomin/harness-plugins/tree/main/work-log",
+  "repository": "https://github.com/kangmomin/harness-plugins",
+  "keywords": [
+    "work-log",
+    "wiki",
+    "docs",
+    "search",
+    "mcp",
+    "obsidian"
+  ],
+  "skills": "./skills/",
+  "mcpServers": {
+    "work-log": {
+      "command": "node",
+      "args": ["./mcp/server.js"],
+      "cwd": ".",
+      "env_vars": ["WORK_LOG_ROOT", "XDG_CONFIG_HOME", "XDG_CACHE_HOME"]
+    }
+  },
+  "interface": {
+    "displayName": "Work Log",
+    "shortDescription": "작업 기록 vault를 검색하고 안전하게 갱신",
+    "longDescription": "로컬 작업 기록을 인덱싱하고 필요한 문서만 찾아 읽거나 안전하게 작성하는 Codex용 지식 관리 플러그인입니다.",
+    "developerName": "kangmomin",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "websiteURL": "https://github.com/kangmomin/harness-plugins/tree/main/work-log",
+    "defaultPrompt": [
+      "work-log에서 이전 작업 기록을 찾아줘",
+      "이번 작업 결과를 work-log에 저장해줘",
+      "work-log 연결과 인덱스 상태를 진단해줘"
+    ]
+  }
+}

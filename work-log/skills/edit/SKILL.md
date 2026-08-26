@@ -2,8 +2,6 @@
 name: edit
 description: "work-log 에 문서를 작성하거나 기존 문서를 수정한다. '작업 기록 남겨줘', 'work-log 에 정리해줘', '이 내용 문서로 저장', 회의록·결정 사항·보고서를 vault 에 남길 때 사용. 기존 문서의 frontmatter 를 보존하고 비파괴 규칙을 지킨다."
 allowed-tools: Bash, Read, Grep, AskUserQuestion
-user-invocable: true
-argument-hint: "[문서 주제 또는 경로]"
 ---
 
 # work-log 문서 작성 · 수정
@@ -12,6 +10,9 @@ argument-hint: "[문서 주제 또는 경로]"
 
 유저와의 모든 대화는 **한국어**로 진행한다.
 
+Claude Code에서는 `/work-log:edit`, Codex에서는 `$work-log:edit` 로 명시 호출할 수 있다.
+MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시작하는 기본 이름을 기준으로 찾는다.
+
 ## Step 0: 중복 확인 (건너뛰지 말 것)
 
 새 문서를 만들기 전에 **반드시** `wiki_resolve` 로 같은 주제의 기존 문서를 찾는다.
@@ -19,10 +20,11 @@ argument-hint: "[문서 주제 또는 경로]"
 
 ## Step 1: 저장 경로 결정
 
-전역 `CLAUDE.md` 규약을 **그대로 존중한다**:
+현재 프로젝트의 `AGENTS.md`·`CLAUDE.md`와 vault의 기존 폴더 규약을 먼저 존중한다.
+별도 규약이 없을 때의 기본값은 다음과 같다:
 
 ```
-<vault>/claude/YYYYMMDD-<kebab-case-이름>-<type>.md
+<vault>/YYYYMMDD-<kebab-case-이름>-<type>.md
 ```
 
 `type` 은 `plan` | `report` | `design` | `note` | `spec` | `meeting` | `decision`.
@@ -31,11 +33,7 @@ argument-hint: "[문서 주제 또는 경로]"
 
 ## Step 2: 쓰기
 
-`mcp__plugin_work-log_work-log__wiki_write` 를 호출한다.
-
-> **툴 이름 주의**: 접두사 `mcp__plugin_work-log_work-log__` 는 `/mcp` 목록 기준이다.
-> 목록에 다르게 보이면 **`wiki_` 로 시작하는 이름의 툴**을 찾아 그것을 호출한다.
-> 접두사가 달라도 스킬 절차는 동일하다.
+기본 이름이 `wiki_write` 인 MCP 툴을 호출한다.
 
 
 | 인자 | 설명 |
@@ -84,7 +82,7 @@ updated: 2026-08-21
 관련 문서가 있으면 본문에 Obsidian 호환 링크를 넣는다:
 
 ```markdown
-관련: [[claude/20260820-이전-작업-plan]]
+관련: [[20260820-이전-작업-plan]]
 ```
 
 인덱서가 backlink 로 수집하므로 wiki 가 실제로 연결된 그래프로 자란다.

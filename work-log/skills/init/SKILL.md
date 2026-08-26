@@ -1,8 +1,7 @@
 ---
 name: init
-description: "work-log 스코프를 설정한다. 전역 vault 를 쓸지 프로젝트별(<repo>/work-log/)로 쓸지 선택하고 최초 인덱싱까지 수행. 플러그인 최초 설정, '초기화해줘', doctor 가 미설정을 보고할 때 사용."
+description: "work-log 스코프를 설정한다. 전역 vault 또는 저장소별 work-log를 선택하고 최초 인덱싱까지 수행. 플러그인 최초 설정, '초기화해줘', doctor가 미설정을 보고할 때 사용."
 allowed-tools: Bash, Read, Write, Edit, Glob, AskUserQuestion
-user-invocable: true
 ---
 
 # work-log Init
@@ -11,18 +10,22 @@ user-invocable: true
 
 유저와의 모든 대화는 **한국어**로 진행한다.
 
+Claude Code에서는 `/work-log:init`, Codex에서는 `$work-log:init` 로 명시 호출할 수 있다.
+MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시작하는 기본 이름을 기준으로 찾는다.
+
 ## Step 1: 현재 상태 확인
 
-```bash
-node ${CLAUDE_PLUGIN_ROOT}/mcp/lib/config.js
-```
+기본 이름이 `wiki_status` 인 MCP 툴을 먼저 호출한다. 툴이 아직 연결되지 않았다면
+`node "<plugin-root>/mcp/lib/config.js"` 로 같은 상태를 확인한다. `<plugin-root>` 는 이
+`SKILL.md` 의 `../..` 설치 경로이며, 클라이언트가 `PLUGIN_ROOT` 또는
+`CLAUDE_PLUGIN_ROOT` 를 제공하면 그 값을 쓸 수 있다.
 
 이미 설정되어 있으면(`needsInit` 이 없으면) 현재 스코프를 보여주고
 **바꿀지 물어본다.** 사용자가 원치 않으면 여기서 끝낸다.
 
 ## Step 2: 스코프 선택
 
-AskUserQuestion 으로 묻는다:
+현재 클라이언트의 사용자 입력 도구로 묻는다:
 
 | 선택지 | 의미 |
 |--------|------|
@@ -41,7 +44,7 @@ git rev-parse --show-toplevel 2>/dev/null || pwd
 선택한 경로가 아래에 해당하면 **채택하지 않고 다시 묻는다**:
 
 - 존재하지 않거나 디렉토리가 아님
-- **플러그인 소스 디렉토리** — `.claude-plugin/`·`mcp/server.js`·`skills/` 를 포함하는 경로.
+- **플러그인 소스 디렉토리** — `.claude-plugin/`·`.codex-plugin/`·`mcp/server.js`·`skills/` 를 포함하는 경로.
   플러그인 저장소에서 프로젝트 스코프를 켜면 `<repo>/work-log/` 가 이 플러그인 코드 자신을
   가리키게 된다. `config.js` 가 이 경우를 거부한다
 
@@ -51,10 +54,13 @@ git rev-parse --show-toplevel 2>/dev/null || pwd
 
 | 스코프 | 위치 | 내용 |
 |--------|------|------|
-| 전역 | `~/.claude/work-log.json` | `{"scope":"global","root":"<절대경로>"}` |
+| 전역 | `$XDG_CONFIG_HOME/work-log/config.json` (기본 `~/.config/work-log/config.json`) | `{"scope":"global","root":"<절대경로>"}` |
 | 프로젝트 | `<repo>/.work-log.json` | `{"scope":"project","root":"./work-log"}` |
 
 전역은 `root` 에 **절대경로가 필수**다. 프로젝트는 설정 파일 위치 기준 상대경로를 쓴다.
+기존 `~/.claude/work-log.json` 은 자동 이동하거나 삭제하지 않는다. 그 파일만 있으면 계속
+fallback으로 읽고, 사용자가 설정 변경을 승인했을 때만 새 XDG 전역 파일을 만든 뒤 기존
+파일이 후순위로 가려진다는 점을 보고한다.
 
 ## Step 5: 프로젝트 모드 — 커밋 여부 확인
 
@@ -63,7 +69,7 @@ git rev-parse --show-toplevel 2>/dev/null || pwd
 - **커밋** — 팀원이 같은 설정을 공유한다 (팀 프로젝트 권장)
 - **`.gitignore` 에 추가** — 개인 설정으로 둔다
 
-인덱스는 vault 밖 캐시(`~/.cache/work-log/`)에 저장되므로 저장소에 인덱스 파일이
+인덱스는 vault 밖 XDG 캐시(기본 `~/.cache/work-log/`)에 저장되므로 저장소에 인덱스 파일이
 생기지 않는다. `.gitignore` 에 인덱스를 넣을 필요는 없다.
 
 문서(`work-log/*.md`) 자체를 커밋할지도 함께 확인한다 — 보통 커밋하는 것이 자연스럽다.
@@ -76,9 +82,9 @@ git rev-parse --show-toplevel 2>/dev/null || pwd
 | `configSource` | 판정 |
 |---|---|
 | 방금 만든 `.work-log.json` 경로 | 자동 탐지 **동작** — 그대로 두면 된다 |
-| `null` 이거나 다른 경로 | 자동 탐지 **불가** → 프로젝트 `.mcp.json` 에 절대경로를 명시해야 한다 |
+| `null` 이거나 다른 경로 | 자동 탐지 **불가** → 현재 클라이언트용 fallback 적용 |
 
-자동 탐지가 안 되면 프로젝트 루트 `.mcp.json` 에 다음을 추가하라고 안내한다
+Claude Code에서 자동 탐지가 안 되면 프로젝트 루트 `.mcp.json` 에 다음을 추가하라고 안내한다
 (이미 있으면 `env` 만 병합):
 
 ```json
@@ -91,13 +97,19 @@ git rev-parse --show-toplevel 2>/dev/null || pwd
 
 이 경우 변경 반영에 **Claude Code 재시작이 필요하다**고 알린다.
 
+Codex의 번들 MCP는 플러그인 디렉토리에서 시작하므로 프로젝트 설정 자동 탐지가 안 될 수 있다.
+이 경우 프로젝트 세션을 다음처럼 다시 시작한다. Codex manifest가 `WORK_LOG_ROOT` 를 번들 MCP로
+전달한다.
+
+```bash
+WORK_LOG_ROOT="<vault 절대경로>" codex
+```
+
+항상 같은 vault를 쓴다면 프로젝트별 실행 환경보다 XDG 전역 설정을 권장한다.
+
 ## Step 7: 최초 인덱싱
 
-`mcp__plugin_work-log_work-log__wiki_sync` 를 호출한다.
-
-> **툴 이름 주의**: 접두사 `mcp__plugin_work-log_work-log__` 는 `/mcp` 목록 기준이다.
-> 목록에 다르게 보이면 **`wiki_` 로 시작하는 이름의 툴**을 찾아 그것을 호출한다.
-> 접두사가 달라도 스킬 절차는 동일하다.
+기본 이름이 `wiki_sync` 인 MCP 툴을 호출한다.
 
 `drift.firstRun` 이 true 이고 `added` 가 전체 문서 수와 같은 것이 정상이다.
 
@@ -110,7 +122,7 @@ git rev-parse --show-toplevel 2>/dev/null || pwd
 - vault: <경로>
 - 인덱싱된 문서: 정본 N개 (html 단독 M개)
 
-이제 `/work-log:search <검색어>` 로 찾고, `/work-log:edit` 로 기록을 남길 수 있습니다.
+이제 search 스킬로 찾고, edit 스킬로 기록을 남길 수 있습니다.
 ```
 
 ## 주의

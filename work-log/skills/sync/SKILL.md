@@ -2,7 +2,6 @@
 name: sync
 description: "work-log vault 를 재스캔해 문서 인덱스를 갱신하고 drift 리포트를 보고한다. '인덱스 갱신해줘', 'work-log 동기화', 새 문서를 추가한 뒤 검색이 안 될 때, 문서 정리 상태를 점검할 때 사용. 기존 문서 파일은 절대 수정하지 않는다."
 allowed-tools: Bash, Read
-user-invocable: true
 ---
 
 # work-log 동기화
@@ -13,19 +12,18 @@ vault 를 전체 재스캔해 인덱스를 다시 만들고, 무엇이 바뀌었
 
 유저와의 모든 대화는 **한국어**로 진행한다.
 
+Claude Code에서는 `/work-log:sync`, Codex에서는 `$work-log:sync` 로 명시 호출할 수 있다.
+MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시작하는 기본 이름을 기준으로 찾는다.
+
 ## 안전 보장 (사용자에게 안심시켜도 되는 사실)
 
-- **sync 는 vault 에 0 바이트를 쓴다.** 인덱스는 vault 밖(`~/.cache/work-log/<vault해시>/index.json`)에 저장된다
+- **sync 는 vault 에 0 바이트를 쓴다.** 인덱스는 vault 밖(`$XDG_CACHE_HOME/work-log/<vault해시>/index.json`, 기본 `~/.cache`)에 저장된다
 - 기존 문서에 frontmatter 를 주입하지 않는다. 없는 문서는 제목·경로에서 메타를 **추론**해 인덱스에만 기록한다
 - `.obsidian`·`.trash`·`.git`·`node_modules` 는 스캔하지 않는다
 
 ## Step 1: 동기화 실행
 
-`mcp__plugin_work-log_work-log__wiki_sync` 를 호출한다 (인자 없음).
-
-> **툴 이름 주의**: 접두사 `mcp__plugin_work-log_work-log__` 는 `/mcp` 목록 기준이다.
-> 목록에 다르게 보이면 **`wiki_` 로 시작하는 이름의 툴**을 찾아 그것을 호출한다.
-> 접두사가 달라도 스킬 절차는 동일하다.
+기본 이름이 `wiki_sync` 인 MCP 툴을 호출한다 (인자 없음).
 
 
 전체 스캔 + 전체 해시 방식이다. 수백 개 문서 기준 수백 ms 걸린다.
@@ -65,13 +63,13 @@ vault 를 전체 재스캔해 인덱스를 다시 만들고, 무엇이 바뀌었
 
 ## Step 3: 마무리
 
-깨진 링크나 키 충돌이 있으면 고칠지 물어보고, 사용자가 원할 때만 `/work-log:edit` 로 넘긴다.
+깨진 링크나 키 충돌이 있으면 고칠지 물어보고, 사용자가 원할 때만 edit 스킬로 넘긴다.
 **스스로 문서를 고치지 않는다.**
 
 ## 오류 대응
 
 | 증상 | 원인 | 대응 |
 |------|------|------|
-| `스코프가 설정되지 않았습니다` | `.work-log.json` 없음 | `/work-log:init` 안내 |
+| `스코프가 설정되지 않았습니다` | work-log 설정 없음 | init 스킬 안내 |
 | `인덱스 락 획득 실패` | 다른 sync 가 진행 중 | 잠시 후 재시도 |
-| MCP 툴 자체가 없음 | 서버 미연결 | `/work-log:doctor` 안내 |
+| MCP 툴 자체가 없음 | 서버 미연결 | doctor 스킬 안내 |

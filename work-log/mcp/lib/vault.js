@@ -1,7 +1,7 @@
 /**
  * vault 스캔 · 파싱 · 경로 가드 · 안전 쓰기 · 인덱스 I/O.
  *
- * 원칙: sync 는 vault 에 0 바이트를 쓴다. 인덱스는 ~/.cache/work-log/<hash>/ 에 둔다.
+ * 원칙: sync 는 vault 에 0 바이트를 쓴다. 인덱스는 XDG cache(기본 ~/.cache)에 둔다.
  * vault 쓰기가 일어나는 유일한 경로는 writeDoc() 이다.
  */
 

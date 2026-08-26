@@ -7,8 +7,9 @@
  * 우선순위 (캐시 없이 매 호출마다 재해석):
  *   1. WORK_LOG_ROOT 환경변수 (절대경로일 때만 유효)
  *   2. cwd 에서 위로 올라가며 .work-log.json 탐색 (.git 경계까지 포함해 확인 후 정지)
- *   3. ~/.claude/work-log.json
- *   4. 없음 -> needsInit
+ *   3. $XDG_CONFIG_HOME/work-log/config.json (기본 ~/.config/work-log/config.json)
+ *   4. ~/.claude/work-log.json (기존 설치 호환)
+ *   5. 없음 -> needsInit
  */
 
 import fs from 'node:fs';
@@ -17,8 +18,23 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 
 export const CONFIG_BASENAME = '.work-log.json';
-export const GLOBAL_CONFIG = path.join(os.homedir(), '.claude', 'work-log.json');
 export const DEFAULT_EXCLUDES = ['.obsidian', '.trash', '.git', 'node_modules', '.wiki'];
+
+/** 클라이언트 중립 전역 설정과 기존 Claude 설정의 위치를 계산한다. */
+export function globalConfigPaths({ env = process.env, home = os.homedir() } = {}) {
+  const configuredHome = (env.XDG_CONFIG_HOME || '').trim();
+  const configHome = configuredHome && path.isAbsolute(configuredHome)
+    ? configuredHome
+    : path.join(home, '.config');
+  return {
+    global: path.join(configHome, 'work-log', 'config.json'),
+    legacy: path.join(home, '.claude', 'work-log.json'),
+  };
+}
+
+// 기존 import 사용자를 위한 기본 프로세스 기준 상수. resolveConfig 는 매 호출 다시 계산한다.
+export const GLOBAL_CONFIG = globalConfigPaths().global;
+export const LEGACY_GLOBAL_CONFIG = globalConfigPaths().legacy;
 
 /** 설정이 잘못됐을 때 조용히 다음 우선순위로 내려가지 않고 던지는 오류. */
 export class ConfigError extends Error {
@@ -33,8 +49,9 @@ function readJson(file) {
   let raw;
   try {
     raw = fs.readFileSync(file, 'utf8');
-  } catch {
-    return null; // 존재하지 않음 — 정상적인 miss
+  } catch (e) {
+    if (e.code === 'ENOENT' || e.code === 'ENOTDIR') return null; // 존재하지 않음 — 정상적인 miss
+    throw new ConfigError(`설정 파일 읽기 실패: ${file} (${e.message})`, file);
   }
   try {
     return JSON.parse(raw);
@@ -52,6 +69,7 @@ function readJson(file) {
 export function isPluginSource(dir) {
   return (
     fs.existsSync(path.join(dir, '.claude-plugin')) ||
+    fs.existsSync(path.join(dir, '.codex-plugin')) ||
     fs.existsSync(path.join(dir, 'mcp', 'server.js')) ||
     (fs.existsSync(path.join(dir, 'skills')) && fs.existsSync(path.join(dir, '.mcp.json')))
   );
@@ -120,8 +138,8 @@ function walkUp(startDir) {
  * vault 루트를 해석한다.
  * @returns {{scope,root,excludes,configSource,cwd}} 또는 {needsInit:true,...}
  */
-export function resolveConfig({ cwd = process.cwd(), env = process.env } = {}) {
-  const base = { cwd, home: os.homedir() };
+export function resolveConfig({ cwd = process.cwd(), env = process.env, home = os.homedir() } = {}) {
+  const base = { cwd, home };
 
   // 1. 환경변수 — 빈 문자열/공백/상대경로는 unset 취급.
   //    .mcp.json 의 ${WORK_LOG_ROOT:-} 는 unset 일 때 빈 문자열로 도착한다.
@@ -140,21 +158,26 @@ export function resolveConfig({ cwd = process.cwd(), env = process.env } = {}) {
   const found = walkUp(cwd);
   if (found) return { ...base, ...found };
 
-  // 3. 전역 설정
-  const global = fromConfigFile(GLOBAL_CONFIG);
+  // 3. 클라이언트 중립 전역 설정
+  const configPaths = globalConfigPaths({ env, home });
+  const global = fromConfigFile(configPaths.global);
   if (global) return { ...base, ...global };
 
-  // 4. 미설정
+  // 4. 기존 Claude 전역 설정 — 중립 설정이 없을 때만 호환 fallback.
+  const legacy = fromConfigFile(configPaths.legacy);
+  if (legacy) return { ...base, ...legacy };
+
+  // 5. 미설정
   return {
     ...base,
     needsInit: true,
     configSource: null,
-    hint: `설정이 없습니다. /work-log:init 을 실행하거나 ${GLOBAL_CONFIG} 를 만드세요.`,
+    hint: `설정이 없습니다. init 스킬을 실행하거나 ${configPaths.global} 를 만드세요.`,
   };
 }
 
 /** vault 별 인덱스 캐시 디렉토리. vault 안에는 아무것도 쓰지 않는다. */
-export function cacheDirFor(vaultRoot) {
+export function cacheDirFor(vaultRoot, { env = process.env, home = os.homedir() } = {}) {
   let real = vaultRoot;
   try {
     real = fs.realpathSync(vaultRoot);
@@ -162,7 +185,10 @@ export function cacheDirFor(vaultRoot) {
     /* 아직 없으면 원본 경로로 키를 만든다 */
   }
   const key = crypto.createHash('sha1').update(real).digest('hex').slice(0, 16);
-  const base = process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache');
+  const configuredHome = (env.XDG_CACHE_HOME || '').trim();
+  const base = configuredHome && path.isAbsolute(configuredHome)
+    ? configuredHome
+    : path.join(home, '.cache');
   return { dir: path.join(base, 'work-log', key), realRoot: real };
 }
 
