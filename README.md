@@ -79,7 +79,7 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 
 오버레이 플러그인이 설치되어 있으면 플래그 없이도 자동 감지된다.
 
-공통 플래그: `--reflect`(성찰 Phase 실행 — 기본 off), `--tier standard`(검증 티어 상향 강제 — 기본은 Spec 점수로 light/standard 자동 판정), `--hard`, `--no-tdd`. 워크플로우 종료 시 md Workflow Report가 profile `reportDir`에 아카이브된다.
+공통 플래그: `--reflect`(성찰 Phase 실행 — 기본 off), `--tier standard`(검증 티어 상향 강제 — 기본은 Spec 점수로 light/standard 자동 판정), `--codex none|mix|max`(Codex 사용 모드 — profile `codexMode`에 저장, 기본 mix. `max`는 서브에이전트까지 Codex luna/sol로 위임해 Claude 토큰 최소화), `--hard`, `--no-tdd`. 워크플로우 종료 시 md Workflow Report가 profile `reportDir`에 아카이브된다.
 
 워크플로우 외 스킬은 하네스를 직접 호출한다:
 
