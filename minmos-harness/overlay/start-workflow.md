@@ -1,4 +1,4 @@
-<!-- overlay-source: minmos-harness@2.0.0 -->
+<!-- overlay-source: minmos-harness@2.2.0 -->
 
 ## Base
 
@@ -16,7 +16,7 @@
 |------|------|----------|------|
 | `Phase 1 (작업 범위 수집)` | 직후 | **E2E 메인 플로우 수집** | 아래 §E2E 메인 플로우 수집 |
 | `Phase 4 (Plan 작성 + 리뷰)` | 내부: Plan Verification Loop | **Codex quota 폴백 보강** | 아래 §Plan 검증 루프 보강 |
-| `Phase 8 (품질 루프)` | 직후 | **Codex 품질 리뷰** | `references/codex-review.md` |
+| `Phase 8 (품질 루프)` | 직후 | **Codex 품질 리뷰** (검증 티어 light면 총 2회 상한 — §검증 티어 연동) | `references/codex-review.md` |
 
 ## Phase 치환
 
@@ -76,6 +76,19 @@ E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직
 패널 대체 시에도 **루프 카운터는 승계**한다 (리셋 없음, 최대 반복 상한 동일).
 
 **고지 문구**: "Codex quota 차단 감지 — Claude 다관점 패널로 대체해 계속 진행합니다 (`SKIPPED:CODEX_QUOTA_BLOCKED` 기록)."
+
+## 검증 티어 연동
+
+베이스 Phase 2가 판정한 검증 티어(`{STATE_FILE}`의 `## Verification Tier` 최종 티어, 없으면 `## Flags`의 `TIER`)를 오버레이 단계도 따른다.
+
+| 단계 | light | standard |
+|------|-------|----------|
+| Phase 1+ E2E 메인 플로우 수집 | 동일 (항상 질문) | 동일 |
+| Phase 4 Plan 검증 루프 보강 | quota 폴백 패널 그대로 — 패널 대체는 리뷰 수행으로 간주(베이스 승격 ⑤ 아님) | 동일 |
+| Phase 8 내부 e2e-test / e2e-test-loop | `--smoke` 실효 수준에 따라 `overlay/e2e-test.md` §smoke 분기 | 동일 (삽입 전부) |
+| Phase 8+ Codex 품질 리뷰 | **총 2회** (초회 + 재리뷰 1회), quota 폴백 패널 1 에이전트 | 총 4회 (초회 + 재리뷰 3회) |
+
+베이스 승격 ⑦(Phase 10 진입 직전 재평가)로 Phase 8을 standard 루프로 재진입한 경우: 재진입 루프에서 파일이 1회라도 수정됐으면(`modified == true`) Codex 품질 리뷰를 그 검증 트리에 대해 **1회 재실행**한다 — standard 규칙(REJECT 시 `codex-review.md`의 수정·재검증·재리뷰)을 따르되 총 4회 상한의 **잔여 횟수**만 쓰고, 잔여 0이면 `BLOCKED:CODEX_REVIEW`. 수정이 없었으면 기존 APPROVE가 유효하다.
 
 ## 상태 코드 추가
 

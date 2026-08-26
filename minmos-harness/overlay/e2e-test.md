@@ -1,4 +1,4 @@
-<!-- overlay-source: minmos-harness@2.0.0 -->
+<!-- overlay-source: minmos-harness@2.2.0 -->
 
 ## Base
 
@@ -22,7 +22,7 @@
 |------|------|----------|------|
 | `Step 1 (대상 API 수집)` | 직후 | **프로토콜 분류** — 변경 범위를 `REST` / `GRPC` / `MIXED` 로 분류 | `references/e2e-test-postmath.md` 의 "Step 2.1: 프로토콜 분류" |
 | `Step 2 (시나리오 구성)` | 직후 | **Status Code 의미적 정합성 검증** | `references/status-code-validation.md` |
-| `Step 2 (시나리오 구성)` | 직후 | **Edge Case Analyzer 호출** — `be-harness:edge-case-analyzer` 에이전트로 엣지 케이스 보강 | `references/e2e-test-postmath.md` 의 "Step 6" |
+| `Step 2 (시나리오 구성)` | 직후 | **Edge Case Analyzer 호출** — `be-harness:edge-case-analyzer` 에이전트로 엣지 케이스 보강. Step 2가 확정한 실효 수준이 `smoke`면 **생략** (§smoke 분기) | `references/e2e-test-postmath.md` 의 "Step 6" |
 | `Step 4 (서버 기동)` | 직후 | **gRPC 환경 준비** (분류가 `GRPC`/`MIXED`일 때만) | `references/grpc-testing.md` |
 
 ## Phase 치환
@@ -31,7 +31,22 @@
 |------|----------|
 | `Step 5 (요청 실행)` | 분류가 `GRPC`/`MIXED` 면 gRPC 호출 절차를 함께 사용한다 (`references/grpc-testing.md`). REST 부분은 베이스 그대로. |
 | `Step 6 (서버 종료)` | 서버 종료에 더해 **테스트 데이터 정리**를 수행한다 (`references/db-safety.md` 의 격리·정리 규칙) |
-| `Step 7 (리포트)` | 리포트 템플릿을 `references/e2e-report-templates.md` 로 치환. 판정 기준(`PASS`/`WARN`/`FAIL`)과 `UNCOVERED:{사유}` 표기는 베이스와 동일하게 유지한다 |
+| `Step 7 (리포트)` | 리포트 템플릿을 `references/e2e-report-templates.md` 로 치환. 판정 기준(`PASS`/`WARN`/`FAIL`)과 `UNCOVERED:{사유}`·`SMOKE_OMITTED` 표기, 의무 줄 `- 실행 수준:`과 마지막 줄 요약 형식은 베이스와 동일하게 유지한다 |
+
+## smoke 분기 (`--smoke`, 검증 티어 light)
+
+분기 기준은 요청 플래그가 아니라 **베이스 Step 2가 확정한 실효 수준**이다 (`smoke` / `full` / `full(smoke 미적용: {사유})`). 실효 수준이 `full(smoke 미적용)`이면 오버레이 삽입은 standard와 완전히 같다.
+
+| 오버레이 단계 | 실효 `smoke` | 실효 `full` / `full(smoke 미적용)` |
+|--------------|-------------|-----------------------------------|
+| Step 1+ 프로토콜 분류 | 유지 | 유지 |
+| Step 2+ Status Code 정합성 검증 | 유지 | 유지 |
+| Step 2+ Edge Case Analyzer | **생략** — 추가 케이스로 축소가 무효화되지 않도록. 리포트의 SELF-* 행 대신 `자체 도출 케이스: 생략(smoke)` 한 줄 | 유지 |
+| Step 4+ gRPC 환경 준비 | 유지 (분류 조건 동일) | 유지 |
+| Step 6 테스트 데이터 정리 | 유지 | 유지 |
+| Step 7 리포트 치환 | `- 실행 수준: smoke` 의무 + SELF-* `생략(smoke)` | `- 실행 수준:` 의무 |
+
+smoke에서도 `BASE-01` + Spec `EC-*` 전수, Status Code 정합성, 로컬 DB 전용 규칙, 데이터 정리는 축소하지 않는다.
 
 ## 추가 규칙
 

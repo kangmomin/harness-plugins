@@ -94,16 +94,16 @@ be-harness Phase 구성에 오버레이 델타가 얹힌 실행 흐름:
 Pre-flight: profile 점검 (be) + .env / Apidog MCP / PostgreSQL MCP (오버레이)
 Phase 1 : Spec 수집 (/be-harness:request + request 오버레이, Plan 모드)
 Phase 1+: E2E 메인 플로우 수집                          ← 오버레이 삽입
-Phase 2 : 난이도 산정 (1-10)
+Phase 2 : 난이도 산정 (1-10) + 검증 티어 판정 (light / standard)
 Phase 3 : 실행 전략 판정 (sequential / parallel-slices / fullstack)
 Phase 4 : Plan 작성 → Claude 다관점 보강 → Codex 검증 루프  (quota 시 Claude 패널 대체 ← 오버레이)
 Phase 5 : 브랜치 + 상태 파일 + implementation-notes + 회귀 baseline → 자율 실행 시작
 Phase 6~11: 자율 실행 (묻지 않고 완주)
-  6 TDD 구현 → 7 빌드 체크 → 8 품질 루프(E2E 포함)
+  6 TDD 구현 → 7 빌드 체크 → 8 품질 루프(E2E 포함 — light 티어면 축소·smoke)
   8+ Codex 품질 리뷰                                    ← 오버레이 삽입
   9 Apidog 문서 동기화 (workflow-doc-sync)              ← 오버레이 치환
-  10 PR → 11 회고
-Phase 12: impl-notes HTML 렌더링 → 최종 보고
+  10 PR → 11 성찰 (`--reflect` 시에만)
+Phase 12: 최종 보고 → md Workflow Report 아카이브 (workflow_archive.py)
 ```
 
 > `--analyze` / `--verify` 모드는 be-harness 의 `references/analyze-verify-modes.md` 를 그대로 따른다.
@@ -147,6 +147,6 @@ Phase 12: impl-notes HTML 렌더링 → 최종 보고
 | `/minmos-harness:db-gen-committed-mm` | `/minmos-harness:db-gen-committed` |
 | `/minmos-harness:pagenation-mm` | `/minmos-harness:pagenation` |
 
-**기능 손실은 없다.** 삭제된 스킬의 Post-Math 특화 절차는 `overlay/references/` 로 이관되었고, 범용 절차(4관점 simplify 루프, E2E 자기 점검 HTML 리포트, Implementation Notes)는 be-harness 베이스로 승격되어 be-harness 단독 사용자도 쓸 수 있게 되었다.
+**기능 손실은 없다.** 삭제된 스킬의 Post-Math 특화 절차는 `overlay/references/` 로 이관되었고, 범용 절차(4관점 simplify 루프, E2E 자기 점검 md 리포트, Implementation Notes)는 be-harness 베이스로 승격되어 be-harness 단독 사용자도 쓸 수 있게 되었다.
 
 **해야 할 일**: `be-harness` 를 설치하고 `/minmos-harness:init` 을 다시 실행한다. `/be-harness:*` 를 직접 호출한다면 오버레이 설치 단계(경로 B)에서 "설치"를 선택한다.
