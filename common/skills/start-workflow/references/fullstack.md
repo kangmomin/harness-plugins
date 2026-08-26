@@ -24,8 +24,12 @@
 |--------|------|------|
 | `--hard` | `-h` | feature 브랜치 생성과 PR 생성을 건너뛰고 현재 브랜치에서 마무리한다. |
 | `--no-tdd` | | Phase 6.1(계약 테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. |
+| `--reflect` | | Phase 10(회고)을 실행한다. 미지정 시 Phase 10은 `SKIPPED:REFLECT_NOT_REQUESTED` (기본 off). |
 
-`$ARGUMENTS`에 `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`).
+`$ARGUMENTS`에 `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`), `--reflect`가 있으면 `$REFLECT = true` (기본값 `false`).
+`--reflect`는 이 오케스트레이터가 **소비**한다 — 하위 도메인 에이전트에 전달하지 않는다 (풀스택은 하위 워크플로우를 중첩 실행하지 않으므로 회고는 Phase 10 한 곳뿐). `--tier standard`는 무시한다 — 풀스택은 계약 변경 자체가 리스크 높음이므로 검증 티어가 항상 `standard`(축소 없음)다.
+
+**재개 규칙**: 컨텍스트 요약·세션 재개 등으로 CLI 인자를 잃은 뒤 이어갈 때는 `{STATE_FILE}`의 `## Flags`가 **유일한 기준**이다 (`MODE: fs`면 이 문서의 절차를 이어간다). CLI 인자와 충돌하면 기록값이 우선하며 한 줄로 고지한다.
 
 ## Language Rule
 
@@ -72,7 +76,8 @@
 | 7 | 각 도메인 품질 루프 | 영역별 안정화 |
 | 8 | 읽기 전용 리뷰 에이전트 | 통합 검증 |
 | 9 | 오케스트레이터 + PR 스킬 | 최종 커밋/PR |
-| 10 | workflow-reflection | 회고 및 정리 |
+| 10 | workflow-reflection | 회고 (조건부 — `--reflect` 시) |
+| 11 | 오케스트레이터 | 최종 보고 + 정리 (항상) |
 
 ## 상태 추적
 
@@ -95,7 +100,7 @@ FE/BE 구현 에이전트는 각 도메인의 작업량으로 등급을 따로 �
 ## 자율 실행 규칙
 
 - Phase 1~4: 유저와 기능/계약/Plan을 합의한다.
-- **Phase 5 이후 ~ Phase 10 완료까지** 자동 실행한다.
+- **Phase 5 이후 ~ Phase 11 완료까지** 자동 실행한다.
 - 멈춰야 하는 지점은 계약 불일치, 권한 부족, 테스트 불가, 또는 유저 승인 없이는 바꿀 수 없는 요구사항뿐이다.
 
 ### Spec 외 변경 금지 원칙
@@ -184,6 +189,8 @@ for iteration in 1..5:
 
 > Phase 5 진입 시 MUST: `contract-templates.md`의 "상태 파일 템플릿"대로 `{STATE_FILE}`을 작성하고,
 > `fullstack-tdd.md`의 "TDD 적용 판정"과 "Phase 5: 도메인별 회귀 Baseline 수집"을 수행한다.
+
+상태 파일의 `## Flags`(`MODE: fs / HARD_MODE / TDD / REFLECT / TIER: standard(고정) / RUN_ID / START_SHA`)는 **최초 작성 시 1회** 기록한다. `RUN_ID`·`START_SHA`는 템플릿의 생성 명령으로 만들고 이후 재생성·수정하지 않는다 (풀스택은 Test Baseline이 도메인별이라 `START_SHA`가 유일한 시작 커밋 기록이다).
 
 여기가 **유저와 대화 가능한 마지막 지점**이다 — baseline 수집이 실패하면 자율 실행 진입 전에 선택지를 제시한다.
 TDD 판정은 **도메인별로 따로** 한다. BE만 SKIP되고 FE는 활성일 수 있다.
@@ -279,7 +286,9 @@ Phase 8.1이 보고한 불일치를 먼저 확인한 뒤 위 항목을 점검한
 - PR 본문은 `contract-templates.md`의 "PR 본문 순서"를 따른다.
 - `--hard`면 push/PR 단계를 생략하고 현재 브랜치에서 종료한다.
 
-## Phase 10: 회고 + 정리
+## Phase 10: 회고 (조건부 — `--reflect` 시)
+
+`$REFLECT = false`면 이 Phase 전체를 `SKIPPED:REFLECT_NOT_REQUESTED`로 기록하고 Phase 11로 간다 (보완점은 회고 산출물이므로 함께 생략). 회고는 매 작업이 아니라 주기적으로 `--reflect`를 붙여 실행하기를 권장한다.
 
 1. `workflow-reflection`으로 회고를 남긴다 (변경량 기준 model/effort, 상태 파일 갱신).
 2. 보완점은 **대상 도메인별로** 분류한다: BE → `.claude/be-harness/...`, FE → `.claude/fe-harness/...`, 풀스택 공통(계약·Feature Matrix 등) → `.claude/common/skills/start-workflow.md`. 플러그인 원본은 수정하지 않는다.
@@ -288,24 +297,41 @@ Phase 8.1이 보고한 불일치를 먼저 확인한 뒤 위 항목을 점검한
    > 2. **로컬 저장 + 플러그인 레포 PR** — 도메인별 submit-feedback 호출.
    > 3. **건너뛰기**."
 4. 옵션 2: 로컬 저장 먼저 → 도메인별(BE/FE) 후보 분리 → 각 도메인마다 `/common:submit-feedback`을 대상 플래그(`--be` / `--fe`)와 함께 **따로** 호출. 도메인별로 별도 PR이 생성된다. 각 호출은 독립적 — 한쪽이 `SKIPPED:*`/FAILED여도 다른 쪽은 계속 진행. PR URL과 SKIP 사유를 모두 수집해 최종 보고서에 병기. 풀스택 공통 항목은 로컬 저장만 하고 PR 대상에서 제외한다.
-5. 최종 보고: `contract-templates.md`의 "최종 보고 형식"을 따른다.
-6. 정리: `{STATE_FILE}`의 모든 Phase를 `DONE`/`SKIPPED:{사유}`로 갱신, `Remaining Phases`를 `없음`으로. 기본은 보관, 사용자 요청 시에만 `rm -f {STATE_FILE}`.
+
+## Phase 11: 최종 보고 + 정리 (항상 실행)
+
+`{WORK_REPORT}` = `/tmp/workflow-report-{RUN_ID}.md`. `{REPORT_DIR}` = be profile(`.claude/be-harness.local.md`)의 `reportDir` → 없으면 fe profile(`.claude/fe-harness.local.md`)의 `reportDir` → 없으면 `.claude/harness-reports`.
+
+1. **보고서 1회 Write**: `contract-templates.md`의 "최종 보고 형식"(📋 Task Report 머리글 1~6)대로 `{WORK_REPORT}`를 작성한다. `### 6. 회고`는 Phase 10이 `DONE`이면 보완점 항목(도메인 분류 · 반영 방식 결정 · submit-feedback PR URL / SKIP 사유, 없으면 `없음`)을, 그 외에는 `SKIPPED:REFLECT_NOT_REQUESTED` 한 줄을 적는다. 상태 파일의 표를 복제하지 않는다 — 상세는 아카이브 부록(상태 파일 전문)이 담는다.
+2. **TDD 미해결 결정** (4.1 항목이 있을 때만): 결정을 받는 즉시 `{STATE_FILE}`의 `## Final Decisions`에 한 줄 append (항목 | 결정 | 시각). 재개 시 기록된 항목은 다시 묻지 않는다.
+3. **상태 파일 마감**: 모든 Phase를 `DONE`/`SKIPPED:{사유}`로 갱신, `Remaining Phases`를 `없음`으로.
+4. **md 아카이브** — 마감 **후**에만 실행한다 (결정 내용이 부록에 반영되도록):
+
+   ```bash
+   python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py report \
+     --src {WORK_REPORT} --state {STATE_FILE} --run-id {RUN_ID} \
+     --report-dir {REPORT_DIR} --task {작업-요약-kebab-case} --start-sha {START_SHA} \
+     --require-headings "1. Pre-Review (Plan),2. Implementation Details,3. Final Convention Review,4. 테스트 / 회귀,5. Status,6. 회고"
+   ```
+
+   `START_SHA`가 `없음`이면 `--start-sha`를 생략한다 (부록 A 커밋 목록·`touched_paths`가 생략된다). stdout의 `경로:` 값을 `## Artifacts`의 `workflow-report`에 기록하고, `상태: DEGRADED({사유})`면 `Phase Results`에 `script_fallback(workflow_archive:{사유})`를 기록한다. exit ≠ 0이면 폴백: `cat {WORK_REPORT} {STATE_FILE} > {REPORT_DIR}/{YYYYMMDD}-{task}-{RUN_ID}-workflow-report.md`로 수동 저장하고 `script_fallback(workflow_archive:exit {code})`를 기록한다.
+5. 채팅 출력은 **아카이브 경로 + §1 요약 + 유저 결정이 필요한 항목(4.1, `[Assumption]`)만**. 상태 파일은 기본 보관, 사용자 요청 시에만 `rm -f {STATE_FILE}`.
 
 ## 상태 코드
 
 | 코드 | 의미 |
 |------|------|
 | `DONE` / `IN_PROGRESS` / `PENDING` | Phase 진행 상태 |
-| `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 |
+| `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 (예: `SKIPPED:REFLECT_NOT_REQUESTED` — `--reflect` 미지정 시 Phase 10) |
 | `BLOCKED:{사유}` | 진행 불가 — 사용자 개입 필요 (예: `BLOCKED:MAX_ITERATIONS`, `BLOCKED:NO_VALID_RED`, `BLOCKED:TEST_NOT_GREEN`, 계약 불일치) |
 | `PASS` / `WARN` / `FAIL` | 도메인별 테스트 판정 |
 
-TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`deferred_e2e`·`regression`·`pre_existing`·`new_red`·`flaky`)는 상태 코드가 아니라 **데이터**다. `## TDD Test Map`과 회귀 대조 표에만 쓴다 (`docs/skill-authoring.md` §5).
+TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`deferred_e2e`·`regression`·`pre_existing`·`new_red`·`flaky`)는 상태 코드가 아니라 **데이터**다. `## TDD Test Map`과 회귀 대조 표에만 쓴다 (`docs/skill-authoring.md` §5). `script_fallback({스크립트}:{사유})`도 같은 데이터 진단으로 `Phase Results` 셀에만 쓴다.
 
 ## References
 
 | 파일 | 로드 시점 |
 |------|----------|
-| `contract-templates.md` | Phase 1, 2, 3, 5, 9, 10 (템플릿·리뷰 기준) |
+| `contract-templates.md` | Phase 1, 2, 3, 5, 9, 11 (템플릿·리뷰 기준) |
 | `fullstack-tdd.md` | Phase 5 (TDD 판정·baseline), Phase 6 진입 시 |
 | `fullstack-agent-prompts.md` | Phase 6.1·6.2·8.1 진입 시 |
