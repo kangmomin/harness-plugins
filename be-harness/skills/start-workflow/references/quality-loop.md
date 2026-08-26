@@ -1,6 +1,7 @@
 > 이 문서는 `start-workflow` 스킬의 Phase 8(품질 루프)에서 로드된다. 단독 실행 금지.
 > `{STATE_FILE}`, `{buildCommand}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
 > 각 프롬프트의 "남은 Phase" 목록은 예시다 — 실제 값은 상태 파일 `Remaining Phases` 기준으로 치환한다 (예: `--reflect` 미지정 시 Phase 11 제외).
+> `## Flags`의 `CODEX: max`면 읽기 전용 단계(8.2+8.3 스캐너 · 8.4 · 8.8)는 Codex luna, 수정 단계(8.5 · 8.7)는 Codex sol로 위임하고 러너(8.6)에는 §8 포인터 1줄을 추가한다 — 매핑·호출 계약: `references/codex-mode.md`.
 
 # Phase 8: 품질 루프 상세 (병렬 스캔 → 통합 수정 → 순차 실행 → Read-back)
 

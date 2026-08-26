@@ -74,7 +74,7 @@ Spec 직후 **코드 복잡도(A)** 와 **영향 범위·회귀 리스크(B)** �
 | 단계 | standard | light |
 |------|----------|-------|
 | Phase 4.2 다관점 Plan 보강 | 3에이전트 × 2배치 | **1에이전트 3관점** (엣지 케이스 · 기존 코드 영향 · 더 단순한 경로) |
-| Phase 4.3 Codex Plan 루프 `{PLAN_MAX}` | 5 | **2** (2회 소진 시 승격 ①) |
+| Phase 4.3 Plan 검증 루프 `{PLAN_MAX}` | 5 | **2** (2회 소진 시 승격 ①) |
 | Phase 8 품질 루프 `{QL_MAX}` | 3 | **2** |
 | Phase 8.2 simplify | 통합 스캐너 (simplify + convention) | `SKIPPED:TIER_LIGHT` — 통합 스캐너를 **convention 전용 프롬프트**로 호출 (`quality-loop.md`) |
 | Phase 8.6 E2E | `e2e-test-loop` (full, 최대 5회) | `e2e-test-loop --smoke` (BASE-01 + EC-* 전수, 최대 3회) |
@@ -87,11 +87,11 @@ Spec 직후 **코드 복잡도(A)** 와 **영향 범위·회귀 리스크(B)** �
 
 | # | 시점 | 트리거 | 효과 |
 |---|------|--------|------|
-| ① | Phase 4.3 | Codex CONCERN/REJECT로 light 상한 2회 소진 (상한 평가 전에 판정) | `{PLAN_MAX}` = 5 복원, iteration·동일 이슈 카운터 승계(3회차부터). 4.2는 재실행하지 않음 |
+| ① | Phase 4.3 | 리뷰어 CONCERN/REJECT로 light 상한 2회 소진 (상한 평가 전에 판정) | `{PLAN_MAX}` = 5 복원, iteration·동일 이슈 카운터 승계(3회차부터). 4.2는 재실행하지 않음 |
 | ② | Phase 6.2 완료 직후, Phase 7 진입 전 | 변경 소스 파일 > 3 **또는** 구현 결과에서 금지 조건이 새로 드러남 (집계 규칙: 아래) | 이후 Phase 7·8 전부 standard |
 | ③ | Phase 8.1 회귀 대조 | `regression` ≥ 1, 또는 회귀 판정 불가(러너 완주 N / `UNPARSED` 잔존을 오케스트레이터도 분류 못 함) | `{QL_MAX}` = 3 복원. 승격 이후 **시작되는** 단계부터 standard — 같은 iteration의 8.6부터 full E2E. 회귀·판정 불가 = 테스트 판정 FAIL이므로 다음 iteration이 보장되며, 복원된 상한에서도 미PASS면 기존대로 `BLOCKED:TEST_NOT_GREEN`. 루프 후 8.8 Read-back 실행 |
 | ④ | Phase 5 baseline 수집 | 수집 실패 (`수집 실패 — regression 판정 불가` 선택) | 회귀 안전망 부재 → standard |
-| ⑤ | Phase 4.3 | `CODEX-UNAVAILABLE` (light는 Codex 검증이 유일한 외부 리뷰) | standard 기록 후 기존 규칙대로 진행. 특화 하네스의 quota 폴백 패널은 리뷰 수행으로 간주(승격 아님) |
+| ⑤ | Phase 4.3 | `CODEX-UNAVAILABLE` = Claude 패널 실패 (유효 verdict 3개 미달 — `references/codex-mode.md` §6) | standard 기록 후 기존 규칙대로 진행. Codex 호출 실패의 패널 폴백(§7)은 리뷰 수행으로 간주(승격 아님) |
 | ⑥ | Phase 8.6 E2E | (a) `BLOCKED:MAX_ITERATIONS` · `BLOCKED:NO_PROGRESS` 종료 (b) e2e-test가 `실행 수준: full(smoke 미적용: …)` 보고 (실행 가능 smoke 케이스 0건 · EC 표 없음 = 검증 근거 부족) | standard (`{QL_MAX}` = 3) + **현재 iteration 종료 후 standard iteration을 최소 1회 추가** (탈출 조건 평가는 그 뒤부터 — simplify·full E2E가 반드시 1회 실행됨) |
 | ⑦ | 각 품질 루프 iteration 종료 시 + Phase 10 진입 직전 (특화 하네스 Codex 리뷰 수정 반영 후 포함) — **최종 티어가 light인 동안에만 평가** (승격 = latch, 1회) | ②와 동일 집계 재평가 (변경 소스 파일 > 3 또는 금지 조건 발견) | standard + standard iteration 최소 1회 추가. Phase 10 직전이면 Phase 8을 **standard 루프로 재진입** (새 루프, 상한 `{QL_MAX}` = 3, 종료 조건 동일, 미PASS → `BLOCKED:TEST_NOT_GREEN`), 이력 `⑦: Phase 8 재진입`. 재진입 루프 종료 시 `검증 트리: {git rev-parse HEAD} (dirty: Y/N)` 기록. 특화 하네스 Codex 리뷰가 있는 경우: 재진입 루프에서 파일이 1회라도 수정됐으면 그 트리에 대해 리뷰를 1회 재실행(잔여 횟수 내), 수정 없음 → 기존 APPROVE 유효. 이후 Phase 10 — latch라 ⑦ 재평가 없음 |
 

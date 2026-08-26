@@ -2,7 +2,7 @@
 name: start-workflow
 description: "전체 개발 워크플로우를 자동화한다. Build 모드(기본): 요청 분석 → 구현 → 품질 루프 → PR. Analyze 모드(--analyze): 코드 분석 보고서. Verify 모드(--verify): 보안·성능·버그·안정성 검증. '워크플로우 시작', '기능 구현해줘(전 과정 자동)', '코드 분석/검증해줘' 요청 시 사용."
 allowed-tools: AskUserQuestion, Read, Write, Edit, Glob, Grep, Bash, Agent, EnterPlanMode, ExitPlanMode, Skill
-argument-hint: <작업 설명> | --analyze [경로] | --verify [경로]
+argument-hint: <작업 설명> [--codex none|mix|max] | --analyze [경로] | --verify [경로]
 user-invocable: true
 ---
 
@@ -32,6 +32,7 @@ user-invocable: true
 | `--no-tdd` | | Phase 6.1(테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. 검증 티어는 standard 강제. |
 | `--reflect` | | Phase 11(성찰)을 실행한다. 미지정 시 Phase 11은 `SKIPPED:REFLECT_NOT_REQUESTED` (주기 실행 권장 — 워크플로우 5~10회마다 1회). |
 | `--tier standard` | | Phase 2 판정과 무관하게 검증 티어를 standard로 강제한다 (light 축소 비활성). light 강제 플래그는 없다. |
+| `--codex {none\|mix\|max}` | | Codex 사용 모드를 지정하고 profile `codexMode`에 저장한다 (모든 모드 공통). 미지정 시 profile → 질문(권장 `mix`). 정의·호출 계약·실패 정책: `references/codex-mode.md` |
 | `--analyze` | `-a` | **Analyze 모드**. 전체 또는 특정 범위의 코드를 분석하여 보고서를 생성한다. |
 | `--verify` | `-v` | **Verify 모드**. 보안·성능·잠재 버그·안정성을 검증하고 PASS/WARN/FAIL 판정한다. |
 
@@ -60,12 +61,12 @@ user-invocable: true
 ## 상태 추적
 
 워크플로우 시작 시 `{STATE_FILE}`을 새로 만들고, Phase 진입/완료 때마다 갱신한다 (오케스트레이터도 Phase owner로 기록).
-상태 파일은 `Flags` / `Current Phase` / `Phase Assignments` / `Remaining Phases` / `Verification Tier` / `Phase Results` 섹션을 항상 포함한다 (템플릿: `references/templates.md`).
+상태 파일은 `Flags` / `Current Phase` / `Phase Assignments` / `Remaining Phases` / `Verification Tier` / `Codex Runtime` / `Phase Results` 섹션을 항상 포함한다 (템플릿: `references/templates.md`).
 
 - 에이전트 생성 전: 해당 Phase를 `IN_PROGRESS`로 갱신
 - 완료 후: `DONE` / `SKIPPED:{사유}` / `BLOCKED:{사유}` 와 결과 기록
 - 모든 에이전트 프롬프트에 상태 파일 경로, 현재 Phase, 남은 Phase, 배정 model/effort를 포함
-- `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·RUN_ID·START_SHA)는 컨텍스트 요약·세션 재개로 CLI 인자를 잃은 뒤 이어갈 때 **유일한 기준** — CLI 인자와 충돌하면 기록값 우선 + 고지. `RUN_ID`는 Phase 5에서 1회 생성하며 재생성하지 않는다.
+- `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·RUN_ID·START_SHA)는 컨텍스트 요약·세션 재개로 CLI 인자를 잃은 뒤 이어갈 때 **유일한 기준** — CLI 인자와 충돌하면 기록값 우선 + 고지. `RUN_ID`는 Phase 5에서 1회 생성하며 재생성하지 않는다.
 
 ### Model / Effort 선택 규칙
 
@@ -80,16 +81,17 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 | 이해·요약 | 모듈 동작 요약, 코드 흐름 설명, Phase 8.8 복원 | sonnet / medium |
 | 판단·구현 | 코드 수정, 리뷰 판정(Phase 8.4 scope 등), 설계 결정 | 아래 등급표 적용 |
 
-| 등급 | 기준 | Claude 계열 | Codex 계열 | effort |
-|------|------|-------------|------------|--------|
-| Simple | 난이도 1-3, 1-3개 파일, 문서/단순 수정 | sonnet | gpt-5.3-codex-spark | low |
-| Standard | 난이도 4-6, 일반 구현/리뷰/테스트 수정 | sonnet | gpt-5.3-codex | medium |
-| Complex | 난이도 7-8, 다중 레이어/API/DB/계약 영향 | opus | gpt-5.4 | high |
-| Critical | 난이도 9-10, 보안/데이터 마이그레이션/대규모 리팩토링 | opus | gpt-5.5 | xhigh |
+| 등급 | 기준 | model | effort |
+|------|------|-------|--------|
+| Simple | 난이도 1-3, 1-3개 파일, 문서/단순 수정 | sonnet | low |
+| Standard | 난이도 4-6, 일반 구현/리뷰/테스트 수정 | sonnet | medium |
+| Complex | 난이도 7-8, 다중 레이어/API/DB/계약 영향 | opus | high |
+| Critical | 난이도 9-10, 보안/데이터 마이그레이션/대규모 리팩토링 | opus | xhigh |
 
 읽기 전용 리뷰는 기본 `Standard`, 보안/데이터 정합성/계약 변경 검토는 `Complex` 이상.
 코드 수정 에이전트는 담당 파일 수와 실패 반복 횟수에 따라 한 단계 높일 수 있다.
 검증·리뷰의 **판정**을 탐색·이해 작업으로 분류해 강등하지 않는다 (검출력 보존. 유일한 예외: 사망 복구 2차 재시도의 1단계 강등 — "축소 실행 내역"으로 고지).
+등급표는 Claude 경로에만 적용한다 — `codexMode: max`의 실행 주체·모델(Codex luna/sol)과 리뷰어 effort는 `references/codex-mode.md`가 정의한다.
 
 ## 자율 실행 규칙
 
@@ -128,7 +130,7 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 
 서브 에이전트가 결과 없이 종료(오류·세션 한계)하면 MUST: `references/agent-prompts.md`의 "공통 규약: 에이전트 사망 처리"를 따른다 (미로드 상태면 해당 섹션을 Read).
 요약: Phase당 최대 2회 재시도(동일 조건 1회 → model 1단계 강등 1회) → 그래도 실패 시 구현·수정류는 `BLOCKED:AGENT_DIED` 보고 후 중단, 격리 필수 단계(8.8)는 `SKIPPED:AGENT_DIED`, 그 외는 오케스트레이터 축소 폴백(`degraded_fallback` 기록) 후 계속. 세션 한계 사망 2회 누적 시 검증 위임(8.4·8.8)을 최후 보존한다.
-Codex 호출 실패는 이 규약 대상이 아니다 — Phase 4.3의 `CODEX-UNAVAILABLE` 처리(특화 하네스는 해당 오버레이 규약)를 따른다.
+Codex 호출 실패는 이 규약 대상이 아니다 — `references/codex-mode.md` §7 실패 정책(latch·재시도·Claude 폴백)을 따르고, Claude 폴백 에이전트부터 이 규약을 적용한다.
 
 ### Implementation Notes (라이브 판단 기록)
 
@@ -153,6 +155,9 @@ Codex 호출 실패는 이 규약 대상이 아니다 — Phase 4.3의 `CODEX-UN
 
 profile이 없으면 안내 후 종료한다:
 > "`.claude/be-harness.local.md` 가 없습니다. 먼저 `/be-harness:init`을 실행하세요."
+
+**Codex 모드 resolve** (`references/codex-mode.md` §2): 재개면 상태 파일 `## Flags`의 `CODEX`가 기준(`--codex` 무시). 신규면 `--codex` > profile `codexMode` > (대화형) 3지선다 질문 / (비대화형) `mix` ephemeral — 명시 입력만 profile에 기록하고, 값은 exact `none|mix|max`로 검증한다.
+`none`이 아니면 도구 목록에 `mcp__codex__codex` 존재를 확인한다 — 없으면 `$CODEX_RUNTIME = fallback(mcp_missing)` + 고지(profile 불변). `max`이고 세션 모델이 opus/fable 계열이 아니면 1줄 고지한다.
 
 ### 2. SKIP 예정 Phase 사전 경고
 
@@ -264,13 +269,13 @@ Spec 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 �
 종합: REJECT 1개+ → 해당 이슈를 Plan에 반영. CONCERN → 타당한 항목만 자동 반영.
 → 보강된 Plan을 **Plan v1 (검증 루프 입력)**으로 확정.
 
-### Phase 4.3: Plan Verification Loop (Codex 검증, 최대 {PLAN_MAX}회)
+### Phase 4.3: Plan Verification Loop (최대 {PLAN_MAX}회)
 
-Plan은 Codex 검증 루프를 통과해야 확정된다.
+Plan은 검증 루프를 통과해야 확정된다. **리뷰어 = `codexMode`** (`references/codex-mode.md` §1·§6 — `mix`/`max`: Codex sol, `none`: Claude 3관점 패널). 첫 dispatch 직전에 codex-mode.md를 Read한다.
 
 ```
 for iteration in 1..{PLAN_MAX}:
-  ① Codex Plan 리뷰 (Architect 관점) — stateless 보완을 위해 매회 전달:
+  ① Plan 리뷰 (Architect 관점, 리뷰어 = codexMode) — stateless 보완을 위해 매회 전달:
      Spec 전문 / Plan vN 전문 / 실행 전략 / 난이도 근거
      / (N≥2) 이전 iteration Diff 요약 + 기각 피드백·사유
      리뷰 관점: Spec-Plan 추적성, 레이어 책임 분리, 파일 소유권 충돌,
@@ -285,16 +290,12 @@ for iteration in 1..{PLAN_MAX}:
 
 | 종료 조건 | 결과 |
 |----------|------|
-| Codex `APPROVE` | **PROCEED** → Phase 4.4 |
+| 리뷰어 `APPROVE` | **PROCEED** → Phase 4.4 |
 | 사용자가 명시적으로 루프 종료 지시 | **USER-INTERRUPTED** → 잔존 이슈 기록 후 진행 |
-| Codex 사용 불가 환경 | **CODEX-UNAVAILABLE** → 사유를 상태 파일에 기록하고 진행 (light면 승격 ⑤ → standard) |
+| Claude 패널 실패 (유효 verdict 3개 미달 — codex-mode.md §6) | **CODEX-UNAVAILABLE** → 사유를 상태 파일에 기록하고 진행 (light면 승격 ⑤ → standard). Codex 호출 실패 자체는 §7대로 패널 폴백이며 이 코드가 아니다 |
 | `{PLAN_MAX}`회 도달, 미APPROVE | **BLOCKED:MAX_ITERATIONS** → 아래 선택지 제시 (light는 상한 평가 전에 승격 ① → `{PLAN_MAX}` = 5로 계속) |
 
-`{PLAN_MAX}`회 도달 시 선택지:
-> "Plan 검증 루프가 {PLAN_MAX}회에 도달했습니다. 미해결 이슈: {요약}
-> 1. 현재 Plan으로 진행 — 잔존 이슈를 상태 파일에 기록하고 Phase 4.4로
-> 2. 루프 계속 — 5회 추가 반복
-> 3. 중단 — 워크플로우 종료"
+`{PLAN_MAX}`회 도달 시 선택지: "Plan 검증 루프가 {PLAN_MAX}회에 도달했습니다. 미해결 이슈: {요약} — 1. 현재 Plan으로 진행(잔존 이슈를 상태 파일에 기록하고 Phase 4.4로) 2. 루프 계속(5회 추가 반복) 3. 중단(워크플로우 종료)"
 
 안전장치:
 - **동일 이슈 3회 반복 지적** → 사용자에게 보고하고 판단 위임 (응답 후 재개/종료)
@@ -313,7 +314,7 @@ Plan의 파일 목록으로 금지 조건을 재점검한다(발견 시 즉시 s
 **상태 파일 생성**:
 
 > Phase 5 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고
-> ① "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다. Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, 실행 전략, (parallel-slices 시) Slices를 복사해 넣고, `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·RUN_ID·START_SHA)와 `## Verification Tier`를 기록한다.
+> ① "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다. Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, 실행 전략, (parallel-slices 시) Slices, **Phase 4.3의 `Plan Verification Log`**를 복사해 넣고, `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·RUN_ID·START_SHA)·`## Verification Tier`·`## Codex Runtime`(`$CODEX_RUNTIME` 값 그대로 — `active`로 초기화하지 않음)을 기록한다.
 > ② "Implementation Notes 라이브 파일 초기화" 템플릿대로 `{IMPL_NOTES}`를 생성한다 (기존 파일 덮어쓰기).
 
 **회귀 Baseline 수집 (TDD 활성 시)**:
@@ -343,7 +344,7 @@ TDD SKIP 판정 시 사유를 `## Test Baseline`에 기록하고, 이후 Phase 6
 
 Spec의 추적 ID(`AC-nn`·`EC-nn`·`RC-nn`)를 근거로 **실패하는 테스트를 먼저 작성**한다. 근거 표 밖의 테스트는 작성하지 않는다.
 
-- `sequential`: `general-purpose` 1개가 `/be-harness:unit-test --red` 실행
+- `sequential`: `general-purpose` 1개가 `/be-harness:unit-test --red` 실행 (`codexMode: max`: 러너 프롬프트에 codex-mode.md §8 포인터 1줄, 테스트·스텁 작성 리프는 Codex sol — `references/tdd.md`)
 - `parallel-slices`: 슬라이스별 에이전트가 테스트·스텁만 작성 → **오케스트레이터가 배리어에서 1회 글로벌 Red 검증 후 기록·커밋**
 
 | 종료 조건 | 결과 |
@@ -357,8 +358,8 @@ Spec의 추적 ID(`AC-nn`·`EC-nn`·`RC-nn`)를 근거로 **실패하는 테스�
 
 #### Phase 6.2: 구현 (Green)
 
-- `sequential`: `be-harness:workflow-implementer` 1개 → 구현 + 커밋
-- `parallel-slices`: `general-purpose` 2~3개 병렬 (커밋·빌드 금지) → 완료 후 오케스트레이터가 일괄 커밋
+- `sequential`: `be-harness:workflow-implementer` 1개 → 구현 + 커밋 (`codexMode: max`: Codex sol `workspace-write`, 쓰기 안전 = codex-mode.md §5)
+- `parallel-slices`: `general-purpose` 2~3개 병렬 (커밋·빌드 금지) → 완료 후 오케스트레이터가 일괄 커밋 (`max`: 슬라이스별 Codex sol, 실패 시 항상 이어서 — §5)
 
 TDD 활성 시 **테스트 파일 수정 금지** 규칙과 `[TestConflict]` 보고 규칙을 프롬프트에 추가한다 (`references/tdd.md`).
 
@@ -454,7 +455,7 @@ Phase 8.1 결과는 `assets/test_failures.py --baseline {STATE_FILE}`로 `## Tes
 | `PASS` / `WARN` / `FAIL` | Verify 모드 판정, 테스트 판정, Read-back 판정 |
 
 TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`deferred_e2e`·`regression`·`pre_existing`·`new_red`·`flaky`)는 `## TDD Test Map`·회귀 대조 표의 셀 안에서만,
-에이전트 사망 처리의 `agent_retry`·`degraded_fallback`, 티어 승격 `tier_escalated({트리거})`, 스크립트 폴백 `script_fallback({스크립트}:{사유})`은 `Phase Results` 표·보고서 "축소 실행 내역" 표의 `진단` 셀 안에서만 쓴다.
+에이전트 사망 처리의 `agent_retry`·`degraded_fallback`, 티어 승격 `tier_escalated({트리거})`, 스크립트 폴백 `script_fallback({스크립트}:{사유})`, Codex 폴백 `codex_fallback({단계}:{사유})`은 `Phase Results` 표·보고서 "축소 실행 내역" 표의 `진단` 셀 안에서만 쓴다.
 모두 **상태 코드가 아니라 데이터**다 — Phase Assignments의 Status 열에는 등장시키지 않는다 (`docs/skill-authoring.md` §5).
 
 ## References
@@ -467,6 +468,7 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 | `references/tdd.md` | Phase 5 (TDD 판정·baseline), Phase 6 진입 시 |
 | `references/agent-prompts.md` | Phase 6 진입 시 (Phase 6.2/7/9/10/11 프롬프트) + 에이전트 사망 시 (공통 규약 — 미로드면 즉시 Read) |
 | `references/quality-loop.md` | Phase 8 진입 시 |
+| `references/codex-mode.md` | 첫 리뷰어/위임 dispatch 직전 1회 (재개 포함) — Codex 모드 정의·호출 계약·쓰기 안전·Claude 패널·실패 정책 |
 
 ## 흐름 요약 (Build)
 
@@ -475,10 +477,10 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 Phase 1: EnterPlanMode → /request로 Technical Spec (유저 확인)
 Phase 2: 난이도 산정 (1-10) + 검증 티어 판정 (light / standard)
 Phase 3: 실행 전략 판정 (sequential / parallel-slices / fullstack → /common:start-workflow --fs 로 전환)
-Phase 4: Plan 작성 → 다관점 1회 보강 → Codex 검증 루프 (최대 {PLAN_MAX}회) → ExitPlanMode
+Phase 4: Plan 작성 → 다관점 1회 보강 → 검증 루프 (리뷰어 = codexMode: Codex sol | Claude 패널, 최대 {PLAN_MAX}회) → ExitPlanMode
 Phase 5: feature 브랜치 + 상태 파일 + implementation-notes.md + 회귀 baseline → "자율 실행 시작"
 
-[자율 실행 — 유저 확인 없이 완주]
+[자율 실행 — 유저 확인 없이 완주. codexMode max: 리프 에이전트를 Codex luna(읽기)/sol(쓰기)로 위임 — codex-mode.md]
 Phase 6.1: 테스트 우선 (Red) — Spec ID 근거로 실패 테스트 선작성 + 스텁, Red 커밋
 Phase 6.2: 구현 (Green) — 테스트 파일 수정 금지, baseline 대비 신규 실패 0건까지
 Phase 7: {buildCommand} 빌드 체크 (실패 시 수정 최대 3회)

@@ -90,6 +90,7 @@ user-invocable: true
 - `commitCoAuthor` (선택, 비우면 Co-Authored-By 라인 생략)
 - `projectConventions` (기본: `["CLAUDE.md"]`, 없으면 빈 배열)
 - `language` (ko/en, 기본 ko)
+- `codexMode` (none/mix/max, 기본 mix — start-workflow의 Codex 사용 모드. `/be-harness:start-workflow --codex {값}` 이나 첫 실행 질문으로도 저장된다)
 
 > 각 그룹에서 값을 제시하고 "이대로 진행하시겠습니까? (변경할 항목 번호 또는 `ok`)" 식으로 확인한다.
 > 그룹 단위 확정으로 진행한다.
@@ -102,6 +103,7 @@ user-invocable: true
 ---
 preset: {preset}
 language: {language}
+codexMode: {codexMode}
 
 buildCommand: "{buildCommand}"
 testCommand:  "{testCommand}"

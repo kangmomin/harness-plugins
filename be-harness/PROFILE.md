@@ -19,6 +19,7 @@ YAML frontmatter + 선택적 마크다운 본문.
 ---
 preset: go            # go | node | custom
 language: ko          # ko | en (유저 대화 언어)
+codexMode: mix        # none | mix | max — start-workflow의 Codex 사용 모드 (none: Codex 미사용·Claude 패널 리뷰 / mix: Plan 리뷰만 Codex / max: 탐색·판정·구현 서브에이전트까지 Codex 위임). `--codex` 또는 첫 실행 질문으로 저장
 
 # 빌드/검증 명령 (preset 기본값을 override 하고 싶을 때만 작성)
 buildCommand: "go build ./..."

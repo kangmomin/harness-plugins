@@ -23,6 +23,7 @@ RUN_ID="$(date +%Y%m%d-%H%M%S)-${SHA7}-${HEX8}"; START_SHA=$(git rev-parse HEAD 
 - TDD: {true|false}
 - REFLECT: {true|false}
 - TIER: {light|standard}
+- CODEX: {none|mix|max}
 - RUN_ID: {RUN_ID}
 - START_SHA: {START_SHA}
 
@@ -45,6 +46,13 @@ RUN_ID="$(date +%Y%m%d-%H%M%S)-${SHA7}-${HEX8}"; START_SHA=$(git rev-parse HEAD 
 | 시점 | 트리거 | 근거 | 조치 |
 |------|--------|------|------|
 [승격 발생 시 append — 예: `6.2 완료 직후` | `② 변경 소스 파일 5 > 3` | `a.go, b.go, …` | `standard 전환, 미재실행: 4.2`]
+
+## Codex Runtime
+- 상태: {active | fallback({mcp_missing|quota_exhausted|auth_failed|model_unavailable})} — 생성 시 `$CODEX_RUNTIME` 값 그대로 (`references/codex-mode.md` §7). `CODEX: none`이면 `N/A`
+
+| 호출 ID | 사용 종류 | 범위 | S0 | 핸들 |
+|---------|----------|------|----|------|
+[§5 쓰기 안전 `pending` 표 — Codex 쓰기 호출 dispatch 전에 행 기록, `VERIFIED`/종료 조건 도달 시 삭제. 재개 시 행이 남아 있으면 마지막 호출 사망으로 판정]
 
 ## Current Phase
 Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effort: 현재 세션)
@@ -111,7 +119,7 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 [확정된 Plan 전문 그대로 복사]
 
 ## Plan Verification Log
-[Phase 4.3 검증 루프의 Iteration Diff Log]
+[Phase 4.3 검증 루프의 Iteration Diff Log — Phase 5 ①에서 복사]
 
 ## Readback Diff
 [Phase 8.8 결과. Phase 8.8 실행 전에는 `미실행`, light면 `SKIPPED:TIER_LIGHT`]
@@ -128,7 +136,7 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 ## Phase Results
 [Phase 완료 시 아래 표에 행 append. `Status`는 상태 코드(8.2/8.3처럼 Phase Assignments에 개별 행이 없는 하위 단계도 여기에 기록).
-`진단` 열은 발생 시에만 — `agent_retry({원인})` / `degraded_fallback({원인} / {축소 내용})` / `tier_escalated({트리거})` / `script_fallback({스크립트}:{사유})`, 없으면 `-`]
+`진단` 열은 발생 시에만 — `agent_retry({원인})` / `degraded_fallback({원인} / {축소 내용})` / `tier_escalated({트리거})` / `script_fallback({스크립트}:{사유})` / `codex_fallback({단계}:{사유})`, 없으면 `-`]
 
 | Phase | Status | 결과 요약 | 진단 |
 |-------|--------|----------|------|
@@ -221,6 +229,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py r
 - **작업 유형**: [생성/수정/검토/디버깅]
 - **난이도**: [N]/10 (산정) → [M]/10 (체감)
 - **검증 티어**: [light | standard | light → standard ({트리거}, 미재실행: 4.2)]
+- **Codex 모드**: [none | mix | max]{ · runtime: fallback({사유})}
 - **PR**: [PR URL]
 
 ### 2. 구현 내역
@@ -285,7 +294,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py r
 | D 해석 불가 | `assert.Eventually` (`x_test.go:103`) | - | 불명 | - | 의도 확인 |
 
 ### 9. 축소 실행 내역
-> `agent_retry`·`degraded_fallback`·`tier_escalated`·`script_fallback`·`SKIPPED:BUDGET_PRESERVED`·`SKIPPED:AGENT_DIED`가 한 건도 없으면 "없음"으로 적고 이 섹션을 비운다.
+> `agent_retry`·`degraded_fallback`·`tier_escalated`·`script_fallback`·`codex_fallback`·`SKIPPED:BUDGET_PRESERVED`·`SKIPPED:AGENT_DIED`가 한 건도 없으면 "없음"으로 적고 이 섹션을 비운다.
 > `Status`는 상태 코드, `진단`은 진단 분류 — 두 어휘를 한 열에 섞지 않는다 (`docs/skill-authoring.md` §5).
 
 | Phase | Status | 진단 | 원인·축소 내용 | 재실행 권장 |

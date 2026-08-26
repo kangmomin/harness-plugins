@@ -93,6 +93,7 @@ Agent tool:
 ```
 
 에이전트가 `/be-harness:unit-test` 를 찾지 못하면(스킬 미설치) 같은 프롬프트에 `unit-test` 스킬의 Step 1~4 규칙을 인라인해 `general-purpose`로 수행한다.
+`codexMode: max`(`## Flags` `CODEX`)면 러너 프롬프트에 `references/codex-mode.md` §8 포인터 1줄을 추가하고, 테스트·스텁 작성 리프는 Codex sol(`workspace-write`)이 `${CLAUDE_PLUGIN_ROOT}/skills/unit-test/SKILL.md` Step 1~4를 직접 읽어 수행한다 (§5 쓰기 안전 적용, 커밋 금지 동일). none·mix는 위 Skill tool 경로 그대로.
 
 ## parallel-slices 모드 (배리어 필수)
 
@@ -111,6 +112,7 @@ Agent tool:
 ```
 
 **슬라이스별 테스트 실행을 금지하는 이유**: 다른 슬라이스의 미완성 스텁 때문에 자기 슬라이스가 `cannot_compile`로 오판된다.
+`codexMode: max`면 ①의 슬라이스 에이전트는 Codex sol(`workspace-write`)이다 — 금지 항목 동일, 실패 시 항상 이어서(`references/codex-mode.md` §5).
 
 배리어가 끝나기 전에는 어떤 슬라이스도 Phase 6.2를 시작하지 않는다.
 

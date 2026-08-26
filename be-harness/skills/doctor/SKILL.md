@@ -41,6 +41,7 @@ profile을 읽고, be-harness 스킬이 정상 동작할 수 있는지 진단한
 | 16 | `.claude/be-harness/common.md` | `test -f` | 선택 |
 | 17 | `.claude/be-harness/skills/*.md` 개수 | Glob | 정보 |
 | 18 | `.claude/be-harness/agents/*.md` 개수 | Glob | 정보 |
+| 19 | Codex MCP (`codexMode` ≠ `none`일 때) | 세션 도구 목록에 `mcp__codex__codex` 존재 | 선택 |
 
 ## 보고 형식
 
@@ -69,6 +70,7 @@ profile을 읽고, be-harness 스킬이 정상 동작할 수 있는지 진단한
 | serverUrl | OK / INVALID | |
 | .claude/be-harness/ 오버라이드 디렉토리 | OK / MISSING | 없으면 `/be-harness:init` 또는 수동 생성 |
 | 오버라이드 파일 개수 | common:Y/N, skills:N개, agents:N개 | 로드 순서 표시 |
+| Codex MCP | OK / WARN / N/A(codexMode=none) | WARN = 도구 없음이지만 비차단 — 실행 시 Claude 폴백 예정 |
 
 ### 종합 판정
 | | |
