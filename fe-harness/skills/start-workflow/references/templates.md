@@ -23,6 +23,7 @@ Write tool로 `{STATE_FILE}`을 생성한다:
 - TDD: {true|false}
 - REFLECT: {true|false}
 - TIER: {light|standard}
+- CODEX: {none|mix|max}
 - RUN_ID: {RUN_ID}
 - START_SHA: {START_SHA}
 
@@ -48,6 +49,13 @@ Write tool로 `{STATE_FILE}`을 생성한다:
 
 ## Related E2E Specs
 [Plan 3.1의 "관련 E2E spec 파일 경로 목록"을 그대로 복사. 없으면 `없음`. light의 `test-loop --smoke`가 이 목록만 실행한다 — 파일이 하나라도 없으면 test-loop이 전체 실행으로 폴백한다]
+
+## Codex Runtime
+- 상태: {active | fallback({mcp_missing|quota_exhausted|auth_failed|model_unavailable})} — 생성 시 `$CODEX_RUNTIME` 값 그대로 (`references/codex-mode.md` §7). `CODEX: none`이면 `N/A`
+
+| 호출 ID | 사용 종류 | 범위 | S0 | 핸들 |
+|---------|----------|------|----|------|
+[§5 쓰기 안전 `pending` 표 — Codex 쓰기 호출 dispatch 전에 행 기록, `VERIFIED`/종료 조건 도달 시 삭제. 재개 시 행이 남아 있으면 마지막 호출 사망으로 판정]
 
 ## Current Phase
 Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effort: 현재 세션)
@@ -112,7 +120,7 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 [.claude/fe-harness.local.md 주요 설정]
 
 ## Plan Verification Log
-[Phase 3.3 검증 루프의 Iteration Diff Log]
+[Phase 3.3 검증 루프의 Iteration Diff Log — Phase 4 ①에서 복사]
 
 ## Readback Diff
 [Phase 7.7 결과. Phase 7.7 실행 전에는 `미실행`, light면 `SKIPPED:TIER_LIGHT`]
@@ -128,7 +136,7 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 ## Phase Results
 [Phase 완료 시 아래 표에 행 append. `Status`는 상태 코드(7.2/7.4처럼 Phase Assignments에 개별 행이 없는 하위 단계도 여기에 기록).
-`진단` 열은 발생 시에만 — `tier_escalated({트리거})` / `script_fallback({스크립트}:{사유})`, 없으면 `-`]
+`진단` 열은 발생 시에만 — `tier_escalated({트리거})` / `script_fallback({스크립트}:{사유})` / `codex_fallback({단계}:{사유})`, 없으면 `-`]
 
 | Phase | Status | 결과 요약 | 진단 |
 |-------|--------|----------|------|
@@ -206,6 +214,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py r
 - **작업 유형**: [화면 생성/화면 수정/컴포넌트 생성/컴포넌트 수정/API 연동/API 연동 수정]
 - **난이도**: [N]/10 (산정) → [M]/10 (체감)
 - **검증 티어**: [light | standard | light → standard ({트리거}, 미재실행: 3.2)]
+- **Codex 모드**: [none | mix | max]{ · runtime: fallback({사유})}
 - **PR**: [PR URL]
 
 ### 2. 구현 내역

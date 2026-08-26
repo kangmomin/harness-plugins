@@ -138,7 +138,14 @@ user-invocable: true
 > 1. `true` — 사용 (컴포넌트 생성 시 .stories.tsx 자동 생성)
 > 2. `false` — 사용 안 함 (기본값)
 
-#### 3.8 컨벤션 선택
+#### 3.8 Codex 사용 모드
+
+> "start-workflow의 Codex 사용 모드를 선택해주세요 (`codexMode`):"
+> 1. `mix` — Plan 검증 리뷰만 Codex (기본값)
+> 2. `max` — 탐색·판정·구현 서브에이전트까지 Codex 위임 (Claude 토큰 최소화)
+> 3. `none` — Codex 미사용, 리뷰는 Claude 다관점 패널
+
+#### 3.9 컨벤션 선택
 
 > "convention-check에서 사용할 컨벤션을 설정합니다.
 > 어떤 컨벤션을 적용할까요? (복수 선택 가능, 쉼표 구분)"
@@ -159,6 +166,7 @@ user-invocable: true
 ---
 preset: node
 language: ko
+codexMode: mix
 
 framework: nextjs
 uiLibrary: tailwind
@@ -242,6 +250,7 @@ mkdir -p .claude/fe-harness/skills .claude/fe-harness/agents
 | 8 | TypeScript | true |
 | 9 | Storybook | false |
 | 10 | 컨벤션 | default-conventions, CLAUDE.md |
+| 11 | Codex 모드 | mix |
 
 설정 파일: `.claude/fe-harness.local.md`
 다음 단계: `/fe-harness:doctor`로 전체 상태를 검증하세요.

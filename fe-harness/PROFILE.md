@@ -19,6 +19,7 @@ YAML frontmatter + 선택적 마크다운 본문.
 ---
 preset: node
 language: ko          # ko | en
+codexMode: mix        # none | mix | max — start-workflow의 Codex 사용 모드 (none: Codex 미사용·Claude 패널 리뷰 / mix: Plan 리뷰만 Codex / max: 탐색·판정·구현 서브에이전트까지 Codex 위임). `--codex` 또는 첫 실행 질문으로 저장
 
 # 프레임워크/러너 선택
 framework: nextjs             # nextjs | vite | nuxt | cra | 기타
@@ -91,6 +92,7 @@ projectConventions: ["CLAUDE.md"]
 |---------------------|------------------------|------|
 | `framework` · `uiLibrary` · `stateManagement` · `testRunner` · `e2eRunner` · `packageManager` · `componentPattern` · `typescript` · `storybook` | 같은 키 | 그대로 사용 |
 | `language` | (없음) | 기본값 `ko` |
+| `codexMode` | (없음) | 기본값 `mix`, ephemeral — 레거시 파일에는 쓰지 않는다 (저장하려면 `/fe-harness:init`) |
 | 빌드/검증 명령, 서버, 소스 레이아웃, Git, 커밋 컨벤션 | (없음) | 위 "읽기 우선순위" 3·4순위(자동 감지)로 채우고, 못 채우면 해당 단계 `SKIPPED` |
 | `projectConventions: ["CLAUDE.md"]` | `conventions: [{name, source, path\|skill}]` | `source: "project"` 항목의 `path` 만 모아 배열로. `source: "plugin"` 항목은 무시하고 `/fe-harness:default-conventions` 를 쓴다 |
 

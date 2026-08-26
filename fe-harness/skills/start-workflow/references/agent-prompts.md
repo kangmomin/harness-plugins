@@ -1,6 +1,7 @@
 > 이 문서는 `start-workflow` 스킬의 Phase 5.2(구현), 6(빌드/타입 체크), 7(품질 루프), 8(리뷰), 9(PR), 10(성찰)에서 로드된다. 단독 실행 금지.
 > Phase 5.1(Red)의 프롬프트는 `references/tdd.md`에 있다.
 > `{STATE_FILE}`, `{buildCommand}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
+> 각 `model:`/`effort:`는 Claude 경로 기본값이다. `## Flags`의 `CODEX: max`면 `references/codex-mode.md`의 플러그인 매핑대로 해당 Agent 호출을 Codex(luna 읽기 / sol 쓰기) 호출로 치환하고, Skill tool을 실행하는 러너 프롬프트(7.2·7.3·7.4·7.6)에는 §8 포인터 1줄을 추가한다. 쓰기 호출은 §5 쓰기 안전 규칙을 따른다.
 
 # 서브 에이전트 프롬프트 모음
 

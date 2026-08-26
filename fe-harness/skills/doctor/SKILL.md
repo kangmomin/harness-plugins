@@ -71,7 +71,7 @@ user-invocable: true
 
 | 항목 | 점검 방법 | 관련 스킬 |
 |------|----------|----------|
-| Codex MCP | `mcp__codex__codex` 호출 가능 여부 | start-workflow (Plan 검증 루프 상시) |
+| Codex MCP | 세션 도구 목록에 `mcp__codex__codex` 존재 (profile `codexMode` ≠ none일 때) | start-workflow (codexMode mix/max) |
 
 ### 7. 프로젝트 오버라이드 (선택)
 
@@ -141,7 +141,7 @@ user-invocable: true
 ### 외부 도구
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| Codex | OK / MISSING | 선택 (Plan 검증 루프 상시) |
+| Codex | OK / WARN / N/A(codexMode=none) | 선택 — WARN이면 실행 시 Claude 폴백 예정 (비차단) |
 
 ---
 
@@ -173,5 +173,5 @@ user-invocable: true
 | Prettier | 선택 | 포매팅 (ESLint로 대체 가능) |
 | E2E 러너 | 선택 | fe-harness profile에서 none 가능 |
 | Storybook | 선택 | fe-harness profile에서 false 가능 |
-| Codex | 선택 | Plan 검증 루프 상시 사용 |
+| Codex | 선택 | codexMode mix/max에서 사용, 없으면 Claude 폴백 |
 | Playwright 브라우저 | 선택 | E2E 사용 시만 필수 |
