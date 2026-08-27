@@ -83,7 +83,7 @@ profile의 `testCommand` 를 우선 사용:
 
 실패 시:
 1. 에러 메시지를 분석한다.
-2. **기본 모드**: 테스트 코드 또는 소스 코드를 수정한다. **frozen 모드**: 소스 코드만 수정한다. (상위 워크플로우가 `codexMode: max` 위임 계약 포인터를 전달했으면 수정은 그 계약대로 — Codex sol/high/workspace-write)
+2. **기본 모드**: 테스트 코드 또는 소스 코드를 수정한다. **frozen 모드**: 소스 코드만 수정한다. (상위 워크플로우가 `codexMode: max` 위임 계약 포인터를 전달했으면 수정은 그 계약대로 — Codex `write` 슬롯/workspace-write)
 3. `modified = true`로 설정한다.
 
 ### Step 2: E2E 테스트 실행
@@ -130,7 +130,7 @@ profile의 `e2eCommand` 를 우선 사용:
 
 실패 시:
 1. 에러 메시지를 분석한다.
-2. **기본 모드**: 테스트 코드 또는 소스 코드를 수정한다. **frozen 모드**: 소스 코드만 수정한다. (상위 워크플로우가 `codexMode: max` 위임 계약 포인터를 전달했으면 수정은 그 계약대로 — Codex sol/high/workspace-write)
+2. **기본 모드**: 테스트 코드 또는 소스 코드를 수정한다. **frozen 모드**: 소스 코드만 수정한다. (상위 워크플로우가 `codexMode: max` 위임 계약 포인터를 전달했으면 수정은 그 계약대로 — Codex `write` 슬롯/workspace-write)
 3. `modified = true`로 설정한다.
 
 ### 루프 판정

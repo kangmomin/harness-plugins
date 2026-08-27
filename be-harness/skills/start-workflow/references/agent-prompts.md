@@ -3,7 +3,7 @@
 > Phase 6.1(Red)의 프롬프트는 `references/tdd.md`, Phase 8(품질 루프)의 프롬프트는 `references/quality-loop.md`에 있다.
 > `{STATE_FILE}`, `{buildCommand}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
 > 각 프롬프트의 "남은 Phase" 목록은 예시다 — 실제 값은 상태 파일 `Remaining Phases` 기준으로 치환한다 (예: `--reflect` 미지정 시 Phase 11 제외).
-> 각 `model:`/`effort:`는 Claude 경로 기본값이다. `## Flags`의 `CODEX: max`면 `references/codex-mode.md`의 플러그인 매핑대로 해당 Agent 호출을 Codex(luna 읽기 / sol 쓰기) 호출로 치환하고, Skill tool을 실행하는 러너 프롬프트에는 §8 포인터 1줄을 추가한다. 쓰기 호출은 §5 쓰기 안전 규칙을 따른다.
+> 각 `model:`/`effort:`는 Claude 경로 기본값이다. `## Flags`의 `CODEX: max`면 `references/codex-mode.md`의 플러그인 매핑대로 해당 Agent 호출을 Codex 슬롯(`explore`/`judge` 읽기 · `write` 쓰기) 호출로 치환하고, Skill tool을 실행하는 러너 프롬프트에는 §8 포인터 1줄을 추가한다. 쓰기 호출은 §5 쓰기 안전 규칙을 따른다.
 
 # 서브 에이전트 프롬프트 모음
 

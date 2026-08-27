@@ -24,6 +24,7 @@ RUN_ID="$(date +%Y%m%d-%H%M%S)-${SHA7}-${HEX8}"; START_SHA=$(git rev-parse HEAD 
 - REFLECT: {true|false}
 - TIER: {light|standard}
 - CODEX: {none|mix|max}
+- CODEX_MODELS: {review={provider}/{model}@{effort},explore=…,judge=…,write=… | N/A} — 4슬롯 고정 순서·확정 effort(`-` = 키 생략), `CODEX: none`이면 `N/A` (`references/codex-mode.md` §2.1)
 - RUN_ID: {RUN_ID}
 - START_SHA: {START_SHA}
 
@@ -48,7 +49,7 @@ RUN_ID="$(date +%Y%m%d-%H%M%S)-${SHA7}-${HEX8}"; START_SHA=$(git rev-parse HEAD 
 [승격 발생 시 append — 예: `6.2 완료 직후` | `② 변경 소스 파일 5 > 3` | `a.go, b.go, …` | `standard 전환, 미재실행: 4.2`]
 
 ## Codex Runtime
-- 상태: {active | fallback({mcp_missing|quota_exhausted|auth_failed|model_unavailable})} — 생성 시 `$CODEX_RUNTIME` 값 그대로 (`references/codex-mode.md` §7). `CODEX: none`이면 `N/A`
+- 상태: {active | fallback({global:{사유} | provider:{id}:{사유} | slot:{슬롯}:{사유}, …})} — 생성 시 `$CODEX_RUNTIME` 값 그대로 (`references/codex-mode.md` §7 직렬화). `CODEX: none`이면 `N/A`
 
 | 호출 ID | 사용 종류 | 범위 | S0 | 핸들 |
 |---------|----------|------|----|------|
@@ -229,7 +230,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py r
 - **작업 유형**: [생성/수정/검토/디버깅]
 - **난이도**: [N]/10 (산정) → [M]/10 (체감)
 - **검증 티어**: [light | standard | light → standard ({트리거}, 미재실행: 4.2)]
-- **Codex 모드**: [none | mix | max]{ · runtime: fallback({사유})}
+- **Codex 모드**: [none | mix | max] · 모델: [기본 | {CODEX_MODELS}]{ · runtime: fallback({항목}, …)}
 - **PR**: [PR URL]
 
 ### 2. 구현 내역

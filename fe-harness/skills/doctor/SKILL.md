@@ -72,6 +72,7 @@ user-invocable: true
 | 항목 | 점검 방법 | 관련 스킬 |
 |------|----------|----------|
 | Codex MCP | 세션 도구 목록에 `mcp__codex__codex` 존재 (profile `codexMode` ≠ none일 때) | start-workflow (codexMode mix/max) |
+| Codex providers | `codexMode` ≠ none이고 profile `codexModels`가 있을 때(없으면 N/A): 슬롯(`review`·`explore`·`judge`·`write`) 레코드 검증(무효 → `INVALID_SLOT`) + `openai`·`ollama`·`lmstudio` 외 provider마다 `${CODEX_HOME:-$HOME/.codex}/config.toml`의 `[model_providers.{id}]` 테이블(`grep -E '^\[model_providers\.("?){id}\1\]'`)·인증(`env_key` 변수 설정 여부 / `experimental_bearer_token` / `[….auth]`)·`wire_api` 점검 — WARN 코드 `NO_TABLE`·`ENV_UNSET`·`BEARER_TOKEN`·`WIRE_API`·`PROJECT_ONLY`(프로젝트 `.codex/config.toml`에만 정의)·`INVALID_SLOT`. 키·URL 값은 출력하지 않는다 | start-workflow (codexMode mix/max) |
 
 ### 7. 프로젝트 오버라이드 (선택)
 
@@ -142,6 +143,7 @@ user-invocable: true
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | Codex | OK / WARN / N/A(codexMode=none) | 선택 — WARN이면 실행 시 Claude 폴백 예정 (비차단) |
+| Codex providers | OK / WARN({id}:{코드}, …) / N/A | 선택 — 비차단, 실행 시 해당 provider·슬롯만 Claude 폴백 |
 
 ---
 
@@ -153,7 +155,7 @@ user-invocable: true
 ### 해결 필요 (ISSUES FOUND인 경우)
 | # | 항목 | 해결 방법 |
 |---|------|----------|
-| 1 | [항목] | `/fe-harness:init` 실행 또는 [구체적 안내] |
+| 1 | [항목] | `/fe-harness:init` 실행 · `/fe-harness:config {키}={값}`으로 값 수정 또는 [구체적 안내] |
 ```
 
 ---
@@ -174,4 +176,5 @@ user-invocable: true
 | E2E 러너 | 선택 | fe-harness profile에서 none 가능 |
 | Storybook | 선택 | fe-harness profile에서 false 가능 |
 | Codex | 선택 | codexMode mix/max에서 사용, 없으면 Claude 폴백 |
+| Codex providers | 선택 | codexModels에 외부 provider가 있을 때만 점검, WARN이면 해당 범위 Claude 폴백 |
 | Playwright 브라우저 | 선택 | E2E 사용 시만 필수 |

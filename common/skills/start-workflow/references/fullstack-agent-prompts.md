@@ -1,7 +1,7 @@
 > 이 문서는 `/common:start-workflow` 의 **풀스택 경로**(`references/fullstack.md`)에서 Phase 6.1(Red)·6.2(병렬 구현)과 Phase 8.1(계약 격리 Read-back)에 로드된다. 단독 실행 금지.
 > Red 단계의 소유권·배리어 규칙은 `fullstack-tdd.md` 가 canonical이다.
 > `{STATE_FILE}` 등 플레이스홀더 정의는 `fullstack.md` 를 따른다.
-> 각 `model:`/`effort:`는 Claude 경로 기본값이다. `## Flags`의 `CODEX: max`면 `codex-mode.md`의 플러그인 매핑대로 해당 Agent 호출을 Codex(luna 읽기 / sol 쓰기) 호출로 치환한다 — 역할 파일은 이 문서의 해당 절 경로, 쓰기 호출은 §5 쓰기 안전 규칙.
+> 각 `model:`/`effort:`는 Claude 경로 기본값이다. `## Flags`의 `CODEX: max`면 `codex-mode.md`의 플러그인 매핑대로 해당 Agent 호출을 Codex 슬롯(`explore`/`judge` 읽기 · `write` 쓰기) 호출로 치환한다 — 역할 파일은 이 문서의 해당 절 경로, 쓰기 호출은 §5 쓰기 안전 규칙.
 
 # Red 에이전트 프롬프트 (Phase 6.1)
 

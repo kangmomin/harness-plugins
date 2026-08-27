@@ -21,6 +21,7 @@ commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 �
 ```bash
 /fe-harness:init       # 프로젝트 profile(.claude/fe-harness.local.md) 생성
 /fe-harness:doctor     # 환경 진단
+/fe-harness:config     # profile 값 조회·수정
 ```
 
 ## 스킬 목록
@@ -31,12 +32,13 @@ commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 �
 |------|------|------|
 | **init** | `/fe-harness:init` | profile 생성/갱신 (framework, testRunner, e2eRunner 등) |
 | **doctor** | `/fe-harness:doctor` | 환경 진단 |
+| **config** | `/fe-harness:config` | profile 값 조회·수정 (`{키}={값}` 배치, 조회 후 입력) |
 
 ### 자동화
 
 | 스킬 | 호출 | 설명 |
 |------|------|------|
-| **start-workflow** | `/fe-harness:start-workflow` | 전체 프론트 워크플로우 자동화 — 요청→난이도·검증 티어 판정→Plan 리뷰→구현→품질 루프→PR. light 티어면 리뷰 레이어·루프 상한·E2E 범위 자동 축소(`--tier standard`로 상향 강제), 성찰은 `--reflect` 시에만, 종료 시 md Workflow Report 아카이브. `--codex none|mix|max`로 Codex 사용 모드 지정(profile `codexMode` 저장, 기본 mix — max는 서브에이전트까지 Codex luna/sol 위임) |
+| **start-workflow** | `/fe-harness:start-workflow` | 전체 프론트 워크플로우 자동화 — 요청→난이도·검증 티어 판정→Plan 리뷰→구현→품질 루프→PR. light 티어면 리뷰 레이어·루프 상한·E2E 범위 자동 축소(`--tier standard`로 상향 강제), 성찰은 `--reflect` 시에만, 종료 시 md Workflow Report 아카이브. `--codex none|mix|max`로 Codex 사용 모드 지정(profile `codexMode` 저장, 기본 mix — max는 서브에이전트까지 Codex 슬롯 모델 위임). `--codex-models {슬롯}={provider}/{model}[@{effort}]`로 슬롯별 위임 모델 지정(profile `codexModels` — GLM·Kimi 등 Codex provider) |
 
 ### 워크플로우
 

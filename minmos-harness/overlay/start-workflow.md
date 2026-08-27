@@ -1,4 +1,4 @@
-<!-- overlay-source: minmos-harness@2.3.0 -->
+<!-- overlay-source: minmos-harness@2.4.0 -->
 
 ## Base
 
@@ -57,12 +57,12 @@ E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직
 
 ## Plan 검증 루프 보강
 
-베이스의 Codex 실패 정책(`codexMode` 계약 §7 — 실행 전체 latch·Claude 패널 폴백·`## Codex Runtime` 기록)을 그대로 따르되, minmos 고유 상태 코드(`SKIPPED:CODEX_*`)를 함께 기록한다. `codexMode: none`이면 이 절은 적용하지 않는다 (패널이 정규 경로, 기록 없음).
+베이스의 Codex 실패 정책(`codexMode` 계약 §7 — 범위별(전역·provider·슬롯) latch·대표 사유·Claude 패널 폴백·`## Codex Runtime` 기록)을 그대로 따르되, minmos 고유 상태 코드(`SKIPPED:CODEX_*`)를 함께 기록한다. `codexMode: none`이면 이 절은 적용하지 않는다 (패널이 정규 경로, 기록 없음).
 
 | 감지 패턴 | 분류 | 행동 |
 |----------|------|------|
 | MCP 부재 (`mcp_missing` — 베이스 runtime latch) | 환경 부재 | Claude 다관점 패널로 리뷰어 대체 + `SKIPPED:CODEX_UNAVAILABLE` 기록 (검증 루프는 계속 실행된다) |
-| 인증 오류 / 모델·effort 미지원 (`auth_failed` / `model_unavailable`) | 환경 부재 | 위와 동일 (패널 + `SKIPPED:CODEX_UNAVAILABLE`) |
+| 인증 오류 / 모델·effort 미지원 (`auth_failed` / `model_unavailable(…)` — `review` 슬롯에 적용되는 provider·슬롯 범위 latch) | 환경 부재 | 위와 동일 (패널 + `SKIPPED:CODEX_UNAVAILABLE`) |
 | quota/rate-limit (429, "usage limit", "rate limit", "quota", "try again at") | quota 차단 | **Claude 다관점 패널로 리뷰어 대체** + 상태 파일에 `SKIPPED:CODEX_QUOTA_BLOCKED` 기록 (Phase가 아닌 Codex 호출 항목에 대한 기록 — 검증 루프 자체는 계속 실행된다) |
 | 기타 일시 오류 (타임아웃, 5xx) | `tool_error` | 1회 재시도 → 재실패 시 **이 호출만** 패널로 대체 (latch 없음, 진단 `codex_fallback(plan_review:tool_error)`) |
 

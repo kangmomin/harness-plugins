@@ -138,7 +138,7 @@ Write tool로 `{RUN_REPORT}`를 생성한다(기존 파일이 있으면 덮어�
    - **판정 `PASS`** (모든 시나리오 통과 + 미커버 0건) → 루프 종료 → Step 4
    - **판정 `WARN`** (실패 0건 + `UNCOVERED:{사유}` 1건 이상) → 루프 종료 → Step 4. 미커버는 검증 공백이지 구현 결함이 아니므로 수정 루프를 돌리지 않고, 사유를 리포트에 남긴 채 상위에 전달한다.
    - **판정 `FAIL`** → 3번으로 진행
-3. 발견된 이슈를 수정한다. `general-purpose` 에이전트에 위임한다 (상위 워크플로우가 `codexMode: max` 위임 계약 포인터를 전달했으면 그 계약대로 — 수정 = Codex sol/high/workspace-write):
+3. 발견된 이슈를 수정한다. `general-purpose` 에이전트에 위임한다 (상위 워크플로우가 `codexMode: max` 위임 계약 포인터를 전달했으면 그 계약대로 — 수정 = Codex `write` 슬롯/workspace-write):
    ```
    아래 E2E 실패를 수정하세요. 프로젝트 루트: {CWD}.
    failures: {실패 목록 전체}

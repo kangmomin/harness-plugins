@@ -91,6 +91,7 @@ user-invocable: true
 - `projectConventions` (기본: `["CLAUDE.md"]`, 없으면 빈 배열)
 - `language` (ko/en, 기본 ko)
 - `codexMode` (none/mix/max, 기본 mix — start-workflow의 Codex 사용 모드. `/be-harness:start-workflow --codex {값}` 이나 첫 실행 질문으로도 저장된다)
+- `codexModels` (선택, 기본 = OpenAI 기본값 유지 — Codex 위임 모델 슬롯. 변경하려면 compact 1줄 입력: 문법 = `--codex-models`와 동일 `{슬롯}={provider}/{model}[@{effort}]`, 쉼표 구분, 미지정 슬롯 = 기본. `codexMode`가 `none`이면 제시만 하고 질문은 생략. 무효 입력은 항목 고지 + 재입력 1회 — `skills/start-workflow/references/codex-mode.md` §2.1. provider는 `~/.codex/config.toml`에 정의 — PROFILE.md "Codex provider 설정")
 
 > 각 그룹에서 값을 제시하고 "이대로 진행하시겠습니까? (변경할 항목 번호 또는 `ok`)" 식으로 확인한다.
 > 그룹 단위 확정으로 진행한다.
@@ -104,6 +105,8 @@ user-invocable: true
 preset: {preset}
 language: {language}
 codexMode: {codexMode}
+# codexModels:                                              # 기본(미변경)이면 이 주석 2줄 그대로, 변경했으면 실제 codexModels 블록으로 교체
+#   review: { provider: zai, model: glm-5.3, effort: high }
 
 buildCommand: "{buildCommand}"
 testCommand:  "{testCommand}"
@@ -189,6 +192,7 @@ mkdir -p .claude/be-harness/skills .claude/be-harness/agents
 
 다음 단계:
 - `/be-harness:doctor` — 상태 검증
+- `/be-harness:config {키}={값}` — 값 조회·수정
 - `/be-harness:start-workflow` — 워크플로우 시작
 ```
 

@@ -27,7 +27,7 @@ argument-hint: "[--be|--fe|--fs] <작업 설명> | --analyze [경로] | --verify
 | `--hd` | 프론트엔드 + `hyeondongs-harness` 오버레이로 확정 |
 
 - 대상 플래그는 **인자 어느 위치에나** 올 수 있다. 플래그를 제거한 나머지 인자는 그대로 대상에 전달한다.
-- 대상 스킬 고유 플래그(`--hard`, `--no-tdd`, `--reflect`, `--tier standard`, `--codex`, `--analyze`, `--verify` 등)는 **해석하지 않고 그대로 넘긴다.**
+- 대상 스킬 고유 플래그(`--hard`, `--no-tdd`, `--reflect`, `--tier standard`, `--codex`, `--codex-models`, `--analyze`, `--verify` 등)는 **해석하지 않고 그대로 넘긴다.**
 - 두 개 이상의 대상 플래그가 오면 오류로 처리한다: "대상 플래그는 하나만 지정하세요: {입력된 목록}".
 
 ### 통과 플래그 (단일 도메인 vs 풀스택)
@@ -38,6 +38,7 @@ argument-hint: "[--be|--fe|--fs] <작업 설명> | --analyze [경로] | --verify
 | `--tier standard` | 그대로 전달 — 검증 티어 상향 강제 | 무시 (풀스택은 항상 standard) |
 | `--hard` / `--no-tdd` | 그대로 전달 | `references/fullstack.md` Flags 참조 |
 | `--codex {none\|mix\|max}` | 그대로 전달 — 해당 하네스가 profile `codexMode`에 저장 | **이 스킬이 소비** — `references/fullstack.md` Pre-flight에서 해석하고 be·fe profile 양쪽에 기록 (`references/codex-mode.md`) |
+| `--codex-models {슬롯}={provider}/{model}[@{effort}],…` | 그대로 전달 — 해당 하네스가 profile `codexModels`에 저장 | **이 스킬이 소비** — Pre-flight에서 `codexMode` 확정 직후 슬롯 resolve(`codexModels` 블록 단위 be → fe → 기본값, 플래그는 슬롯 단위 덮어쓰기), 기록은 writable be·fe 모두 (`references/codex-mode.md` §2.1) |
 
 ## Language Rule
 

@@ -18,7 +18,7 @@ Spec·Plan 대비 구현 누락 / 비즈니스 로직 결함 / 레이어 구조 
 | codexMode | 리뷰어 | 비고 |
 |-----------|--------|------|
 | `none` | Claude `general-purpose` 1개 (아래 리뷰 관점 전체) = 정규 경로 | Codex 호출·MCP 확인·`SKIPPED:CODEX_*` 기록 없음 |
-| `mix` / `max` | Codex `gpt-5.6-sol` — effort: 난이도 1~6 `xhigh` / 7~10 `max` | `## Codex Runtime` 상태가 `fallback(...)`이면 호출 없이 아래 대체 패널 |
+| `mix` / `max` | Codex `review` 슬롯 — 모델·effort는 상태 파일 `## Flags`의 `CODEX_MODELS`(기본값·티어링: codex-mode.md 기본값 표) | `## Codex Runtime` 상태에 `review` 슬롯에 적용되는 `fallback(…)` 항목(global · 그 provider · slot:review)이 있으면 호출 없이 아래 대체 패널 |
 
 ## 검증 티어별 상한
 
@@ -36,11 +36,11 @@ Spec·Plan 대비 구현 누락 / 비즈니스 로직 결함 / 레이어 구조 
 | 감지 패턴 | 분류 | 행동 |
 |----------|------|------|
 | MCP 부재 (`mcp_missing` — 베이스 runtime latch) | 환경 부재 | Claude 패널 1개로 리뷰어 대체 + `SKIPPED:CODEX_UNAVAILABLE` 기록 (리뷰는 계속) |
-| 인증 오류 / 모델·effort 미지원 (`auth_failed` / `model_unavailable`) | 환경 부재 | 위와 동일 (latch) |
+| 인증 오류 / 모델·effort 미지원 (`auth_failed` / `model_unavailable(…)` — provider·슬롯 범위 latch) | 환경 부재 | 위와 동일 (latch) |
 | quota/rate-limit (429, "usage limit", "rate limit", "quota", "try again at") | quota 차단 | Claude 패널로 리뷰어 대체 + `SKIPPED:CODEX_QUOTA_BLOCKED` 기록 |
 | 기타 일시 오류 (타임아웃, 5xx) | `tool_error` | 1회 재시도 → 재실패 시 **이 호출만** 패널로 대체 (latch 없음, 진단 `codex_fallback(8+:tool_error)`) |
 
-`SKIPPED:CODEX_*`는 "Codex 호출" 항목에 대한 기록이며, 리뷰 자체는 아래 Claude 패널로 계속 실행된다 (Phase SKIP이 아니다). latch 사유별 코드: `quota_exhausted` → `SKIPPED:CODEX_QUOTA_BLOCKED`, `mcp_missing`·`auth_failed`·`model_unavailable` → `SKIPPED:CODEX_UNAVAILABLE`.
+`SKIPPED:CODEX_*`는 "Codex 호출" 항목에 대한 기록이며, 리뷰 자체는 아래 Claude 패널로 계속 실행된다 (Phase SKIP이 아니다). `review` 슬롯에 적용되는 대표 사유(베이스 §7)별 코드: `quota_exhausted` → `SKIPPED:CODEX_QUOTA_BLOCKED`, 그 외(`mcp_missing`·`auth_failed`·`model_unavailable(…)`) → `SKIPPED:CODEX_UNAVAILABLE`.
 
 **고지 문구** (패널 대체 시): "Codex quota 차단 감지 — Claude 다관점 패널로 대체해 계속 진행합니다 (`SKIPPED:CODEX_QUOTA_BLOCKED` 기록)."
 

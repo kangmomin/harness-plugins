@@ -111,6 +111,7 @@ Write tool로 `{STATE_FILE}`을 작성한다:
 - REFLECT: {true|false}
 - TIER: standard(고정)
 - CODEX: {none|mix|max}
+- CODEX_MODELS: {review={provider}/{model}@{effort},explore=…,judge=…,write=… | N/A} — 4슬롯 고정 순서·확정 effort(`-` = 키 생략), `CODEX: none`이면 `N/A` (`codex-mode.md` §2.1)
 - RUN_ID: {RUN_ID}
 - START_SHA: {START_SHA}
 
@@ -124,7 +125,7 @@ Write tool로 `{STATE_FILE}`을 작성한다:
 [Phase 2 결과]
 
 ## Codex Runtime
-- 상태: {active | fallback({mcp_missing|quota_exhausted|auth_failed|model_unavailable})} — 생성 시 `$CODEX_RUNTIME` 값 그대로 (`codex-mode.md` §7). `CODEX: none`이면 `N/A`
+- 상태: {active | fallback({global:{사유} | provider:{id}:{사유} | slot:{슬롯}:{사유}, …})} — 생성 시 `$CODEX_RUNTIME` 값 그대로 (`codex-mode.md` §7 직렬화). `CODEX: none`이면 `N/A`
 
 | 호출 ID | 사용 종류 | 범위 | S0 | 핸들 |
 |---------|----------|------|----|------|
@@ -226,7 +227,7 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 ## 📋 Task Report: [작업명]
 
 ### 1. Pre-Review (Plan)
-- Codex 모드: [none | mix | max]{ · runtime: fallback({사유})}
+- Codex 모드: [none | mix | max] · 모델: [기본 | {CODEX_MODELS}]{ · runtime: fallback({항목}, …)}
 - Codex Feedback: ...
 - Claude Feedback: ...
 - Refinement: ...
