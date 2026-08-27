@@ -26,6 +26,7 @@
 | `--no-tdd` | | Phase 6.1(계약 테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. |
 | `--reflect` | | Phase 10(회고)을 실행한다. 미지정 시 Phase 10은 `SKIPPED:REFLECT_NOT_REQUESTED` (기본 off). |
 | `--codex {none\|mix\|max}` | | Codex 사용 모드. 이 오케스트레이터가 소비해 be·fe profile `codexMode` 양쪽에 저장한다 (Pre-flight). 정의·호출 계약·실패 정책: `codex-mode.md` |
+| `--codex-models {슬롯}={provider}/{model}[@{effort}] \| default[,…]` | | Codex 위임 모델 슬롯(`review`·`explore`·`judge`·`write`). `codexMode` 확정 직후 이 오케스트레이터가 소비해 존재하는 writable be·fe profile `codexModels`에 병합 저장한다 (`none`이면 N/A). 문법·병합·검증: `codex-mode.md` §2.1 |
 
 `$ARGUMENTS`에 `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`), `--reflect`가 있으면 `$REFLECT = true` (기본값 `false`).
 `--reflect`는 이 오케스트레이터가 **소비**한다 — 하위 도메인 에이전트에 전달하지 않는다 (풀스택은 하위 워크플로우를 중첩 실행하지 않으므로 회고는 Phase 10 한 곳뿐). `--tier standard`는 무시한다 — 풀스택은 계약 변경 자체가 리스크 높음이므로 검증 티어가 항상 `standard`(축소 없음)다.
@@ -97,7 +98,7 @@
 
 FE/BE 구현 에이전트는 각 도메인의 작업량으로 등급을 따로 산정한다.
 통합 계약 리뷰와 contract drift 판정은 기본 `Complex` 이상.
-등급표는 Claude 경로에만 적용한다 — `codexMode: max`의 실행 주체·모델(Codex luna/sol)과 리뷰어 effort는 `codex-mode.md`가 정의한다 (첫 리뷰어/위임 dispatch 직전 1회 Read).
+등급표는 Claude 경로에만 적용한다 — `codexMode: max`의 실행 주체·모델(Codex 슬롯 — 기본 OpenAI luna·sol)과 리뷰어 effort는 `codex-mode.md`가 정의한다 (첫 리뷰어/위임 dispatch 직전 1회 Read).
 
 ## 자율 실행 규칙
 
@@ -115,8 +116,8 @@ Spec 또는 계약에 없는 변경이 필요하면: ① 코드를 먼저 바꾸
 
 Phase 1(`EnterPlanMode`) 직전에 1회 수행한다 (`codex-mode.md` §2·플러그인 매핑):
 - 재개(상태 파일 존재)면 `## Flags`의 `CODEX`가 기준 — `--codex`는 무시 + 고지.
-- 신규면 `--codex` > be profile `codexMode` > fe profile `codexMode` > (대화형) 3지선다 질문 / (비대화형) `mix` ephemeral. 명시 입력(`--codex`·질문 응답)은 존재하는 writable `.claude/be-harness.local.md`·`.claude/fe-harness.local.md` **모두**에 동일 값으로 기록한다 (부재·기록 실패 대상은 ephemeral 경고 1줄). 양쪽 값이 다르고 명시 입력이 없으면 be 값을 **이번 실행만** 사용 + 고지. 값은 exact `none|mix|max`로 검증한다.
-- `none`이 아니면 도구 목록에 `mcp__codex__codex` 존재를 확인한다 — 없으면 `$CODEX_RUNTIME = fallback(mcp_missing)` + 고지(profile 불변). `max`이고 세션 모델이 opus/fable 계열이 아니면 1줄 고지한다.
+- 신규면 `--codex` > be profile `codexMode` > fe profile `codexMode` > (대화형) 3지선다 질문 / (비대화형) `mix` ephemeral. 명시 입력(`--codex`·질문 응답)은 존재하는 writable `.claude/be-harness.local.md`·`.claude/fe-harness.local.md` **모두**에 동일 값으로 기록한다 (부재·기록 실패 대상은 ephemeral 경고 1줄). 양쪽 값이 다르고 명시 입력이 없으면 be 값을 **이번 실행만** 사용 + 고지. 값은 exact `none|mix|max`로 검증한다. 확정 직후 `--codex-models`도 동형으로 resolve한다 (`codex-mode.md` §2.1 풀스택 — 읽기 = `codexModels` 블록 단위 be → fe → 기본값, 플래그는 슬롯 단위 덮어쓰기, 기록 = writable be·fe 모두; 재개면 `CODEX_MODELS` 기준·플래그 무시, `none`이면 `N/A`; 결과는 `$CODEX_MODELS`).
+- `none`이 아니면 도구 목록에 `mcp__codex__codex` 존재를 확인한다 — 없으면 `$CODEX_RUNTIME = fallback(global:mcp_missing)` + 고지(profile 불변). `max`이고 세션 모델이 opus/fable 계열이 아니면 1줄 고지한다.
 
 ## Phase 1: 기능 정의 + Feature Matrix (Plan 모드 진입)
 
@@ -163,7 +164,7 @@ Plan 규칙:
 
 ### Phase 4.4: Plan Verification Loop (최대 5회)
 
-통신 계약 + BE/FE/공용 Plan에 대해 검증 루프를 통과해야 확정된다. **리뷰어 = `codexMode`** (`codex-mode.md` §1·§6 — `mix`/`max`: Codex sol, effort는 등급 Simple·Standard → xhigh / Complex·Critical → max, `none`: Claude 3관점 패널).
+통신 계약 + BE/FE/공용 Plan에 대해 검증 루프를 통과해야 확정된다. **리뷰어 = `codexMode`** (`codex-mode.md` §1·§6 — `mix`/`max`: Codex `review` 슬롯(`$CODEX_MODELS` — 기본 effort 티어링: Simple·Standard → xhigh / Complex·Critical → max), `none`: Claude 3관점 패널).
 
 ```
 for iteration in 1..5:
@@ -199,7 +200,7 @@ for iteration in 1..5:
 > Phase 5 진입 시 MUST: `contract-templates.md`의 "상태 파일 템플릿"대로 `{STATE_FILE}`을 작성하고,
 > `fullstack-tdd.md`의 "TDD 적용 판정"과 "Phase 5: 도메인별 회귀 Baseline 수집"을 수행한다.
 
-상태 파일의 `## Flags`(`MODE: fs / HARD_MODE / TDD / REFLECT / TIER: standard(고정) / CODEX / RUN_ID / START_SHA`)·`## Codex Runtime`(`$CODEX_RUNTIME` 값 그대로 — `active`로 초기화하지 않음)·`## Plan Verification Log`(Phase 4.4 누적분 복사)는 **최초 작성 시 1회** 기록한다. `RUN_ID`·`START_SHA`는 템플릿의 생성 명령으로 만들고 이후 재생성·수정하지 않는다 (풀스택은 Test Baseline이 도메인별이라 `START_SHA`가 유일한 시작 커밋 기록이다).
+상태 파일의 `## Flags`(`MODE: fs / HARD_MODE / TDD / REFLECT / TIER: standard(고정) / CODEX / CODEX_MODELS(`$CODEX_MODELS` 확정값) / RUN_ID / START_SHA`)·`## Codex Runtime`(`$CODEX_RUNTIME` 값 그대로 — `active`로 초기화하지 않음)·`## Plan Verification Log`(Phase 4.4 누적분 복사)는 **최초 작성 시 1회** 기록한다. `RUN_ID`·`START_SHA`는 템플릿의 생성 명령으로 만들고 이후 재생성·수정하지 않는다 (풀스택은 Test Baseline이 도메인별이라 `START_SHA`가 유일한 시작 커밋 기록이다).
 
 여기가 **유저와 대화 가능한 마지막 지점**이다 — baseline 수집이 실패하면 자율 실행 진입 전에 선택지를 제시한다.
 TDD 판정은 **도메인별로 따로** 한다. BE만 SKIP되고 FE는 활성일 수 있다.
@@ -216,7 +217,7 @@ TDD 판정은 **도메인별로 따로** 한다. BE만 SKIP되고 FE는 활성�
 
 | 테스트 종류 | owner |
 |------------|-------|
-| BE 로컬 / FE 로컬 | 각 도메인 에이전트 (`codexMode: max`: Codex sol `workspace-write`, 실패 시 항상 이어서 — codex-mode.md §5) |
+| BE 로컬 / FE 로컬 | 각 도메인 에이전트 (`codexMode: max`: Codex `write` 슬롯(`workspace-write`), 실패 시 항상 이어서 — codex-mode.md §5) |
 | **공용 계약 스키마** | **오케스트레이터** (도메인 에이전트는 수정 금지) |
 
 **배리어**: 계약이 영향을 주는 **모든 도메인**이 유효 Red 또는 근거를 동반한 `N/A(영향 없음)`를 반환해야 6.2로 넘어간다.
@@ -227,7 +228,7 @@ TDD 판정은 **도메인별로 따로** 한다. BE만 SKIP되고 FE는 활성�
 
 ### Phase 6.2: 병렬 구현 (Green)
 
-> BE/FE 구현 에이전트를 `fullstack-agent-prompts.md`대로 **같은 메시지에서 병렬 호출**한다. `codexMode: max`면 두 호출 모두 Codex sol(`workspace-write`, 역할 파일 = 해당 프롬프트 절)로 치환하고 §5 쓰기 안전(병렬 = 항상 이어서)을 적용한다.
+> BE/FE 구현 에이전트를 `fullstack-agent-prompts.md`대로 **같은 메시지에서 병렬 호출**한다. `codexMode: max`면 두 호출 모두 Codex `write` 슬롯(`workspace-write`, 역할 파일 = 해당 프롬프트 절)으로 치환하고 §5 쓰기 안전(병렬 = 항상 이어서)을 적용한다.
 
 TDD 활성 시 **테스트 파일 수정 금지**와 `[TestConflict]` 보고 규칙을 프롬프트에 추가한다.
 구현 중 계약 변경이 필요하면 즉시 Phase 2로 돌아간다 (No Silent Contract Drift).
@@ -262,7 +263,7 @@ Phase 8.2는 frozen contract를 **보면서** 코드를 검증하므로 "대충 
 > **격리 규칙 (CRITICAL)**: 두 에이전트에게 `{STATE_FILE}` 경로와 frozen contract를 **전달하지 않고, 읽지 말라고 명시**한다. 다른 Phase와 달리 "상태 파일을 읽고 갱신하세요" 문구를 넣지 않으며, 상태 갱신은 오케스트레이터가 대신 수행한다.
 > 이 규칙이 빠지면 에이전트가 계약을 읽고 그대로 옮겨 적어 **Diff가 항상 0건**이 되고, 이 단계는 요식 행위가 된다.
 
-프롬프트: `fullstack-agent-prompts.md`의 "Phase 8.1" 섹션. 두 에이전트를 **병렬 실행**한다. `codexMode: max`면 8.1 복원은 Codex luna medium, 8.2 리뷰어는 Codex luna xhigh(`read-only`)로 위임한다 (`codex-mode.md` 매핑).
+프롬프트: `fullstack-agent-prompts.md`의 "Phase 8.1" 섹션. 두 에이전트를 **병렬 실행**한다. `codexMode: max`면 8.1 복원은 Codex `explore` 슬롯, 8.2 리뷰어는 `judge` 슬롯(`read-only`)으로 위임한다 (`codex-mode.md` 매핑).
 
 복원 결과를 받으면 **오케스트레이터가** frozen contract와 3방향 대조한다:
 
