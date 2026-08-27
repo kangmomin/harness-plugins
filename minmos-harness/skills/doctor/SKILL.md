@@ -52,6 +52,7 @@ user-invocable: true
 | common (권장) | `/common:start-workflow` 스킬 존재 여부 | 풀스택 전환·커밋/PR 워크플로우 |
 | db-tools | `db-tools:db-gen` 스킬 사용 가능 여부 | db-gen-committed |
 | Codex (선택) | 세션 도구 목록에 `mcp__codex__codex` 존재 (be profile `codexMode` ≠ none일 때) | start-workflow (Plan 검증 루프·Phase 8+ 리뷰 — codexMode mix/max) |
+| Codex providers (선택) | be profile `codexMode` ≠ none이고 `codexModels`가 있을 때(없으면 N/A): 슬롯(`review`·`explore`·`judge`·`write`) 레코드 검증(무효 → `INVALID_SLOT`) + `openai`·`ollama`·`lmstudio` 외 provider마다 `${CODEX_HOME:-$HOME/.codex}/config.toml`의 `[model_providers.{id}]` 테이블(`grep -E '^\[model_providers\.("?){id}\1\]'`)·인증(`env_key` 변수 설정 여부 / `experimental_bearer_token` / `[….auth]`)·`wire_api` 점검 — WARN 코드 `NO_TABLE`·`ENV_UNSET`·`BEARER_TOKEN`·`WIRE_API`·`PROJECT_ONLY`·`INVALID_SLOT`. 키·URL 값은 출력하지 않는다 | start-workflow (Phase 8+ 리뷰는 `review` 슬롯) |
 
 ### 4.1 오버레이 적용 상태
 
@@ -121,6 +122,7 @@ user-invocable: true
 |------|------|------|
 | db-tools | OK / MISSING | |
 | Codex | OK / WARN / N/A(codexMode=none) | 선택 — WARN이면 실행 시 Claude 패널 폴백 (비차단) |
+| Codex providers | OK / WARN({id}:{코드}, …) / N/A | 선택 — 비차단, 실행 시 해당 provider·슬롯만 Claude 패널 폴백 |
 
 ### 빌드 환경
 | 항목 | 상태 | 비고 |
@@ -165,6 +167,7 @@ user-invocable: true
 | APIDOG_ACCESS_TOKEN | 선택 | Push 기능 전용 |
 | APIDOG_PROJECT_ID | 선택 | Push 기능 전용 |
 | Codex | 선택 | codexMode mix/max에서 사용, 없으면 Claude 패널 폴백 |
+| Codex providers | 선택 | codexModels에 외부 provider가 있을 때만 점검, WARN이면 해당 범위 Claude 패널 폴백 |
 | .convention-check.json | 선택 | 없으면 기본값 사용 |
 | grpcurl | 선택 | gRPC E2E 테스트 전용 |
 | GRPC_PORT | 선택 | gRPC E2E 테스트 전용 |
