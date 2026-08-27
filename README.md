@@ -85,6 +85,7 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 
 ```bash
 /be-harness:init          /fe-harness:init          # profile 생성 (최초 1회)
+/be-harness:config        /fe-harness:config        # profile 값 조회·수정
 /be-harness:request       /fe-harness:component
 /be-harness:e2e-test-loop /fe-harness:test-loop
 /minmos-harness:doctor    /hyeondongs-harness:doctor
