@@ -263,4 +263,5 @@ mkdir -p .claude/fe-harness/skills .claude/fe-harness/agents
 
 설정 파일: `.claude/fe-harness.local.md`
 다음 단계: `/fe-harness:doctor`로 전체 상태를 검증하세요.
+값 조회·수정: `/fe-harness:config {키}={값}`
 ```

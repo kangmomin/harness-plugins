@@ -21,6 +21,7 @@ commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 �
 ```bash
 /fe-harness:init       # 프로젝트 profile(.claude/fe-harness.local.md) 생성
 /fe-harness:doctor     # 환경 진단
+/fe-harness:config     # profile 값 조회·수정
 ```
 
 ## 스킬 목록
@@ -31,6 +32,7 @@ commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 �
 |------|------|------|
 | **init** | `/fe-harness:init` | profile 생성/갱신 (framework, testRunner, e2eRunner 등) |
 | **doctor** | `/fe-harness:doctor` | 환경 진단 |
+| **config** | `/fe-harness:config` | profile 값 조회·수정 (`{키}={값}` 배치, 조회 후 입력) |
 
 ### 자동화
 

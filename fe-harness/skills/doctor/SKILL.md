@@ -155,7 +155,7 @@ user-invocable: true
 ### 해결 필요 (ISSUES FOUND인 경우)
 | # | 항목 | 해결 방법 |
 |---|------|----------|
-| 1 | [항목] | `/fe-harness:init` 실행 또는 [구체적 안내] |
+| 1 | [항목] | `/fe-harness:init` 실행 · `/fe-harness:config {키}={값}`으로 값 수정 또는 [구체적 안내] |
 ```
 
 ---
