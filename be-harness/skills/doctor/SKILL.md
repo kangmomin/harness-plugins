@@ -42,6 +42,7 @@ profile을 읽고, be-harness 스킬이 정상 동작할 수 있는지 진단한
 | 17 | `.claude/be-harness/skills/*.md` 개수 | Glob | 정보 |
 | 18 | `.claude/be-harness/agents/*.md` 개수 | Glob | 정보 |
 | 19 | Codex MCP (`codexMode` ≠ `none`일 때) | 세션 도구 목록에 `mcp__codex__codex` 존재 | 선택 |
+| 20 | Codex providers (`codexMode` ≠ `none`이고 profile `codexModels`가 있을 때 — 없으면 `N/A`) | 슬롯(`review`·`explore`·`judge`·`write`) 레코드 검증 → 무효 슬롯 `INVALID_SLOT`; `openai`·`ollama`·`lmstudio` 외 provider마다 `${CODEX_HOME:-$HOME/.codex}/config.toml`에 `grep -E '^\[model_providers\.("?){id}\1\]'` — 테이블 없음 `NO_TABLE` / `env_key` 변수 미설정 `ENV_UNSET` / `experimental_bearer_token` 사용 `BEARER_TOKEN` / `wire_api` ≠ `responses` `WIRE_API` / `{CWD}/.codex/config.toml`에만 정의 `PROJECT_ONLY` (인증 3방식 대등 — `[model_providers.{id}.auth]`면 OK). 키·URL 값은 출력하지 않는다 | 선택 |
 
 ## 보고 형식
 
@@ -71,6 +72,7 @@ profile을 읽고, be-harness 스킬이 정상 동작할 수 있는지 진단한
 | .claude/be-harness/ 오버라이드 디렉토리 | OK / MISSING | 없으면 `/be-harness:init` 또는 수동 생성 |
 | 오버라이드 파일 개수 | common:Y/N, skills:N개, agents:N개 | 로드 순서 표시 |
 | Codex MCP | OK / WARN / N/A(codexMode=none) | WARN = 도구 없음이지만 비차단 — 실행 시 Claude 폴백 예정 |
+| Codex providers | OK / WARN({id}:{코드}, …) / N/A | 비차단 — 실행 시 해당 provider·슬롯만 Claude 폴백 (codex-mode.md §7 doctor) |
 
 ### 종합 판정
 | | |

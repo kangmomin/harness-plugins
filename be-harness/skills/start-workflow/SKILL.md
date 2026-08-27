@@ -2,7 +2,7 @@
 name: start-workflow
 description: "전체 개발 워크플로우를 자동화한다. Build 모드(기본): 요청 분석 → 구현 → 품질 루프 → PR. Analyze 모드(--analyze): 코드 분석 보고서. Verify 모드(--verify): 보안·성능·버그·안정성 검증. '워크플로우 시작', '기능 구현해줘(전 과정 자동)', '코드 분석/검증해줘' 요청 시 사용."
 allowed-tools: AskUserQuestion, Read, Write, Edit, Glob, Grep, Bash, Agent, EnterPlanMode, ExitPlanMode, Skill
-argument-hint: <작업 설명> [--codex none|mix|max] | --analyze [경로] | --verify [경로]
+argument-hint: <작업 설명> [--codex none|mix|max] [--codex-models {slot}={provider}/{model}[@{effort}],…] | --analyze [경로] | --verify [경로]
 user-invocable: true
 ---
 
@@ -33,6 +33,7 @@ user-invocable: true
 | `--reflect` | | Phase 11(성찰)을 실행한다. 미지정 시 Phase 11은 `SKIPPED:REFLECT_NOT_REQUESTED` (주기 실행 권장 — 워크플로우 5~10회마다 1회). |
 | `--tier standard` | | Phase 2 판정과 무관하게 검증 티어를 standard로 강제한다 (light 축소 비활성). light 강제 플래그는 없다. |
 | `--codex {none\|mix\|max}` | | Codex 사용 모드를 지정하고 profile `codexMode`에 저장한다 (모든 모드 공통). 미지정 시 profile → 질문(권장 `mix`). 정의·호출 계약·실패 정책: `references/codex-mode.md` |
+| `--codex-models {슬롯}={provider}/{model}[@{effort}] \| default[,…]` | | Codex 위임 모델 슬롯(`review`·`explore`·`judge`·`write`)을 지정하고 profile `codexModels`에 저장한다 (`--codex none`이면 N/A). 문법·병합·검증: `references/codex-mode.md` §2.1 |
 | `--analyze` | `-a` | **Analyze 모드**. 전체 또는 특정 범위의 코드를 분석하여 보고서를 생성한다. |
 | `--verify` | `-v` | **Verify 모드**. 보안·성능·잠재 버그·안정성을 검증하고 PASS/WARN/FAIL 판정한다. |
 
@@ -45,10 +46,7 @@ user-invocable: true
 | 위 플래그 없음 | **Build** (기본) | Phase 1 → 12 |
 
 - `--analyze`와 `--verify`는 상호 배타적이다. 동시 지정 시 유저에게 하나를 선택하도록 안내한다.
-- `--hard`는 Build 모드에서만 유효하다. Analyze/Verify 모드에서는 무시한다. `$ARGUMENTS`에 `--hard`/`-h`가 있으면 `$HARD_MODE = true`.
-- `--no-tdd`도 Build 모드 전용이다. `$ARGUMENTS`에 있으면 `$TDD = false` (기본값 `true`). Analyze/Verify 모드는 구현 Phase를 경유하지 않으므로 해당 없음.
-- `--reflect`도 Build 모드 전용이다. `$ARGUMENTS`에 있으면 `$REFLECT = true` (기본값 `false`) — Phase 11 실행 여부를 결정한다.
-- `--tier standard`도 Build 모드 전용이다. `$ARGUMENTS`에 있으면 `$TIER_FORCE = true` (기본값 `false`) — Phase 2 게이트에서 standard를 강제한다.
+- Build 모드 전용 플래그 (Analyze/Verify 모드에서는 무시 — 구현 Phase를 경유하지 않음): `$ARGUMENTS`에 `--hard`/`-h`가 있으면 `$HARD_MODE = true` · `--no-tdd`면 `$TDD = false` (기본값 `true`) · `--reflect`면 `$REFLECT = true` (기본값 `false` — Phase 11 실행 여부) · `--tier standard`면 `$TIER_FORCE = true` (기본값 `false` — Phase 2 게이트에서 standard 강제).
 - **범위 지정**: 플래그 뒤 경로가 있으면 분석/검증 범위로 사용한다. 없으면 전체 코드베이스 (profile의 `sourceDirs` 기준).
   예: `--analyze src/book`, `--verify src/book/handler.go`
 
@@ -66,7 +64,7 @@ user-invocable: true
 - 에이전트 생성 전: 해당 Phase를 `IN_PROGRESS`로 갱신
 - 완료 후: `DONE` / `SKIPPED:{사유}` / `BLOCKED:{사유}` 와 결과 기록
 - 모든 에이전트 프롬프트에 상태 파일 경로, 현재 Phase, 남은 Phase, 배정 model/effort를 포함
-- `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·RUN_ID·START_SHA)는 컨텍스트 요약·세션 재개로 CLI 인자를 잃은 뒤 이어갈 때 **유일한 기준** — CLI 인자와 충돌하면 기록값 우선 + 고지. `RUN_ID`는 Phase 5에서 1회 생성하며 재생성하지 않는다.
+- `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·CODEX_MODELS·RUN_ID·START_SHA)는 컨텍스트 요약·세션 재개로 CLI 인자를 잃은 뒤 이어갈 때 **유일한 기준** — CLI 인자와 충돌하면 기록값 우선 + 고지. `RUN_ID`는 Phase 5에서 1회 생성하며 재생성하지 않는다.
 
 ### Model / Effort 선택 규칙
 
@@ -91,7 +89,7 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 읽기 전용 리뷰는 기본 `Standard`, 보안/데이터 정합성/계약 변경 검토는 `Complex` 이상.
 코드 수정 에이전트는 담당 파일 수와 실패 반복 횟수에 따라 한 단계 높일 수 있다.
 검증·리뷰의 **판정**을 탐색·이해 작업으로 분류해 강등하지 않는다 (검출력 보존. 유일한 예외: 사망 복구 2차 재시도의 1단계 강등 — "축소 실행 내역"으로 고지).
-등급표는 Claude 경로에만 적용한다 — `codexMode: max`의 실행 주체·모델(Codex luna/sol)과 리뷰어 effort는 `references/codex-mode.md`가 정의한다.
+등급표는 Claude 경로에만 적용한다 — `codexMode: max`의 실행 주체·모델(Codex 슬롯 — 기본 OpenAI luna·sol)과 리뷰어 effort는 `references/codex-mode.md`가 정의한다.
 
 ## 자율 실행 규칙
 
@@ -156,8 +154,8 @@ Codex 호출 실패는 이 규약 대상이 아니다 — `references/codex-mode
 profile이 없으면 안내 후 종료한다:
 > "`.claude/be-harness.local.md` 가 없습니다. 먼저 `/be-harness:init`을 실행하세요."
 
-**Codex 모드 resolve** (`references/codex-mode.md` §2): 재개면 상태 파일 `## Flags`의 `CODEX`가 기준(`--codex` 무시). 신규면 `--codex` > profile `codexMode` > (대화형) 3지선다 질문 / (비대화형) `mix` ephemeral — 명시 입력만 profile에 기록하고, 값은 exact `none|mix|max`로 검증한다.
-`none`이 아니면 도구 목록에 `mcp__codex__codex` 존재를 확인한다 — 없으면 `$CODEX_RUNTIME = fallback(mcp_missing)` + 고지(profile 불변). `max`이고 세션 모델이 opus/fable 계열이 아니면 1줄 고지한다.
+**Codex 모드 resolve** (`references/codex-mode.md` §2): 재개면 상태 파일 `## Flags`의 `CODEX`가 기준(`--codex` 무시). 신규면 `--codex` > profile `codexMode` > (대화형) 3지선다 질문 / (비대화형) `mix` ephemeral — 명시 입력만 profile에 기록하고, 값은 exact `none|mix|max`로 검증한다. 확정 직후 `--codex-models`도 동형으로 resolve한다 (§2.1 — 재개면 `CODEX_MODELS` 기준·플래그 무시, `none`이면 `N/A`, 명시 입력만 profile `codexModels`에 기록, 슬롯 단위 병합 `플래그 > profile > 기본값`; 결과는 `$CODEX_MODELS`).
+`none`이 아니면 도구 목록에 `mcp__codex__codex` 존재를 확인한다 — 없으면 `$CODEX_RUNTIME = fallback(global:mcp_missing)` + 고지(profile 불변). `max`이고 세션 모델이 opus/fable 계열이 아니면 1줄 고지한다.
 
 ### 2. SKIP 예정 Phase 사전 경고
 
@@ -271,7 +269,7 @@ Spec 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 �
 
 ### Phase 4.3: Plan Verification Loop (최대 {PLAN_MAX}회)
 
-Plan은 검증 루프를 통과해야 확정된다. **리뷰어 = `codexMode`** (`references/codex-mode.md` §1·§6 — `mix`/`max`: Codex sol, `none`: Claude 3관점 패널). 첫 dispatch 직전에 codex-mode.md를 Read한다.
+Plan은 검증 루프를 통과해야 확정된다. **리뷰어 = `codexMode`** (`references/codex-mode.md` §1·§6 — `mix`/`max`: Codex `review` 슬롯(`$CODEX_MODELS`), `none`: Claude 3관점 패널). 첫 dispatch 직전에 codex-mode.md를 Read한다.
 
 ```
 for iteration in 1..{PLAN_MAX}:
@@ -314,7 +312,7 @@ Plan의 파일 목록으로 금지 조건을 재점검한다(발견 시 즉시 s
 **상태 파일 생성**:
 
 > Phase 5 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고
-> ① "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다. Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, 실행 전략, (parallel-slices 시) Slices, **Phase 4.3의 `Plan Verification Log`**를 복사해 넣고, `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·RUN_ID·START_SHA)·`## Verification Tier`·`## Codex Runtime`(`$CODEX_RUNTIME` 값 그대로 — `active`로 초기화하지 않음)을 기록한다.
+> ① "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다. Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, 실행 전략, (parallel-slices 시) Slices, **Phase 4.3의 `Plan Verification Log`**를 복사해 넣고, `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·CODEX_MODELS·RUN_ID·START_SHA)·`## Verification Tier`·`## Codex Runtime`(`$CODEX_RUNTIME` 값 그대로 — `active`로 초기화하지 않음)을 기록한다 (`CODEX_MODELS` = `$CODEX_MODELS` 확정값 — `tiered`는 Phase 2 난이도로 확정).
 > ② "Implementation Notes 라이브 파일 초기화" 템플릿대로 `{IMPL_NOTES}`를 생성한다 (기존 파일 덮어쓰기).
 
 **회귀 Baseline 수집 (TDD 활성 시)**:
@@ -344,7 +342,7 @@ TDD SKIP 판정 시 사유를 `## Test Baseline`에 기록하고, 이후 Phase 6
 
 Spec의 추적 ID(`AC-nn`·`EC-nn`·`RC-nn`)를 근거로 **실패하는 테스트를 먼저 작성**한다. 근거 표 밖의 테스트는 작성하지 않는다.
 
-- `sequential`: `general-purpose` 1개가 `/be-harness:unit-test --red` 실행 (`codexMode: max`: 러너 프롬프트에 codex-mode.md §8 포인터 1줄, 테스트·스텁 작성 리프는 Codex sol — `references/tdd.md`)
+- `sequential`: `general-purpose` 1개가 `/be-harness:unit-test --red` 실행 (`codexMode: max`: 러너 프롬프트에 codex-mode.md §8 포인터 1줄, 테스트·스텁 작성 리프는 Codex `write` 슬롯 — `references/tdd.md`)
 - `parallel-slices`: 슬라이스별 에이전트가 테스트·스텁만 작성 → **오케스트레이터가 배리어에서 1회 글로벌 Red 검증 후 기록·커밋**
 
 | 종료 조건 | 결과 |
@@ -358,8 +356,8 @@ Spec의 추적 ID(`AC-nn`·`EC-nn`·`RC-nn`)를 근거로 **실패하는 테스�
 
 #### Phase 6.2: 구현 (Green)
 
-- `sequential`: `be-harness:workflow-implementer` 1개 → 구현 + 커밋 (`codexMode: max`: Codex sol `workspace-write`, 쓰기 안전 = codex-mode.md §5)
-- `parallel-slices`: `general-purpose` 2~3개 병렬 (커밋·빌드 금지) → 완료 후 오케스트레이터가 일괄 커밋 (`max`: 슬라이스별 Codex sol, 실패 시 항상 이어서 — §5)
+- `sequential`: `be-harness:workflow-implementer` 1개 → 구현 + 커밋 (`codexMode: max`: Codex `write` 슬롯(`workspace-write`), 쓰기 안전 = codex-mode.md §5)
+- `parallel-slices`: `general-purpose` 2~3개 병렬 (커밋·빌드 금지) → 완료 후 오케스트레이터가 일괄 커밋 (`max`: 슬라이스별 Codex `write` 슬롯, 실패 시 항상 이어서 — §5)
 
 TDD 활성 시 **테스트 파일 수정 금지** 규칙과 `[TestConflict]` 보고 규칙을 프롬프트에 추가한다 (`references/tdd.md`).
 
@@ -477,10 +475,10 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 Phase 1: EnterPlanMode → /request로 Technical Spec (유저 확인)
 Phase 2: 난이도 산정 (1-10) + 검증 티어 판정 (light / standard)
 Phase 3: 실행 전략 판정 (sequential / parallel-slices / fullstack → /common:start-workflow --fs 로 전환)
-Phase 4: Plan 작성 → 다관점 1회 보강 → 검증 루프 (리뷰어 = codexMode: Codex sol | Claude 패널, 최대 {PLAN_MAX}회) → ExitPlanMode
+Phase 4: Plan 작성 → 다관점 1회 보강 → 검증 루프 (리뷰어 = codexMode: Codex `review` 슬롯 | Claude 패널, 최대 {PLAN_MAX}회) → ExitPlanMode
 Phase 5: feature 브랜치 + 상태 파일 + implementation-notes.md + 회귀 baseline → "자율 실행 시작"
 
-[자율 실행 — 유저 확인 없이 완주. codexMode max: 리프 에이전트를 Codex luna(읽기)/sol(쓰기)로 위임 — codex-mode.md]
+[자율 실행 — 유저 확인 없이 완주. codexMode max: 리프 에이전트를 Codex 슬롯(`explore`/`judge` 읽기 · `write` 쓰기)으로 위임 — codex-mode.md]
 Phase 6.1: 테스트 우선 (Red) — Spec ID 근거로 실패 테스트 선작성 + 스텁, Red 커밋
 Phase 6.2: 구현 (Green) — 테스트 파일 수정 금지, baseline 대비 신규 실패 0건까지
 Phase 7: {buildCommand} 빌드 체크 (실패 시 수정 최대 3회)

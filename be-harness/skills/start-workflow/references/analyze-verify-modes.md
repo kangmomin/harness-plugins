@@ -1,6 +1,6 @@
 > 이 문서는 `start-workflow` 스킬의 Analyze 모드(`--analyze`)와 Verify 모드(`--verify`)에서 로드된다. 단독 실행 금지.
 > `{STATE_FILE}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
-> `codexMode: max`면 A3 `code-analyzer` · V3 `code-verifier`는 Codex luna(읽기 전용 판정)로, V4 러너에는 §8 포인터를 추가한다 (`references/codex-mode.md` 매핑). 상태 파일에는 `## Codex` 절(`CODEX: {mode}` / `상태: active|fallback(...)`)을 둔다.
+> `codexMode: max`면 A3 `code-analyzer` · V3 `code-verifier`는 Codex `judge` 슬롯(읽기 전용 판정)으로, V4 러너에는 §8 포인터를 추가한다 (`references/codex-mode.md` 매핑). 상태 파일에는 `## Codex` 절(`CODEX: {mode}` / `CODEX_MODELS: …`(난이도 없음 → `review` = `xhigh`) / `상태: active|fallback(...)`)을 둔다.
 
 # Analyze / Verify Mode 상세 절차
 

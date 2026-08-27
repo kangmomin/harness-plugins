@@ -1,6 +1,6 @@
 {
   "name": "be-harness",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "범용 백엔드 개발 워크플로우 하네스. Technical Spec → Plan → 구현 → 품질 루프 → PR 파이프라인. Spec 점수 기반 검증 티어(light/standard) 자동 판정, 4관점 simplify 루프, E2E 자기 점검 md 리포트, md Workflow Report 아카이브, Implementation Notes 라이브 기록 내장. Go/Node 프리셋 + 프로젝트 profile 확장. minmos-harness 오버레이의 베이스.",
   "keywords": [
     "backend",
