@@ -24,6 +24,7 @@ Write tool로 `{STATE_FILE}`을 생성한다:
 - REFLECT: {true|false}
 - TIER: {light|standard}
 - CODEX: {none|mix|max}
+- CODEX_MODELS: {review={provider}/{model}@{effort},explore=…,judge=…,write=… | N/A} — 4슬롯 고정 순서·확정 effort(`-` = 키 생략), `CODEX: none`이면 `N/A` (`references/codex-mode.md` §2.1)
 - RUN_ID: {RUN_ID}
 - START_SHA: {START_SHA}
 
@@ -51,7 +52,7 @@ Write tool로 `{STATE_FILE}`을 생성한다:
 [Plan 3.1의 "관련 E2E spec 파일 경로 목록"을 그대로 복사. 없으면 `없음`. light의 `test-loop --smoke`가 이 목록만 실행한다 — 파일이 하나라도 없으면 test-loop이 전체 실행으로 폴백한다]
 
 ## Codex Runtime
-- 상태: {active | fallback({mcp_missing|quota_exhausted|auth_failed|model_unavailable})} — 생성 시 `$CODEX_RUNTIME` 값 그대로 (`references/codex-mode.md` §7). `CODEX: none`이면 `N/A`
+- 상태: {active | fallback({global:{사유} | provider:{id}:{사유} | slot:{슬롯}:{사유}, …})} — 생성 시 `$CODEX_RUNTIME` 값 그대로 (`references/codex-mode.md` §7 직렬화). `CODEX: none`이면 `N/A`
 
 | 호출 ID | 사용 종류 | 범위 | S0 | 핸들 |
 |---------|----------|------|----|------|
@@ -214,7 +215,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py r
 - **작업 유형**: [화면 생성/화면 수정/컴포넌트 생성/컴포넌트 수정/API 연동/API 연동 수정]
 - **난이도**: [N]/10 (산정) → [M]/10 (체감)
 - **검증 티어**: [light | standard | light → standard ({트리거}, 미재실행: 3.2)]
-- **Codex 모드**: [none | mix | max]{ · runtime: fallback({사유})}
+- **Codex 모드**: [none | mix | max] · 모델: [기본 | {CODEX_MODELS}]{ · runtime: fallback({항목}, …)}
 - **PR**: [PR URL]
 
 ### 2. 구현 내역

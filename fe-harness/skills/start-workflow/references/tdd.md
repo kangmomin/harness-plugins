@@ -84,7 +84,7 @@ Agent tool:
     `already_satisfied` 로 판정한 항목은 그 근거(기존 구현 위치)를 함께 적으세요.
 ```
 
-`codexMode: max`(`## Flags` `CODEX`)면 러너 프롬프트에 `references/codex-mode.md` §8 포인터 1줄을 추가하고, 테스트·스텁 작성 리프는 Codex sol(`workspace-write`)이 `${CLAUDE_PLUGIN_ROOT}/skills/unit-test/SKILL.md` 절차를 직접 읽어 수행한다 (§5 쓰기 안전 적용, 커밋 금지 동일). none·mix는 위 Skill tool 경로 그대로.
+`codexMode: max`(`## Flags` `CODEX`)면 러너 프롬프트에 `references/codex-mode.md` §8 포인터 1줄을 추가하고, 테스트·스텁 작성 리프는 Codex `write` 슬롯(`workspace-write`)이 `${CLAUDE_PLUGIN_ROOT}/skills/unit-test/SKILL.md` 절차를 직접 읽어 수행한다 (§5 쓰기 안전 적용, 커밋 금지 동일). none·mix는 위 Skill tool 경로 그대로.
 
 ## 유효 Red
 
