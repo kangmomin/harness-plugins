@@ -133,6 +133,7 @@ Write tool로 `{RUN_REPORT}`를 생성한다(기존 파일이 있으면 덮어�
    - 헤더의 E2E 메인 플로우가 `자동 도출 (git diff 기반)`이 아니면, 해당 플로우를 Happy Path 필수 시나리오로 포함하도록 e2e-test에 전달한다.
    - 첫 iteration이면 e2e-test가 도출한 엔드포인트 목록을 리포트의 `## 테스트 대상 엔드포인트` 섹션에 채운다.
    - 하위 스킬이 `SKIPPED:*`를 반환하면 루프를 추가 진행하지 않는다. 빈 리포트 파일을 삭제(`rm -f {RUN_REPORT}`)하고 동일 SKIP 사유로 보고한다. **Step 4(md 렌더링)는 건너뛴다.**
+   - 하위가 `BLOCKED:LOCK_UNAVAILABLE`을 반환하면 동일하게 루프를 진행하지 않고 `rm -f {RUN_REPORT}` 후 Step 4를 생략하며, 종료 상태 `BLOCKED:LOCK_UNAVAILABLE`과 `E2E 리포트: 없음 (BLOCKED:LOCK_UNAVAILABLE)`을 보고한다(SKIPPED 출력 블록과 같은 구조, 사유 줄만 `BLOCKED:LOCK_UNAVAILABLE`).
    - 정상 실행되면, 이번 iteration의 **모든 테스트 케이스**(통과·실패 무관)를 Step 2의 "케이스 블록 형식"으로 append 한다.
 2. 결과를 확인한다:
    - **판정 `PASS`** (모든 시나리오 통과 + 미커버 0건) → 루프 종료 → Step 4
@@ -157,6 +158,7 @@ Write tool로 `{RUN_REPORT}`를 생성한다(기존 파일이 있으면 덮어�
 | 판정 `PASS` | 루프 탈출 → Step 4 |
 | 판정 `WARN` (미커버만) | 루프 탈출 → Step 4, 미커버 사유를 상위에 전달 |
 | `e2e-test`가 `SKIPPED:*` 반환 | 루프 미진행, SKIPPED 그대로 보고 (Step 4 생략) |
+| `e2e-test`가 `BLOCKED:LOCK_UNAVAILABLE` 반환 | 루프 미진행, 그대로 보고 (Step 4 생략) |
 | `{MAX_ITER}`회 도달, 이슈 잔존 | `BLOCKED:MAX_ITERATIONS` — 미해결 이슈 목록과 함께 Step 4로 강제 진행 |
 | 같은 실패 시나리오가 연속 2회 동일 에러로 반복 | `BLOCKED:NO_PROGRESS` — 즉시 중단하고 Step 4로 진행 (같은 파일을 같은 방향으로 반복 수정 중) |
 
@@ -164,13 +166,13 @@ Write tool로 `{RUN_REPORT}`를 생성한다(기존 파일이 있으면 덮어�
 
 루프가 종료되면(전체 통과로 탈출 / 상한 도달 무관) `{RUN_REPORT}`를 **스크립트로** 정직한 자기 점검(self-check) md로 렌더링한다. Claude가 리포트를 직접 쓰지 않는다 — verdict 5종·시도별 raw 기록·"본 변경 코드 vs 검증 인프라" 귀속·GAP·"아무 의심 없이 성공인가?" 직답은 모두 `{RUN_REPORT}`의 기록에서 결정적으로 계산된다. 정직성은 Step 2의 append 시점 규칙(마커·귀속 줄·케이스명 불변·필수 4줄)이 담보한다.
 
-> **건너뛰는 경우**: Step 1 Probe SKIP, 또는 Step 3에서 `e2e-test`가 `SKIPPED:*`를 반환해 **테스트가 한 번도 실행되지 않은 경우**. e2e-test가 1회 이상 정상 실행됐다면 통과/실패와 무관하게 항상 렌더링한다.
+> **건너뛰는 경우**: Step 1 Probe SKIP, 또는 Step 3에서 `e2e-test`가 `SKIPPED:*`나 `BLOCKED:LOCK_UNAVAILABLE`을 반환해 **테스트가 한 번도 실행되지 않은 경우**. e2e-test가 1회 이상 정상 실행됐다면 통과/실패와 무관하게 항상 렌더링한다.
 
 1. 리포트 하단에 Step 2의 "최종 요약 블록 형식"으로 `## 최종 요약`을 append 한다 (`- 커버리지:` 줄 포함).
 2. 렌더러를 실행한다:
    ```bash
    python3 {RENDERER} {RUN_REPORT} --out-dir {REPORT_DIR} --branch "$(git branch --show-current)" \
-     --level {smoke|full|full-command} [--level-note "{사유}"] --status {DONE|BLOCKED:MAX_ITERATIONS|BLOCKED:NO_PROGRESS}
+     --level {smoke|full} [--level-note "{사유}"] --status {DONE|BLOCKED:MAX_ITERATIONS|BLOCKED:NO_PROGRESS}
    ```
    - `--level`: 헤더 `> 수준:` 매핑 — `smoke` → `--level smoke`, `full` → `--level full`, `full(smoke 미적용: X)` → `--level full --level-note "X"`. `--level`·`--status`는 필수 인자다.
    - `--status`: 종료 표의 결과 — 판정 `PASS`/`WARN` 탈출 = `DONE`.
@@ -189,7 +191,7 @@ E2E Test Loop 완료
 - 발견된 이슈: M건
 - 수정된 이슈: X건
 - 미해결 이슈: Y건 (있으면 목록)
-- 종료 상태: DONE | BLOCKED:MAX_ITERATIONS | BLOCKED:NO_PROGRESS
+- 종료 상태: DONE | BLOCKED:MAX_ITERATIONS | BLOCKED:NO_PROGRESS | BLOCKED:LOCK_UNAVAILABLE
 - 실행 수준: {헤더 `> 수준:` 값 그대로}
 - E2E 리포트: {절대 경로} [(원시 기록, 렌더링 실패: {사유})] [/ 상태: DEGRADED({사유})]
 ```
@@ -212,6 +214,7 @@ E2E Test Loop — SKIPPED
 | `SKIPPED:{사유}` | 환경 미충족으로 루프 미진행 (`NO_PROFILE`, `DISABLED`, `NO_SERVER_URL`, `NO_SERVER`, 하위 스킬 SKIP 전파) |
 | `BLOCKED:MAX_ITERATIONS` | 상한 도달, 이슈 잔존 |
 | `BLOCKED:NO_PROGRESS` | 같은 실패를 연속 2회 동일 에러로 반복 |
+| `BLOCKED:LOCK_UNAVAILABLE` | 락 디렉토리 생성 불가·권한 오류로 루프 미진행 |
 | `PASS` / `WARN` / `FAIL` | 하위 `e2e-test` 판정 (그대로 전파) |
 
 ## 주의사항

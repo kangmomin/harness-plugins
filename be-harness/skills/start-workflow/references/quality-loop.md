@@ -157,6 +157,7 @@ Agent tool:
 ```
 
 - `SKIPPED:*` 반환 시 → `modified`에 영향 주지 않고 다음 단계 진행 (루프 재시작 트리거 아님). `Phase Results` 8.6 행에 `E2E 리포트: 없음 (SKIPPED:{사유})`로 기록
+- `BLOCKED:LOCK_UNAVAILABLE` 반환 시 → `Phase Results` 8.6 행에 그대로 기록, 루프는 다른 단계로 계속(테스트 판정 불변), Workflow Report §4 E2E 항목에 그대로 표기
 - "수정: Y" → `modified = true`
 - 실행 수준 줄과 E2E 리포트 경로를 `Phase Results` 8.6 행과 `## Artifacts`(`e2e-report`)에 기록
 - **light 승격 ⑥**: 종료 상태가 `BLOCKED:MAX_ITERATIONS`·`BLOCKED:NO_PROGRESS`이거나 실행 수준이 `full(smoke 미적용: …)`이면 standard 전환 + 현재 iteration 종료 후 standard iteration 1회 추가 (`verification-tier.md` §4)

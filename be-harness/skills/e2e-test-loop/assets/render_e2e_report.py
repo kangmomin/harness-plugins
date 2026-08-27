@@ -2,7 +2,7 @@
 """render_e2e_report.py — e2e-test-loop Step 4: {RUN_REPORT} → 정직한 자기 점검 md 리포트 (stdlib only).
 
 계약 (canonical — SKILL.md Step 4는 요약만 둔다):
-  사용법: render_e2e_report.py RUN_REPORT --out-dir DIR --level {smoke|full|full-command} --status S
+  사용법: render_e2e_report.py RUN_REPORT --out-dir DIR --level {smoke|full} --status S
           [--level-note TEXT] [--branch NAME]
   종료:   파일을 썼으면 exit 0 + stdout `경로: …` / `상태: OK|DEGRADED({사유})`. 파일을 못 쓰면(인자 오류·입력 파일 부재·쓰기 실패) exit 2.
   출력:   {DIR}/{YYYYMMDD-HHMMSS}-{slug(branch)}-e2e-report.md — 배타적 생성(존재 시 -2, -3 접미), 덮어쓰지 않음.
@@ -220,7 +220,7 @@ def main():
     ap.add_argument("run_report")
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--branch", default="")
-    ap.add_argument("--level", required=True, choices=["smoke", "full", "full-command"])
+    ap.add_argument("--level", required=True, choices=["smoke", "full"])
     ap.add_argument("--level-note", default="")
     ap.add_argument("--status", required=True, choices=["DONE", "BLOCKED:MAX_ITERATIONS", "BLOCKED:NO_PROGRESS"])
     args = ap.parse_args()

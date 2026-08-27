@@ -14,7 +14,7 @@
 #   e2e-lock.sh release <key>
 #   e2e-lock.sh status  [key]
 #
-# 종료 코드: 0 성공 / 2 대기 타임아웃 / 1 그 외 실패
+# 종료 코드: 0 성공 / 2 대기 타임아웃 / 1 그 외 실패(락 디렉토리 생성 불가 포함)
 #
 # 의존성: bash, mkdir, mv, stat, sed, date 만 사용한다 (node·jq·flock 불필요).
 # flock 을 쓰지 않는 이유: 락이 보유 프로세스와 함께 죽는데, E2E 1회 실행은
@@ -176,7 +176,7 @@ cmd_acquire() {
   waited=0
 
   while :; do
-    if mkdir "$LOCK" 2>/dev/null; then
+    if mkdir "$LOCK" 2>/dev/null || { [ ! -d "$LOCK" ] && mkdir "$LOCK" 2>/dev/null; }; then
       local token
       token="$(new_token)"
       write_owner "$token"
@@ -184,6 +184,10 @@ cmd_acquire() {
       printf 'ACQUIRED key=%s waited=%ss lock=%s\n' "$KEY" "$waited" "$LOCK"
       return 0
     fi
+
+    # mkdir 실패가 EEXIST(다른 보유자)가 아니면 환경 오류(권한·파일시스템) — 대기하지 않고 즉시 실패(exit 1).
+    # 위에서 디렉토리 부재 시 1회 재시도했으므로, 보유자가 그 사이 해제한 경우는 이미 획득 경로로 빠져 있다.
+    [ -d "$LOCK" ] || die "락 디렉토리를 만들 수 없습니다(권한·파일시스템 확인): $LOCK"
 
     # 재진입 — 이미 내가 들고 있으면 heartbeat 만 갱신하고 통과시킨다.
     holder="$(read_field token || true)"

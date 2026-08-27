@@ -130,6 +130,7 @@ profile 에 `e2eLockDir` 이 지정돼 있으면 `HARNESS_E2E_LOCK_DIR={e2eLockD
 |-----------|------|
 | 0 (`ACQUIRED` / `ALREADY_HELD`) | Step 4로 진행 |
 | 2 (`TIMEOUT`) | `SKIPPED:LOCK_TIMEOUT` 반환 후 종료. 출력의 `holder_label` 을 함께 보고한다 |
+| 1 (`ERROR …` — 락 디렉토리 생성 불가·권한 오류 등 획득 자체 불가) | `BLOCKED:LOCK_UNAVAILABLE` — 서버를 기동하지 않고 즉시 종료. 출력의 `ERROR` 줄을 함께 보고한다 |
 
 대기 중이면 사용자에게 한 줄로 알린다: "다른 에이전트가 `{serverUrl}` E2E 실행 중 — 순번을 기다립니다."
 
@@ -257,11 +258,13 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh release "{serverUr
 | 인증 토큰 확보 실패 | `SKIPPED:NO_AUTH` |
 | 변경된 HTTP API 없음 | `SKIPPED:NO_CHANGED_API` |
 | 실행 락 대기 시간 초과 (다른 에이전트가 계속 보유) | `SKIPPED:LOCK_TIMEOUT` |
+| 실행 락 획득 자체 불가 (락 디렉토리 생성 실패·권한 오류) | `BLOCKED:LOCK_UNAVAILABLE` |
 
 SKIP은 오케스트레이터의 루프 재시작 트리거가 아니다.
+`BLOCKED:LOCK_UNAVAILABLE`도 재시작 트리거가 아니다 — 환경 오류라 재시도로 풀리지 않는다.
 
 **SKIP 경로의 락 해제**: Step 3.5 이후에 발생하는 SKIP(`NO_AUTH`, `SERVER_START_FAIL`)은 종료 전에 반드시 Step 6.5를 수행한다.
-Step 3.5 이전의 SKIP(`NO_PROFILE`, `DISABLED`, `NO_SERVER_URL`, `NO_SERVER`, `NO_CHANGED_API`)과 `LOCK_TIMEOUT`은 애초에 락을 잡지 않았으므로 해제할 것이 없다.
+Step 3.5 이전의 SKIP(`NO_PROFILE`, `DISABLED`, `NO_SERVER_URL`, `NO_SERVER`, `NO_CHANGED_API`)과 `LOCK_TIMEOUT`, `LOCK_UNAVAILABLE`은 애초에 락을 잡지 않았으므로 해제할 것이 없다.
 
 ## 주의사항
 
