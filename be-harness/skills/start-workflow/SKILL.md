@@ -174,7 +174,7 @@ profile 값을 근거로 누락 항목이 있으면 어떤 Phase가 SKIP될 것�
 - 누락 있음 → 사전 경고 후 선택지:
   > "⚠️ profile 누락 필드: `{누락 목록}`. 이번 워크플로우에서 **{영향받는 Phase 목록}**는 SKIP됩니다.
   > 1. 이대로 진행 — 해당 Phase는 `SKIPPED:{사유}`로 기록하고 넘어감
-  > 2. 중단 — `/be-harness:doctor`로 진단 후 `/be-harness:init`으로 재설정 권장"
+  > 2. 중단 — `/be-harness:doctor`로 진단 후 `/be-harness:init`으로 재설정(또는 `/be-harness:config {키}={값}`으로 누락 값만 추가) 권장"
 
 ---
 

@@ -192,6 +192,7 @@ mkdir -p .claude/be-harness/skills .claude/be-harness/agents
 
 다음 단계:
 - `/be-harness:doctor` — 상태 검증
+- `/be-harness:config {키}={값}` — 값 조회·수정
 - `/be-harness:start-workflow` — 워크플로우 시작
 ```
 

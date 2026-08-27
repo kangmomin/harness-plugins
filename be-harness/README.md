@@ -19,6 +19,7 @@ commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 �
 ```bash
 /be-harness:init       # 프로젝트 profile(.claude/be-harness.local.md) 생성
 /be-harness:doctor     # 환경 진단
+/be-harness:config     # profile 값 조회·수정
 ```
 
 ## 스킬 목록
@@ -29,6 +30,7 @@ commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 �
 |------|------|------|
 | **init** | `/be-harness:init` | profile 생성/갱신 (Go/Node 프리셋 또는 custom) |
 | **doctor** | `/be-harness:doctor` | profile·명령·Git 상태 진단 |
+| **config** | `/be-harness:config` | profile 값 조회·수정 (`{키}={값}` 배치, 조회 후 입력) |
 
 ### 자동화
 
