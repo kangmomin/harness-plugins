@@ -3,6 +3,7 @@
 #   1) SKILL.md ≤ 500줄  2) 오버레이 앵커 제목이 베이스에 정확히 1회 존재  3) 스크립트 사본 byte-identical
 #   4) python3 -m py_compile (assets/*.py)  5) HTML 리포트 문구 잔재 0건
 #   6) codex-mode.md 공통 블록 parity(sync-codex-mode.py --check) · defaults 마커 구조 · 모델/effort 리터럴 범위 · codexMode/codexModels·슬롯 토큰·플래그 존재 · 구 문구 잔재 0건
+#   7) config 스킬: PROFILE.md ↔ config SKILL.md 키 parity(양방향, config:keys 마커 1쌍)
 # 사용: bash scripts/check-plugins.sh   (exit 0 = 전부 통과)
 set -u
 cd "$(dirname "$0")/.."
@@ -75,10 +76,10 @@ for f in $CM_FILES; do
 done
 res=$(grep -rn -E 'gpt-5\.[0-9]+-' --include='*.md' be-harness fe-harness common minmos-harness README.md 2>/dev/null | grep -v 'community-feedback/' | grep -v 'references/codex-mode.md' || true)
 if [ -n "$res" ]; then bad "codex-mode.md defaults 표 밖 OpenAI 모델 리터럴 (슬롯 기본값 표만 허용):"; say "$res"; fi
-for f in be-harness/PROFILE.md fe-harness/PROFILE.md be-harness/skills/init/SKILL.md fe-harness/skills/init/SKILL.md be-harness/skills/doctor/SKILL.md fe-harness/skills/doctor/SKILL.md minmos-harness/skills/doctor/SKILL.md; do
+for f in be-harness/PROFILE.md fe-harness/PROFILE.md be-harness/skills/init/SKILL.md fe-harness/skills/init/SKILL.md be-harness/skills/doctor/SKILL.md fe-harness/skills/doctor/SKILL.md minmos-harness/skills/doctor/SKILL.md be-harness/skills/config/SKILL.md fe-harness/skills/config/SKILL.md; do
   for k in codexMode codexModels; do if ! grep -q "$k" "$f"; then bad "$f: $k 없음"; fi; done
 done
-for f in $CM_FILES be-harness/PROFILE.md fe-harness/PROFILE.md be-harness/skills/doctor/SKILL.md fe-harness/skills/doctor/SKILL.md minmos-harness/skills/doctor/SKILL.md; do
+for f in $CM_FILES be-harness/PROFILE.md fe-harness/PROFILE.md be-harness/skills/doctor/SKILL.md fe-harness/skills/doctor/SKILL.md minmos-harness/skills/doctor/SKILL.md be-harness/skills/config/SKILL.md fe-harness/skills/config/SKILL.md; do
   for s in review explore judge write; do if ! grep -q "\`$s\`" "$f"; then bad "$f: 슬롯 토큰 \`$s\` 없음"; fi; done
 done
 for f in be-harness/skills/start-workflow/SKILL.md fe-harness/skills/start-workflow/SKILL.md common/skills/start-workflow/SKILL.md common/skills/start-workflow/references/fullstack.md; do
@@ -93,6 +94,25 @@ done
 res=$(grep -rn -E 'Codex 계열|Plan 검증 루프 상시|재실패 시 quota 차단과 동일 취급|command not found, 도구 미존재|Codex sol\b|Codex luna\b|Codex `sol`|Codex `luna`|luna/sol|luna\(읽기\)/sol\(쓰기\)|sol/high/workspace-write|luna/xhigh/read-only|Codex\(gpt-5\.6-sol\)|Codex\(luna|fallback\((mcp_missing|quota_exhausted|auth_failed|model_unavailable)\)' \
   --include='*.md' be-harness fe-harness common minmos-harness README.md 2>/dev/null | grep -v 'community-feedback/' || true)
 if [ -n "$res" ]; then bad "codex-mode 구 문구 잔재:"; say "$res"; fi
+
+# 7) config 스킬: PROFILE.md(문서 canonical) 프론트매터 키 ↔ config SKILL.md `config:keys` 마커 안 백틱 토큰 — 양방향 parity (개수 하드코딩 없음)
+for p in be-harness fe-harness; do
+  pf=$p/PROFILE.md; cf=$p/skills/config/SKILL.md
+  if [ ! -f "$cf" ]; then bad "없음: $cf"; continue; fi
+  if [ ! -f "$pf" ]; then bad "없음: $pf"; continue; fi
+  if [ "$(grep -c '^---$' "$pf")" -ne 2 ]; then bad "$pf: 프론트매터 구분선(^---$)이 정확히 2개가 아님 — parity 추출 불가"; continue; fi
+  d1=$(grep -n '^---$' "$pf" | sed -n 1p | cut -d: -f1); d2=$(grep -n '^---$' "$pf" | sed -n 2p | cut -d: -f1)
+  pk=$(sed -n "$((d1+1)),$((d2-1))p" "$pf" | grep -oE '^(# )?[A-Za-z0-9_-]+:' | sed -E 's/^# //; s/:$//')
+  kb=$(grep -n 'config:keys-begin' "$cf" | cut -d: -f1); ke=$(grep -n 'config:keys-end' "$cf" | cut -d: -f1)
+  if [ "$(printf '%s\n' "$kb" | grep -c .)" -ne 1 ] || [ "$(printf '%s\n' "$ke" | grep -c .)" -ne 1 ] || [ "$kb" -ge "$ke" ]; then bad "$cf: config:keys 마커가 정확히 1쌍(begin < end)이 아님"; continue; fi
+  ck=$(sed -n "$((kb+1)),$((ke-1))p" "$cf" | grep -oE '`[^`]+`' | tr -d '`')
+  dup=$(printf '%s\n' "$pk" | sort | uniq -d | tr '\n' ' '); if [ -n "$dup" ]; then bad "$pf: 프론트매터 키 중복: $dup"; fi
+  dup=$(printf '%s\n' "$ck" | sort | uniq -d | tr '\n' ' '); if [ -n "$dup" ]; then bad "$cf: 마커 안 토큰 중복: $dup"; fi
+  miss=$(comm -23 <(printf '%s\n' "$pk" | sort -u) <(printf '%s\n' "$ck" | sort -u) | tr '\n' ' ')
+  extra=$(comm -13 <(printf '%s\n' "$pk" | sort -u) <(printf '%s\n' "$ck" | sort -u) | tr '\n' ' ')
+  if [ -n "$miss" ]; then bad "$cf: PROFILE.md 키가 마커 안에 없음: $miss"; fi
+  if [ -n "$extra" ]; then bad "$cf: 마커 안 토큰이 PROFILE.md 프론트매터에 없음: $extra"; fi
+done
 
 if [ "$fail" -eq 0 ]; then say "check-plugins: OK"; fi
 exit "$fail"
