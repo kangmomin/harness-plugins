@@ -1,7 +1,7 @@
 {
   "name": "common",
-  "version": "0.13.0",
-  "description": "워크플로우 단일 진입점(start-workflow — 요청 분석 기반 백엔드/프론트엔드/풀스택 도메인 판정, 단일 도메인은 하네스로 위임하고 풀스택은 계약 기반 병렬 오케스트레이션을 직접 실행)과 커밋/Push/PR 워크플로우(commit, commit-push, commit-pr, commit-hard-push, merge), 추론 태그(Assumption)의 항목별 해소(resolve-assumption), 단일 파일 문서 생성(doc-gen), 스킬 안내(how-to-use), 피드백 제출(submit-feedback)을 제공하는 베이스 플러그인.",
+  "version": "0.14.0",
+  "description": "워크플로우 단일 진입점(start-workflow — 요청 분석 기반 백엔드/프론트엔드/풀스택 도메인 판정, 단일 도메인은 하네스로 위임하고 풀스택은 계약 기반 병렬 오케스트레이션을 직접 실행)과 커밋/Push/PR 워크플로우(commit, commit-push, commit-pr, commit-hard-push, merge), base 최신화 + 버전 범프(sync-base), 추론 태그(Assumption)의 항목별 해소(resolve-assumption), 단일 파일 문서 생성(doc-gen), 스킬 안내(how-to-use), 피드백 제출(submit-feedback)을 제공하는 베이스 플러그인.",
   "keywords": [
     "common",
     "commit",
@@ -17,6 +17,9 @@
     "dispatch",
     "harness-entrypoint",
     "assumption",
-    "resolve-assumption"
+    "resolve-assumption",
+    "sync-base",
+    "version-bump",
+    "swagger"
   ]
 }

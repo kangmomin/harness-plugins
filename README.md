@@ -51,7 +51,7 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 
 | 플러그인 | 유형 | 설명 |
 |---------|------|------|
-| **common** | 진입점 | 워크플로우 단일 진입점(`start-workflow` — 도메인 판정 + 풀스택 오케스트레이션), 커밋/Push/PR(`commit`, `commit-push`, `commit-pr`, `commit-hard-push`, `merge`), 추론 태그 해소(`resolve-assumption`), 문서 생성(`doc-gen`) |
+| **common** | 진입점 | 워크플로우 단일 진입점(`start-workflow` — 도메인 판정 + 풀스택 오케스트레이션), 커밋/Push/PR(`commit`, `commit-push`, `commit-pr`, `commit-hard-push`, `merge`), base 최신화 + 버전 범프(`sync-base`), 추론 태그 해소(`resolve-assumption`), 문서 생성(`doc-gen`) |
 | **be-harness** | 베이스 | 범용 백엔드. Go/Node 프리셋과 project profile 기반의 Spec→Plan→Red→Green→품질 루프→PR |
 | **fe-harness** | 베이스 | 범용 프론트엔드. React/Next.js 중심 컴포넌트 생성, lint/a11y, 단위/E2E 테스트, PR |
 | **minmos-harness** | be 오버레이 | Post-Math 백엔드 — Apidog 문서 동기화, gRPC/PubSub E2E, PostgreSQL MCP DB 안전 규칙, Post-Math 컨벤션 |
