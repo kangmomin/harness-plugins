@@ -70,8 +70,8 @@ Post-Math 특화 규칙은 `overlay/` 에 있고, 두 경로로 적용된다 (�
 
 | 스킬 | 호출 | 설명 |
 |------|------|------|
-| **apidog-schema-gen** | `/minmos-harness:apidog-schema-gen` | Apidog OAS에서 flat JSON 스키마 추출 + 코드 교차 검증 |
-| **e2e-apidog-schema-gen** | `/minmos-harness:e2e-apidog-schema-gen` | E2E 실측 결과 기반 Apidog 응답 케이스 추가 + 스키마 보정 |
+| **apidog-schema-gen** | `/minmos-harness:apidog-schema-gen` | Apidog OAS에서 flat JSON 스키마 추출 + 코드 교차 검증. Push 시 엔드포인트 status(`x-apidog-status`)를 함께 기입하며, 삭제 불가한 API 는 `deprecated` push 로 대체 (`--status`) |
+| **e2e-apidog-schema-gen** | `/minmos-harness:e2e-apidog-schema-gen` | E2E 실측 결과 기반 Apidog 응답 케이스 추가 + 스키마 보정. 전 케이스 통과 시 status `tested`, 실패 시 `testing` 으로 push (릴리즈·지원중단 엔드포인트는 다운그레이드하지 않음) |
 | **db-gen-committed** | `/minmos-harness:db-gen-committed` | Liquibase migration 파일 생성 (committed 상태) |
 | **pagenation** | `/minmos-harness:pagenation` | 커서 기반 페이지네이션 구현 컨벤션 |
 | **api-share-note** | `/minmos-harness:api-share-note` | 기간 내 API 변경을 대체·동작 변경·신규·미머지로 분류해 Apidog 링크와 함께 공유용 요약 생성 |

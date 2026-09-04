@@ -52,6 +52,7 @@ E2E 테스트에서 수집된 **실제 요청/응답 데이터**를 기반으로
 | `--init` | | 초기 세팅 후 종료 |
 | `--doctor` | | 상태 진단 후 종료 |
 | `--skip-doctor` | `-sd` | 실행 전 자동 doctor 점검을 건너뜀 |
+| `--status {값}` | | 엔드포인트 status 를 직접 지정 (10종 literal). 지정 시 Phase 5.0.5의 추론·보호 규칙보다 우선한다 |
 
 ---
 
@@ -265,11 +266,47 @@ Push 전에 해당 API 경로가 Apidog에 이미 존재하는지 확인한다.
 
 상세 판정 로직은 `/minmos-harness:apidog-schema-gen`의 push-import 절차 Step 8.2(폴더 결정)를 따른다.
 
+### 5.0.5 status 결정
+
+E2E 실측 결과를 근거로 엔드포인트 status 를 정하고 push 페이로드에 **반드시 기입**한다 (`x-apidog-status`, operation 레벨).
+허용 값 10종·deprecated 특칙의 canonical 은 `/minmos-harness:apidog-schema-gen` 의 `references/push-import.md` **Step 8.2.5** 다. 이 절은 그 우선순위를 E2E 맥락에 맞춰 확정한 것이며, 충돌하면 canonical 이 우선한다.
+
+**결정 순서 — 위에서 정해지면 아래는 보지 않는다:**
+
+1. **`--status {값}` 이 유효한 10종 literal 이면 그 값** — 사용자 명시가 최우선이며, 아래 보호 규칙보다도 우선한다.
+2. **기존 status 가 `released`·`deprecated`·`obsolete` 면 그 값을 그대로 유지** — 추론하지 않는다. 릴리즈·지원중단된 API 가 E2E 한 번으로 되돌아가는 것을 막는다. 유지 사실을 5.2 보고에 남긴다.
+3. **OAS 에 없는 신규 경로면 `developing`**
+4. **그 외에는 E2E 결과로 추론:**
+
+| E2E 결과 | status |
+|----------|--------|
+| 수집한 전 케이스 통과 (happy path + 에러 케이스 모두 기대대로) | `tested` |
+| 실패했거나 확인하지 못한 케이스가 하나라도 있음 | `testing` |
+
+**`released` 로 자동 승격하지 않는다** — 전 케이스를 통과해도 2·3·4 경로의 최대치는 `tested` 다. `released` 는 1번(`--status released`)으로만 설정된다.
+
+기존 status 는 Phase 5.0에서 OAS 를 읽을 때 함께 확인한다 (`x-apidog-status`, 없으면 `developing` 으로 간주).
+
+### 5.0.6 push 페이로드 확정
+
+**전송 수단을 고르기 전에** 최종 operation 페이로드를 만들고 검증한다 — 5.1의 두 경로(MCP write / REST API)가 **같은 페이로드**를 보내야 status 누락이 생기지 않는다.
+
+1. 코드·E2E 기준 스키마에 5.0.5의 status 를 얹어 단일 엔드포인트 OpenAPI 3.0 YAML 을 만든다 (`/tmp/apidog-push-{endpoint-slug}.yaml`).
+2. 구조 검증 — 셋 다 만족해야 5.1로 진행한다:
+   - `x-apidog-status` 가 **operation 레벨**에 있다 (`responses` 와 같은 깊이. `info` 나 path 레벨이 아니다)
+   - 값이 canonical 10종 literal 중 하나다
+   - status 가 `deprecated` 면 `deprecated: true` 도 함께 있다
+3. 검증 실패 시 push 하지 않고 YAML 생성을 다시 한다.
+
+> **변경 판정 주의**: Phase 5의 "변경 사항이 있으면 push" 판정에 **status 변경도 포함**한다. 스키마가 그대로여도 status 가 기존 값과 다르면 변경으로 보고 push 한다 — 그러지 않으면 status 전이(`testing` → `tested` 등)가 영영 반영되지 않는다.
+
 ### 5.1 Push 실행 (MCP → REST API fallback)
+
+두 시도 모두 **5.0.6에서 확정·검증한 페이로드를 그대로** 전송한다. 전송 수단이 달라도 보내는 내용은 동일해야 한다.
 
 #### 시도 1: MCP write (Apidog MCP에 write 기능이 있는 경우)
 
-MCP tool로 직접 push를 시도한다. 성공하면 5.2로 진행.
+MCP tool로 직접 push를 시도한다 — 5.0.6의 페이로드(= `x-apidog-status` 포함)를 그대로 넘긴다. 성공하면 5.2로 진행.
 
 #### 시도 2: Apidog REST API (MCP write 불가 시)
 
@@ -277,8 +314,8 @@ MCP에 write 기능이 없거나 실패하면, **즉시 Apidog REST API로 자�
 반복 디버깅하지 않고 바로 대안을 사용한다.
 
 ```bash
-# 1. 코드 기준 최종 스키마를 OpenAPI 3.0 YAML로 변환
-#    → /tmp/apidog-push-{endpoint-slug}.yaml 저장
+# 1. 5.0.6에서 확정·검증한 /tmp/apidog-push-{endpoint-slug}.yaml 를 그대로 사용한다
+#    (여기서 스키마를 다시 만들지 않는다 — 재생성하면 status 검증 결과가 무효가 된다)
 
 # 2. Apidog Import API 호출
 curl -s -X POST \
@@ -342,6 +379,8 @@ API 응답의 `data.counters`를 파싱하여 보고:
 |------|------|------|------|
 | Endpoint | {created} | {updated} | {failed} |
 | Schema | {created} | {updated} | {failed} |
+
+- status: `{값}` ({한국어 라벨}) — {E2E 추론 사유 | 기존 값 유지(다운그레이드 방지)}
 ```
 
 ---

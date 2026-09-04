@@ -1,6 +1,6 @@
 {
   "name": "minmos-harness",
-  "version": "2.4.0",
+  "version": "2.5.0",
   "description": "Post-Math 백엔드 개발을 위한 be-harness 오버레이 플러그인. 워크플로우 절차는 be-harness 가 정의하고, 여기서는 Apidog 문서 동기화·gRPC/PubSub E2E·PostgreSQL MCP DB 안전 규칙·Post-Math 컨벤션을 앵커 기반 오버레이로 얹는다. be-harness 선행 설치 필수.",
   "keywords": [
     "overlay",
@@ -11,6 +11,8 @@
     "grpc",
     "pubsub",
     "postgres",
-    "post-math"
+    "post-math",
+    "apidog-status",
+    "deprecated"
   ]
 }

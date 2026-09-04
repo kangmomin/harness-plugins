@@ -64,7 +64,7 @@ Apidog MCP 도구는 `mcp__apidog__read_project_oas_*` 패턴으로 세션 도�
 | `--doctor` | | 상태 진단 후 종료 |
 | `--skip-doctor` | `-sd` | 실행 전 자동 doctor 점검을 건너뜀 |
 
-(Push 옵션 `--folder`/`--merge`/`--keep`/`--new`/`--branch`/`--dry-run`: `references/push-import.md` 참조)
+(Push 옵션 `--folder`/`--merge`/`--keep`/`--new`/`--branch`/`--status`/`--dry-run`: `references/push-import.md` 참조)
 
 ## Step 1: Pre-flight Doctor
 
@@ -92,6 +92,8 @@ OAS에서 해당 경로를 찾을 수 없는 경우 (신규 API 등):
 2. 동의하면 저장 경로를 질문한다:
    > "1. `docs/schemas/[endpoint-slug].json` (기본) 2. 직접 경로 지정"
 3. **Step 3을 건너뛰고** Step 4(코드베이스 교차 검증)로 직접 진행한다 — 코드만으로 스키마를 생성한다.
+   - Step 4에서 handler 를 찾으면 신규 구현 → push 시 status 추론값은 `developing` (Step 8.2.5).
+   - handler 도 찾지 못하면 OAS·코드 어디에도 정의가 없어 **스키마를 만들 근거가 없다**. 이때는 사용자가 설계 스키마를 직접 제공한 경우에만 `designing` 으로 push 하고, 제공이 없으면 push 하지 않고 안내한 뒤 종료한다.
 4. Step 6 출력 완료 후, 확정된 경로에 스키마 파일을 저장한다.
 5. 유저가 거부하면 스킬을 종료한다.
 
@@ -100,6 +102,7 @@ OAS에서 해당 경로를 찾을 수 없는 경우 (신규 API 등):
 1. 해당 경로의 `$ref` 값을 확인한다.
 2. `mcp__apidog__read_project_oas_ref_resources_w9of5k`로 상세 스키마를 가져온다.
 3. 선택한 method의 `requestBody.content.application/json.schema`와 `responses.{statusCode}.content.application/json.schema`를 추출한다.
+4. **현재 status 캡처**: 같은 operation 의 `x-apidog-status` 값을 함께 읽어 보관한다 (없으면 `developing` 으로 간주). Step 7의 status 확인과 Step 8.2.5의 "현재 status 유지"·다운그레이드 금지 판정이 이 값을 근거로 한다 — 여기서 읽지 않으면 뒤에서 확인할 방법이 없다.
 
 ## Step 4: Codebase Cross-Reference
 
@@ -117,6 +120,8 @@ OAS 스키마를 Go 코드베이스의 실제 struct 정의와 교차 검증하�
 4. **불일치 보고**: OAS와 코드 간 타입/필드 차이는 출력 시 별도 안내한다.
 
 > **우선순위**: 코드베이스가 OAS보다 우선한다. OAS에 없어도 코드에 있으면 포함하고, 타입 불일치 시에도 코드 기준으로 출력한다.
+
+> **handler 를 찾지 못한 경우** — **OAS 에 해당 경로가 존재할 때만** 이 규칙을 적용한다 (코드에서 제거된 API). OAS 에도 없으면 Step 2.1의 안내를 따른다. 스키마를 새로 만들지 않는다. **deprecated 후보**로 판정하고 사용자에게 확인한다 — "코드에서 handler 를 찾지 못했습니다. 제거된 API 라면 Apidog 에서 삭제하는 대신 `deprecated` 로 표시합니다. 진행할까요?" 동의하면 Step 8에서 `references/push-import.md` 의 **deprecated push 특칙**(기존 정의 재발행 + status 만 변경)을 따른다.
 
 ## Step 5: Schema Analysis
 
@@ -191,7 +196,15 @@ query parameters는 **CSV 형태, 헤더 행 없이** 출력한다. 컬럼 순�
 ## Step 7: Confirmation
 
 결과를 유저에게 보여주고 확인 받는다: ref 분리 대상 적절성 / ref 네이밍 / 누락 필드 여부.
-피드백 반영 후 최종 스키마를 확정한다.
+
+Push 로 이어질 경우 **적용할 status 도 이 단계에서 함께 보여주고** 확인받는다 (별도 질문 단계를 만들지 않는다).
+
+> 이 확인을 하려면 status 가 먼저 정해져 있어야 한다. **Step 7 진입 전에** `references/push-import.md` 의 **Step 8.2.5(status 결정)** 를 읽어 값을 확정한다 — 근거는 Step 3.4에서 캡처한 현재 status 와 Step 4의 handler 탐색 결과다. 여기서 확정한 값을 Step 8로 **그대로** 넘긴다 (재계산하지 않는다).
+
+
+> "적용할 status: `{값}` ({한국어 라벨}) — {추론 사유}. 이대로 진행할까요? 바꾸려면 값을 지정해주세요 (10종: `references/push-import.md` Step 8.2.5)."
+
+피드백 반영 후 최종 스키마와 status 를 확정한다.
 
 ## Step 8: Apidog Push (선택)
 
@@ -199,7 +212,7 @@ query parameters는 **CSV 형태, 헤더 행 없이** 출력한다. 컬럼 순�
 
 > 유저가 처음부터 "Apidog에 푸시해줘", "Apidog 동기화" 등을 요청한 경우, Step 1~7을 모두 수행한 후 자동으로 Step 8을 진행한다.
 
-> Step 8 진입 시 MUST: 같은 폴더의 `references/push-import.md`를 Read하고 절차(환경 변수 확인 → 폴더 결정 → YAML 생성 → Import API 호출 → 실패 시 MCP Fallback 1회 → 결과 보고)를 따른다.
+> Step 8 진입 시 MUST: 같은 폴더의 `references/push-import.md`를 Read하고 절차(환경 변수 확인 → 폴더 결정 → **status 결정** → YAML 생성 → Import API 호출 → 실패 시 MCP Fallback 1회 → 결과 보고)를 따른다.
 
 ## Key Rules
 
@@ -212,6 +225,8 @@ query parameters는 **CSV 형태, 헤더 행 없이** 출력한다. 컬럼 순�
 | 빈 `items: {}` | 그대로 유지 (any type array) |
 | `example` 필드 | 스키마 출력에서 제외 |
 | `deprecated` 엔드포인트 | 유저에게 deprecated 경고 표시 |
+| 엔드포인트 삭제 요청 | Apidog 은 import 로 삭제할 수 없다. 삭제 대신 `x-apidog-status: deprecated` push 로 대체한다 (기존 정의 재발행 — 빈 스펙 덮어쓰기 금지) |
+| Push 시 status | 항상 명시한다. 생략 시 기존 status 보존 여부가 보장되지 않는다 (Step 8.2.5) |
 | 코드 vs OAS 불일치 | 코드 기준 우선. 불일치는 출력 하단에 별도 안내 |
 | 코드 추가 필드 | 스키마에 태그 없이 포함. 출처는 비교 테이블(Step 6.2)에서 정리 |
 | Go 포인터 타입 | optional로 간주 (required에 포함하지 않음) |
