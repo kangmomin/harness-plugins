@@ -1,4 +1,4 @@
-<!-- overlay-source: minmos-harness@2.2.0 -->
+<!-- overlay-source: minmos-harness@2.5.1 -->
 
 ## Base
 
@@ -14,7 +14,9 @@
 | PostgreSQL MCP 연결 | `SELECT 1` 실행 성공 | `SKIPPED:POSTGRES_MCP_UNAVAILABLE` |
 | DB 호스트가 로컬 | 연결 문자열 호스트 검사 | `SKIPPED:REMOTE_DB_BLOCKED` (화이트리스트 승인 없을 때) |
 
-베이스의 profile 기반 SKIP 조건(`NO_PROFILE`·`DISABLED`·`NO_SERVER_URL`·`NO_SERVER`·`NO_AUTH`·`NO_CHANGED_API`)은 그대로 유지한다.
+베이스의 profile 기반 SKIP 조건(`NO_PROFILE`·`DISABLED`·`NO_SERVER_URL`·`NO_SERVER`·`NO_AUTH`)은 그대로 유지한다.
+
+**`NO_CHANGED_API` 치환**: HTTP 엔드포인트가 0개여도 Step 1에서 종료하지 않는다. Step 1+ 프로토콜 분류에서 변경된 RPC service/method까지 수집한 뒤 REST+gRPC 대상의 합집합이 0개일 때만 `SKIPPED:NO_CHANGED_API`를 반환한다. gRPC-only 변경은 `GRPC`로 Step 2 이후를 계속한다.
 
 ## Phase 삽입
 

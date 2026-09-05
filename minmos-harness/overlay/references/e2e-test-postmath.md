@@ -262,7 +262,7 @@ Agent tool:
 
 - `secret/.env`에서 포트와 DB 접속 정보를 확인한다.
 - `secret/.env`와 `secret/gcp-sa-key.json`이 worktree에 존재하는지 확인하고, 없으면 원본 repo에서 복사한다.
-- `go build -o /tmp/pms-test-server ./cmd/main.go`로 명시적 빌드 후 `/tmp/pms-test-server &`로 실행한다.
+- `go build -o "{E2E_RUN_DIR}/pms-test-server" ./cmd/main.go`로 빌드 후 `"{E2E_RUN_DIR}/pms-test-server" &`로 실행한다. `$!`을 이번 실행의 `{E2E_SERVER_PID}`로 보관한다 (`E2E_RUN_DIR`은 베이스 실행 컨텍스트).
   - **중요**: `go run`이 아닌 명시적 빌드 바이너리를 실행해야 이전 프로세스와 혼동이 없다.
 - JWT 토큰을 생성한다 (ADMIN role: `role_id=1`, 충분한 exp).
   - JWT_SECRET은 `secret/.env`의 값을 사용. Claims: `{"member_id":1,"member_old_id":1,"role_id":1,"is_staff":true,"uuid":"e2e-test","company_id":1,"exp":1900000000}`
@@ -338,8 +338,8 @@ Agent tool:
 정리 확인: `SELECT COUNT(*) FROM {table} WHERE id > {BASELINE_ID} AND status != 'removed'` → 0건 확인 후 보고에 포함.
 
 **서버 정리**:
-- `pkill -f pms-test-server && rm -f /tmp/pms-test-server`
-- gRPC 별도 서버를 실행한 경우: `pkill -f grpc-test-server && rm -f /tmp/grpc-test-server`
+- 이번 실행이 시작한 `{E2E_SERVER_PID}`/세션만 종료하고 `"{E2E_RUN_DIR}/pms-test-server"`를 삭제한다.
+- gRPC 별도 서버도 보관한 `{E2E_GRPC_PID}`/세션만 종료한 뒤 `"{E2E_RUN_DIR}/grpc-test-server"`를 삭제한다. 이름으로 일괄 종료하는 `pkill -f`는 사용하지 않는다.
 
 ## 상태 코드
 

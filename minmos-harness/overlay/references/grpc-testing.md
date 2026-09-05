@@ -60,8 +60,9 @@
 7. **서버 빌드/실행**: Step 7.2의 서버와 동일 바이너리를 공유한다 (REST + gRPC 동일 프로세스인 경우).
    별도 gRPC 서버가 필요한 경우:
    ```bash
-   go build -o /tmp/grpc-test-server ./cmd/grpc/main.go
-   /tmp/grpc-test-server &
+   go build -o "{E2E_RUN_DIR}/grpc-test-server" ./cmd/grpc/main.go
+   "{E2E_RUN_DIR}/grpc-test-server" &
+   E2E_GRPC_PID=$! # 이번 실행 컨텍스트에 보관
    ```
 
 ## Step 8: gRPC 테스트 실행
