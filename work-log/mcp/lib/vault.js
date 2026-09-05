@@ -89,35 +89,78 @@ export function safeResolve(vaultRoot, relPath, { forWrite = false } = {}) {
 
 /* ────────────────────────────── 파싱 ────────────────────────────── */
 
-/** frontmatter 를 분리한다. 값은 문자열/배열만 다루는 최소 YAML 처리. */
-export function splitFrontmatter(text) {
-  if (!text.startsWith('---')) return { frontmatter: null, body: text, raw: '' };
-  const end = text.indexOf('\n---', 3);
-  if (end === -1) return { frontmatter: null, body: text, raw: '' };
+/** 변경하지 않은 YAML 블록은 파싱/재직렬화하지 않고 그대로 보존한다. */
+function frontmatterBlocks(raw, strict = false) {
+  const blocks = [];
+  for (const line of raw.match(/[^\n]*\n|[^\n]+$/g) ?? []) {
+    if (strict && !blocks.some((b) => b.key !== undefined) &&
+        (/^[ \t]+\S/.test(line) && !/^\s*#/.test(line) || /^[{[]/.test(line))) {
+      throw new Error('지원하지 않는 YAML 루트 구조는 수정하지 않습니다');
+    }
+    const match = line.match(/^("(?:\\.|[^"\\])*"|'(?:''|[^'])*'|[^\s#?:][^:\r\n]*):(?=[ \t\r\n]|$)/);
+    const key = match ? yamlString(match[1]) : undefined;
+    if (strict && !match && /^\S/.test(line) && !/^(?:#|-(?:\s|$))/.test(line)) {
+      throw new Error('지원하지 않는 YAML 구조는 수정하지 않습니다');
+    }
+    if (match || !blocks.length) blocks.push({ key, value: match ? line.slice(match[0].length).trim() : '', raw: line });
+    else blocks[blocks.length - 1].raw += line;
+  }
+  return blocks;
+}
 
-  const raw = text.slice(text.indexOf('\n') + 1, end + 1);
-  const rest = text.slice(end + 4).replace(/^\r?\n/, '');
+function yamlString(value) {
+  const v = value.trim();
+  const quoted = v.match(/^("(?:\\.|[^"\\])*")(?:\s+#.*)?$/);
+  if (quoted) {
+    try { return JSON.parse(quoted[1]); } catch { return v; }
+  }
+  const single = v.match(/^'((?:''|[^'])*)'(?:\s+#.*)?$/);
+  if (single) return single[1].replace(/''/g, "'");
+  return v.replace(/\s+#.*$/, '');
+}
+
+/** 인덱싱에 필요한 문자열/배열만 읽고, 나머지 YAML 은 raw 에 보존한다. */
+export function splitFrontmatter(text) {
+  const match = text.match(/^---\r?\n([\s\S]*?)^---[ \t]*\r?$(?:\n)?/m);
+  if (!match || match.index !== 0) return { frontmatter: null, body: text, raw: '' };
+  const raw = match[1];
   const fm = {};
-  for (const line of raw.split('\n')) {
-    const m = line.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
-    if (!m) continue;
-    const [, key, valRaw] = m;
-    const val = valRaw.trim();
+  for (const { key, value, raw: block } of frontmatterBlocks(raw)) {
+    if (!key) continue;
+    const val = value.replace(/("(?:\\.|[^"\\])*"|'(?:''|[^'])*')|(?:^|\s+)#.*$/g, '$1').trim();
     if (val.startsWith('[') && val.endsWith(']')) {
-      fm[key] = val.slice(1, -1).split(',').map((s) => s.trim().replace(/^["']|["']$/g, '')).filter(Boolean);
+      fm[key] = [...val.slice(1, -1).matchAll(/(?:^|,)\s*("(?:\\.|[^"\\])*"|'(?:''|[^'])*'|[^,]*)(?=\s*(?:,|$))/g)]
+        .map((m) => yamlString(m[1])).filter(Boolean);
+    } else if (!val && /^\s*-\s+/m.test(block)) {
+      fm[key] = [...block.matchAll(/^\s*-\s+(.+)$/gm)].map((m) => yamlString(m[1]));
     } else {
-      fm[key] = val.replace(/^["']|["']$/g, '');
+      fm[key] = yamlString(val);
     }
   }
-  return { frontmatter: fm, body: rest, raw };
+  return { frontmatter: fm, body: text.slice(match[0].length), raw };
 }
 
 /** frontmatter 객체를 YAML 블록으로 직렬화한다. */
 export function renderFrontmatter(fm) {
   const lines = Object.entries(fm).map(([k, v]) =>
-    Array.isArray(v) ? `${k}: [${v.join(', ')}]` : `${k}: ${v}`
+    `${/^[A-Za-z_][\w-]*$/.test(k) ? k : JSON.stringify(k)}: ${JSON.stringify(v)}`
   );
   return `---\n${lines.join('\n')}\n---\n\n`;
+}
+
+function mergeFrontmatter(existingRaw, incomingRaw, overrides) {
+  const blocks = frontmatterBlocks(existingRaw, true);
+  const updates = [...frontmatterBlocks(incomingRaw, true),
+    ...Object.entries(overrides).map(([key, value]) => ({ key, raw: `${JSON.stringify(key)}: ${JSON.stringify(value)}\n` }))];
+  for (const update of updates) {
+    if (!update.key) continue;
+    const matches = blocks.filter((b) => b.key === update.key);
+    if (matches.length > 1) throw new Error(`중복 frontmatter 키는 안전하게 수정할 수 없습니다: ${update.key}`);
+    const i = blocks.findIndex((b) => b.key === update.key);
+    if (i === -1) blocks.push(update);
+    else blocks[i] = update;
+  }
+  return `---\n${blocks.map((b) => b.raw).join('')}---\n\n`;
 }
 
 /** 파일명에서 YYYYMMDD- 접두사와 -type 접미사를 떼어 사람이 읽을 제목을 만든다. */
@@ -196,11 +239,13 @@ function parseMarkdown(rel, text, stat) {
   }
 
   const title = nfc(frontmatter?.title || h1 || stemToTitle(rel));
+  const tags = (Array.isArray(frontmatter?.tags) ? frontmatter.tags : [frontmatter?.tags])
+    .filter((tag) => typeof tag === 'string' && tag.trim()).map(nfc);
 
   return {
     title,
     type: inferType(rel, frontmatter),
-    tags: frontmatter?.tags?.length ? frontmatter.tags.map(nfc) : inferTags(rel),
+    tags: tags.length ? tags : inferTags(rel),
     status: frontmatter?.status || 'active',
     summary: plain.slice(0, 200),
     excerpt: plain.slice(0, 1500),
@@ -541,13 +586,9 @@ export async function writeDoc(cfg, { relPath, content, frontmatter, mode = 'cre
       ? splitFrontmatter(content).body
       : content;
     if (existingFm) {
-      const merged = {
-        ...existingFm,                                  // share_link 등 모르는 키 보존
-        ...(splitFrontmatter(content).frontmatter ?? {}),
-        ...(frontmatter ?? {}),
-        updated: new Date().toISOString().slice(0, 10),
-      };
-      final = renderFrontmatter(merged) + bodyOnly.replace(/^\s+/, '');
+      final = mergeFrontmatter(splitFrontmatter(existing).raw, splitFrontmatter(content).raw, {
+        ...(frontmatter ?? {}), updated: new Date().toISOString().slice(0, 10),
+      }) + bodyOnly.replace(/^\s+/, '');
     } else {
       final = bodyOnly;
     }

@@ -1,6 +1,6 @@
 {
   "name": "work-log",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "작업 기록 vault를 검색·동기화·편집하는 로컬 Codex 플러그인. 본문 없는 후보 랭킹과 단일 문서 읽기로 컨텍스트 사용량을 줄인다.",
   "author": {
     "name": "kangmomin",

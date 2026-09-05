@@ -57,7 +57,7 @@ test('공백이 있는 독립 경로에서 initialize와 tools/list가 동작한
   assert.equal(exitCode, 0, stderr);
 
   const messages = stdout.trim().split('\n').map((line) => JSON.parse(line));
-  assert.equal(messages[0].result.serverInfo.version, '0.2.0');
+  assert.equal(messages[0].result.serverInfo.version, '0.2.1');
   assert.deepEqual(
     messages[1].result.tools.map((tool) => tool.name),
     ['wiki_resolve', 'wiki_read', 'wiki_write', 'wiki_sync', 'wiki_status'],
