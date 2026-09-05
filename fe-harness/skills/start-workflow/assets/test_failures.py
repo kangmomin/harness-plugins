@@ -72,53 +72,53 @@ def parse_go_package(lines):
     notes = []
     marker = False
     build_failed = False
-    for i, ln in enumerate(lines):
+    current = None
+    messages = {}
+    result_context = []
+    for ln in lines:
         if re.match(r"^(ok|FAIL|PASS)(\s|$)", ln) or re.match(r"^\?\s+\S+\s+\[no test files\]", ln):
             marker = True
+            current = None
+            result_context.clear()
             if "[build failed]" in ln or "[setup failed]" in ln:
                 build_failed = True
-        m = re.match(r"^\s*--- PASS: (\S+)", ln)
+        m = re.match(r"^=== (RUN|CONT|NAME|PAUSE)\s+(\S+)", ln)
         if m:
-            passed_ids.add(m.group(1))
-        m = re.match(r"^\s*--- FAIL: (\S+)", ln)
+            current = None if m.group(1) == "PAUSE" else m.group(2)
+            result_context.clear()
+            continue
+        m = re.match(r"^\s*--- (FAIL|PASS|SKIP): (\S+)", ln)
         if m:
-            tid = m.group(1)
+            verdict, tid = m.groups()
             indent = len(ln) - len(ln.lstrip())
-            msg = None
-            for nl in lines[i + 1:i + 8]:
-                if nl.strip() == "":
-                    continue
-                nin = len(nl) - len(nl.lstrip())
-                if nin <= indent and not nl.lstrip().startswith("panic:"):
-                    break
-                if re.match(r"^\s*--- (FAIL|PASS): ", nl):
-                    continue
-                if re.match(r"^\s*[\w\-]+\.go:\d+:", nl) or nl.lstrip().startswith("panic:"):
-                    msg = nl.strip()
-                    break
-            if msg is None:
-                start = None
-                for j in range(i - 1, -1, -1):
-                    if re.match(r"^=== RUN\s+%s\s*$" % re.escape(tid), lines[j]):
-                        start = j
-                        break
-                if start is not None:
-                    for nl in lines[start + 1:i]:
-                        if re.match(r"^=== RUN", nl):
-                            break  # 다른 (서브)테스트 구간 — 부모가 자식 로그를 가져가지 않는다
-                        if re.match(r"^\s*[\w\-]+\.go:\d+:", nl) or nl.lstrip().startswith("panic:"):
-                            msg = nl.strip()
-                            break
-            if msg is None:
-                msg = "(실패 메시지 없음)"
-            failed.append((tid, msg))
-    # 자식 실패가 있는 부모는 컨테이너 — 자식만 남긴다 (부모 ID = 자식 ID의 `/` 앞부분)
+            while result_context and result_context[-1][0] >= indent:
+                result_context.pop()
+            if verdict == "PASS":
+                passed_ids.add(tid)
+            if verdict == "FAIL":
+                failed.append(tid)
+                result_context.append((indent, tid))
+            # nonverbose 로그는 FAIL 헤더 뒤에 오류를 출력한다.
+            current = tid if verdict == "FAIL" else None
+            continue
+        if re.match(r"^\s*[\w\-]+\.go:\d+:", ln) or ln.lstrip().startswith("panic:"):
+            if result_context and not ln.lstrip().startswith("panic:"):
+                # nonverbose 부모 로그는 자식 결과 뒤에도 나온다. dedent로 부모 문맥을 복원한다.
+                indent = len(ln) - len(ln.lstrip())
+                while result_context and result_context[-1][0] >= indent:
+                    result_context.pop()
+                current = result_context[-1][1] if result_context else None
+            if current:
+                messages.setdefault(current, ln.strip())
+    # 자체 오류가 없는 컨테이너 부모만 제거한다. 부모의 직접 실패는 보존한다.
     child_parents = set()
-    for tid, _ in failed:
+    for tid in failed:
         parts = tid.split("/")
         for k in range(1, len(parts)):
             child_parents.add("/".join(parts[:k]))
-    failed = [(tid, m) for tid, m in failed if tid not in child_parents]
+    failed = [(tid, messages.get(tid, "(실패 메시지 없음)")) for tid in failed
+              if tid not in child_parents or tid in messages]
+    notes.extend("%s: 실패 메시지 식별 불가" % tid for tid, msg in failed if msg == "(실패 메시지 없음)")
     passed = len([p for p in passed_ids if "/" not in p]) if (passed_ids or failed) else None
     total_leaf = passed + len(failed) if passed is not None else None
     if build_failed:
@@ -275,7 +275,10 @@ def analyze(lines, runner, exit_code):
     p = PARSERS[runner](lines)
     res.update(completed=p["completed"], reason=p["reason"], passed=p["passed"], total=p["total"], passed_ids=p["passed_ids"])
     for tid, msg in p["failed"]:
-        res["records"].append(dict(id=tid, sig=normalize(msg), raw=msg))
+        record = dict(id=tid, sig=normalize(msg), raw=msg)
+        if runner == "go" and msg == "(실패 메시지 없음)":
+            record.update(cls="unparsed", note="실패 메시지 식별 불가")
+        res["records"].append(record)
     res["unparsed"].extend(p["notes"])
     if p["completed"] and not p["failed"] and exit_code != 0 and not p["notes"]:
         res["unparsed"].append("실패 없는 비정상 종료 (exit %d)" % exit_code)
@@ -365,6 +368,8 @@ def in_testmap(tid, testmap):
 def classify(records, suite, bl):
     for r in records:
         tid = r["id"]
+        if r.get("cls") == "unparsed":
+            continue
         if bl is None or bl["failed"] is None:
             r["cls"], r["note"] = "unparsed", "baseline 섹션 없음"
             continue
@@ -381,6 +386,9 @@ def classify(records, suite, bl):
         note = ("Tombstone %s → %s; " % (lookup, tid)) if lookup != tid else ""
         key = (suite, lookup)
         if key in bl["failed"]:
+            if "::" in tid and bl["failed"][key] == normalize("(실패 메시지 없음)"):
+                r["cls"], r["note"] = "unparsed", "Go baseline 실패 메시지 식별 불가"
+                continue
             if bl["failed"][key] == r["sig"]:
                 r["cls"], r["note"] = "pre_existing", note + "baseline 동일 시그니처"
             else:
