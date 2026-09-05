@@ -141,7 +141,13 @@ profile의 `e2eLockDir`은 `run-context.md`대로 acquire·beat·release·status
 
 ## Step 4: 서버 기동
 
-`--skip-server`가 아니고 `runServerCommand` 가 있으면 백그라운드로 기동:
+Step 3.5에서 **자기 락 획득 → 빌드 → 기동** 순서를 지킨다 (`--no-lock`은 명시적 예외). 수정 루프의 부모·수정 에이전트는 이 수명을 대신 관리하지 않는다.
+
+`--skip-server`가 아니고 `runServerCommand`가 있으면 profile의 `buildCommand`가 비어있지 않을 때 먼저 실행하고 종료 코드를 확인한다. 빌드 실패 시 Step 6.5로 해제하고 `SKIPPED:SERVER_BUILD_FAIL`을 반환한다. 기동 명령 자체가 소스를 빌드하는 경우(예: `go run`) 별도 빌드는 생략할 수 있다. 수정 재검증인데 빌드 명령도 없고 기동 명령이 소스를 반영한다는 증거도 없으면, 락을 해제하고 `BLOCKED:SERVER_CODE_UNVERIFIED`를 반환한다.
+
+`--skip-server`이거나 기동 명령이 없는 외부 서버 경로에서 수정 재검증을 요청받으면, 실행 버전·기동 로그 등으로 수정 반영을 확인한다. 증거가 없으면 서버를 변경하지 않고 락 해제 후 `BLOCKED:SERVER_CODE_UNVERIFIED`를 반환한다.
+
+빌드 성공 후 백그라운드로 기동:
 
 ```bash
 run_in_background:
@@ -257,6 +263,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh release "{serverUr
 | `e2eEnabled: false` | `SKIPPED:DISABLED` |
 | `serverUrl` 없음 | `SKIPPED:NO_SERVER_URL` |
 | `runServerCommand` 없고 `--skip-server`도 아님, 기존 서버도 응답 없음 | `SKIPPED:NO_SERVER` |
+| 빌드 실패 / 기동 후 응답 없음 | `SKIPPED:SERVER_BUILD_FAIL` / `SKIPPED:SERVER_START_FAIL` |
+| 수정 재검증 대상 서버의 코드 반영 확인 불가 | `BLOCKED:SERVER_CODE_UNVERIFIED` |
 | 인증 토큰 확보 실패 | `SKIPPED:NO_AUTH` |
 | 변경된 HTTP API 없음 | `SKIPPED:NO_CHANGED_API` |
 | 실행 락 대기 시간 초과 (다른 에이전트가 계속 보유) | `SKIPPED:LOCK_TIMEOUT` |
@@ -265,7 +273,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh release "{serverUr
 SKIP은 오케스트레이터의 루프 재시작 트리거가 아니다.
 `BLOCKED:LOCK_UNAVAILABLE`도 재시작 트리거가 아니다 — 환경 오류라 재시도로 풀리지 않는다.
 
-**SKIP 경로의 락 해제**: Step 3.5 이후에 발생하는 SKIP(`NO_AUTH`, `SERVER_START_FAIL`)은 종료 전에 반드시 Step 6.5를 수행한다.
+**SKIP 경로의 락 해제**: Step 3.5 이후에 발생하는 SKIP/BLOCKED(`NO_AUTH`, `SERVER_BUILD_FAIL`, `SERVER_START_FAIL`, `SERVER_CODE_UNVERIFIED`)은 종료 전에 반드시 Step 6.5를 수행한다.
 Step 3.5 이전의 SKIP(`NO_PROFILE`, `DISABLED`, `NO_SERVER_URL`, `NO_SERVER`, `NO_CHANGED_API`)과 `LOCK_TIMEOUT`, `LOCK_UNAVAILABLE`은 애초에 락을 잡지 않았으므로 해제할 것이 없다.
 
 ## 주의사항

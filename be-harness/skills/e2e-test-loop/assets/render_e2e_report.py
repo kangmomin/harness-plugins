@@ -13,6 +13,7 @@
   `## Iteration 기록` — `### Iteration N` 아래 `#### {분류} — {케이스명}` 케이스 블록(- 요청/- 기대/- 실제/- 판정 필수)
       + `**실패 → 수정 (…)**` 블록(- 실패 원인/- 수정/- 귀속(선택)/- 재빌드) — 직전 케이스(시도)에 귀속
   `## 최종 요약` — `- 미해결 이슈:` / `- 커버리지:` (UNCOVERED {ID}({사유}) … / SMOKE_OMITTED {IDs} / 없음)
+  `## 실행 중단` — `- 중단 원인:` (BLOCKED:INTERRUPTED에서는 필수). 실행된 iteration과 수정 기록을 보존한다.
   fail-closed: 필수 섹션·줄·필드가 없으면 `필수 입력 결여`로 집계(직답은 `아니오`) + DEGRADED. 결여를 0으로 간주하지 않는다.
 
 판정 상태 기계 (TC = (분류, 케이스명), 시도 = 케이스 블록, iteration 순):
@@ -222,7 +223,7 @@ def main():
     ap.add_argument("--branch", default="")
     ap.add_argument("--level", required=True, choices=["smoke", "full"])
     ap.add_argument("--level-note", default="")
-    ap.add_argument("--status", required=True, choices=["DONE", "BLOCKED:MAX_ITERATIONS", "BLOCKED:NO_PROGRESS"])
+    ap.add_argument("--status", required=True, choices=["DONE", "BLOCKED:MAX_ITERATIONS", "BLOCKED:NO_PROGRESS", "BLOCKED:INTERRUPTED"])
     args = ap.parse_args()
 
     if not os.path.isfile(args.run_report):
@@ -238,6 +239,9 @@ def main():
         missing.append("입력 비어있음")
 
     secs = sections(text)
+    stop_reason = bullet(secs.get("실행 중단", []), "중단 원인")
+    if args.status == "BLOCKED:INTERRUPTED" and not stop_reason:
+        missing.append("실행 중단 `- 중단 원인:` 줄")
     head = secs.get("", [])
     title = ""
     main_flow = ""
@@ -424,6 +428,8 @@ def main():
     out.append("- E2E 메인 플로우: %s" % (main_flow or "(기록 없음)"))
     out.append("- 실행 수준: %s%s" % (level_txt, (" (헤더 기록: %s)" % header_level) if header_level and header_level != args.level else ""))
     out.append("- 종료 상태: %s" % args.status)
+    if stop_reason:
+        out.append("- 중단 원인: %s" % stop_reason)
     out.append("- 원시 기록: %s · 총 iteration %s · 총 테스트 %s · 생성 %s" % (os.path.abspath(args.run_report), total_iter or "?", total_tests or "?", created or "?"))
     out.append("")
     out.append("## 정직한 결론")
