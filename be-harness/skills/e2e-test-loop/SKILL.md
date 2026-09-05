@@ -15,7 +15,7 @@ argument-hint: "[--skip-doctor] [--smoke]"
 
 **플레이스홀더 정의** (본문·assets 공통, 값 변경은 여기 한 곳만 수정):
 
-- `{RUN_REPORT}` = `/tmp/e2e-run-report.md` (루프 중 누적하는 원시 기록)
+- `{RUN_REPORT}` = `{E2E_RUN_DIR}/e2e-run-report.md` (루프 중 누적하는 원시 기록)
 - `{REPORT_DIR}` = profile의 `reportDir` (없으면 `.claude/harness-reports`)
 - `{MAX_ITER}` = 5 (`--smoke` 시 3)
 - `{RENDERER}` = `${CLAUDE_PLUGIN_ROOT}/skills/e2e-test-loop/assets/render_e2e_report.py`
@@ -63,7 +63,8 @@ profile(`.claude/be-harness.local.md`)을 읽고 아래를 확인한다:
 
 루프 동안 수행하는 모든 테스트 케이스의 요청 데이터·기대·실제·판정과 실패→수정 내역을 `{RUN_REPORT}`에 누적한다. 루프 종료 후 이 파일이 Step 4 md 렌더링(스크립트)의 유일한 입력이 된다 — 여기에 적히지 않은 것은 리포트에 없다.
 
-Write tool로 `{RUN_REPORT}`를 생성한다(기존 파일이 있으면 덮어쓴다):
+먼저 `${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/references/run-context.md`를 Read하고 이번 루프의 `{E2E_RUN_DIR}`·`{E2E_LOCK_TOKEN}`을 확정한다. 각 iteration의 하위 `e2e-test`에 두 값을 그대로 전달한다.
+Write tool로 `{RUN_REPORT}`를 새로 생성한다. 같은 미완료 루프를 계속하는 경우에는 기존 기록에 append하며 덮어쓰지 않는다:
 
 ```markdown
 # E2E 테스트 실행 리포트 — {브랜치명 또는 작업 요약}

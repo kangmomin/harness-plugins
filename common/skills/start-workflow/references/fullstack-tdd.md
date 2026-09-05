@@ -36,6 +36,7 @@ Phase 5에서 확인하고, 하나라도 걸리면 TDD를 SKIP한다. **도메�
 
 **자율 실행 진입 직전에 수집한다.** 유저와 대화 가능한 마지막 지점이므로 수집 실패 시 선택지를 제시할 수 있다.
 
+로그는 `{RUN_DIR}` 아래 도메인·suite별 별도 파일로 보관한다. Go 식별자는 패키지 import path를 포함한 `{package}::TestX/sub`를 Baseline·Test Map·Tombstone·재실행 모두에 사용하며, 패키지 없는 구 baseline은 `unparsed`로 처리한다.
 BE·FE **각각** 수집해 `{STATE_FILE}`에 도메인별로 기록한다 (템플릿: `contract-templates.md`).
 
 | 필드 | 의미 |
@@ -72,7 +73,7 @@ BE·FE **각각** 수집해 `{STATE_FILE}`에 도메인별로 기록한다 (템�
 
 ```
 ① BE·FE 에이전트 병렬 — 각자 담당 테스트 + 스텁만 작성
-   금지: 상대 도메인 파일 수정 / 공용 계약 테스트 수정 / git commit
+   금지: 상대 도메인 파일 수정 / 공용 계약 테스트 수정 / git index 변경(add/reset/restore --staged)·커밋 / 공유 상태·노트 쓰기
    반환: { CT-nn·F-nn ID, 테스트명, 파일, 진단 분류 } 또는 `N/A(영향 없음)` 증거
 
 ② [배리어] 오케스트레이터가 확인:

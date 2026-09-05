@@ -32,8 +32,8 @@ SKIP 판정을 `{STATE_FILE}`의 `## Test Baseline` 섹션에 사유와 함께 �
 
 ```bash
 git rev-parse HEAD          # 기준 커밋 (= `## Flags`의 START_SHA)
-{testCommand} > /tmp/baseline-unit.log 2>&1; EXIT=$?
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --runner auto --exit-code $EXIT --suite unit --emit-baseline /tmp/baseline-unit.log
+{testCommand} > "{RUN_DIR}/baseline-unit.log" 2>&1; EXIT=$?
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --runner auto --exit-code $EXIT --suite unit --emit-baseline "{RUN_DIR}/baseline-unit.log"
 {makeTestCommand}           # 비어있지 않으면 같은 방식으로 --suite integration 수집
 ```
 
@@ -42,11 +42,13 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --ru
 | 필드 | 의미 |
 |------|------|
 | `러너 완주` | 러너가 전체 스위트를 발견·실행 완료했는지. `N`이면 실패 목록을 신뢰할 수 없다. 판정 매트릭스: 종료 마커(go `ok/FAIL {pkg}` 요약 줄, jest `Tests:`, vitest `Test Files`) 있음 → `Y` (exit ≠ 0은 "실패 있음"으로만 해석) / 마커 없음 → `N` (중단·크래시·설정 오류) / 마커 있음 ∧ 실패 0 ∧ exit ≠ 0 → `Y` + `unparsed` 1건(실패 없는 비정상 종료) / 테스트 0건 → `Y` + `unparsed`(테스트 0건) |
-| `실패 목록` | 항목 = `` `{식별자}` :: `{정규화 시그니처}` ``, 항목 구분은 닫는 백틱과 여는 백틱 사이의 ` / `만. 식별자는 러너 네이티브 전체 ID(go `TestX/sub`, jest·vitest `describe › it` 전체 경로), 키 = suite + 식별자. 내부 백틱은 `'`로, `\|`는 escape |
+| `실패 목록` | 항목 = `` `{식별자}` :: `{정규화 시그니처}` ``, 항목 구분은 닫는 백틱과 여는 백틱 사이의 ` / `만. 식별자는 러너 네이티브 전체 ID(go `{package}::TestX/sub`, jest·vitest `describe › it` 전체 경로), 키 = suite + 식별자. 내부 백틱은 `'`로, `\|`는 escape |
 | `정규화 시그니처` | 실패 메시지 **첫 줄**에서 경로·라인 번호·타임스탬프·메모리 주소(`0x…`)·goroutine id를 제거하고 공백을 축약한 문자열. **비교 키는 정규화된 첫 줄 전체**(절단 없음), 표시만 120자 + 해시 8자 |
 | `unparsed` | 지원 러너(go · jest · vitest) 밖이거나 파싱이 불확실한 항목. 대조 불가 데이터 — 잔존 시 테스트 판정 `PASS` 불가 |
 
 **시그니처가 이 설계의 핵심이다.** 식별자만 기록하면 "원래 깨져 있던 테스트가 이번 변경으로 **다른 이유로** 깨진 것"을 놓친다.
+
+Go는 패키지 요약 줄의 import path를 포함한 `{package}::TestX/sub`를 Baseline·TDD Test Map·Tombstone·재실행에 동일하게 사용한다. `go test -v` 로그를 수집하고 Test Map 작성 시 `go list`로 패키지를 확인한다. 패키지를 뺀 이름·leaf/suffix만으로 매칭하지 않는다. 패키지 없는 구 Go baseline이나 중복 ID는 `unparsed`로 처리하고 원본을 자동 변환하지 않는다.
 
 **Baseline은 불변이다.** 이후 어떤 Phase도 갱신하지 않는다. iteration별 실행 결과는 별도 스냅샷으로 비교만 한다.
 
@@ -176,7 +178,7 @@ Phase 8.1에서 `{testCommand}` 실행 결과를 `## Test Baseline`과 대조해
 
 ## 분류 우선순위 (위에서부터 먼저 적용)
 
-Tombstone 매핑(`## Test Baseline`)은 분류 **전에** 식별자에 적용한다. 셀 파싱 실패·항목 수 불일치·Tombstone 중복 매핑이면 해당 suite 행 전체를 `unparsed`로 취급한다.
+Tombstone 매핑(`## Test Baseline`)은 분류 **전에** 식별자에 적용한다. 셀 파싱 실패·항목 수 불일치·패키지 없는 Go baseline·중복 ID·Tombstone 중복 매핑이면 해당 suite 행 전체를 `unparsed`로 취급한다.
 
 | # | 조건 | 분류 |
 |---|------|------|
@@ -187,7 +189,8 @@ Tombstone 매핑(`## Test Baseline`)은 분류 **전에** 식별자에 적용한
 | 5 | 3·4 판정 전 **1회 재실행**, 결과가 뒤집히면 | `flaky` |
 
 - `flaky`는 regression 집계에서 제외하고 보고만 한다. 유령을 쫓는 수정을 막기 위한 장치다.
-  재실행은 러너별 verbose 옵션 필수(go `-v`, jest `--verbose`, vitest `--reporter=verbose`) — `--rerun FILE2 --rerun-exit-code M`으로 전달한다. `flaky` ⇔ 재실행이 완주했고 **그 식별자가 PASS로 명시**됨(go `--- PASS: {ID}`, jest/vitest `✓ {ID}`). 그 외(미완주·PASS 줄 부재)는 원 분류 유지 + `rerun_incomplete` 표기 — 필터 문자열·테스트 수는 증거로 인정하지 않는다.
+  재실행은 러너별 verbose 옵션 필수(go `-v`, jest `--verbose`, vitest `--reporter=verbose`) — `--rerun FILE2 --rerun-exit-code M`으로 전달한다. `flaky` ⇔ 재실행에 `unparsed`가 없고 완주했으며 **그 식별자가 PASS로 명시**됨(go `--- PASS: TestX/sub`와 같은 패키지 요약으로 구성한 `{package}::TestX/sub`, jest/vitest `✓ {ID}`). 그 외(미완주·PASS 줄 부재)는 원 분류 유지 + `rerun_incomplete` 표기 — 필터 문자열·테스트 수는 증거로 인정하지 않는다.
+- 재실행의 `unparsed`와 최초 로그에 없던 추가 실패도 최종 대조 결과에 포함한다.
 - `unparsed`·러너 완주 `N`이 남아 있으면 `PASS` 판정을 내릴 수 없다. 오케스트레이터가 로그를 직접 읽어 분류하고, 그래도 분류하지 못하면 **판정 불가** = 테스트 판정 `FAIL`로 취급한다 (light: 승격 ③).
 - **이름 변경·삭제**: Spec이 승인한 경우에만 허용하고 `## Test Baseline`에 tombstone(`{구 식별자} → {신 식별자}` 또는 `{식별자} → 삭제(근거)`)을 append한다. 승인 없는 소멸은 `regression`으로 취급한다.
   tombstone은 baseline의 **판정 데이터를 바꾸지 않는다** — 대조 시 매핑에만 쓰인다.

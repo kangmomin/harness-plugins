@@ -88,26 +88,28 @@ profile의 `testCommand` 를 우선 사용:
 
 ### Step 2: E2E 테스트 실행
 
-`e2eRunner` 가 `none` 이거나 `e2eCommand` 가 비어있으면 건너뛴다.
+`e2eRunner: none`이면 `SKIPPED:DISABLED`로 기록한다. `e2eCommand`가 비어있으면 아래 runner fallback·smoke 분기를 실행한다. 지원 runner도 없으면 `SKIPPED:NO_E2E_RUNNER`로 기록한다.
+첫 E2E 진입 전에 `${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/references/run-context.md`를 Read하고 이번 루프의 실행 디렉토리·토큰을 한 번 확정한다. 이후 iteration은 같은 값을 쓴다.
 
 **실행 락**: 여러 에이전트가 동시에 E2E를 돌리면 dev 서버 포트가 충돌한다. E2E 명령을 돌리기 전에 락을 잡고, 끝나면(실패해도) 해제한다. `--no-lock` 이면 건너뛴다.
 
 ```bash
 # 획득 — 이 Bash 호출은 timeout: 600000 으로 실행한다
 bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh \
-  acquire "{serverUrl}" --label "test-loop iteration {N}"
+  acquire "{serverUrl}" --token "{E2E_LOCK_TOKEN}" --label "test-loop iteration {N}"
 ```
 
-종료 코드 2(`TIMEOUT`)면 E2E 단계만 `SKIPPED:LOCK_TIMEOUT` 으로 기록하고 루프 판정으로 넘어간다 (유닛 테스트 결과는 유효하다).
+profile의 `e2eLockDir`은 acquire·beat·release 모든 호출에 동일하게 적용한다. 장시간 실행 중에는 `bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh beat "{serverUrl}" --token "{E2E_LOCK_TOKEN}"`으로 heartbeat를 보낸다.
+종료 코드 1이면 `BLOCKED:LOCK_UNAVAILABLE`로 E2E를 실행하지 않고 보고한다. 종료 코드 2(`TIMEOUT`)면 E2E 단계만 `SKIPPED:LOCK_TIMEOUT` 으로 기록하고 루프 판정으로 넘어간다 (유닛 테스트 결과는 유효하다).
 해제는 매 iteration 의 E2E 실행 직후:
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh release "{serverUrl}"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh release "{serverUrl}" --token "{E2E_LOCK_TOKEN}"
 ```
 
 수정 단계에서는 락을 놓아 다른 에이전트가 순번을 가져갈 수 있게 한다.
 
-profile의 `e2eCommand` 를 우선 사용:
+아래 명령은 후보이며, **실행 전에 `--smoke` 표까지 판정한 뒤 최종 명령 하나만 실행**한다. profile의 `e2eCommand`를 우선 선택:
 
 ```bash
 {e2eCommand}
@@ -135,7 +137,7 @@ profile의 `e2eCommand` 를 우선 사용:
 
 ### 루프 판정
 
-- `modified == false` → 모든 테스트 통과, 루프 탈출
+- `modified == false` → 루프 탈출. 실행한 테스트의 실제 결과로 판정하며 E2E SKIP/BLOCKED가 있으면 전체 `ALL PASS`로 표시하지 않는다
 - `modified == true` → 수정사항 있음, 다음 iteration
 - 5회 도달 → 미해결 사항 보고 후 강제 탈출
 
@@ -150,7 +152,7 @@ profile의 `e2eCommand` 를 우선 사용:
 - **총 iteration**: N회
 - **단위 테스트 수정**: M건
 - **E2E 테스트 수정**: K건
-- **최종 상태**: ALL PASS / UNRESOLVED ([미해결 목록])
+- **최종 상태**: ALL PASS / SKIPPED:{사유} / BLOCKED:{사유} / UNRESOLVED ([미해결 목록])
 - **E2E 실행 수준**: smoke / full / full(smoke 미적용: {사유}) / full-command / SKIPPED:{사유}
 
 ### frozen 모드일 때 추가

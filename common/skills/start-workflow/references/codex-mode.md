@@ -38,7 +38,7 @@
 
 - profile 필드 `codexMode: none | mix | max` (`init` 질문 기본 `mix`). 모든 입력(`--codex`·profile·질문 응답)은 trim 후 exact 일치만 유효하다.
 - **resolve (진입 시 1회)**
-  - ① 재개(상태 파일 존재): `## Flags`의 `CODEX`와 `## Codex Runtime`을 함께 읽고 **재초기화하지 않는다**. `CODEX` 없음(구 상태 파일) → profile `codexMode` → 없으면 `mix`로 보완 기록 + 고지. `## Codex Runtime` 없음 → `상태: active`로 보완. `--codex`는 무시 + 고지, profile 미기록.
+  - ① 재개(`run-lifecycle.md` 검증 성공): `## Flags`의 `CODEX`와 `## Codex Runtime`을 함께 읽고 **재초기화하지 않는다**. `CODEX` 없음(구 상태 파일) → profile `codexMode` → 없으면 `mix`로 보완 기록 + 고지. `## Codex Runtime` 없음 → `상태: active`로 보완. `--codex`는 무시 + 고지, profile 미기록.
   - ② 신규: 대화 가능 여부를 먼저 판정 → `--codex` > profile > (대화형) 아래 질문 / (비대화형) `mix` ephemeral.
   - ③ 값 불일치(예: `maximum`, 대문자): 대화형이면 잘못된 값 고지 + 재질문 1회 (유효하면 명시 입력으로 기록·잘못된 값 교체 / 2차 불일치 → profile·상태 파일 불변, 입력 오류로 종료). 비대화형이면 `mix` ephemeral + 경고, profile 불변.
 - **profile 기록**: 명시 입력(`--codex` 또는 질문 응답)이 있을 때만, writable `.claude/{harness}.local.md`에만 (레거시 읽기 전용 profile 제외), 시점 = Plan 모드 진입 전(Pre-flight). ephemeral(저장 안 됨) = 레거시 profile만 있는 경우(`init` 안내) · 비대화형 실행.

@@ -51,13 +51,15 @@ user-invocable: true
 
 ### 4. 테스트 환경
 
+`e2eRunner: none`이면 E2E 항목은 모두 SKIP한다. `e2eCommand`가 비어있음은 비활성 사유가 아니며 PROFILE.md의 runner fallback을 사용한다.
+
 | 항목 | 점검 방법 | 관련 스킬 |
 |------|----------|----------|
 | 테스트 러너 설정 | `vitest.config.*` / `jest.config.*` 확인 | unit-test |
 | 테스트 러너 실행 | `npx vitest --version` / `npx jest --version` | unit-test |
 | E2E 러너 설정 | `playwright.config.*` / `cypress.config.*` 확인 | e2e-test |
-| E2E 러너 실행 | `npx playwright --version` | e2e-test |
-| Playwright 브라우저 | `npx playwright install --dry-run` 상태 확인 | e2e-test |
+| E2E 러너 실행 | playwright: `npx playwright --version`, cypress: `npx cypress --version` | e2e-test |
+| Playwright 브라우저 | playwright만 `npx playwright install --dry-run` 확인, cypress/none은 SKIP | e2e-test |
 
 ### 5. 빌드 환경
 
@@ -177,4 +179,4 @@ user-invocable: true
 | Storybook | 선택 | fe-harness profile에서 false 가능 |
 | Codex | 선택 | codexMode mix/max에서 사용, 없으면 Claude 폴백 |
 | Codex providers | 선택 | codexModels에 외부 provider가 있을 때만 점검, WARN이면 해당 범위 Claude 폴백 |
-| Playwright 브라우저 | 선택 | E2E 사용 시만 필수 |
+| Playwright 브라우저 | 선택 | e2eRunner가 playwright일 때만 필수 |

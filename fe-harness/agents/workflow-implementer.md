@@ -18,6 +18,10 @@ model: sonnet
 
 모든 출력은 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
 
+## 병렬 위임
+
+프롬프트가 `병렬 모드`이면 아래 커밋·상태 기록 절차보다 이 규칙이 우선한다: 배정 파일만 수정하고, git index 변경(`add`·`reset`·`restore --staged`)·커밋·공유 상태/노트 쓰기를 하지 않는다. 결과·변경 경로·구현 노트를 반환하고, 전체 빌드와 상태 기록·순차 커밋은 모든 구현 완료 후 오케스트레이터가 수행한다.
+
 ## 실행 절차
 
 1. 프롬프트에 지정된 **상태 파일**을 읽어 Technical Spec과 Plan을 파악한다.
@@ -75,13 +79,16 @@ EOF
 모든 구현 완료 후, profile(`.claude/fe-harness.local.md`) 의 명령을 사용해 빌드/타입 체크를 검증한다:
 
 ```bash
-{buildCommand}     2>&1 | tail -20 && echo "BUILD_OK"      || echo "BUILD_FAIL"
-{typeCheckCommand} 2>&1 | tail -20 && echo "TYPE_CHECK_OK" || echo "TYPE_CHECK_FAIL"
+(set -o pipefail; {buildCommand} 2>&1 | tail -20)
 ```
 
-각 명령이 비어있으면 해당 단계를 `SKIPPED`로 기록 (FAIL 아님).
+```bash
+(set -o pipefail; {typeCheckCommand} 2>&1 | tail -20)
+```
 
-상태 파일(`/tmp/workflow-state.md`)에 아래를 append한다:
+각 블록은 별도 Bash 호출로 실행하여 각각의 exit code로 OK/FAIL을 기록한다. 각 명령이 비어있으면 해당 단계를 `SKIPPED`로 기록 (FAIL 아님).
+
+프롬프트로 받은 상태 파일(`{STATE_FILE}`)에 아래를 append한다:
 
 ```markdown
 ## Phase 5.2 Result

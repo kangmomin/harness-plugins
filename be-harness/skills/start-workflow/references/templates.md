@@ -7,15 +7,20 @@
 
 Write tool로 `{STATE_FILE}`을 생성한다:
 
-`RUN_ID`·`START_SHA`는 생성 직전에 1회 계산한다 (이후 재생성·갱신 금지):
+`RUN_ID`는 Pre-flight 결과를 사용한다. 신규 실행의 구현 직전에 `START_SHA`만 1회 수집하며, 재개 시 두 값과 기존 상태/노트를 보존한다:
 
 ```bash
-SHA7=$(git rev-parse --short=7 HEAD 2>/dev/null || echo nogit); HEX8=$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')
-RUN_ID="$(date +%Y%m%d-%H%M%S)-${SHA7}-${HEX8}"; START_SHA=$(git rev-parse HEAD 2>/dev/null || echo 없음)
+START_SHA=$(git rev-parse HEAD 2>/dev/null || echo 없음)
 ```
 
 ```markdown
 # Workflow State
+
+## Run
+- CWD: {CWD}
+- MODE: be
+- RUN_ID: {RUN_ID}
+- RUN_DIR: {RUN_DIR}
 
 ## Flags
 - MODE: be
@@ -101,7 +106,7 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 | suite | 명령 | 러너 완주 | 통과 | 실패 | 실패 목록 (식별자 :: 정규화 시그니처) |
 |-------|------|----------|------|------|--------------------------------------|
-| unit | {testCommand} | Y | 142 | 2 | `TestFoo` :: `nil pointer` / `TestBar` :: `want 3 got 2` |
+| unit | {testCommand} | Y | 142 | 2 | `example.com/app/user::TestFoo` :: `nil pointer` / `example.com/app/order::TestBar` :: `want 3 got 2` |
 
 **Tombstone** (Spec이 승인한 테스트 이름 변경·삭제만 기록. 대조 시 매핑에만 쓰고 위 판정 데이터는 바꾸지 않는다):
 - `{구 식별자}` → `{신 식별자}` 또는 `삭제({근거})`
@@ -112,8 +117,8 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 | Spec ID | 테스트 | 파일 | Red | Green |
 |---------|--------|------|-----|-------|
-| AC-01 | Test_Create_정상 | user_test.go:12 | red_assertion | PASS |
-| EC-01 | Test_Create_중복이메일 | user_test.go:42 | already_satisfied | PASS |
+| AC-01 | example.com/app/user::Test_Create_정상 | user_test.go:12 | red_assertion | PASS |
+| EC-01 | example.com/app/user::Test_Create_중복이메일 | user_test.go:42 | already_satisfied | PASS |
 | EC-02 | — | — | deferred_e2e | - |
 
 ## Plan
@@ -182,24 +187,24 @@ light 티어: `Phase Results`에 8.2·8.8 행을 `SKIPPED:TIER_LIGHT`로 미리 
 
 > SKILL.md Phase 12의 "절차 요약" ①~⑤의 상세 규칙이다. 순서를 바꾸지 않는다.
 
-1. **Workflow Report 작성 (1회 Write)**: Phase 6~11 결과를 종합해 아래 템플릿(섹션 머리글 변경 금지)으로 `{WORK_REPORT}`를 Write tool로 **한 번만** 작성한다. 최종 경로·파일명은 5의 스크립트가 정한다 — Claude는 `{REPORT_DIR}` 아래에 직접 쓰지 않는다.
+1. **Workflow Report 초안 작성**: Phase 6~11 결과를 종합해 아래 템플릿(섹션 머리글 변경 금지)으로 `{WORK_REPORT}`를 Write tool로 작성하고, 최종 결정 반영 후 갱신한다. 최종 경로·파일명은 5의 스크립트가 정한다 — Claude는 `{REPORT_DIR}` 아래에 직접 쓰지 않는다.
    표 복제 금지: §2는 2~3줄 + "상세: 부록 A", §4의 단계별 건수는 "부록 B `Phase Results`"로 대신한다. §3·§4.1·§8은 유저 결정 근거이므로 그대로 채운다.
    `{IMPL_NOTES}`는 `## 미결 질문` 섹션만 읽는다 — 1건 이상이면 보고서 최상단에 "사용자 확인 필요" 블록을 삽입한다 (다른 섹션은 읽지 않는다. 원문은 부록 C로 보존된다).
    채팅에는 `{WORK_REPORT}` 경로 + §1 + 유저 결정이 필요한 항목(4.1, 8, 미결 질문, `[Assumption]`)만 출력한다. 보고서 전문을 채팅에 복제하지 않는다.
 2. **TDD 미해결 항목 처리** (보고서 4.1 섹션이 비어있지 않을 때만): 자율 실행 중 이연된 `BLOCKED:*`·`[TestConflict]`·`[Breaking]`·`cannot_compile`을 각각 제시하고 결정을 받는다.
    Phase 6~8에서 유저 질문이 금지되어 이연된 항목들이므로 **여기가 첫 결정 지점**이다.
-   - 결정에 따른 수정이 필요하면 그 자리에서 수행하고 커밋한다. 승인 전에는 수정하지 않는다.
+   - 결정에 따른 수정이 필요하면 적용한 뒤 5의 재검증·commit/push 절차를 따른다. 승인 전에는 수정하지 않는다.
    - "이번 범위 외" 판단 항목은 보고서에 `보류`로 남긴다.
 3. **Read-back Diff 처리** (Phase 8.8 판정이 `WARN`/`FAIL`일 때만): 보고서 8번 섹션의 각 항목을 유저에게 제시하고 결정을 받는다.
    보완점 질문보다 **먼저** 처리한다 — 코드·Spec에 직접 영향을 주는 결정이기 때문이다.
-   - 결정에 따른 코드/Spec 수정이 필요하면 그 자리에서 수행하고 커밋한다. 유저가 승인하기 전에는 수정하지 않는다 (Spec 외 변경 금지 원칙).
+   - 결정에 따른 코드/Spec 수정이 필요하면 적용한 뒤 5의 재검증·commit/push 절차를 따른다. 유저가 승인하기 전에는 수정하지 않는다 (Spec 외 변경 금지 원칙).
    - 유저가 "이번 범위 외"로 판단한 항목은 보고서에 `보류`로 남기고 넘어간다.
 4. **보완점 적용** (Phase 11이 `DONE`일 때만): 반영 방식을 질문한다: ① 로컬에만 저장 (기본) ② 로컬 저장 + `/common:submit-feedback`으로 PR ③ 건너뛰기.
    적용 절차·append 규칙은 아래 "보완점 적용 상세"를 따른다. 플러그인 원본은 절대 수정하지 않는다.
    Phase 11이 `SKIPPED:*`면 이 단계를 건너뛰고 보고서 §6에 **실제 상태 코드**로 스킵 사유를 기입한다 (§6 템플릿의 사유별 분기 문구를 따른다).
 
    2~4의 각 결정은 받는 즉시 상태 파일 `## Final Decisions`에 한 줄 append한다 (항목 / 결정 / 시각). 컨텍스트 요약·재개 후에는 기록된 항목을 다시 묻지 않는다.
-5. **정리 + md 아카이브**: 상태 파일의 모든 Phase를 `DONE`/`SKIPPED:{사유}`로 갱신하고 `Remaining Phases`를 `없음`으로 기록한 **뒤** 아래 "md 아카이브"를 실행한다 (마감 전에 실행하면 부록에 결정이 빠진다).
+5. **재검증·반영 + 정리 + md 아카이브**: 먼저 `finalization.md`를 Read하여 승인 수정 → 관련 검증 → 기존 브랜치 commit/push → 보고서 갱신을 완료한다. 미해결 항목이 없을 때만 상태를 마감하고 아래 "md 아카이브"를 실행한다.
    기본은 상태 파일과 라이브 노트를 **보관**. 사용자가 정리를 요청한 경우에만 `rm -f {STATE_FILE} {IMPL_NOTES} {WORK_REPORT}`.
    아카이브 산출물(`*-workflow-report.md`, `*-e2e-report.md`)은 자동 삭제하지 않는다.
 

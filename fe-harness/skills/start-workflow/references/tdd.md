@@ -28,9 +28,9 @@ SKIP 판정을 `{STATE_FILE}`의 `## Test Baseline`에 사유와 함께 기록�
 
 ```bash
 git rev-parse HEAD  # 기준 커밋 (= `## Flags`의 START_SHA)
-{testCommand} > /tmp/baseline-unit.log 2>&1; EXIT=$?   # 비어있으면 {testRunner} 기반 fallback (vitest run --reporter=verbose / jest --verbose)
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --runner auto --exit-code $EXIT --suite unit --emit-baseline /tmp/baseline-unit.log
-{e2eCommand}        # e2eRunner 가 none 이 아니면 같은 방식으로 --suite e2e 수집 (playwright/cypress 출력은 지원 러너 밖 → unparsed 행으로 기록)
+{testCommand} > "{RUN_DIR}/baseline-unit.log" 2>&1; EXIT=$?   # 비어있으면 {testRunner} 기반 fallback (vitest run --reporter=verbose / jest --verbose)
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --runner auto --exit-code $EXIT --suite unit --emit-baseline "{RUN_DIR}/baseline-unit.log"
+{e2eCommand}        # e2eRunner가 none이면 SKIP, 명령이 비면 PROFILE.md의 runner fallback으로 같은 방식으로 --suite e2e 수집 (playwright/cypress 출력은 지원 러너 밖 → unparsed 행으로 기록)
 ```
 
 `--emit-baseline` 출력(표 행)을 `{STATE_FILE}`의 `## Test Baseline`에 그대로 붙인다. 스크립트가 exit ≠ 0이면 아래 필드 규칙대로 수동 기록하고 진단 `script_fallback(test_failures:{사유})`를 남긴다.
@@ -155,8 +155,8 @@ git commit -m "Test: {작업 요약} — 실패 테스트 선작성 (Red)"
 Phase 7.4(test-loop) 결과를 `## Test Baseline`과 대조해 분류한다 (7.1은 빌드·타입 체크라 대조 대상이 아니다). 대조는 `assets/test_failures.py --baseline {STATE_FILE}`이 수행한다:
 
 ```bash
-{testCommand} > /tmp/test-output.log 2>&1; EXIT=$?
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --runner auto --exit-code $EXIT --suite unit --baseline {STATE_FILE} /tmp/test-output.log
+{testCommand} > "{RUN_DIR}/test-output.log" 2>&1; EXIT=$?
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --runner auto --exit-code $EXIT --suite unit --baseline {STATE_FILE} "{RUN_DIR}/test-output.log"
 ```
 
 스크립트가 exit ≠ 0이면 오케스트레이터가 아래 규칙으로 직접 대조하고 진단 `script_fallback(test_failures:{사유})`를 남긴다. Tombstone 매핑은 분류 **전에** 식별자에 적용하며, 셀 파싱 실패·항목 수 불일치·Tombstone 중복 매핑이면 해당 suite 행 전체를 `unparsed`로 취급한다.

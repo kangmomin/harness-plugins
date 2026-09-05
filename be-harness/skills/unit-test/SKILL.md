@@ -109,6 +109,8 @@ Spec은 `$ARGUMENTS`, 대화 컨텍스트, 또는 호출자가 전달한 상태 
 
 > **범주가 아니라 재현 가능성으로 판단한다.** "시간 경과"·"외부 호출"이라도 clock 주입이나 인터페이스 seam이 있으면 단위 테스트 대상이다. 실제로 주입 지점이 없을 때만 이연한다.
 
+Go 테스트의 보고 ID는 `go list`로 확인한 패키지 import path를 포함한 `{package}::TestX/sub`로 기록한다. 함수명만으로 서로 다른 패키지의 테스트를 합치지 않는다.
+
 ## Step 3: 테스트 작성
 
 1. **기존 패턴을 먼저 읽는다.** `{testDirs}` 에서 유사 기능의 테스트를 찾아 네이밍·구조·헬퍼·픽스처 방식을 따른다.
@@ -196,10 +198,10 @@ Spec은 `$ARGUMENTS`, 대화 컨텍스트, 또는 호출자가 전달한 상태 
 
 | Spec ID | 테스트 | 파일 | 분류 | 비고 |
 |---------|--------|------|------|------|
-| AC-01 | TestCreateUser_정상 | user_test.go:12 | red_assertion | 미구현 |
-| EC-01 | TestCreateUser_중복이메일 | user_test.go:42 | already_satisfied | 기존 구현이 이미 409 반환 |
+| AC-01 | example.com/app/user::TestCreateUser_정상 | user_test.go:12 | red_assertion | 미구현 |
+| EC-01 | example.com/app/user::TestCreateUser_중복이메일 | user_test.go:42 | already_satisfied | 기존 구현이 이미 409 반환 |
 | EC-02 | — | — | deferred_e2e | 외부 결제사 타임아웃 — 주입 지점 없음 |
-| RC-01 | TestOrder_음수수량 | order_test.go:88 | cannot_compile | 3회 시도 후 되돌림 |
+| RC-01 | example.com/app/order::TestOrder_음수수량 | order_test.go:88 | cannot_compile | 3회 시도 후 되돌림 |
 
 ### 종합
 - **작성**: N개 (신규 M개 / 수정 K개)

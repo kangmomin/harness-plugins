@@ -8,7 +8,9 @@
 
 **플레이스홀더 정의** (이 문서와 3개 reference 공통, 값 변경은 여기 한 곳만 수정):
 
-- `{STATE_FILE}` = `/tmp/fullstack-workflow-state.md`
+- `{RUN_DIR}`·`{RUN_ID}` = `run-lifecycle.md`의 생성·재개 검증 결과
+- `{STATE_FILE}` = `{RUN_DIR}/workflow-state.md` · `{IMPL_NOTES}` = `{RUN_DIR}/implementation-notes.md`
+- `{WORK_REPORT}` = `{RUN_DIR}/workflow-report.md`
 - `{CWD}` = 현재 작업 디렉토리 (프로젝트 루트)
 
 ## 전제 조건
@@ -22,6 +24,7 @@
 
 | 플래그 | 단축 | 효과 |
 |--------|------|------|
+| `--resume {STATE_FILE}` | | 절대 상태 경로를 검증하고 미완료 실행을 재개 (`run-lifecycle.md`). |
 | `--hard` | `-h` | feature 브랜치 생성과 PR 생성을 건너뛰고 현재 브랜치에서 마무리한다. |
 | `--no-tdd` | | Phase 6.1(계약 테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. |
 | `--reflect` | | Phase 10(회고)을 실행한다. 미지정 시 Phase 10은 `SKIPPED:REFLECT_NOT_REQUESTED` (기본 off). |
@@ -31,7 +34,7 @@
 `$ARGUMENTS`에 `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`), `--reflect`가 있으면 `$REFLECT = true` (기본값 `false`).
 `--reflect`는 이 오케스트레이터가 **소비**한다 — 하위 도메인 에이전트에 전달하지 않는다 (풀스택은 하위 워크플로우를 중첩 실행하지 않으므로 회고는 Phase 10 한 곳뿐). `--tier standard`는 무시한다 — 풀스택은 계약 변경 자체가 리스크 높음이므로 검증 티어가 항상 `standard`(축소 없음)다.
 
-**재개 규칙**: 컨텍스트 요약·세션 재개 등으로 CLI 인자를 잃은 뒤 이어갈 때는 `{STATE_FILE}`의 `## Flags`가 **유일한 기준**이다 (`MODE: fs`면 이 문서의 절차를 이어간다). CLI 인자와 충돌하면 기록값이 우선하며 한 줄로 고지한다.
+**재개 규칙**: `run-lifecycle.md`의 명시적 재개 검증 성공 후에만 적용한다. 컨텍스트 요약·세션 재개 등으로 CLI 인자를 잃은 뒤 이어갈 때는 `{STATE_FILE}`의 `## Flags`가 **유일한 기준**이다 (`MODE: fs`면 이 문서의 절차를 이어간다). CLI 인자와 충돌하면 기록값이 우선하며 한 줄로 고지한다.
 
 ## Language Rule
 
@@ -83,7 +86,7 @@
 
 ## 상태 추적
 
-워크플로우 시작 시 `{STATE_FILE}`을 새로 만들고, Phase 진입/완료 때마다 갱신한다 (템플릿: `contract-templates.md`).
+신규 실행의 Phase 5에서만 `{STATE_FILE}`을 만들고 (검증된 재개는 덮어쓰기 금지), Phase 진입/완료 때마다 갱신한다 (템플릿: `contract-templates.md`).
 에이전트 생성 전 `IN_PROGRESS`, 완료 후 `DONE` / `SKIPPED:{사유}` / `BLOCKED:{사유}`와 결과를 기록한다.
 모든 에이전트 프롬프트에 상태 파일 경로, 현재 Phase, 남은 Phase, 배정 model/effort를 포함한다.
 
@@ -114,8 +117,8 @@ Spec 또는 계약에 없는 변경이 필요하면: ① 코드를 먼저 바꾸
 
 ## Pre-flight: Codex 모드 resolve
 
-Phase 1(`EnterPlanMode`) 직전에 1회 수행한다 (`codex-mode.md` §2·플러그인 매핑):
-- 재개(상태 파일 존재)면 `## Flags`의 `CODEX`가 기준 — `--codex`는 무시 + 고지.
+먼저 `run-lifecycle.md`를 Read하고 경로 생성 또는 명시적 재개 검증을 완료한다. 이후 Phase 1(`EnterPlanMode`) 직전에 1회 수행한다 (`codex-mode.md` §2·플러그인 매핑):
+- 재개(run-lifecycle 검증 성공)면 `## Flags`의 `CODEX`가 기준 — `--codex`는 무시 + 고지.
 - 신규면 `--codex` > be profile `codexMode` > fe profile `codexMode` > (대화형) 3지선다 질문 / (비대화형) `mix` ephemeral. 명시 입력(`--codex`·질문 응답)은 존재하는 writable `.claude/be-harness.local.md`·`.claude/fe-harness.local.md` **모두**에 동일 값으로 기록한다 (부재·기록 실패 대상은 ephemeral 경고 1줄). 양쪽 값이 다르고 명시 입력이 없으면 be 값을 **이번 실행만** 사용 + 고지. 값은 exact `none|mix|max`로 검증한다. 확정 직후 `--codex-models`도 동형으로 resolve한다 (`codex-mode.md` §2.1 풀스택 — 읽기 = `codexModels` 블록 단위 be → fe → 기본값, 플래그는 슬롯 단위 덮어쓰기, 기록 = writable be·fe 모두; 재개면 `CODEX_MODELS` 기준·플래그 무시, `none`이면 `N/A`; 결과는 `$CODEX_MODELS`).
 - `none`이 아니면 도구 목록에 `mcp__codex__codex` 존재를 확인한다 — 없으면 `$CODEX_RUNTIME = fallback(global:mcp_missing)` + 고지(profile 불변). `max`이고 세션 모델이 opus/fable 계열이 아니면 1줄 고지한다.
 
@@ -200,7 +203,7 @@ for iteration in 1..5:
 > Phase 5 진입 시 MUST: `contract-templates.md`의 "상태 파일 템플릿"대로 `{STATE_FILE}`을 작성하고,
 > `fullstack-tdd.md`의 "TDD 적용 판정"과 "Phase 5: 도메인별 회귀 Baseline 수집"을 수행한다.
 
-상태 파일의 `## Flags`(`MODE: fs / HARD_MODE / TDD / REFLECT / TIER: standard(고정) / CODEX / CODEX_MODELS(`$CODEX_MODELS` 확정값) / RUN_ID / START_SHA`)·`## Codex Runtime`(`$CODEX_RUNTIME` 값 그대로 — `active`로 초기화하지 않음)·`## Plan Verification Log`(Phase 4.4 누적분 복사)는 **최초 작성 시 1회** 기록한다. `RUN_ID`·`START_SHA`는 템플릿의 생성 명령으로 만들고 이후 재생성·수정하지 않는다 (풀스택은 Test Baseline이 도메인별이라 `START_SHA`가 유일한 시작 커밋 기록이다).
+상태 파일의 `## Flags`(`MODE: fs / HARD_MODE / TDD / REFLECT / TIER: standard(고정) / CODEX / CODEX_MODELS(`$CODEX_MODELS` 확정값) / RUN_ID / START_SHA`)·`## Codex Runtime`(`$CODEX_RUNTIME` 값 그대로 — `active`로 초기화하지 않음)·`## Plan Verification Log`(Phase 4.4 누적분 복사)는 **최초 작성 시 1회** 기록한다. `## Run`은 `run-lifecycle.md`대로 기록한다. `RUN_ID`는 Pre-flight 결과를 사용하고 `START_SHA`만 템플릿 명령으로 수집하며 이후 재생성·수정하지 않는다 (풀스택은 Test Baseline이 도메인별이라 `START_SHA`가 유일한 시작 커밋 기록이다).
 
 여기가 **유저와 대화 가능한 마지막 지점**이다 — baseline 수집이 실패하면 자율 실행 진입 전에 선택지를 제시한다.
 TDD 판정은 **도메인별로 따로** 한다. BE만 SKIP되고 FE는 활성일 수 있다.
@@ -230,6 +233,7 @@ TDD 판정은 **도메인별로 따로** 한다. BE만 SKIP되고 FE는 활성�
 
 > BE/FE 구현 에이전트를 `fullstack-agent-prompts.md`대로 **같은 메시지에서 병렬 호출**한다. `codexMode: max`면 두 호출 모두 Codex `write` 슬롯(`workspace-write`, 역할 파일 = 해당 프롬프트 절)으로 치환하고 §5 쓰기 안전(병렬 = 항상 이어서)을 적용한다.
 
+병렬 모드에서는 구현 에이전트의 git index·커밋·공유 상태/노트 쓰기를 금지한다. 양쪽 완료 배리어 후 오케스트레이터만 결과를 기록하고 검증한 변경을 순차 stage/commit한다.
 TDD 활성 시 **테스트 파일 수정 금지**와 `[TestConflict]` 보고 규칙을 프롬프트에 추가한다.
 구현 중 계약 변경이 필요하면 즉시 Phase 2로 돌아간다 (No Silent Contract Drift).
 `[TestConflict]`가 계약 조항과 연결되어 있으면 오케스트레이터가 임의 판정하지 않고 **Phase 2로 복귀**한다.
@@ -241,6 +245,7 @@ Phase 7 시작 전 `{STATE_FILE}`의 상태를 갱신한다. 각 도메인 루�
 - **백엔드 루프**: ① build + `{testCommand}` ② `/be-harness:simplify-loop` ③ `/be-harness:convention-check` ④ `/be-harness:e2e-test-loop` ⑤ API 계약 변경 + `apiDocsPath` 존재 시 문서 동기화
 - **프론트엔드 루프**: ① build + type-check ② `/fe-harness:simplify-loop` ③ `/fe-harness:convention-check` ④ `/fe-harness:test-loop` ⑤ `/fe-harness:lint-check`
 
+품질 루프도 공유 index를 사용하므로 BE → FE 순차 실행한다. 빌드/타입 체크는 명령별 exit code를 판정하며 로그 tail 사용 시 Bash `pipefail`을 적용한다.
 각 도메인의 테스트 실패는 해당 도메인 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (`fullstack-tdd.md`의 "Phase 7: 도메인별 회귀 대조").
 **공용 계약 테스트의 실패는 도메인 루프가 고치지 않는다** — 오케스트레이터가 원인 도메인을 판정해 배정하고, 계약 자체가 문제면 Phase 2로 복귀한다.
 
@@ -310,11 +315,11 @@ Phase 8.1이 보고한 불일치를 먼저 확인한 뒤 위 항목을 점검한
 
 ## Phase 11: 최종 보고 + 정리 (항상 실행)
 
-`{WORK_REPORT}` = `/tmp/workflow-report-{RUN_ID}.md`. `{REPORT_DIR}` = be profile(`.claude/be-harness.local.md`)의 `reportDir` → 없으면 fe profile(`.claude/fe-harness.local.md`)의 `reportDir` → 없으면 `.claude/harness-reports`.
+`{REPORT_DIR}` = be profile(`.claude/be-harness.local.md`)의 `reportDir` → 없으면 fe profile(`.claude/fe-harness.local.md`)의 `reportDir` → 없으면 `.claude/harness-reports`.
 
-1. **보고서 1회 Write**: `contract-templates.md`의 "최종 보고 형식"(📋 Task Report 머리글 1~6)대로 `{WORK_REPORT}`를 작성한다. `### 6. 회고`는 Phase 10이 `DONE`이면 보완점 항목(도메인 분류 · 반영 방식 결정 · submit-feedback PR URL / SKIP 사유, 없으면 `없음`)을, 그 외에는 `SKIPPED:REFLECT_NOT_REQUESTED` 한 줄을 적는다. 상태 파일의 표를 복제하지 않는다 — 상세는 아카이브 부록(상태 파일 전문)이 담는다.
+1. **보고서 초안 Write**: `contract-templates.md`의 "최종 보고 형식"(📋 Task Report 머리글 1~6)대로 `{WORK_REPORT}`를 작성한다. `### 6. 회고`는 Phase 10이 `DONE`이면 보완점 항목(도메인 분류 · 반영 방식 결정 · submit-feedback PR URL / SKIP 사유, 없으면 `없음`)을, 그 외에는 `SKIPPED:REFLECT_NOT_REQUESTED` 한 줄을 적는다. 상태 파일의 표를 복제하지 않는다 — 상세는 아카이브 부록(상태 파일 전문)이 담는다.
 2. **TDD 미해결 결정** (4.1 항목이 있을 때만): 결정을 받는 즉시 `{STATE_FILE}`의 `## Final Decisions`에 한 줄 append (항목 | 결정 | 시각). 재개 시 기록된 항목은 다시 묻지 않는다.
-3. **상태 파일 마감**: 모든 Phase를 `DONE`/`SKIPPED:{사유}`로 갱신, `Remaining Phases`를 `없음`으로.
+3. **재검증·반영 후 상태 마감**: `finalization.md`를 Read하고 승인 수정 → Phase 7~8 관련 검증 → 기존 브랜치 commit/push → 보고서 갱신을 완료한다. 미해결 항목이 없을 때만 최종 Phase를 `DONE`, `Remaining Phases`를 `없음`으로 마감한다. 실패 시 상태·보고서를 미완료로 보존하고 4의 영구 아카이브는 실행하지 않는다.
 4. **md 아카이브** — 마감 **후**에만 실행한다 (결정 내용이 부록에 반영되도록):
 
    ```bash

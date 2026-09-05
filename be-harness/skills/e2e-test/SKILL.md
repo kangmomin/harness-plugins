@@ -110,19 +110,21 @@ Spec에 엣지 케이스 표가 없거나 ID가 없으면(구버전 Spec) `EC-*`
 
 ## Step 3.5: 실행 락 획득
 
+먼저 같은 폴더의 `references/run-context.md`를 Read하고 실행 디렉토리·토큰을 확정한다 (상위 E2E 루프가 전달한 경우 그 값을 사용).
+
 여러 에이전트가 동시에 E2E를 돌리면 같은 포트와 DB 시드를 두고 충돌한다. 서버를 건드리기 전에 **실행 락**을 잡고, 잡을 때까지 기다린다.
 
 > Step 번호를 소수로 둔 이유: 특화 하네스(minmos 등)의 오버레이가 베이스 Step 번호를 앵커로 참조하므로 기존 번호를 재부여하지 않는다.
 
-`--no-lock` 이면 이 Step 전체를 건너뛴다.
+`--no-lock`이어도 위 실행 컨텍스트는 확정하고, 아래 락 획득만 건너뛴다.
 **`--skip-server` 여도 이 Step은 수행한다** — 이미 떠 있는 공유 서버를 여러 에이전트가 두드리는 상황이야말로 락이 가장 필요하다.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh \
-  acquire "{serverUrl}" --label "e2e-test {브랜치명 또는 대상 요약}"
+  acquire "{serverUrl}" --token "{E2E_LOCK_TOKEN}" --label "e2e-test {브랜치명 또는 대상 요약}"
 ```
 
-profile 에 `e2eLockDir` 이 지정돼 있으면 `HARNESS_E2E_LOCK_DIR={e2eLockDir}` 을 앞에 붙여 실행한다 (비어있으면 자동 해석).
+profile의 `e2eLockDir`은 `run-context.md`대로 acquire·beat·release·status **모든 호출에 동일하게 적용**한다.
 
 **이 Bash 호출은 `timeout: 600000` 으로 실행한다** (기본 대기 상한 540초 + 여유).
 
@@ -153,13 +155,13 @@ run_in_background:
 ## Step 5: 요청 실행
 
 > 락을 잡았다면(`--no-lock` 아님) 시나리오를 몇 개 처리할 때마다 heartbeat 를 보낸다 —
-> `bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh beat "{serverUrl}"`.
+> `bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh beat "{serverUrl}" --token "{E2E_LOCK_TOKEN}"`.
 > heartbeat 가 15분 끊기면 다른 에이전트가 죽은 락으로 보고 회수한다.
 
 각 시나리오에 대해:
 
 ```bash
-curl -sS -o /tmp/be-harness-e2e-response.json \
+curl -sS -o "{E2E_RUN_DIR}/response.json" \
   -w "HTTP %{http_code}\nTime %{time_total}s\n" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $TOKEN"  \  # 해당 시만
@@ -192,7 +194,7 @@ Step 3.5에서 락을 잡았다면 반드시 해제한다. **정상 종료·SKIP
 TTL(15분) 자동 회수는 안전망이지 해제 수단이 아니며, 그동안 다른 에이전트가 대기한다.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh release "{serverUrl}"
+bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh release "{serverUrl}" --token "{E2E_LOCK_TOKEN}"
 ```
 
 `RELEASE_DENIED` 가 나오면 이미 TTL 회수 후 다른 에이전트가 락을 가져간 것이다 (해당 실행 결과는 오염 가능성이 있으므로 리포트에 경고로 남긴다).

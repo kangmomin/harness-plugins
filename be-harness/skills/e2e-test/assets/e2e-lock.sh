@@ -2,16 +2,16 @@
 # e2e-lock.sh — E2E 테스트 실행 뮤텍스 (여러 에이전트의 순번 대기)
 #
 # canonical: be-harness/skills/e2e-test/assets/e2e-lock.sh
-# version:   1.0.0
+# version:   1.1.0
 #
 # fe-harness/skills/e2e-test/assets/e2e-lock.sh 는 이 파일의 동일 사본이다.
 # 크로스 플러그인 파일 경로 참조가 금지되어 있어(docs/overlay.md §9) 공유하지 않고 복제한다.
 # canonical 을 고치면 사본도 같은 버전으로 맞춘다.
 #
 # 사용법:
-#   e2e-lock.sh acquire <key> [--timeout SEC] [--ttl SEC] [--label TEXT] [--poll SEC]
-#   e2e-lock.sh beat    <key>
-#   e2e-lock.sh release <key>
+#   e2e-lock.sh acquire <key> --token RUN_TOKEN [--timeout SEC] [--ttl SEC] [--label TEXT] [--poll SEC]
+#   e2e-lock.sh beat    <key> --token RUN_TOKEN
+#   e2e-lock.sh release <key> --token RUN_TOKEN
 #   e2e-lock.sh status  [key]
 #
 # 종료 코드: 0 성공 / 2 대기 타임아웃 / 1 그 외 실패(락 디렉토리 생성 불가 포함)
@@ -22,7 +22,7 @@
 
 set -uo pipefail
 
-VERSION="1.0.0"
+VERSION="1.1.0"
 
 DEFAULT_TIMEOUT=540   # 대기 상한(초). Bash 툴 timeout(최대 600s)보다 짧게 둔다
 DEFAULT_TTL=900       # heartbeat 가 이 시간 이상 끊기면 죽은 락으로 보고 회수
@@ -32,6 +32,8 @@ TIMEOUT="$DEFAULT_TIMEOUT"
 TTL="$DEFAULT_TTL"
 POLL="$DEFAULT_POLL"
 LABEL=""
+TOKEN=""
+GUARD_HELD=0
 
 now() { date +%s; }
 
@@ -92,22 +94,32 @@ normalize_key() {
   printf '%s' "$k"
 }
 
-# 토큰은 로컬에만 둔다 — Bash 툴 호출 사이에 셸 변수가 유지되지 않으므로
-# 파일로 이어붙인다. 사용자별로 격리한다.
-token_dir() { printf '%s/.harness-e2e-lock-%s' "${TMPDIR:-/tmp}" "$(id -u)"; }
-token_file() { printf '%s/%s.token' "$(token_dir)" "$KEY"; }
-
-new_token() {
-  if [ -r /proc/sys/kernel/random/uuid ]; then
-    cat /proc/sys/kernel/random/uuid
-  else
-    printf '%s-%s-%s' "$$" "$(now)" "${RANDOM}${RANDOM}"
+# 호출자가 실행별 토큰을 보관해 매 호출 전달한다. uid/포트 공유 토큰은 없다.
+# 소유권 확인과 변경 사이에 다른 acquire/reap/release가 끼어들지 않도록
+# 짧은 파일 조작만 직렬화한다. E2E 실행/대기 동안에는 guard를 보유하지 않는다.
+drop_guard() {
+  if [ "$GUARD_HELD" = 1 ]; then
+    rm -f "$GUARD/pid"
+    rmdir "$GUARD" 2>/dev/null || true
+    GUARD_HELD=0
   fi
 }
 
-save_token() { mkdir -p "$(token_dir)" && printf '%s' "$1" > "$(token_file)"; }
-load_token() { cat "$(token_file)" 2>/dev/null; }
-clear_token() { rm -f "$(token_file)"; }
+take_guard() {
+  local attempt
+  for ((attempt=0; attempt<50; attempt++)); do
+    if mkdir "$GUARD" 2>/dev/null; then
+      GUARD_HELD=1
+      printf '%s\n' "$$" > "$GUARD/pid" || die "guard 기록 실패: $GUARD"
+      return 0
+    fi
+    sleep 0.1
+  done
+  die "락 메타데이터 잠금 실패: $GUARD (pid 확인 후 종료된 호출의 guard만 정리)"
+}
+
+trap drop_guard EXIT
+trap 'exit 1' HUP INT TERM
 
 read_field() {
   [ -f "$OWNER" ] || return 1
@@ -171,16 +183,17 @@ cmd_acquire() {
   cleanup_reaps
 
   local mine deadline waited age holder
-  mine="$(load_token)"
+  mine="$TOKEN"
   deadline=$(( $(now) + TIMEOUT ))
   waited=0
 
   while :; do
+    take_guard
     if mkdir "$LOCK" 2>/dev/null || { [ ! -d "$LOCK" ] && mkdir "$LOCK" 2>/dev/null; }; then
-      local token
-      token="$(new_token)"
-      write_owner "$token"
-      save_token "$token"
+      if ! write_owner "$mine"; then
+        reap
+        die "소유권 기록 실패: $LOCK"
+      fi
       printf 'ACQUIRED key=%s waited=%ss lock=%s\n' "$KEY" "$waited" "$LOCK"
       return 0
     fi
@@ -192,7 +205,7 @@ cmd_acquire() {
     # 재진입 — 이미 내가 들고 있으면 heartbeat 만 갱신하고 통과시킨다.
     holder="$(read_field token || true)"
     if [ -n "$mine" ] && [ "$mine" = "$holder" ]; then
-      touch "$OWNER" 2>/dev/null
+      touch "$OWNER" 2>/dev/null || die "heartbeat 갱신 실패: $OWNER"
       printf 'ALREADY_HELD key=%s lock=%s\n' "$KEY" "$LOCK"
       return 0
     fi
@@ -202,6 +215,7 @@ cmd_acquire() {
       if reap; then
         printf 'REAPED key=%s age=%ss ttl=%ss (죽은 락 회수)\n' "$KEY" "$age" "$TTL" >&2
       fi
+      drop_guard
       continue
     fi
 
@@ -212,6 +226,7 @@ cmd_acquire() {
       return 2
     fi
 
+    drop_guard
     sleep "$POLL"
     waited=$(( waited + POLL ))
   done
@@ -219,10 +234,12 @@ cmd_acquire() {
 
 cmd_beat() {
   local mine holder
-  mine="$(load_token)"
+  [ -d "$ROOT" ] || return 1
+  take_guard
+  mine="$TOKEN"
   holder="$(read_field token || true)"
   if [ -n "$mine" ] && [ "$mine" = "$holder" ]; then
-    touch "$OWNER" 2>/dev/null
+    touch "$OWNER" 2>/dev/null || die "heartbeat 갱신 실패: $OWNER"
     printf 'BEAT key=%s\n' "$KEY"
     return 0
   fi
@@ -231,44 +248,22 @@ cmd_beat() {
 }
 
 cmd_release() {
-  local mine
-  mine="$(load_token)"
-
-  if [ -z "$mine" ]; then
-    printf 'NO_TOKEN key=%s (이 세션의 획득 기록이 없습니다)\n' "$KEY"
-    return 0
-  fi
+  [ -d "$ROOT" ] || return 0
+  take_guard
   if [ ! -d "$LOCK" ]; then
-    clear_token
     printf 'NOT_HELD key=%s (락이 이미 없습니다)\n' "$KEY"
     return 0
   fi
 
-  # 토큰 확인과 삭제 사이의 틈을 없애기 위해, 먼저 rename 으로 락을 격리한 뒤
-  # 소유자를 확인한다. 내 것이 아니면 원위치로 되돌린다.
-  local tmp="$LOCK.reap.$$.${RANDOM}"
-  if ! mv "$LOCK" "$tmp" 2>/dev/null; then
-    clear_token
-    printf 'RELEASE_SKIP key=%s (락이 그 사이 사라졌습니다)\n' "$KEY"
-    return 0
-  fi
-
   local holder
-  holder=$(sed -n 's/^token=//p' "$tmp/owner" 2>/dev/null | head -1)
-  if [ "$holder" = "$mine" ]; then
-    rm -rf "$tmp"
-    clear_token
+  holder="$(read_field token || true)"
+  if [ "$holder" = "$TOKEN" ]; then
+    reap || die "락 해제 실패: $LOCK"
     printf 'RELEASED key=%s\n' "$KEY"
     return 0
   fi
 
-  # 내 락이 아니었다 — TTL 회수 후 다른 에이전트가 가져간 경우. 되돌린다.
-  if [ -d "$LOCK" ]; then
-    rm -rf "$tmp"          # 되돌릴 자리가 이미 찼다면 격리본을 버린다
-  else
-    mv $MV_T "$tmp" "$LOCK" 2>/dev/null || rm -rf "$tmp"
-  fi
-  clear_token
+  # 잘못된 토큰은 다른 보유자의 디렉토리를 이동/삭제하지 않는다.
   printf 'RELEASE_DENIED key=%s (다른 에이전트가 보유 중입니다)\n' "$KEY"
   return 1
 }
@@ -313,7 +308,9 @@ case "$CMD" in
 esac
 
 while [ $# -gt 0 ]; do
+  [ $# -ge 2 ] || die "옵션 값이 필요합니다: $1"
   case "$1" in
+    --token)   TOKEN="$2";     shift 2 ;;
     --timeout) TIMEOUT="${2:-}"; shift 2 ;;
     --ttl)     TTL="${2:-}";     shift 2 ;;
     --poll)    POLL="${2:-}";    shift 2 ;;
@@ -322,14 +319,14 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-case "$TIMEOUT$TTL$POLL" in
-  *[!0-9]*) die "--timeout/--ttl/--poll 은 정수(초)여야 합니다" ;;
-esac
+for value in "$TIMEOUT" "$TTL" "$POLL"; do
+  case "$value" in ''|*[!0-9]*) die "--timeout/--ttl/--poll 은 정수(초)여야 합니다" ;; esac
+done
 [ "$POLL" -ge 1 ] || POLL=1
 
-# mv -T (GNU) 가 있으면 되돌리기에서 "대상 디렉토리 안으로 이동" 사고를 막는다.
-MV_T=""
-if mv --version >/dev/null 2>&1; then MV_T="-T"; fi
+if [ "$CMD" != status ]; then
+  case "$TOKEN" in ''|*[!A-Za-z0-9._-]*) die "실행별 --token 이 필요합니다 (영문·숫자·._-만 허용)" ;; esac
+fi
 
 ROOT="$(resolve_lock_root)"
 KEY="$(normalize_key "$RAW_KEY")"
@@ -337,6 +334,7 @@ KEY_FILTER=""
 [ -n "$RAW_KEY" ] && KEY_FILTER="$KEY"
 LOCK="$ROOT/$KEY.lock"
 OWNER="$LOCK/owner"
+GUARD="$ROOT/$KEY.guard"
 
 case "$CMD" in
   acquire) cmd_acquire ;;

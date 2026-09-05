@@ -29,8 +29,8 @@ Phase 8.1~8.7은 **루프 안**에서 최대 `{QL_MAX}`회(standard 3 / light 2)
 **회귀 대조 (TDD 활성 시)**: 테스트 출력을 `assets/test_failures.py`로 파싱해 `{STATE_FILE}`의 `## Test Baseline`과 대조한다. 상세 절차·폴백은 `references/tdd.md`의 "Phase 8: 회귀 대조".
 
 ```bash
-{testCommand} > /tmp/test-output.log 2>&1; EXIT=$?
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --runner auto --exit-code $EXIT --suite unit --baseline {STATE_FILE} /tmp/test-output.log
+{testCommand} > "{RUN_DIR}/test-output.log" 2>&1; EXIT=$?
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --runner auto --exit-code $EXIT --suite unit --baseline {STATE_FILE} "{RUN_DIR}/test-output.log"
 ```
 
 | # | 조건 | 분류 |
@@ -228,7 +228,7 @@ Agent tool:
 
     ## 규칙
     - 위에 나열된 파일과 그것이 직접 참조하는 코드만 읽으세요.
-    - `/tmp/workflow-state.md` 를 비롯한 명세·계획 문서는 **읽지 마세요**. 존재하더라도 열지 마세요.
+    - 워크플로우 상태·구현 노트를 비롯한 명세·계획 문서는 **읽지 마세요**. 존재하더라도 열지 마세요.
     - 파일을 수정하지 마세요.
     - 코드의 의도를 추측하지 말고, **단언(assertion)·조건 분기·반환 코드가 실제로 보장하는 것**만 적으세요.
     - 의미를 확신할 수 없는 항목은 지어내지 말고 `해석 불가`로 분리하세요.

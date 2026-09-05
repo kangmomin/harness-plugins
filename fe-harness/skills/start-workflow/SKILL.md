@@ -17,10 +17,10 @@ user-invocable: true
 
 **플레이스홀더 정의** (본문·references 공통, 값 변경은 여기 한 곳만 수정):
 
-- `{STATE_FILE}` = `/tmp/workflow-state.md`
-- `{IMPL_NOTES}` = `/tmp/implementation-notes.md`
+- `{RUN_DIR}`·`{RUN_ID}` = `references/run-lifecycle.md`의 생성·재개 검증 결과
+- `{STATE_FILE}` = `{RUN_DIR}/workflow-state.md` · `{IMPL_NOTES}` = `{RUN_DIR}/implementation-notes.md`
 - `{REPORT_DIR}` = profile의 `reportDir` (없으면 `.claude/harness-reports`)
-- `{WORK_REPORT}` = `/tmp/workflow-report-{run_id}.md` (`run_id` = `## Flags`의 `RUN_ID`)
+- `{WORK_REPORT}` = `{RUN_DIR}/workflow-report.md`
 - `{PLAN_MAX}` = Phase 3.3 상한 (standard 5 / light 2) · `{QL_MAX}` = Phase 7 상한 (standard 3 / light 2)
 - `{CWD}` = 현재 작업 디렉토리 (프로젝트 루트)
 - `{buildCommand}` 등 profile 변수 = `.claude/fe-harness.local.md`에서 로드
@@ -29,6 +29,7 @@ user-invocable: true
 
 | 플래그 | 단축 | 효과 |
 |--------|------|------|
+| `--resume {STATE_FILE}` | | 절대 상태 경로를 명시해 같은 저장소·모드의 미완료 실행을 검증 후 재개 (`references/run-lifecycle.md`). |
 | `--hard` | `-h` | 브랜치 생성/검증을 건너뛰고 현재 브랜치에서 바로 push. PR 생략. |
 | `--no-tdd` | | Phase 5.1(테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. 검증 티어는 standard 강제. |
 | `--reflect` | | Phase 10(성찰)을 실행한다. 미지정 시 Phase 10은 `SKIPPED:REFLECT_NOT_REQUESTED` (주기 실행 권장 — 워크플로우 5~10회마다 1회). |
@@ -49,13 +50,13 @@ user-invocable: true
 
 ## 상태 추적
 
-워크플로우 시작 시 `{STATE_FILE}`을 새로 만들고, Phase 진입/완료 때마다 갱신한다 (템플릿: `references/templates.md`).
-상태 파일은 `Flags` / `Current Phase` / `Phase Assignments` / `Remaining Phases` / `Verification Tier` / `Codex Runtime` / `Related E2E Specs` / `Phase Results` 섹션을 항상 포함한다.
+신규 실행의 Phase 4에서만 `{STATE_FILE}`을 만들고 (검증된 재개는 덮어쓰기 금지), Phase 진입/완료 때마다 갱신한다 (템플릿: `references/templates.md`).
+상태 파일은 `Run` / `Flags` / `Current Phase` / `Phase Assignments` / `Remaining Phases` / `Verification Tier` / `Codex Runtime` / `Related E2E Specs` / `Phase Results` 섹션을 항상 포함한다.
 
 - 에이전트 생성 전: 해당 Phase를 `IN_PROGRESS`로 갱신
 - 완료 후: `DONE` / `SKIPPED:{사유}` / `BLOCKED:{사유}` 와 결과 기록
 - 모든 에이전트 프롬프트에 상태 파일 경로, 현재 Phase, 남은 Phase, 배정 model/effort 포함
-- `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·CODEX_MODELS·RUN_ID·START_SHA)는 컨텍스트 요약·세션 재개로 CLI 인자를 잃은 뒤 이어갈 때 **유일한 기준** — CLI 인자와 충돌하면 기록값 우선 + 고지. `RUN_ID`는 Phase 4에서 1회 생성하며 재생성하지 않는다.
+- `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·CODEX_MODELS·RUN_ID·START_SHA)는 컨텍스트 요약·세션 재개로 CLI 인자를 잃은 뒤 이어갈 때 **유일한 기준** — CLI 인자와 충돌하면 기록값 우선 + 고지. `run-lifecycle.md`의 재개 검증 성공이 선행 조건이며, `RUN_ID`는 Pre-flight에서 한 번만 생성한다.
 
 ### Model / Effort 선택 규칙
 
@@ -113,8 +114,8 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 
 ## Pre-flight: Codex 모드 resolve
 
-Phase 1(`EnterPlanMode`) 직전에 1회 수행한다 (`references/codex-mode.md` §2):
-- 재개(상태 파일 존재)면 `## Flags`의 `CODEX`가 기준 — `--codex`는 무시 + 고지.
+먼저 `references/run-lifecycle.md`를 Read하고 경로 생성 또는 명시적 재개 검증을 완료한다. 이후 Phase 1(`EnterPlanMode`) 직전에 1회 수행한다 (`references/codex-mode.md` §2):
+- 재개(run-lifecycle 검증 성공)면 `## Flags`의 `CODEX`가 기준 — `--codex`는 무시 + 고지.
 - 신규면 `--codex` > profile `codexMode` > (대화형) 3지선다 질문 / (비대화형) `mix` ephemeral. 명시 입력만 writable `.claude/fe-harness.local.md`에 기록한다 (레거시 `.hyeondong-config.json`만 있으면 ephemeral + `/fe-harness:init` 안내). 값은 exact `none|mix|max`로 검증한다. 확정 직후 `--codex-models`도 동형으로 resolve한다 (§2.1 — 재개면 `CODEX_MODELS` 기준·플래그 무시, `none`이면 `N/A`, 명시 입력만 profile `codexModels`에 기록, 슬롯 단위 병합 `플래그 > profile > 기본값`; 결과는 `$CODEX_MODELS`).
 - `none`이 아니면 도구 목록에 `mcp__codex__codex` 존재를 확인한다 — 없으면 `$CODEX_RUNTIME = fallback(global:mcp_missing)` + 고지(profile 불변). `max`이고 세션 모델이 opus/fable 계열이 아니면 1줄 고지한다.
 
@@ -298,7 +299,7 @@ Plan의 파일 목록으로 금지 조건을 재점검한다(발견 시 즉시 s
 
 > Phase 4 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고
 > ① "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다. Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, profile 주요 설정, **Phase 3.3의 `Plan Verification Log`**를 복사해 넣고, `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·CODEX_MODELS·RUN_ID·START_SHA)·`## Verification Tier`·`## Codex Runtime`(`$CODEX_RUNTIME` 값 그대로 — `active`로 초기화하지 않음)·`## Related E2E Specs`(Plan 3.1의 목록)를 기록한다 (`CODEX_MODELS` = `$CODEX_MODELS` 확정값 — `tiered`는 Phase 2 난이도로 확정).
-> ② "Implementation Notes 라이브 파일 초기화" 템플릿대로 `{IMPL_NOTES}`를 생성한다 (기존 파일 덮어쓰기).
+> ② "Implementation Notes 라이브 파일 초기화" 템플릿대로 `{IMPL_NOTES}`를 생성한다 (신규 실행만 생성, 재개 시 보존).
 
 **회귀 Baseline 수집 (TDD 활성 시)**:
 
@@ -344,11 +345,14 @@ TDD 활성 시 **테스트 파일 수정 금지** 규칙과 `[TestConflict]` 보
 ### Phase 6: 빌드/타입 체크 (MANDATORY — 구현 직후 강제 실행)
 
 ```bash
-{buildCommand} 2>&1 | tail -30
-{typeCheckCommand} 2>&1 | tail -30
+(set -o pipefail; {buildCommand} 2>&1 | tail -30)
 ```
 
-각 명령이 비어있으면 해당 단계를 `SKIPPED:PROFILE_EMPTY`로 기록.
+```bash
+(set -o pipefail; {typeCheckCommand} 2>&1 | tail -30)
+```
+
+각 블록은 별도 Bash 호출로 실행하고 exit code를 각각 판정한다. Phase 7.1 재검증에도 같은 방식을 쓴다. 각 명령이 비어있으면 해당 단계를 `SKIPPED:PROFILE_EMPTY`로 기록.
 
 | 결과 | 행동 |
 |------|------|
@@ -404,7 +408,7 @@ light: `a11y-reviewer`만 단독 실행, component-reviewer는 `SKIPPED:TIER_LIG
 - `$HARD_MODE = false`: `fe-harness:workflow-pr` 에이전트로 PR 생성. PR URL 보고 필수.
 - `$HARD_MODE = true`: PR 생략, push 전에 Assumption Gate 스캔(base와의 diff 추가 라인 + 미push 커밋 메시지에서 `[Assumption]` 검색)을 수행한다. 0건이면 `git push origin $(git branch --show-current)` 후
   "Phase 9 완료: `{브랜치명}`에 push 완료 (--hard 모드, PR 생략)" 출력. 발견 시 push를 보류하고 아래 BLOCKED 절차를 따른다.
-- **Assumption Gate BLOCKED 처리**: workflow-pr이 `BLOCKED:ASSUMPTION_UNRESOLVED`를 보고하면(또는 --hard 스캔에서 발견되면) push/PR 없이 다음 Phase로 진행하고, 최종 보고서에 태그 목록을 포함해 항목별 유저 확인을 받는다. 승인(태그 제거)·수정으로 태그가 모두 제거된 뒤 **Phase 9만 재실행**한다. 태그가 남아 있는 동안 push/PR은 금지.
+- **Assumption Gate BLOCKED 처리**: workflow-pr이 `BLOCKED:ASSUMPTION_UNRESOLVED`를 보고하면(또는 --hard 스캔에서 발견되면) push/PR 없이 다음 Phase로 진행하고, 최종 보고서에 태그 목록을 포함해 항목별 유저 확인을 받는다. 승인(태그 제거)·수정으로 태그가 모두 제거된 뒤 `references/finalization.md`의 관련 검증 후 **Phase 9의 미완료 push/PR을 실행**한다. 태그가 남아 있는 동안 push/PR은 금지.
 
 ### Phase 10: 성찰 (조건부 — `--reflect` 시)
 
@@ -416,7 +420,7 @@ light: `a11y-reviewer`만 단독 실행, component-reviewer는 `SKIPPED:TIER_LIG
 > Phase 11 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고 "Phase 11 실행 절차", "Workflow Report 템플릿", "md 아카이브", "보완점 적용 상세"를 따른다.
 
 절차 요약 (각 항목의 상세 규칙: templates.md의 "Phase 11 실행 절차" — 순서 변경 금지):
-① `{WORK_REPORT}`에 슬림 Workflow Report 1회 Write(채팅에는 경로·§1·유저 결정 항목만. 미결 질문은 `{IMPL_NOTES}`의 `## 미결 질문`만 읽어 상단 표면화) → ② TDD 미해결 항목 유저 결정 (첫 결정 지점) → ③ Read-back Diff 유저 결정 (보완점보다 먼저 — 코드·Spec에 직접 영향) → ④ 보완점 적용 질문 (Phase 10이 `DONE`일 때만 — `SKIPPED:*`면 생략하고 **실제 상태 코드**와 사유별 문구로 고지: templates §6 분기) → ⑤ 상태 파일 마감 후 `assets/workflow_archive.py`로 `{REPORT_DIR}`에 md 아카이브(부록 A 실행 요약 / B 상태 파일 전문 / C Implementation Notes) 생성.
+① `{WORK_REPORT}`에 슬림 Workflow Report 초안 Write(채팅에는 경로·§1·유저 결정 항목만. 미결 질문은 `{IMPL_NOTES}`의 `## 미결 질문`만 읽어 상단 표면화) → ② TDD 미해결 항목 유저 결정 (첫 결정 지점) → ③ Read-back Diff 유저 결정 (보완점보다 먼저 — 코드·Spec에 직접 영향) → ④ 보완점 적용 질문 (Phase 10이 `DONE`일 때만 — `SKIPPED:*`면 생략하고 **실제 상태 코드**와 사유별 문구로 고지: templates §6 분기) → ⑤ `references/finalization.md`대로 승인 수정의 재검증·commit/push·보고서 갱신 완료 후 상태 파일 마감, `assets/workflow_archive.py`로 `{REPORT_DIR}`에 md 아카이브(부록 A 실행 요약 / B 상태 파일 전문 / C Implementation Notes) 생성.
 수정이 필요한 결정은 유저 승인 후에만 수행한다 (Spec 외 변경 금지 원칙). ②~④의 결정은 받는 즉시 `## Final Decisions`에 기록한다 (재개 시 재질문 금지).
 
 ## 상태 코드

@@ -36,10 +36,17 @@ check_anchor "$FE_SW" '^## Phase 1: 작업 범위 수집'
 
 # 3) 사본 parity
 pair() { if ! diff -q "$1" "$2" >/dev/null 2>&1; then bad "사본 불일치: $1 ↔ $2"; fi; }
-for s in test_failures.py workflow_archive.py risk_facts.py; do
+for s in test_failures.py workflow_archive.py risk_facts.py workflow_run.py; do
   pair "be-harness/skills/start-workflow/assets/$s" "fe-harness/skills/start-workflow/assets/$s"
 done
 pair be-harness/skills/start-workflow/assets/workflow_archive.py common/skills/start-workflow/assets/workflow_archive.py
+pair be-harness/skills/start-workflow/assets/workflow_run.py common/skills/start-workflow/assets/workflow_run.py
+pair be-harness/skills/e2e-test/assets/e2e-lock.sh fe-harness/skills/e2e-test/assets/e2e-lock.sh
+pair be-harness/skills/e2e-test/references/run-context.md fe-harness/skills/e2e-test/references/run-context.md
+for s in run-lifecycle.md finalization.md; do
+  pair "be-harness/skills/start-workflow/references/$s" "fe-harness/skills/start-workflow/references/$s"
+  pair "be-harness/skills/start-workflow/references/$s" "common/skills/start-workflow/references/$s"
+done
 
 # 4) py_compile
 while IFS= read -r f; do

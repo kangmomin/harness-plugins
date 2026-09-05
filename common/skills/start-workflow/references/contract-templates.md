@@ -90,12 +90,9 @@
 
 ## Phase 5: 상태 파일 템플릿
 
-`RUN_ID`·`START_SHA`는 상태 파일 **최초 작성 시 1회** 생성한다 (이후 재생성 금지):
+`RUN_ID`는 Pre-flight 결과를 사용한다. 신규 실행의 구현 직전에 `START_SHA`만 1회 수집하며, 재개 시 기존 상태를 보존한다:
 
 ```bash
-SHA7=$(git rev-parse --short=7 HEAD 2>/dev/null || echo nogit)
-HEX8=$(od -An -N4 -tx1 /dev/urandom | tr -d ' \n')
-RUN_ID="$(date +%Y%m%d-%H%M%S)-${SHA7}-${HEX8}"
 START_SHA=$(git rev-parse HEAD 2>/dev/null || echo 없음)
 ```
 
@@ -103,6 +100,12 @@ Write tool로 `{STATE_FILE}`을 작성한다:
 
 ```markdown
 # Fullstack Workflow State
+
+## Run
+- CWD: {CWD}
+- MODE: fs
+- RUN_ID: {RUN_ID}
+- RUN_DIR: {RUN_DIR}
 
 ## Flags
 - MODE: fs
@@ -175,7 +178,7 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 | 근거 ID | 도메인 | 테스트 | 파일 | Red | Green |
 |---------|--------|--------|------|-----|-------|
-| CT-01 | BE | Test_Create_201 | handler_test.go:20 | red_assertion | PASS |
+| CT-01 | BE | example.com/app/handler::Test_Create_201 | handler_test.go:20 | red_assertion | PASS |
 | CT-01 | FE | 생성 성공 시 목록 갱신 | useCreate.test.ts:14 | red_assertion | PASS |
 | CT-02 | 공용 | 응답 스키마 일치 | contract.test.ts:8 | red_assertion | PASS |
 | F-02 | BE | — | — | N/A(영향 없음) | - |

@@ -10,7 +10,7 @@ r"""test_failures.py — 테스트 러너 출력 → 실패 레코드 / 회귀 b
 완주 판정 매트릭스 (러너별 종료 마커 = go `ok|FAIL <pkg>` 요약 줄 또는 단독 PASS/FAIL, jest `Tests:`, vitest `Test Files`):
   마커 있음 → 완주 Y (exit ≠ 0은 "실패 있음"으로만 해석) / 마커 없음 → 완주 N / 마커 ∧ 실패 0 ∧ exit ≠ 0 → Y + unparsed 1건(실패 없는 비정상 종료)
   / 테스트 0건 → Y + unparsed(테스트 0건). go `[build failed]` → 완주 N(build failed).
-식별자: 러너 네이티브 전체 ID (go `TestX/sub`, jest·vitest `describe › it`). 키 = suite + 식별자.
+식별자: go `{package}::TestX/sub`, jest·vitest `describe › it`. 키 = suite + 식별자.
 정규화 시그니처: 실패 메시지 첫 줄에서 경로·라인 번호·타임스탬프·메모리 주소(0x…)·goroutine id·소요 시간을 제거하고 공백 축약.
   비교 키 = 정규화된 첫 줄 전체, 표시 = 120자 + #해시 8자.
 baseline 셀 문법: 항목 `{ID}` :: `{sig}` (백틱), 항목 구분은 닫는 백틱과 여는 백틱 사이의 ` / ` 만 (regex (?<=`) / (?=`)),
@@ -66,7 +66,7 @@ def detect_runner(lines):
     return "unknown"
 
 
-def parse_go(lines):
+def parse_go_package(lines):
     failed = []
     passed_ids = set()
     notes = []
@@ -126,6 +126,37 @@ def parse_go(lines):
     if not marker:
         return dict(completed=False, reason="종료 마커 없음(중단·크래시·설정 오류)", passed=passed, failed=failed, total=total_leaf, notes=notes, passed_ids=passed_ids)
     return dict(completed=True, reason="", passed=passed, failed=failed, total=total_leaf, notes=notes, passed_ids=passed_ids)
+
+
+def parse_go(lines):
+    # go test의 텍스트 출력은 package 요약 줄에서 한 블록이 끝난다.
+    packages = []
+    pending = []
+    for ln in lines:
+        pending.append(ln)
+        m = re.match(r"^(?:ok|FAIL|\?)\s+(\S+)(?:\s|$)", ln)
+        if m:
+            result = parse_go_package(pending)
+            if ln.startswith("FAIL") and not result["failed"]:
+                result["notes"].append("%s: package 실패에 테스트 실패 식별자 없음" % m.group(1))
+            packages.append((m.group(1), result))
+            pending = []
+    if any(ln.strip() not in ("", "FAIL", "PASS") for ln in pending) or not packages:
+        p = parse_go_package(pending)
+        p["notes"].append("Go package 요약 없음 — 식별자 대조 불가")
+        p["completed"] = False
+        packages.append((None, p))
+    failed, passed_ids, notes = [], set(), []
+    for pkg, p in packages:
+        qualify = lambda tid: "%s::%s" % (pkg, tid) if pkg else tid
+        failed.extend((qualify(tid), msg) for tid, msg in p["failed"])
+        passed_ids.update(qualify(tid) for tid in p["passed_ids"])
+        notes.extend(p["notes"])
+    completed = all(p["completed"] for _, p in packages)
+    passed = sum(p["passed"] for _, p in packages) if all(p["passed"] is not None for _, p in packages) else None
+    total = sum(p["total"] for _, p in packages) if all(p["total"] is not None for _, p in packages) else None
+    return dict(completed=completed, reason="" if completed else "package 실행 미완료",
+                passed=passed, failed=failed, total=total, notes=notes, passed_ids=passed_ids)
 
 
 def parse_jest(lines):
@@ -292,6 +323,8 @@ def parse_baseline(state_text):
             out["unparsed_suites"].append("%s: 셀 파싱 실패 또는 개수 불일치" % suite)
             continue
         for tid, sig in parsed:
+            if (suite, tid) in out["failed"]:
+                out["unparsed_suites"].append("%s: 중복 테스트 식별자 %s" % (suite, tid))
             out["failed"][(suite, tid)] = sig
     seen_old = set()
     for mm in re.finditer(r"^\s*-\s*`([^`]+)`\s*→\s*(?:`([^`]+)`|삭제\s*\(([^)]*)\))", sec, re.M):
@@ -323,6 +356,8 @@ def leaf_of(tid):
 def in_testmap(tid, testmap):
     if tid in testmap:
         return True
+    if "::" in tid:
+        return False  # Go는 package를 포함한 exact match만 허용한다.
     leaf = leaf_of(tid)
     return any(t == leaf or tid.endswith(t) for t in testmap)
 
@@ -339,6 +374,9 @@ def classify(records, suite, bl):
         if bl["collect_failed"]:
             r["cls"], r["note"] = "unparsed", "baseline 수집 실패 — regression 판정 불가"
             continue
+        if "::" in tid and any(s == suite and "::" not in old for s, old in bl["failed"]):
+            r["cls"], r["note"] = "unparsed", "구 Go baseline에 package 없음 — 자동 대조 불가"
+            continue
         lookup = bl["tomb_new_to_old"].get(tid, tid)
         note = ("Tombstone %s → %s; " % (lookup, tid)) if lookup != tid else ""
         key = (suite, lookup)
@@ -354,12 +392,17 @@ def classify(records, suite, bl):
 
 def apply_rerun(records, rerun_res):
     for r in records:
-        if not rerun_res["completed"]:
-            r["note"] = (r.get("note", "") + "; " if r.get("note") else "") + "rerun_incomplete(재실행 미완주)"
+        if r.get("cls") == "unparsed":
+            continue  # 재실행 성공으로 모호한 baseline의 대조 실패를 해소하지 않는다.
+        if not rerun_res["completed"] or rerun_res["unparsed"]:
+            r["note"] = (r.get("note", "") + "; " if r.get("note") else "") + "rerun_incomplete(재실행 미완주/파싱 불가)"
             continue
         ids = rerun_res.get("passed_ids", set())
         leaf = leaf_of(r["id"])
-        if r["id"] in ids or any(p == leaf or p.endswith(" " + leaf) or p.endswith(">" + leaf) or p.endswith("/" + leaf) for p in ids):
+        failed_ids = {item["id"] for item in rerun_res["records"]}
+        passed = r["id"] in ids if "::" in r["id"] else (r["id"] in ids or any(
+            p == leaf or p.endswith(" " + leaf) or p.endswith(">" + leaf) or p.endswith("/" + leaf) for p in ids))
+        if passed and r["id"] not in failed_ids:
             r["cls"] = "flaky"
             r["note"] = (r.get("note", "") + "; " if r.get("note") else "") + "재실행 PASS 명시"
         else:
@@ -409,6 +452,9 @@ def main():
             return 2
         rr = analyze(rl, res["runner"] if res["runner"] in PARSERS else args.runner, args.rerun_exit_code)
         apply_rerun(records, rr)
+        res["unparsed"].extend("rerun: " + note for note in rr["unparsed"])
+        original_ids = {r["id"] for r in records}
+        res["unparsed"].extend("rerun 추가 실패: " + r["id"] for r in rr["records"] if r["id"] not in original_ids)
 
     done = "Y" if res["completed"] else "N"
     passed_txt = "?" if res["passed"] is None else str(res["passed"])

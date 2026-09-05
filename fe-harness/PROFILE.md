@@ -129,8 +129,8 @@ wire_api = "responses"          # Codex는 responses만 지원
 ## 명령 실행 규칙
 
 - 하드코딩된 명령 대신 profile의 `{buildCommand}`, `{testCommand}`, `{lintCommand}`, `{typeCheckCommand}`, `{e2eCommand}` 를 사용.
-- 명령이 비어있으면 해당 단계를 `SKIPPED`로 표기하고 다음 단계로 진행 (실패 아님).
-- `e2eRunner: none` 이거나 `e2eCommand` 가 비어있으면 모든 E2E 단계 SKIP.
+- 명령이 비어있으면 해당 스킬의 runner fallback을 적용하고, fallback도 없으면 `SKIPPED`로 표기한다.
+- E2E는 `e2eRunner: none`일 때 SKIP. `e2eCommand`가 비어있어도 runner가 playwright/cypress면 기본 명령을 실행하며, `test-loop --smoke`는 연관 spec 목록으로 범위를 제한한다. custom 명령이 있으면 전체 명령을 실행한다.
 
 ## profile 생성
 
