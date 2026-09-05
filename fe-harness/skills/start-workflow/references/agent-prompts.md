@@ -259,13 +259,44 @@ Phase 7.7은 **판정만 하고 코드를 수정하지 않는다.** Diff 항목�
 
 ## Phase 8: 컴포넌트/접근성 리뷰 (병렬 2개)
 
+두 리뷰어에게 동일한 변경 목록을 전달한다. 상태 파일 `## Flags`의 `{START_SHA}`부터 현재 작업 트리까지 비교하여 Phase 5.2·7에서 이미 커밋한 변경, staged·unstaged 변경을 모두 포함한다. 이번 실행의 Plan·구현/수정 에이전트 결과에서 확인한 소유 파일 목록을 `{RUN_DIR}/review-owned-files.json`에 JSON 문자열 배열로 저장한다 (없으면 `[]`). 기존 사용자 untracked 파일을 이 목록에 넣지 않는다.
+
+프로젝트 루트에서 아래를 실행한다. 결과 `read`는 현재 파일을 읽을 목록, `deleted`는 삭제 diff만 리뷰할 목록이다. 리뷰어가 Read로 확인할 수 있도록 tracked 변경 diff도 저장해 `diff` 경로로 전달한다. rename은 이전 경로 삭제 + 새 경로 추가로 포함한다. NUL 구분으로 공백·개행이 있는 경로도 보존한다.
+
+```bash
+python3 - "{START_SHA}" "{RUN_DIR}/review-owned-files.json" <<'PY'
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+def git(*args):
+    return subprocess.check_output(["git", *args])
+
+start = git("rev-parse", "--verify", sys.argv[1] + "^{commit}").decode().strip()
+subprocess.run(["git", "merge-base", "--is-ancestor", start, "HEAD"], check=True)
+tracked = set(git("diff", "--no-renames", "--name-only", "-z", start, "--", "*.tsx").decode().split("\0")) - {""}
+untracked = set(git("ls-files", "--others", "--exclude-standard", "-z", "--", "*.tsx").decode().split("\0")) - {""}
+owned = set(json.loads(Path(sys.argv[2]).read_text()))
+files = sorted(tracked | (untracked & owned))
+diff = Path(sys.argv[2]).with_name("component-review.diff")
+diff.write_bytes(git("diff", "--no-renames", start, "--", "*.tsx"))
+print(json.dumps({"diff": str(diff.resolve()), "read": [p for p in files if Path(p).is_file()],
+                  "deleted": [p for p in files if not Path(p).is_file()]}, ensure_ascii=False))
+PY
+```
+
+`START_SHA` 유실·검증 실패 또는 명령 실패는 `BLOCKED:REVIEW_SCOPE`로 기록하고 범위를 복구한다. 빈 목록으로 PASS 처리하거나 일반 `git diff`로 대체하지 않는다. 워크플로우 밖에서 리뷰어를 단독 호출할 때만 호출자가 명시한 파일/기준 SHA를 사용하고 그 범위를 보고한다.
+
 ```
 Agent tool (병렬 1):
   subagent_type: fe-harness:component-reviewer
   model: [컴포넌트 변경량 기준 선택]
   effort: [컴포넌트 변경량 기준 선택]
   prompt: |
-    변경된 파일: [git diff --name-only의 .tsx 파일 목록]
+    변경된 파일: [위 결과의 read 목록, START_SHA부터 현재 작업 트리까지]
+    삭제 diff 리뷰: [위 결과의 deleted 목록 — 현재 파일 Read 제외]
+    변경 diff 파일: [위 결과의 diff 경로 — Read로 읽고 삭제 영향까지 검토]
     프로젝트 루트: {CWD}
     상태 파일 `{STATE_FILE}`을 읽고 Phase 8 component review 상태를 갱신하세요.
     배정 model/effort: {model}/{effort}
@@ -275,7 +306,9 @@ Agent tool (병렬 2):
   model: [접근성 영향 기준 선택]
   effort: [접근성 영향 기준 선택]
   prompt: |
-    변경된 파일: [git diff --name-only의 .tsx 파일 목록]
+    변경된 파일: [위 결과의 read 목록, START_SHA부터 현재 작업 트리까지]
+    삭제 diff 리뷰: [위 결과의 deleted 목록 — 현재 파일 Read 제외]
+    변경 diff 파일: [위 결과의 diff 경로 — Read로 읽고 삭제 영향까지 검토]
     프로젝트 루트: {CWD}
     상태 파일 `{STATE_FILE}`을 읽고 Phase 8 a11y review 상태를 갱신하세요.
     배정 model/effort: {model}/{effort}
