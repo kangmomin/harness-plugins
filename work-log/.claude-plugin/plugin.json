@@ -1,6 +1,6 @@
 {
   "name": "work-log",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "작업 기록 폴더(work-log)를 LLM 이 읽을 수 있는 wiki 로 관리하는 플러그인. 전역 vault 또는 프로젝트별(<repo>/work-log/) 스코프를 선택할 수 있고, 조회(search)·동기화(sync)·수정(edit) 스킬과 의존성 0 의 stdio MCP 서버(wiki_resolve/read/write/sync/status)를 제공한다. 인덱스는 vault 밖 캐시에 두어 sync 가 기존 문서를 건드리지 않는다.",
   "keywords": [
     "work-log",

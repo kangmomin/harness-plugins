@@ -9,6 +9,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { hostname } from 'node:os';
 import { cacheDirFor, DEFAULT_EXCLUDES } from './config.js';
 
 const MD = '.md';
@@ -519,17 +520,51 @@ const companionSig = (d) => (d.companions ?? []).map((c) => `${c.path}:${c.hash}
 
 /* ────────────────────────────── 안전 쓰기 ────────────────────────────── */
 
+async function withDocumentLock(abs, fn) {
+  // 실제 문서 옆에 두어 vault 별칭·서로 다른 XDG cache의 프로세스도 같은 락을 쓴다.
+  const lock = path.join(path.dirname(abs), `.${path.basename(abs)}.write-lock`);
+  await fsp.mkdir(path.dirname(abs), { recursive: true });
+  const deadline = Date.now() + 5000;
+  for (;;) {
+    try {
+      await fsp.mkdir(lock);
+      break;
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      if (Date.now() >= deadline) {
+        const owner = await fsp.readFile(path.join(lock, 'owner.json'), 'utf8').catch(() => '소유자 정보 없음');
+        throw new Error(`문서 쓰기 잠금 대기 시간 초과: ${lock} (${owner}). 소유 실행의 종료를 확인한 뒤 이 잠금 디렉토리만 제거하세요.`);
+      }
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+  }
+  try {
+    await fsp.writeFile(path.join(lock, 'owner.json'), JSON.stringify({
+      pid: process.pid, host: hostname(), started: new Date().toISOString(),
+    }), 'utf8');
+    return await fn();
+  } finally {
+    // 시간만으로 다른 실행의 락을 회수하지 않는다. 자신이 획득한 락만 해제한다.
+    await fsp.rm(lock, { recursive: true, force: true });
+  }
+}
+
 /**
  * vault 에 문서를 쓴다. 이것이 vault 를 변경하는 유일한 경로다.
- * create 는 wx 로 원자 생성하고, overwrite/append 는 expectedHash 로 낙관적 잠금을 건다.
+ * 읽기·hash 확인·쓰기를 문서별 프로세스 간 잠금으로 보호한다. create 는 wx 로 원자 생성한다.
  */
-export async function writeDoc(cfg, { relPath, content, frontmatter, mode = 'create', expectedHash }) {
-  const { abs, rel } = safeResolve(cfg.root, relPath, { forWrite: true });
+export async function writeDoc(cfg, args) {
+  const { abs, rel } = safeResolve(cfg.root, args.relPath, { forWrite: true });
+  return withDocumentLock(abs, () => writeDocLocked(abs, rel, args));
+}
 
+async function writeDocLocked(abs, rel, { content, frontmatter, mode = 'create', expectedHash }) {
   let existing = null;
   try {
     existing = await fsp.readFile(abs, 'utf8');
-  } catch { /* 신규 */ }
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
 
   if (mode === 'create' && existing !== null) {
     throw new Error(`파일이 이미 있습니다. 덮어쓰려면 mode:"overwrite" 를 명시하세요: ${rel}`);
@@ -594,8 +629,6 @@ export async function writeDoc(cfg, { relPath, content, frontmatter, mode = 'cre
     }
   }
 
-  await fsp.mkdir(path.dirname(abs), { recursive: true });
-
   if (mode === 'create') {
     // 존재 확인 후 rename 은 그 사이 생긴 파일을 덮어쓴다. wx 로 원자 생성한다.
     const fh = await fsp.open(abs, 'wx');
@@ -606,8 +639,12 @@ export async function writeDoc(cfg, { relPath, content, frontmatter, mode = 'cre
     }
   } else {
     const tmp = path.join(path.dirname(abs), `.${path.basename(abs)}.${process.pid}.${Date.now()}.tmp`);
-    await fsp.writeFile(tmp, final, 'utf8');
-    await fsp.rename(tmp, abs);
+    try {
+      await fsp.writeFile(tmp, final, 'utf8');
+      await fsp.rename(tmp, abs);
+    } finally {
+      await fsp.rm(tmp, { force: true });
+    }
   }
 
   return { path: rel, bytes: Buffer.byteLength(final), hash: sha1(Buffer.from(final, 'utf8')), mode };

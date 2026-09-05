@@ -17,7 +17,7 @@ import {
 } from './lib/vault.js';
 import { rank, extractSection, applyBudget } from './lib/search.js';
 
-const SERVER_INFO = { name: 'work-log', version: '0.2.1' };
+const SERVER_INFO = { name: 'work-log', version: '0.2.2' };
 const SUPPORTED_PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
 const log = (...a) => process.stderr.write(`[work-log] ${a.join(' ')}\n`);

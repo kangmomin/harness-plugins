@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { buildIndex, splitFrontmatter, writeDoc } from '../mcp/lib/vault.js';
+import { fork } from 'node:child_process';
+import { once } from 'node:events';
+import { buildIndex, sha1, splitFrontmatter, writeDoc } from '../mcp/lib/vault.js';
 import { rank } from '../mcp/lib/search.js';
 
 function fixture(t) {
@@ -11,6 +14,97 @@ function fixture(t) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return { root, excludes: [] };
 }
+
+async function writers(t, cfg, count = 2) {
+  const children = Array.from({ length: count }, (_, i) => fork(new URL('./helpers/write-worker.mjs', import.meta.url), [], {
+    execArgv: [], stdio: ['ignore', 'ignore', 'inherit', 'ipc'],
+    env: { ...process.env, XDG_CACHE_HOME: path.join(cfg.root, `cache-${i}`) },
+  }));
+  t.after(async () => {
+    await Promise.all(children.map(async (child) => {
+      if (child.exitCode === null && child.signalCode === null) {
+        const closed = once(child, 'exit');
+        child.kill();
+        await closed;
+      }
+    }));
+  });
+  await Promise.all(children.map((child) => once(child, 'message')));
+  return async (args) => {
+    const replies = children.map((child) => once(child, 'message'));
+    children.forEach((child, i) => child.send({ cfg, args: args[i] }));
+    return (await Promise.all(replies)).map(([value]) => value);
+  };
+}
+
+test('별도 프로세스·cache·경로 별칭의 같은 hash 수정은 한 번만 성공한다', { timeout: 10000 }, async (t) => {
+  const cfg = fixture(t);
+  const original = '# Original\n' + 'content\n'.repeat(20000);
+  fs.symlinkSync('doc.md', path.join(cfg.root, 'alias.md'));
+  const write = await writers(t, cfg);
+  for (const mode of ['append', 'overwrite']) {
+    fs.writeFileSync(path.join(cfg.root, 'doc.md'), original);
+    const results = await write(['doc.md', 'alias.md'].map((relPath, i) => ({
+      relPath, mode, content: `Changed ${i}`, expectedHash: sha1(Buffer.from(original)),
+    })));
+    assert.equal(results.filter((r) => r.ok).length, 1);
+    assert.match(results.find((r) => !r.ok).error, /그 사이 변경/);
+    const winner = results.find((r) => r.ok).result;
+    assert.equal(sha1(fs.readFileSync(path.join(cfg.root, 'doc.md'))), winner.hash);
+    assert.deepEqual(fs.readdirSync(cfg.root), ['alias.md', 'doc.md']);
+  }
+});
+
+test('hash 없는 동시 append는 모든 프로세스의 내용을 보존한다', { timeout: 10000 }, async (t) => {
+  const cfg = fixture(t);
+  fs.writeFileSync(path.join(cfg.root, 'doc.md'), '# Original');
+  const write = await writers(t, cfg, 4);
+  const values = ['From A', 'From B', 'From C', 'From D'];
+  const results = await write(values.map((content) => ({ relPath: 'doc.md', mode: 'append', content })));
+  assert.ok(results.every((r) => r.ok), JSON.stringify(results));
+  const final = fs.readFileSync(path.join(cfg.root, 'doc.md'), 'utf8');
+  for (const value of values) assert.ok(final.includes(value), value);
+});
+
+test('쓰기 거부 뒤 잠금을 해제하여 다음 수정이 가능하다', async (t) => {
+  const cfg = fixture(t);
+  fs.writeFileSync(path.join(cfg.root, 'doc.md'), '# Original');
+  await assert.rejects(writeDoc(cfg, { relPath: 'doc.md', mode: 'append', content: 'stale', expectedHash: 'wrong' }));
+  await writeDoc(cfg, { relPath: 'doc.md', mode: 'append', content: 'next' });
+  assert.equal(fs.readFileSync(path.join(cfg.root, 'doc.md'), 'utf8'), '# Original\n\nnext');
+  assert.deepEqual(fs.readdirSync(cfg.root), ['doc.md']);
+});
+
+test('소유자 기록·rename 오류에도 자기 잠금과 임시 파일을 정리한다', async (t) => {
+  const cfg = fixture(t);
+  fs.writeFileSync(path.join(cfg.root, 'doc.md'), '# Original');
+  for (const method of ['writeFile', 'rename']) {
+    const original = fsp[method];
+    const mock = t.mock.method(fsp, method, async (...args) => {
+      if (method === 'rename' || String(args[0]).endsWith('/owner.json')) throw new Error('injected I/O failure');
+      return original(...args);
+    });
+    await assert.rejects(writeDoc(cfg, { relPath: 'doc.md', mode: 'append', content: 'lost' }), /injected I\/O failure/);
+    mock.mock.restore();
+    assert.deepEqual(fs.readdirSync(cfg.root), ['doc.md']);
+    assert.equal(fs.readFileSync(path.join(cfg.root, 'doc.md'), 'utf8'), '# Original');
+  }
+  await writeDoc(cfg, { relPath: 'doc.md', mode: 'append', content: 'next' });
+});
+
+test('보유된 문서 락을 회수하지 않고 다른 문서는 독립적으로 쓴다', { timeout: 10000 }, async (t) => {
+  const cfg = fixture(t);
+  fs.writeFileSync(path.join(cfg.root, 'doc.md'), '# Original');
+  const held = path.join(cfg.root, '.doc.md.write-lock');
+  fs.mkdirSync(held);
+  const pending = writeDoc(cfg, { relPath: 'doc.md', mode: 'append', content: 'blocked' });
+  const rejected = assert.rejects(pending, /문서 쓰기 잠금 대기 시간 초과:.*소유자 정보 없음/);
+  await writeDoc(cfg, { relPath: 'independent.md', content: 'independent' });
+  assert.ok(fs.existsSync(path.join(cfg.root, 'independent.md')));
+  await rejected;
+  assert.ok(fs.existsSync(held));
+  assert.equal(fs.readFileSync(path.join(cfg.root, 'doc.md'), 'utf8'), '# Original');
+});
 
 test('본문 overwrite가 블록 배열·중첩 객체·따옴표·모르는 키를 보존한다', async (t) => {
   const cfg = fixture(t);
