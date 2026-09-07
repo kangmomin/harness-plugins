@@ -12,7 +12,7 @@
 
 ## 2. Implementation Details
 
-- **Assumptions**: [Assumption] 기존 제품의 배포 계열을 유지하도록 work-log 외 제품은 patch를 올렸다. work-log는 저장/잠금 계약 변경에 맞춰 이미 계획한 0.3.0을 적용했다.
+- **Assumptions**: 기존 제품의 배포 계열을 유지하도록 work-log 외 제품은 patch를 올렸다. work-log는 저장/잠금 계약 변경에 맞춰 이미 계획한 0.3.0을 적용했다.
 - **Key Changes**: work-log 파일 I/O·메타데이터·인덱스, 테스트 실패 분류와 실행 소유권, workflow/commit/merge 상태, 프로필과 FE 템플릿, DB/Apidog 경계, worktree hook, 페이지네이션, agent 권한, 피드백·문서·사용법, 필수 CI 검증을 보완했다.
 
 | 제품 | 수정 버전 |

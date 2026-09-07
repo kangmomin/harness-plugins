@@ -700,7 +700,7 @@ py_compile 뒤 저장소 전체의 __pycache__를 rm -rf한다(work-log만 제�
 | M01/M06 | 다른 writer의 id=12도 removed; 첫 페이지 [3,2] 뒤 다음 페이지 [], id=1 누락 |
 | M05/S01 | 공백 worktree hook exit 0이나 env 미복사; 구조 검사 OK이나 무관한 sentinel 삭제 |
 
-**Assumptions:** 제품 기능·지원 범위를 새로 유추해 구현한 사항은 없다. 원격/모델 동작과 미검증 helper 보장은 각 항목의 조건·한계로 표시했다. **[Assumption]** 사용자의 “전체”는 이 저장소의 추적 제품/공용 파일 전체로 해석했고, 외부 소비 서비스 및 DOT 문서의 개정은 포함하지 않았다.
+**Assumptions:** 제품 기능·지원 범위를 새로 유추해 구현한 사항은 없다. 원격/모델 동작과 미검증 helper 보장은 각 항목의 조건·한계로 표시했다. 사용자의 “전체”는 이 저장소의 추적 제품/공용 파일 전체로 해석했고, 외부 소비 서비스 및 DOT 문서의 개정은 포함하지 않았다.
 
 **Final Convention Review:** MCP 인터페이스/스킬 출력, workflow 상태와 판정, 파일·Git·외부 대상 저장 경계를 나눠 검토했다. 이 플러그인 저장소에 Presentation/Service/Repository 웹앱 구조를 강제로 적용하지 않았다. 보고서 외 구현 변경·리팩터링은 없다. 기존 소스 스타일과 사용자 문서는 그대로 보존한다.
 
