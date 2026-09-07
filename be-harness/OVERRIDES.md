@@ -138,5 +138,5 @@ Profile 은 "값", projectConventions 는 "코드 규약의 참조 문서", Over
 ## 주의
 
 - 오버라이드 파일은 **프로젝트 저장소에 커밋**되어야 팀 전체에 일관 적용된다.
-- 프라이빗/개인 설정은 `.claude/be-harness/common.local.md` 처럼 `.local.md` 접미사를 쓰고 `.gitignore` 대상으로 둘 수 있다 (선택).
+- 로더는 위의 `common.md` 다음 `skills/{name}.md`만 읽는다. `common.local.md`는 자동 로드하지 않는다. 개인 규칙은 팀 파일과 겹치지 않는 실제 지원 경로를 `.git/info/exclude`에 등록해 사용할 수 있다. 이미 추적되는 팀 파일은 ignore로 비공개가 되지 않는다.
 - 오버라이드를 통해 **플러그인 기본 동작을 역행**(예: "빌드 검증 건너뛰기")하는 건 가능하지만, 이유는 반드시 파일에 기록한다.

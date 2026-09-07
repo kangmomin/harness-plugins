@@ -50,4 +50,4 @@ commit-push(브랜치 판정)와 commit-pr(base 결정·조합 검증)이 **함�
 ## 주의
 
 - 오버라이드 파일은 **프로젝트 저장소에 커밋**되어야 팀 전체에 일관 적용된다.
-- 프라이빗 설정은 `.claude/common/common.local.md` 처럼 `.local.md` 접미사를 쓰고 `.gitignore` 대상으로 둘 수 있다.
+- 로더가 읽는 경로는 위의 `common.md`와 `skills/{name}.md` 두 계층뿐이다. `common.local.md`는 자동 로드하지 않는다. 개인 전용 규칙은 실제 지원 경로 중 팀 파일과 겹치지 않는 파일을 `.git/info/exclude`에 등록해 사용할 수 있다. 이미 추적되는 팀 파일을 개인 파일로 덮거나 ignore만으로 비공개가 된다고 보지 않는다.

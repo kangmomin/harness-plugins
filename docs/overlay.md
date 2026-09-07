@@ -135,7 +135,7 @@ argument-hint: {베이스와 동일}
 - `{base-plugin}` 플러그인 선행 설치. 미설치 시: [고지 문구] 후 종료.
 ```
 
-- 인자는 **해석하지 않고 그대로** 베이스에 전달한다.
+- 인자는 보존해 베이스에 전달한다. start-workflow는 동봉 entry-contract의 모드/원격 정책 gate를 먼저 적용하고 유효 MODE/PUBLISH_POLICY도 인계한다.
 - 베이스 출력은 **가공하지 않고 그대로** 상위에 올린다.
 - `SKIPPED:*` / `BLOCKED:*` 는 그대로 전파한다.
 
@@ -158,3 +158,9 @@ argument-hint: {베이스와 동일}
 - 베이스 플러그인의 **파일 경로를 참조하지 않는다.** 베이스 호출은 Skill tool의 스킬 이름으로만 한다 (§9 cross-plugin 규칙). 오버레이 문서가 참조할 수 있는 파일은 **자기 플러그인 내부**(`${CLAUDE_PLUGIN_ROOT}/overlay/...`)뿐이다.
 - 베이스의 Phase 번호를 재부여하지 않는다 (§4).
 - 상태 파일 포맷을 바꾸지 않는다. 삽입 단계는 기존 `Phase Assignments` 표에 행을 추가하는 방식으로만 기록한다.
+
+## 8. 풀스택 handoff 예외
+
+common 풀스택 오케스트레이터는 전체 단일 도메인 워크플로우를 위임하지 않는다. `common/skills/start-workflow/references/fullstack-overlays.md`의 hook manifest로 의미상 실행 지점을 매핑하고, 세션 메타데이터에서 확인한 실제 overlay 자료 경로만 Read해 도메인 owner에게 전달한다. 고정 설치 경로나 단일 도메인 Phase 번호를 추측하지 않는다. 프로젝트 복사본 우선과 파일별 중복 방지는 §2.1을 적용한다. 필수 자료 누락은 hook BLOCKED로 최종 결정에 넘긴다.
+
+명시 --be/--fe는 자동 wrapper 선택을 생략한다. 경로 B의 프로젝트 override까지 제거하거나 무시하라는 의미는 아니다. 비지원 common.local.md 같은 숨은 경로는 추가로 읽지 않는다.

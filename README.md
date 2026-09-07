@@ -24,6 +24,21 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 - **절차는 베이스(be/fe)에만 있다.** 특화 하네스는 절차를 복제하지 않고 델타만 얹는다.
 - 오버레이는 베이스의 Phase **번호가 아니라 제목(앵커)** 으로 위치를 지정하므로, 베이스가 Phase를 추가해도 깨지지 않는다. 규약: [`docs/overlay.md`](./docs/overlay.md).
 
+## 호스트 지원 범위
+
+| 실행 환경 | 이 저장소에서 제공하는 경계 | 실행 전 확인 |
+|---|---|---|
+| Claude Code plugin | common/BE/FE/overlay 스킬과 `agents/`, work-log MCP | `.claude-plugin` 설치, 실제 scoped agent/skill 이름과 도구 목록 |
+| Codex native work-log | `work-log/.codex-plugin/plugin.json`, skills와 stdio MCP | 세션의 work-log 스킬·MCP 도구 발견, Node/Python과 vault 설정 |
+| Codex에 별도 설치한 harness skills | 이 저장소의 Claude agent frontmatter가 Codex 권한을 설정하지는 않음 | 세션에 제공된 실제 스킬명·도구·host adapter를 확인. 없는 실행 기능은 BLOCKED |
+| Claude workflow에서 Codex CLI 위임 | `codexMode` 및 슬롯 설정을 따른 별도 프로세스 | 활성 모드에서만 CLI/provider/model 확인, writer 격리·종료 확인 계약 적용 |
+
+Codex의 스킬/MCP 패키징은 [공식 OpenAI plugin 문서](https://learn.chatgpt.com/docs/plugins)와 [skill 문서](https://learn.chatgpt.com/docs/build-skills)를 따른다. 별도 배포판의 이름을 이 저장소 이름으로 바꿔 호출하지 않는다. 사용법은 현재 세션 metadata에서 수집한다.
+
+Claude agent는 스킬의 `allowed-tools`와 달리 `tools`/`disallowedTools`를 사용한다. 읽기 전용 리뷰어는 Read/Glob/Grep만 허용한다. Bash를 가진 구현·PR agent는 파일 쓰기도 가능하며 읽기 전용으로 분류하지 않는다. [Claude subagent 계약](https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields)
+
+검증한 호스트 버전, 실제 로드된 도구, 재현 절차와 한계는 [호스트 검증 계약](docs/host-contract.md)에 기록한다. doctor는 활성 framework/runner/codexMode의 의존성만 검사하며 진단 중 설치·다운로드하지 않는다. 설치가 필요한 경우 누락 상태와 별도 설치 명령을 보고한다.
+
 ## 설치
 
 ```bash
@@ -116,3 +131,13 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 - `fe-harness/README.md`: 범용 프론트엔드 베이스
 - `minmos-harness/README.md`: Post-Math 오버레이 (v1.x 마이그레이션 표 포함)
 - `hyeondongs-harness/README.md`: hyeondongs 오버레이 (v2.x 마이그레이션 표 포함)
+
+## 저장소 검증
+
+`bash scripts/verify.sh`는 구조·manifest/marketplace·agent 계약·활성 참조·Phase/override·사본 일치, Python 전체 테스트, work-log stdio/Node, 실제 Chromium 오프라인 문서, FE build/type/Vitest/Jest, loopback gRPC를 순서대로 검사한다. 필요한 의존성이 없으면 성공으로 skip하지 않는다. 준비 단계와 다운로드는 [.github/workflows/verify.yml](.github/workflows/verify.yml)의 한 `Required harness checks` job에 모았다. 검증 스크립트 자체는 설치하지 않는다.
+
+로컬 실행 전 `tests/requirements.txt`, 두 npm lockfile, fixture Go module, PostgreSQL/Chromium runtime을 준비한다. PostgreSQL은 별도 임시 cluster/socket만 쓰며 업무 DB 설정을 읽지 않는다. 호스트 loader는 설치 버전에 따라 명시적으로 수행하는 별도 로컬 mock probe다.
+
+구조 검사는 제품별 현재 manifest 버전을 기준으로 같은 제품의 package/Codex manifest만 대조한다. 제품 간 버전은 독립적이다. 과거 감사 문서와 community-feedback은 활성 지시 검증에서 제외하며, 두 migration 표는 이전 열만 제외하고 현재 호출 열은 검사한다. 템플릿 placeholder 링크 예외는 `scripts/check_contracts.py`에 파일과 값 단위로 명시한다. 구조 통과는 실행 fixture 통과와 함께 판단한다.
+
+GitHub 보호 브랜치의 필수 check 설정은 별도 저장소 설정이다. 이 변경은 해당 설정을 원격 수정하지 않는다.
