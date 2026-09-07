@@ -21,7 +21,7 @@ user-invocable: true
 
 | 항목 | 점검 방법 | 관련 스킬 |
 |------|----------|----------|
-| Apidog MCP 연결 | `mcp__apidog__read_project_oas_*` 호출 시도 | apidog-schema-gen, e2e-test |
+| Apidog MCP 연결 | `../apidog-schema-gen/references/import-contract.md` discovery로 실제 project/branch/callable 확인 후 읽기 | apidog-schema-gen, e2e-test |
 | Apidog MCP 응답 | OAS 읽기 응답 확인 | apidog-schema-gen |
 | PostgreSQL MCP 연결 | PostgreSQL MCP로 `SELECT 1` 쿼리 시도 | e2e-test |
 | PostgreSQL MCP DB 호스트 | PostgreSQL MCP로 `SELECT inet_server_addr()` 쿼리 시도 | e2e-test |
@@ -174,3 +174,5 @@ user-invocable: true
 | uv | 선택 | Dev PubSub 설치/실행 전제 |
 | dev-pubsub-cli | 선택 | PubSub E2E 테스트 전용 |
 | PubSub Emulator | 선택 | PubSub E2E 테스트 시 실행 필요 (STOPPED은 경고만) |
+
+Apidog 진단 결과에는 토큰 없이 확인된 project/branch와 실제 read/refs/refresh callable을 기록하고 후속 스킬에 전달한다. `--skip-doctor`로 진단을 생략해도 후속 스킬의 필수 discovery/target freeze는 유지한다.

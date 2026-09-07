@@ -47,7 +47,7 @@ e2eCommand: "pnpm e2e"
 runServerCommand: "pnpm dev"
 serverUrl: "http://localhost:3000"
 e2eLockDir: ""                # E2E 실행 락 디렉토리. 비우면 자동 해석
-                              # (work-log vault의 .wiki/e2e-locks → 없으면 /tmp/harness-e2e-locks).
+                              # (공통 기본값 /tmp/harness-e2e-locks; 같은 socket 자원의 모든 실행에서 동일 경로).
                               # 환경변수 HARNESS_E2E_LOCK_DIR 로도 지정 가능.
 
 # 소스 레이아웃
@@ -71,6 +71,12 @@ projectConventions: ["CLAUDE.md"]
 
 (선택) 프로젝트별 메모.
 ```
+
+## 결정적 해석·편집
+
+모든 소비자는 `skills/config/assets/profile.py resolve --domain fe --cwd "{CWD}"`의 `values`·`sources`·`commands`를 사용한다(Python 3.9+, POSIX). 설정을 다시 읽을 때마다 별도 prose 파서를 만들지 않는다. 잘못된 우선 profile은 오류이며 fallback하지 않는다. `commands`는 명시 값과 실행 fallback의 출처를 구분한다. 아직 실행하지 않은 명령은 PASS가 아니다.
+
+기존 profile의 키 수정은 config helper의 typed JSON preview → 같은 입력과 `sha256_before`를 사용한 atomic apply 경로를 따른다. 전체 파일 생성은 init만 담당한다. helper의 지원 YAML 범위와 보존 계약: `skills/config/SKILL.md`. 기존 코드·본문·주석을 재직렬화하지 않는다.
 
 ## 읽기 우선순위
 
@@ -129,7 +135,8 @@ wire_api = "responses"          # Codex는 responses만 지원
 ## 명령 실행 규칙
 
 - 하드코딩된 명령 대신 profile의 `{buildCommand}`, `{testCommand}`, `{lintCommand}`, `{typeCheckCommand}`, `{e2eCommand}` 를 사용.
-- 명령이 비어있으면 해당 스킬의 runner fallback을 적용하고, fallback도 없으면 `SKIPPED`로 표기한다.
+- 명령이 비어있으면 helper의 설치된 로컬 runner fallback을 적용하고, fallback도 없으면 `SKIPPED`로 표기한다.
+- `lintCommand`가 있으면 환경변수·workspace·옵션을 포함한 원문 그대로 실행한다. 비어 있고 package script도 없으면 설치된 로컬 ESLint에만 fallback한다. custom 명령에 임의 파일 인자나 `--fix`를 추가하지 않는다. `typescript:false`이면 typeCheckCommand는 SKIP이다.
 - E2E는 `e2eRunner: none`일 때 SKIP. `e2eCommand`가 비어있어도 runner가 playwright/cypress면 기본 명령을 실행하며, `test-loop --smoke`는 연관 spec 목록으로 범위를 제한한다. custom 명령이 있으면 전체 명령을 실행한다.
 
 ## profile 생성
