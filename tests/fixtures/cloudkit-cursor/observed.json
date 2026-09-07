@@ -1,0 +1,25 @@
+{
+  "source": "/workspace/cloudkit/cloudKit/cursor_data.go",
+  "source_sha256": "44608f1f78cb2c7a584912cb3bef08b3d55757acb7f7f8426cfca19ac289447f",
+  "head": "76a65f38e9bf092cc25f2a4119a6f3dde6ea94d6",
+  "method": "Exact source copied to temporary isolated stdlib-only Go module; signed/unsigned probes in separate processes; temporary binary/cache/server-free fixture cleaned",
+  "observations": [
+    "ParseOrderParam splits | and rejects no malicious direction: invalid direction preserved; no column allowlist",
+    "Comma multi-order silently omitted by parser",
+    "CursorDecode int64 9007199254740993 rounds to float64 9007199254740992",
+    "EqualOrderSpecs compares key/direction, ignores values",
+    "CursorEncode panics on JSON marshal failure"
+  ],
+  "runs": [
+    {
+      "mode": "unsigned",
+      "result": "PASS",
+      "output": "=== RUN   TestActualContract\n[WARNING] CURSOR_SECRET not set. Cursor signing disabled.\n--- PASS: TestActualContract (0.00s)\nPASS\n"
+    },
+    {
+      "mode": "signed",
+      "result": "PASS",
+      "output": "=== RUN   TestActualContract\n--- PASS: TestActualContract (0.00s)\nPASS\n"
+    }
+  ]
+}

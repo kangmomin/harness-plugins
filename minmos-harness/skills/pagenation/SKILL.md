@@ -6,134 +6,46 @@ user-invocable: true
 
 # 커서 기반 페이지네이션 구현 컨벤션
 
-> 본 문서는 프로젝트 내에서 GORM 및 `cloudKit` 패키지를 활용하여 일관된 **Cursor-based Pagination**을 구현하기 위한 표준 가이드를 정의합니다.
->
-> 정본은 `go-conventions:conventions-guide` 의 `cursor-pagination-spec`·`entity-repository-contract` 이며, 본 문서와 충돌하면 정본이 우선합니다.
+정본은 세션에 제공된 `go-conventions:conventions-guide`의 `cursor-pagination-spec`·`entity-repository-contract`다. 이 문서는 정본의 repository 계약을 유지하면서 정렬/seek/cursor를 같은 정규 목록으로 구성하는 실행 가능한 참조를 제공한다.
 
----
+## API와 repository 계약
 
-## 1. API 공통 매개변수 (Request Parameters)
+| 매개변수 | 의미 |
+|----------|------|
+| `order` | API 허용 키와 asc/desc. 예: `createdAt:desc|id:asc`. 확인한 CloudKit parser의 구분자는 `|`다. |
+| `cursor` | 첫 페이지는 빈 문자열. 이후 opaque nextCursor를 그대로 전달한다. |
+| `limit` | 참조 구현은 1..100. 서비스의 기존 명세 범위가 다르면 그 범위로 명시적으로 조정한다. |
 
-|**매개변수**|**타입**|**필수 여부**|**설명**|
-|---|---|---|---|
-|`order`|`string`|선택|정렬 기준 (예: `createdAt:desc,id:asc`). 생략 시 기본값 적용.|
-|`cursor`|`string`|선택|이전 응답의 `nextCursor`. 첫 페이지 요청 시 빈 값.|
-|`limit`|`int`|**필수**|한 페이지에 노출할 데이터 개수.|
-
----
-
-## 2. 구현 단계별 가이드라인
-
-### 2.1 커서 디코딩 및 검증 (Decoding & Validation)
-
-- **커서 존재 시**: `cloudKit.CursorDecode(cursor)`를 통해 `OrderSpec`을 추출합니다.
-
-- **정렬 일관성 체크**: 요청된 `order` 파라미터가 있다면, 커서 내부에 저장된 정렬 정보와 일치하는지 `cloudKit.EqualOrderSpecs`로 반드시 검증합니다.
-
-    - _주의: 정렬 조건이 바뀌면 기존 커서는 무효화됩니다._
-
-- **커서 미존재 시**: `order` 파라미터를 파싱하여 새로운 정렬 기준을 생성합니다.
-
-
-### 2.2 쿼리 구성 (Query Building)
-
-- **정렬 적용**: 모든 필드명은 `snake_case`로 변환하여 **SQL Injection을 방지**하고 DB 컨벤션을 따릅니다.
-
-- **고유성 보장 (Tie-breaking)**: 정렬 조건에 `id`가 포함되지 않은 경우, 결과의 순서가 매번 동일하도록 반드시 마지막에 `id desc` (혹은 `asc`)를 추가합니다.
-
-- **필터링 로직**: 다중 정렬 시, 이전 정렬 컬럼들은 `=` 조건으로, 현재 컬럼은 방향(`>` 또는 `<`) 조건을 적용하여 `OR`로 결합합니다.
-
-
-### 2.3 다음 커서 생성 (Next Cursor Generation)
-
-- 조회된 결과 리스트의 **마지막 요소**를 기준으로 `OrderSpec` 값을 추출합니다.
-
-- `cloudKit.CursorEncode`를 사용하여 다음 요청에 사용할 문자열을 생성합니다.
-
-- 더 이상 결과가 없거나 마지막 페이지인 경우 빈 문자열(`""`)을 반환합니다.
-
-### 2.4 totalCount (첫 페이지 전용)
-
-- repository 시그니처는 정본 계약대로 **4-tuple** `([]*VO, totalCount int, nextCursor string, error)` 를 반환합니다.
-
-- `COUNT` 쿼리는 **첫 페이지(`cursor == ""`)에서만** 실행하고, 후속 페이지에서는 `totalCount = 0` 으로 생략합니다 (응답 조립 시 첫 페이지에만 totalItems 포함).
-
-
----
-
-## 3. 표준 코드 템플릿 (Go Reference)
+정본 시그니처의 **인수 순서와 4-tuple**을 유지한다:
 
 ```go
-func (r *repository) GetAllCursor(ctx context.Context, order, cursor string, limit int) ([]*VO, int, string, error) {
-    var entities []*Entity
-    query := r.db.WithContext(ctx).Table("table_name")
-
-    // 1. 정렬 스펙 결정 (커서 우선)
-    var orderSpecs []cloudKit.OrderSpec
-    if cursor != "" {
-        specs, err := cloudKit.CursorDecode(cursor)
-        if err != nil {
-            return nil, 0, "", fmt.Errorf("invalid cursor: %w", err)
-        }
-        orderSpecs = specs
-    } else {
-        orderSpecs = cloudKit.ParseOrderParam(order)
-    }
-
-    // totalCount 는 첫 페이지에서만 계산 (정본: cursor-pagination-spec)
-    totalCount := 0
-    if cursor == "" {
-        var cnt int64
-        if err := query.Session(&gorm.Session{}).Count(&cnt).Error; err != nil {
-            return nil, 0, "", err
-        }
-        totalCount = int(cnt)
-    }
-
-    // 2. 쿼리 빌딩 (Order & Where)
-    for i, spec := range orderSpecs {
-        col := toSnakeCase(spec.Column) // 유틸리티 함수
-        query = query.Order(fmt.Sprintf("%s %s", col, spec.Direction))
-
-        if cursor != "" {
-            if i == 0 {
-                query = query.Where(fmt.Sprintf("%s %s ?", col, cloudKit.Operator(spec.Direction)), spec.Value)
-            } else {
-                // 다중 컬럼 필터링 로직 구현 (OR 조건 결합)
-                query = query.Or(buildComplexCondition(orderSpecs, i))
-            }
-        }
-    }
-
-    // 3. ID Tie-breaking (결과 일관성 보장)
-    if !hasIdSpec(orderSpecs) {
-        query = query.Order("id desc")
-    }
-
-    // 4. 실행 및 결과 처리
-    if err := query.Limit(limit).Find(&entities).Error; err != nil {
-        return nil, 0, "", err
-    }
-
-    // 5. 다음 커서 인코딩
-    nextCursor := ""
-    if len(entities) > 0 {
-        last := entities[len(entities)-1]
-        nextCursor = cloudKit.CursorEncode(extractNextSpecs(orderSpecs, last))
-    }
-
-    return vos, totalCount, nextCursor, nil
-}
+GetAllCursor(ctx context.Context, cursor string, limit int, order string) ([]*domain.ModuleVO, int, string, error)
 ```
 
----
+첫 페이지에서만 COUNT를 실행하고 totalItems를 포함한다. 이후 totalCount=0으로 생략하며 response에도 totalItems를 넣지 않는다. 기본 조회는 `status = 'active'`를 유지한다.
 
-## 4. 주의 사항
+## 참조 구현 사용
 
-> **성능과 정확도를 위한 체크리스트**
->
-> - **시간대(Timezone)**: `created_at` 등 시간 필드 정렬 시, 애플리케이션과 DB의 시간대 설정(UTC 등)이 일치하는지 확인하십시오.
->
-> - **인덱스 활용**: 정렬 컬럼은 **기존 활성(status='active' 부분) 인덱스를 우선 재사용**하고, 중복 인덱스 추가는 금지합니다. 신규 인덱스는 실행계획 측정으로 필요가 입증될 때만 추가합니다 (정본: cursor-pagination-spec).
->
-> - **컬럼 매핑**: API의 `CamelCase` 필드명이 DB의 `snake_case` 컬럼명과 정확히 매핑되는지 검증 로직을 포함하십시오.
+`assets/pagination.go`는 실제 컴파일/SQL fixture로 검증하는 정렬 계획·다음 커서 helper다. SQL/GORM 호출이나 서비스 VO 변환을 수행하는 완성 repository라고 표시하지 않는다. 기존 서비스에 적용할 때는 다음 연결을 구현하고 해당 서비스 테스트를 실행한다.
+
+1. 코드에서 API 정렬 키→DB 컬럼·타입 allowlist를 만든다. 예: `createdAt → created_at(int64)`, `id → id(int64)`. map 자체를 요청에서 받지 않는다. `id`는 실제 고유 키여야 한다. 참조는 안정적인 non-null int64/string 정렬값만 지원하며 nullable/임의 expression 정렬은 추가 계약 없이 허용하지 않는다.
+2. `Build(order, cursor, limit, fields, codec)`가 만든 **같은 Terms**를 ORDER BY, seek predicate, 다음 cursor에 사용한다. 신규 요청에 id가 없으면 Terms에 `id:desc`를 추가한다. SQL ORDER에만 따로 추가하지 않는다.
+3. cursor가 있으면 서명 검증 후 key/direction/value/버전을 다시 검증한다. 요청 order가 있으면 id를 포함해 정규화한 목록과 완전히 같아야 한다. order 생략 시 검증된 cursor order를 유지한다. 기존 cursor에 id/value가 없으면 자동 추정하지 않고 첫 페이지 재시작을 안내한다.
+4. `query := db.WithContext(ctx).Table(actualTable).Where("status = ?", "active")`에 기존 tenant/권한/검색 필터를 유지한다. FirstPage일 때만 이 base query로 Count한다. 그 뒤 `query.Where(plan.WhereSQL, plan.Args...).Order(plan.OrderSQL).Limit(plan.FetchLimit)`로 조회한다. 첫 페이지의 빈 WhereSQL은 적용하지 않는다.
+5. helper의 seek는 괄호로 묶인 OR-of-AND다. base filter 아래에 **한 번의 Where**로 결합한다. 항목별 `query.Or(...)`를 붙여 status/tenant 조건을 우회하지 않는다. 값은 반드시 Args로 bind한다.
+6. FetchLimit은 limit+1이다. 조회 entities를 `Finish(plan, entities, value, codec)`에 전달한다. value callback은 정렬 키의 실제 값을 정확한 `json.RawMessage`로 반환하며 int64를 float64로 변환하지 않는다. Finish가 sentinel을 자르고 마지막 **유지된 행**으로만 cursor를 만든다. 마지막 페이지는 정확히 limit개여도 더 읽을 행이 없으면 빈 cursor다.
+7. 반환된 page entities만 기존 converter로 VOs에 옮긴 후 `vos, totalCount, nextCursor, err`를 반환한다. encode/변환 오류는 정상 페이지로 숨기지 않는다. 정렬값이 같은 행·혼합 방향·마지막 페이지와 base filter 보존을 실제 repository에서 검증한다.
+
+## 식별자와 값 검증
+
+snake_case 변환은 이름 스타일이며 SQL Injection 방어가 아니다. [GORM Security](https://gorm.io/docs/security.html)는 Order 문자열 등 SQL 구조에 요청 입력을 직접 넣지 않도록 설명한다. 참조 helper는 코드 소유 allowlist의 컬럼만 인용하고 direction을 asc/desc로 제한하며 값은 placeholder 인수로 분리한다. 서명된 cursor도 이 검증을 생략하지 않는다.
+
+잘못된 컬럼/방향/중복 키/문법/limit는 SQL 생성 전에 실패한다. cursor의 null/빈 terms/누락 값/중복 JSON key/중복 정렬 키/미지원 버전도 거부한다. 시간 필드를 추가한다면 DB와 애플리케이션의 타입·UTC 표현·정렬 의미가 맞는지 별도로 확인한다. 활성 부분 인덱스는 기존 것을 우선 사용하고 새 인덱스는 실행계획으로 필요가 확인된 경우에만 추가한다.
+
+## CloudKit codec 연결과 지원 범위
+
+확인한 CloudKit 실제 소스 계약과 측정 근거는 `references/cloudkit-contract.md`에 있다. ParseOrderParam은 allowlist/direction 검증을 대신하지 않는다. CursorDecode의 interface{} 숫자는 큰 int64를 잃을 수 있으므로 그 결과를 정밀한 seek 값이라고 가정하지 않는다.
+
+참조의 `SignedJSONCodec`은 **새 hp1 서명 형식**이며 기존 CloudKit cursor와 호환되지 않는다. 기존 서비스를 조용히 이 형식으로 교체하지 않는다. 적용 시 버전 전환/기존 cursor 재시작 정책을 명시하거나 서명을 먼저 검증하고 typed 값을 보존하는 기존 호환 codec adapter를 제공한다. 서명을 우회하여 원시 JSON을 읽는 fallback은 금지다. Codec.Encode는 error를 반환해야 하므로 panic하는 기존 encode 경계도 확인한다.
+
+이 저장소는 참조 Go 코드를 컴파일하고 그 SQL을 로컬 SQLite fixture에 실행한다. 전체 CloudKit/GORM 소비 서비스의 배포·보안 검증을 완료했다고 주장하지 않는다.
