@@ -10,17 +10,20 @@ r"""test_failures.py — 테스트 러너 출력 → 실패 레코드 / 회귀 b
 완주 판정 매트릭스 (러너별 종료 마커 = go `ok|FAIL <pkg>` 요약 줄 또는 단독 PASS/FAIL, jest `Tests:`, vitest `Test Files`):
   마커 있음 → 완주 Y (exit ≠ 0은 "실패 있음"으로만 해석) / 마커 없음 → 완주 N / 마커 ∧ 실패 0 ∧ exit ≠ 0 → Y + unparsed 1건(실패 없는 비정상 종료)
   / 테스트 0건 → Y + unparsed(테스트 0건). go `[build failed]` → 완주 N(build failed).
-식별자: go `{package}::TestX/sub`, jest·vitest `describe › it`. 키 = suite + 식별자.
-정규화 시그니처: 실패 메시지 첫 줄에서 경로·라인 번호·타임스탬프·메모리 주소(0x…)·goroutine id·소요 시간을 제거하고 공백 축약.
-  비교 키 = 정규화된 첫 줄 전체, 표시 = 120자 + #해시 8자.
+식별자: go `{package}::TestX/sub`, jest·vitest `{runner}::{file}::{describe › it}`. 키 = suite + 식별자.
+정규화 시그니처: Go는 실패 메시지 첫 줄에서 경로·라인 번호·타임스탬프·메모리 주소(0x…)·goroutine id·소요 시간을 제거하고 공백 축약.
+  JS는 JSON failureMessages 또는 텍스트 오류 본문(코드 프레임·stack 제외)의 matcher/Expected/Received/diff 전체를 보존한다.
+  비교 키 = 정규화된 전체 메시지, 표시 = 120자 + #해시 8자. JSON reporter는 runner를 명시하고 동일 저장소 루트 cwd에서 수집한다.
 baseline 셀 문법: 항목 `{ID}` :: `{sig}` (백틱), 항목 구분은 닫는 백틱과 여는 백틱 사이의 ` / ` 만 (regex (?<=`) / (?=`)),
   내부 백틱 → `'`, `|` → `\|`. 파싱 실패·개수 불일치·Tombstone 중복 매핑 → 해당 suite 행 전체 unparsed.
 대조 우선순위: Tombstone 매핑(분류 전) → `## TDD Test Map` 등재 → new_red / baseline 동일 키+동일 sig → pre_existing
   / 다른 sig → regression / 부재 → regression. 모순·중복 → unparsed. baseline `수집 실패` 기록 → Test Map 외 전부 unparsed(baseline 없음).
-rerun: verbose 출력 필수. flaky ⇔ 재실행 완주 ∧ 그 식별자가 PASS로 명시(go `--- PASS: {ID}`, jest/vitest `✓ {ID}` 또는 leaf). 그 외 → 원 분류 + rerun_incomplete.
+rerun: verbose 출력 필수. flaky ⇔ 재실행 완주 ∧ 그 식별자가 PASS로 명시(go `--- PASS: {ID}`, jest/vitest 동일 runner+파일+전체 이름 `✓ {ID}`; leaf/suffix 추정 금지). 그 외 → 원 분류 + rerun_incomplete.
 """
 import argparse
 import hashlib
+import json
+import os
 import re
 import sys
 
@@ -159,112 +162,159 @@ def parse_go(lines):
                 passed=passed, failed=failed, total=total, notes=notes, passed_ids=passed_ids)
 
 
+def js_id(runner, filename, title):
+    filename = filename.replace("\\", "/")
+    if os.path.isabs(filename):
+        filename = os.path.relpath(filename).replace("\\", "/")
+    while filename.startswith("./"):
+        filename = filename[2:]
+    return "%s::%s::%s" % (runner, filename, title.replace(" > ", " › "))
+
+
+def error_body(lines):
+    # Error values/diffs are semantic. Strip source frames and stack locations only.
+    body = []
+    for line in lines:
+        line = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line)
+        if re.match(r"^\s*(?:[>❯]?\s*\d+\s*\||\||at |❯|●|FAIL |PASS |Test Suites:|Tests:|Test Files|⎯)", line):
+            break
+        if line.strip():
+            body.append(line.strip())
+    return "\n".join(body) or "(실패 메시지 없음)"
+
+
+def parse_js_json(lines, runner):
+    try:
+        value = json.loads("\n".join(lines))
+    except (ValueError, TypeError):
+        return None
+    if not isinstance(value, dict) or not isinstance(value.get("testResults"), list):
+        return None
+    failed, passed_ids, notes, observed = [], set(), [], 0
+    for suite in value["testResults"]:
+        if not isinstance(suite, dict) or not isinstance(suite.get("name"), str) or not isinstance(suite.get("assertionResults"), list):
+            notes.append("JSON suite schema 식별 불가")
+            continue
+        failed_before = len(failed)
+        for case in suite["assertionResults"]:
+            if not isinstance(case, dict) or not isinstance(case.get("title"), str) or not isinstance(case.get("ancestorTitles"), list) or not all(isinstance(t, str) for t in case["ancestorTitles"]):
+                notes.append("JSON assertion identity 식별 불가")
+                continue
+            observed += 1
+            tid = js_id(runner, suite["name"], " › ".join(case["ancestorTitles"] + [case["title"]]))
+            status = case.get("status")
+            if status == "passed":
+                passed_ids.add(tid)
+            elif status == "failed":
+                messages = case.get("failureMessages", [])
+                if not isinstance(messages, list) or not all(isinstance(m, str) for m in messages):
+                    messages = []
+                failed.append((tid, "\n".join(error_body(m.splitlines()) for m in messages) or "(실패 메시지 없음)"))
+            elif status not in ("pending", "todo", "skipped", "disabled"):
+                notes.append(tid + ": unknown assertion status")
+        if suite.get("status") == "failed" and failed_before == len(failed):
+            notes.append(suite["name"] + ": suite 실패에 assertion 증거 없음")
+    total = value.get("numTotalTests")
+    completed = isinstance(total, int) and not isinstance(total, bool) and total == observed and not value.get("wasInterrupted", False)
+    if not completed:
+        notes.append("JSON 실행 미완주/테스트 수 불일치")
+    return dict(completed=completed, reason="" if completed else "JSON 실행 미완료", passed=len(passed_ids),
+                failed=failed, total=total, notes=notes, passed_ids=passed_ids, expected_failed=value.get("numFailedTests"))
+
+
 def parse_jest(lines):
-    failed = []
-    passed_ids = set()
-    notes = []
-    completed = False
-    passed = None
-    total = None
+    structured = parse_js_json(lines, "jest")
+    if structured is not None:
+        return structured
+    failed, passed_ids, notes = [], set(), []
+    completed, passed, total, expected_failed = False, None, None, None
+    filename, headings, details = None, [], False
     for i, ln in enumerate(lines):
+        m = re.match(r"^(?:FAIL|PASS)\s+(.+?\.(?:[cm]?[jt]sx?))(?:\s+\(.*\))?\s*$", ln)
+        if m:
+            filename, headings, details = m.group(1), [], False
+            continue
         m = re.match(r"^\s*●\s+(.+?)\s*$", ln)
         if m:
-            tid = m.group(1)
-            if tid.startswith("Test suite failed to run"):
-                msg = "(사유 없음)"
-                for nl in lines[i + 1:i + 6]:
-                    if nl.strip():
-                        msg = nl.strip()
-                        break
-                notes.append("Test suite failed to run — " + msg)
+            details = True
+            title = m.group(1)
+            if title.startswith("Test suite failed to run"):
+                notes.append(title + " — " + error_body(lines[i + 1:]))
+            elif title.endswith("Console") or title.startswith("Cannot log after"):
                 continue
-            if tid.endswith("Console") or tid.startswith("Cannot log after"):
-                continue
-            msg = "(실패 메시지 없음)"
-            for nl in lines[i + 1:i + 12]:
-                if nl.strip():
-                    msg = nl.strip()
-                    break
-            failed.append((tid, msg))
+            elif filename:
+                failed.append((js_id("jest", filename, title), error_body(lines[i + 1:])))
+            else:
+                notes.append(title + ": Jest file identity 없음")
             continue
-        m = re.match(r"^\s*✓\s+(.+?)(?:\s+\(\d+\s*m?s\))?\s*$", ln)
-        if m:
-            passed_ids.add(m.group(1).strip())
+        m = re.match(r"^(\s*)[✓✔✕×]\s+(.+?)(?:\s+\(\d+(?:\.\d+)?\s*m?s\))?\s*$", ln)
+        if m and not details:
+            indent = len(m.group(1))
+            while headings and headings[-1][0] >= indent:
+                headings.pop()
+            if ln.lstrip()[0] in "✓✔" and filename:
+                passed_ids.add(js_id("jest", filename, " › ".join([h[1] for h in headings] + [m.group(2)])))
+            continue
+        if filename and not details and ln.strip() and ln.startswith("  "):
+            indent = len(ln) - len(ln.lstrip())
+            while headings and headings[-1][0] >= indent:
+                headings.pop()
+            headings.append((indent, ln.strip()))
         m = re.match(r"^Tests:\s+(.*)$", ln)
         if m:
             completed = True
-            mp = re.search(r"(\d+) passed", m.group(1))
-            mt = re.search(r"(\d+) total", m.group(1))
-            passed = int(mp.group(1)) if mp else 0
-            total = int(mt.group(1)) if mt else None
+            mp, mt = re.search(r"(\d+) passed", m.group(1)), re.search(r"(\d+) total", m.group(1))
+            passed, total = int(mp.group(1)) if mp else 0, int(mt.group(1)) if mt else None
+            mf = re.search(r"(\d+) failed", m.group(1))
+            expected_failed = int(mf.group(1)) if mf else 0
     reason = "" if completed else "종료 마커(Tests:) 없음"
-    return dict(completed=completed, reason=reason, passed=passed, failed=failed, total=total, notes=notes, passed_ids=passed_ids)
+    return dict(completed=completed, reason=reason, passed=passed, failed=failed, total=total, notes=notes, passed_ids=passed_ids, expected_failed=expected_failed)
 
 
 def parse_vitest(lines):
-    failed = []
-    passed_ids = set()
-    notes = []
-    completed = False
-    passed = None
-    total = None
-    msgs = {}
-    arrow = {}
+    structured = parse_js_json(lines, "vitest")
+    if structured is not None:
+        return structured
+    failed, passed_ids, notes, messages = [], set(), [], {}
+    completed, passed, total, expected_failed = False, None, None, None
     for i, ln in enumerate(lines):
-        m = re.match(r"^\s*FAIL\s+(\S+)\s+>\s+(.+?)\s*$", ln)
+        m = re.match(r"^\s*FAIL\s+(.+?)\s+>\s+(.+?)\s*$", ln)
         if m:
-            tid = m.group(2).strip()
-            msg = "(실패 메시지 없음)"
-            for nl in lines[i + 1:i + 8]:
-                if nl.strip() and not nl.strip().startswith("❯"):
-                    msg = nl.strip()
-                    break
-            msgs[tid] = msg
+            tid = js_id("vitest", *m.groups())
+            if tid in messages:
+                notes.append(tid + ": duplicate failure identity")
+            messages[tid] = error_body(lines[i + 1:])
             continue
-        m = re.match(r"^\s*[×✗]\s+(.+?)(?:\s+\d+\s*m?s)?\s*$", ln)
+        m = re.match(r"^\s*([×✗✓✔])\s+(.+?)\s+>\s+(.+?)(?:\s+\d+(?:\.\d+)?\s*m?s)?\s*$", ln)
         if m:
-            tid = m.group(1).strip()
-            failed.append(tid)
-            for nl in lines[i + 1:i + 3]:
-                mm = re.match(r"^\s*→\s+(.*)$", nl)
-                if mm:
-                    arrow[tid] = mm.group(1).strip()
-                    break
-            continue
-        m = re.match(r"^\s*✓\s+(.+?)(?:\s+\d+\s*m?s)?\s*$", ln)
-        if m and " > " in m.group(1):
-            passed_ids.add(m.group(1).strip())
+            verdict, filename, title = m.groups()
+            tid = js_id("vitest", filename, title)
+            if verdict in "✓✔":
+                passed_ids.add(tid)
+            else:
+                failed.append(tid)
         if re.match(r"^\s*Test Files\s+", ln):
             completed = True
         m = re.match(r"^\s*Tests\s+(.*)$", ln)
-        if m and ("passed" in m.group(1) or "failed" in m.group(1)):
-            mp = re.search(r"(\d+) passed", m.group(1))
-            mt = re.search(r"\((\d+)\)", m.group(1))
-            passed = int(mp.group(1)) if mp else 0
-            total = int(mt.group(1)) if mt else None
-    out = []
-    seen = set()
-    for tid in failed:
-        if tid in seen:
-            continue
-        seen.add(tid)
-        msg = msgs.get(tid)
-        if msg is None:
-            for k, v in msgs.items():
-                if k.endswith(tid) or tid.endswith(k):
-                    msg = v
-                    break
-        if msg is None:
-            msg = arrow.get(tid, "(실패 메시지 없음)")
-        out.append((tid, msg))
+        if m:
+            mp, mt = re.search(r"(\d+) passed", m.group(1)), re.search(r"\((\d+)\)", m.group(1))
+            passed, total = int(mp.group(1)) if mp else 0, int(mt.group(1)) if mt else None
+            mf = re.search(r"(\d+) failed", m.group(1))
+            expected_failed = int(mf.group(1)) if mf else 0
+    # Some reporters omit verbose rows. Exact FAIL headers still identify failures.
+    ids = list(dict.fromkeys(failed + list(messages)))
+    if len(failed) != len(set(failed)):
+        notes.append("duplicate verbose failure identity")
+    out = [(tid, messages.get(tid, "(실패 메시지 없음)")) for tid in ids]
     reason = "" if completed else "종료 마커(Test Files) 없음"
-    return dict(completed=completed, reason=reason, passed=passed, failed=out, total=total, notes=notes, passed_ids=passed_ids)
+    return dict(completed=completed, reason=reason, passed=passed, failed=out, total=total, notes=notes, passed_ids=passed_ids, expected_failed=expected_failed)
 
 
 PARSERS = {"go": parse_go, "jest": parse_jest, "vitest": parse_vitest}
 
 
 def analyze(lines, runner, exit_code):
+    lines = [re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line) for line in lines]
     if runner == "auto":
         runner = detect_runner(lines)
     res = dict(runner=runner, records=[], unparsed=[], completed=False, reason="", passed=None, total=None, passed_ids=set())
@@ -275,11 +325,18 @@ def analyze(lines, runner, exit_code):
     p = PARSERS[runner](lines)
     res.update(completed=p["completed"], reason=p["reason"], passed=p["passed"], total=p["total"], passed_ids=p["passed_ids"])
     for tid, msg in p["failed"]:
-        record = dict(id=tid, sig=normalize(msg), raw=msg)
-        if runner == "go" and msg == "(실패 메시지 없음)":
+        record = dict(id=tid, sig=normalize(msg) if runner == "go" else re.sub(r"\s+", " ", msg).strip(), raw=msg)
+        if msg == "(실패 메시지 없음)":
             record.update(cls="unparsed", note="실패 메시지 식별 불가")
+            res["unparsed"].append(tid + ": 실패 메시지 식별 불가")
         res["records"].append(record)
     res["unparsed"].extend(p["notes"])
+    if p.get("expected_failed") is not None and p["expected_failed"] != len(p["failed"]):
+        res["unparsed"].append("러너 실패 수와 식별한 실패 수 불일치")
+    if len({tid for tid, _ in p["failed"]}) != len(p["failed"]):
+        res["unparsed"].append("중복 실패 ID — 자동 대조 불가")
+        for record in res["records"]:
+            record.update(cls="unparsed", note="중복 실패 ID")
     if p["completed"] and not p["failed"] and exit_code != 0 and not p["notes"]:
         res["unparsed"].append("실패 없는 비정상 종료 (exit %d)" % exit_code)
     if p["completed"] and (p["total"] == 0 or (p["total"] is None and p["passed"] == 0 and not p["failed"])):
@@ -352,17 +409,8 @@ def parse_baseline(state_text):
     return out
 
 
-def leaf_of(tid):
-    return tid.split("/")[-1].split(" › ")[-1].split(" > ")[-1]
-
-
 def in_testmap(tid, testmap):
-    if tid in testmap:
-        return True
-    if "::" in tid:
-        return False  # Go는 package를 포함한 exact match만 허용한다.
-    leaf = leaf_of(tid)
-    return any(t == leaf or tid.endswith(t) for t in testmap)
+    return tid in testmap
 
 
 def classify(records, suite, bl):
@@ -380,7 +428,7 @@ def classify(records, suite, bl):
             r["cls"], r["note"] = "unparsed", "baseline 수집 실패 — regression 판정 불가"
             continue
         if "::" in tid and any(s == suite and "::" not in old for s, old in bl["failed"]):
-            r["cls"], r["note"] = "unparsed", "구 Go baseline에 package 없음 — 자동 대조 불가"
+            r["cls"], r["note"] = "unparsed", "구 baseline에 package 또는 runner/file 없음 — 자동 대조 불가"
             continue
         lookup = bl["tomb_new_to_old"].get(tid, tid)
         note = ("Tombstone %s → %s; " % (lookup, tid)) if lookup != tid else ""
@@ -406,10 +454,8 @@ def apply_rerun(records, rerun_res):
             r["note"] = (r.get("note", "") + "; " if r.get("note") else "") + "rerun_incomplete(재실행 미완주/파싱 불가)"
             continue
         ids = rerun_res.get("passed_ids", set())
-        leaf = leaf_of(r["id"])
         failed_ids = {item["id"] for item in rerun_res["records"]}
-        passed = r["id"] in ids if "::" in r["id"] else (r["id"] in ids or any(
-            p == leaf or p.endswith(" " + leaf) or p.endswith(">" + leaf) or p.endswith("/" + leaf) for p in ids))
+        passed = r["id"] in ids
         if passed and r["id"] not in failed_ids:
             r["cls"] = "flaky"
             r["note"] = (r.get("note", "") + "; " if r.get("note") else "") + "재실행 PASS 명시"

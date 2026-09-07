@@ -1,4 +1,5 @@
 import importlib.util
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -183,6 +184,93 @@ FAIL example.test/a 0.001s
             self.assertIn("regression 1", result.stdout)
             self.assertIn("flaky 0", result.stdout)
             self.assertIn("unparsed: rerun: example.test/b", result.stdout)
+
+
+class JavascriptIdentityTests(unittest.TestCase):
+    def recorded(self, runner, name, exit_code=1):
+        log = (Path(__file__).parent / 'fixtures/runners' / runner / name).read_text()
+        return parser.analyze(log.splitlines(), runner, exit_code)
+
+    def classify_pair(self, runner):
+        old = self.recorded(runner, 'baseline.log')
+        current = self.recorded(runner, 'current.log')
+        state = '## Test Baseline\n| unit | run | Y | 0 | %d | %s |\n' % (
+            len(old['records']), ' / '.join('`%s` :: `%s`' % (r['id'], r['sig']) for r in old['records']))
+        parser.classify(current['records'], 'unit', parser.parse_baseline(state))
+        return current
+
+    def test_real_vitest_duplicate_titles_only_changed_file_is_regression(self):
+        current = self.classify_pair('vitest')
+        self.assertEqual({r['id']: r['cls'] for r in current['records']}, {
+            'vitest::a.test.js::User › rejects invalid input': 'regression',
+            'vitest::b.test.js::User › rejects invalid input': 'pre_existing'})
+        self.assertFalse(current['unparsed'])
+
+    def test_real_jest_received_change_is_a_regression(self):
+        current = self.classify_pair('jest')
+        self.assertEqual(current['records'][0]['cls'], 'regression')
+        self.assertIn('Received: 4', current['records'][0]['sig'])
+        self.assertEqual(current['records'][0]['id'], 'jest::a.test.js::User › rejects invalid input')
+
+    def test_real_vitest_partial_rerun_cannot_pass_unexecuted_file(self):
+        current = self.classify_pair('vitest')
+        parser.apply_rerun(current['records'], self.recorded('vitest', 'rerun-b-only.log', 0))
+        records = {r['id']: r for r in current['records']}
+        self.assertEqual(records['vitest::b.test.js::User › rejects invalid input']['cls'], 'flaky')
+        self.assertEqual(records['vitest::a.test.js::User › rejects invalid input']['cls'], 'regression')
+        self.assertIn('rerun_incomplete', records['vitest::a.test.js::User › rejects invalid input']['note'])
+
+    def test_test_map_requires_file_and_runner(self):
+        self.assertFalse(parser.in_testmap('vitest::a.test.js::User › case 2', {'case 2', 'User › case 2'}))
+
+    def test_missing_failure_message_is_not_baseline_evidence(self):
+        result = parser.analyze([' × a.test.js > suite > case 1ms', ' Test Files 1 failed (1)', ' Tests 1 failed (1)'], 'vitest', 1)
+        self.assertTrue(result['unparsed'])
+        self.assertEqual(result['records'][0]['cls'], 'unparsed')
+
+    def test_jest_verbose_nested_pass_keeps_filename_suite_and_case(self):
+        result = parser.analyze('''PASS ./b.test.js
+  User
+    nested
+      ✓ case 1 (3 ms)
+      ✓ case 2 (2 ms)
+    ✓ sibling (1 ms)
+Tests: 3 passed, 3 total
+'''.splitlines(), 'jest', 0)
+        self.assertEqual(result['passed_ids'], {'jest::b.test.js::User › nested › case 1',
+            'jest::b.test.js::User › nested › case 2', 'jest::b.test.js::User › sibling'})
+        records = [{'id': 'jest::a.test.js::User › nested › case 1', 'cls': 'regression'},
+                   {'id': 'jest::b.test.js::User › nested › case 1', 'cls': 'regression'}]
+        parser.apply_rerun(records, result)
+        self.assertEqual([r['cls'] for r in records], ['regression', 'flaky'])
+
+    def test_json_failure_values_and_parameterized_ids_are_preserved(self):
+        for runner in ('jest', 'vitest'):
+            def report(message, status='failed', title='case 1'):
+                return parser.analyze([json.dumps({'numTotalTests': 1, 'numFailedTests': int(status == 'failed'),
+                    'testResults': [{'name': './a.test.js', 'status': status, 'assertionResults': [{
+                        'ancestorTitles': ['User', 'nested'], 'title': title, 'status': status,
+                        'failureMessages': [message]}]}]})], runner, int(status == 'failed'))
+            old = report('Error: /api/v1 failed\nExpected: 1\nReceived: 2\n    at fn (/tmp/a.js:12:3)')
+            for new_message in ('Error: /api/v2 failed\nExpected: 1\nReceived: 2',
+                                'Error: /api/v1 failed\nExpected: 1\nReceived: 4',
+                                'TypeError: /api/v1 failed\nExpected: 1\nReceived: 2'):
+                self.assertNotEqual(old['records'][0]['sig'], report(new_message)['records'][0]['sig'])
+            self.assertNotIn('/tmp/a.js', old['records'][0]['sig'])
+            old['records'][0]['cls'] = 'regression'
+            parser.apply_rerun(old['records'], report('', 'passed', 'case 2'))
+            self.assertEqual(old['records'][0]['cls'], 'regression')
+            parser.apply_rerun(old['records'], report('', 'passed', 'case 1'))
+            self.assertEqual(old['records'][0]['cls'], 'flaky')
+
+    def test_reported_but_unidentified_failure_blocks_green(self):
+        for runner in ('jest', 'vitest'):
+            log = (Path(__file__).parent / 'fixtures/runners' / runner / 'baseline.log').read_text()
+            if runner == 'jest':
+                log = log.replace('1 failed, 1 total', '2 failed, 2 total')
+            else:
+                log = log.replace('Tests  2 failed (2)', 'Tests  3 failed (3)')
+            self.assertTrue(parser.analyze(log.splitlines(), runner, 1)['unparsed'])
 
 
 if __name__ == "__main__":

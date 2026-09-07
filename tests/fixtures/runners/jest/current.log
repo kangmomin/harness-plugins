@@ -1,0 +1,21 @@
+FAIL ./a.test.js
+  User
+    ✕ rejects invalid input (4 ms)
+
+  ● User › rejects invalid input
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 4
+
+    > 1 | const value=require('./value.cjs');describe('User',()=>{it('rejects invalid input',()=>{expect(value()).toBe(1);});});
+        |                                                                                                         ^
+
+      at Object.toBe (a.test.js:1:105)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 total
+Snapshots:   0 total
+Time:        0.337 s
+Ran all test suites.

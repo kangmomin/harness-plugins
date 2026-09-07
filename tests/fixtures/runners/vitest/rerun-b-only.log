@@ -1,0 +1,10 @@
+
+ RUN  v4.1.10 $AUDIT_TMP/vitest-real
+
+ ✓ b.test.js > User > rejects invalid input 2ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  21:14:15
+   Duration  184ms (transform 19ms, setup 0ms, import 30ms, tests 3ms, environment 0ms)
+
