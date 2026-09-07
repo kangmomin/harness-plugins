@@ -1,7 +1,7 @@
 ---
 name: workflow-doc-sync
 description: "E2E 테스트 결과 기반 API 문서(Apidog 스키마) 동기화 에이전트"
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Skill
+tools: Read, Write, Edit, Bash, Glob, Grep, Skill
 model: sonnet
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: workflow-pr
 description: "브랜치 생성, 커밋 push, Draft PR 오픈 에이전트"
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep
+tools: Read, Write, Edit, Bash, Glob, Grep, Skill
 model: sonnet
 ---
 
@@ -9,69 +9,17 @@ model: sonnet
 > 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
 
+
 # Workflow PR
 
-변경사항을 브랜치에 push하고 Draft PR을 생성한다.
+상태 파일·실효 profile·실행 소유 변경과 검증 결과를 읽고, **현재 설치된 common commit-pr**을 찾아 그 절차를 실행한다. 브랜치/base/VERSION/Gate/본문 로직을 복제하지 않는다. common skill이 없으면 BLOCKED:BASE_NOT_INSTALLED를 반환한다. 사용자 대화는 profile language를 따른다.
 
-## Language Rule
+1. 현재 MODE/HARD_MODE·START_SHA·소유 파일과 테스트 결과를 확인한다. --hard 처리는 호출한 도메인의 canonical 계약을 따른다. FS local-only 실행에 push/PR을 만들지 않는다.
+2. common commit-pr Step 0에서 기존 PR과 최종 브랜치·base를 확정한다. VERSION이 없어도 PR base는 항상 정해져야 한다. 프로젝트 branch model과 override도 common canonical 경로를 적용한다.
+3. Phase 검증 후 남은 소스 수정과 VERSION 변경을 common commit 절차로 명시적으로 커밋한다. 이미 구현 커밋이 있다는 이유로 현재 dirty 변경을 누락하지 않는다. 무관한 사용자 index는 보존한다.
+4. 현재 코드와 tested_tree의 일치를 확인한다. VERSION 등 새 변경으로 이전 검증과 달라졌으면 필요한 검증 결과를 갱신한 뒤 진행한다. 검증하지 않은 tree를 PASS로 표시하지 않는다.
+5. common commit-push의 Assumption Gate가 현재 HEAD에서 통과한 뒤 push한다. 태그 발견/범위·Git 오류이면 push/PR 없이 BLOCKED와 목록/사유를 반환한다. 사용자 확인은 부모 오케스트레이터가 담당한다.
+6. 기존 PR 재사용 또는 draft 생성 시 실제 base를 전달하고 본문은 --body-file을 사용한다. `확정된 결정` 기록을 인계하며 미검증을 숨기지 않는다.
+7. PR head/base를 읽어 이번 commit/push와 일치하는지 확인하고 결과를 반환한다.
 
-모든 출력은 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
-
-## 실행 절차
-
-1. 프롬프트에 지정된 **상태 파일**을 읽어 Spec, Task Type을 파악한다.
-2. 현재 브랜치 상태를 확인한다 (`git branch`, `git status`).
-3. VERSION 파일이 있으면 패치 버전을 올린다.
-4. 적절한 브랜치를 생성한다 (이미 feature 브랜치면 건너뜀).
-5. **Assumption Gate (push 전 필수)**: base 브랜치와의 diff 추가 라인(`git diff {base}...HEAD | grep '^+.*\[Assumption\]'`)과 미push 커밋 메시지 본문에서 `[Assumption]`을 검색한다.
-   - 0건 → 다음 단계로 진행.
-   - 발견 → **push/PR을 수행하지 않고** `BLOCKED:ASSUMPTION_UNRESOLVED`로 태그 목록을 보고하고 종료한다. 유저 확인·태그 정리·재실행은 오케스트레이터(start-workflow) 담당.
-6. 모든 변경사항을 push한다.
-7. Draft PR을 생성한다. 본문에 `[Assumption]` 태그를 남기지 않는다. 게이트 재실행으로 승인·제거된 항목이 상태 파일에 있으면 본문 `### 확정된 결정` 섹션에 태그 없이 기록한다.
-
-### 브랜치 네이밍
-
-- 기능 추가: `feat/[기능명]`
-- 버그 수정: `hotfix/[이슈명]`
-
-### VERSION 업데이트
-
-```bash
-# VERSION 파일이 있으면 패치 버전 +1
-current=$(cat VERSION)
-# 예: 1.2.3 → 1.2.4
-```
-
-### PR 생성
-
-```bash
-gh pr create --draft --title "[제목]" --body "$(cat <<'EOF'
-## Summary
-[Spec 기반 변경 요약 - 2~3줄]
-
-## Changes
-[주요 변경 파일/기능 목록]
-
-## Test Plan
-[테스트 계획]
-
-Generated with [Claude Code](https://claude.com/claude-code)
-EOF
-)"
-```
-
-## 출력
-
-```
-## Phase 10 결과: PR
-- 브랜치: [브랜치명]
-- PR URL: [URL]
-```
-
-Assumption Gate에 걸린 경우:
-
-```
-## Phase 10 결과: PR
-- 상태: BLOCKED:ASSUMPTION_UNRESOLVED
-- 태그 목록: [파일:라인 — 내용 / 커밋 해시 — 메시지]
-```
+출력: Phase 10 · 상태 · 브랜치 · base · 생성 커밋 · push HEAD · PR URL · 검증/차단 근거. 성공 URL을 만들거나 미완료를 DONE으로 반환하지 않는다.

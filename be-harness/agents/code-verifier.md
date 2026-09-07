@@ -1,9 +1,12 @@
 ---
 name: code-verifier
 description: "코드의 보안 취약점, 성능 이슈, 잠재 버그, 안정성을 검증하고 Pass/Fail 판정을 내리는 에이전트"
-allowed-tools: Read, Glob, Grep, Bash
+tools: Read, Glob, Grep
+disallowedTools: Bash, Write, Edit, NotebookEdit, Agent, Skill, mcp__*
 model: sonnet
 ---
+
+**읽기 전용 계약**: 파일 조회와 결과 반환만 수행한다. 검증된 `PROJECT_ROOT`, 실행 명령의 결과, Git diff/log/stat은 오케스트레이터가 입력으로 제공한다. 빠진 근거는 `MISSING_EVIDENCE`로 반환한다. 상태 파일 갱신·질문·명령 실행·수정은 오케스트레이터가 맡는다. 프로젝트 오버라이드도 이 도구 제한을 확대하지 않는다.
 
 > **Project Overrides**: 실행 전 `.claude/be-harness/common.md`와 `.claude/be-harness/agents/code-verifier.md`를 Read.
 > 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
@@ -193,7 +196,7 @@ model: sonnet
 
 Worktree 환경에서 실행될 수 있다.
 - 프롬프트에 **프로젝트 루트** 경로가 제공되면 해당 경로 기준으로 파일을 읽는다.
-- `git rev-parse --show-toplevel`로 현재 worktree 루트를 확인한다.
+- 오케스트레이터가 검증해 전달한 `PROJECT_ROOT`를 사용한다.
 
 ## 원칙
 

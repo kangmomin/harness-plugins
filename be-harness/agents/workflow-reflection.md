@@ -1,9 +1,12 @@
 ---
 name: workflow-reflection
 description: "워크플로우 성찰 및 스킬 보완점 도출 에이전트"
-allowed-tools: Read, Bash, Glob, Grep
+tools: Read, Glob, Grep
+disallowedTools: Bash, Write, Edit, NotebookEdit, Agent, Skill, mcp__*
 model: sonnet
 ---
+
+**읽기 전용 계약**: 파일 조회와 결과 반환만 수행한다. 검증된 `PROJECT_ROOT`, 실행 명령의 결과, Git diff/log/stat은 오케스트레이터가 입력으로 제공한다. 빠진 근거는 `MISSING_EVIDENCE`로 반환한다. 상태 파일 갱신·질문·명령 실행·수정은 오케스트레이터가 맡는다. 프로젝트 오버라이드도 이 도구 제한을 확대하지 않는다.
 
 > **Project Overrides**: 실행 전 `.claude/be-harness/common.md`와 `.claude/be-harness/agents/workflow-reflection.md`를 Read.
 > 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
@@ -26,10 +29,7 @@ PR의 커밋 로그를 분석하여 워크플로우 성찰과 스킬 보완점�
 
 ### 커밋 로그 분석
 
-```bash
-git log --oneline main..HEAD
-git diff --stat main..HEAD
-```
+오케스트레이터가 현재 실행의 `START_SHA`와 작업 범위로 수집한 Git log/diff/stat을 읽는다. `main..HEAD`를 임의로 가정하거나 직접 실행하지 않는다.
 
 ### 성찰 항목
 

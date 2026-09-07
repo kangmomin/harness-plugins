@@ -1,0 +1,181 @@
+{
+  "host": "Claude Code",
+  "version": "2.1.261 (Claude Code)",
+  "transport": "loopback mock; no real inference",
+  "agents": [
+    {
+      "agent": "be-harness:code-analyzer",
+      "tools": [
+        "Glob",
+        "Grep",
+        "Read"
+      ],
+      "delegation_verified": true,
+      "source_sha256": "184a55358e572e09ba3d7083cd57f54932f4a54dfd438ea5ac7e2b5b5896d77f"
+    },
+    {
+      "agent": "be-harness:code-verifier",
+      "tools": [
+        "Glob",
+        "Grep",
+        "Read"
+      ],
+      "delegation_verified": true,
+      "source_sha256": "b44bf332804df0e90d8ed6b1fd2632e93a5836b3580c3c25e11a0b40b9cfb1b5"
+    },
+    {
+      "agent": "be-harness:edge-case-analyzer",
+      "tools": [
+        "Glob",
+        "Grep",
+        "Read"
+      ],
+      "delegation_verified": true,
+      "source_sha256": "8b68a16e1c12bfa6557460f9b2f4d72cfe5f5de80ed5d6c6c2b424137472a515"
+    },
+    {
+      "agent": "be-harness:scope-reviewer",
+      "tools": [
+        "Glob",
+        "Grep",
+        "Read"
+      ],
+      "delegation_verified": true,
+      "source_sha256": "386b3ec1e3ce9b67aaccc4c56cfb8953277786c4173976d0323d213a19efbb99"
+    },
+    {
+      "agent": "be-harness:workflow-implementer",
+      "tools": [
+        "Bash",
+        "Edit",
+        "Read",
+        "Write"
+      ],
+      "delegation_verified": true,
+      "source_sha256": "aae9edaa0877452b2c29685216a0c4a7a8b860b79f5fe440999a0e073f46b9f7"
+    },
+    {
+      "agent": "be-harness:workflow-pr",
+      "tools": [
+        "Bash",
+        "Edit",
+        "Read",
+        "Skill",
+        "Write"
+      ],
+      "delegation_verified": true,
+      "source_sha256": "2aa5b562d026f18a3b5bdd411e66eccb8a6e64ab77a56816e158b8494f7b2daf"
+    },
+    {
+      "agent": "be-harness:workflow-reflection",
+      "tools": [
+        "Glob",
+        "Grep",
+        "Read"
+      ],
+      "delegation_verified": true,
+      "source_sha256": "c262bd421d3f7a7443433cd597bbe5538e8c993092b7096eb563c70ed574a0c8"
+    },
+    {
+      "agent": "fe-harness:a11y-reviewer",
+      "tools": [
+        "Glob",
+        "Grep",
+        "Read"
+      ],
+      "delegation_verified": true,
+      "source_sha256": "fcee5382a510c8d865a5c3c37cf4afecd6cfd369022a6e3766084254c39e7b3f"
+    },
+    {
+      "agent": "fe-harness:component-reviewer",
+      "tools": [
+        "Glob",
+        "Grep",
+        "Read"
+      ],
+      "delegation_verified": true,
+      "source_sha256": "1ecec25e8ffa05808754d88a685edbb9c0488d9f15712965317254901d6069e7"
+    },
+    {
+      "agent": "fe-harness:scope-reviewer",
+      "tools": [
+        "Glob",
+        "Grep",
+        "Read"
+      ],
+      "delegation_verified": true,
+      "source_sha256": "37bacec4c343d369c4409047d6fed64c02a8bfbe751b5e8eac59d2debaa19c14"
+    },
+    {
+      "agent": "fe-harness:workflow-implementer",
+      "tools": [
+        "Bash",
+        "Edit",
+        "Read",
+        "Write"
+      ],
+      "delegation_verified": true,
+      "source_sha256": "fd33ccbfdc25c582641f4e45d72a7d105d9ea5182116c355da5aec9206bcbd72"
+    },
+    {
+      "agent": "fe-harness:workflow-pr",
+      "tools": [
+        "Bash",
+        "Edit",
+        "Read",
+        "Skill",
+        "Write"
+      ],
+      "delegation_verified": true,
+      "source_sha256": "61cd3ba57ad9578caf535600e42bb1bffbdbf682f4ad8bdc9eff89c769050b88"
+    },
+    {
+      "agent": "fe-harness:workflow-reflection",
+      "tools": [
+        "Glob",
+        "Grep",
+        "Read"
+      ],
+      "delegation_verified": true,
+      "source_sha256": "4ad4058ed5bcbf002e129841b9800488f6c7e9b8ad6b0c34a1bc64a5f9376546"
+    },
+    {
+      "agent": "minmos-harness:workflow-doc-sync",
+      "tools": [
+        "Bash",
+        "Edit",
+        "Read",
+        "Skill",
+        "Write"
+      ],
+      "delegation_verified": true,
+      "source_sha256": "4f52aa7da8ec2201a0a84135c8400b6a7854ad140bd619869d8a1c49ff004a02"
+    }
+  ],
+  "negative_control": {
+    "agent": "host-negative:legacy",
+    "tools": [
+      "Agent",
+      "Bash",
+      "CronCreate",
+      "CronDelete",
+      "CronList",
+      "Edit",
+      "EnterWorktree",
+      "ExitWorktree",
+      "ListAgents",
+      "NotebookEdit",
+      "Read",
+      "ReportFindings",
+      "SendMessage",
+      "Skill",
+      "TaskStop",
+      "WebFetch",
+      "WebSearch",
+      "Write"
+    ],
+    "delegation_verified": true
+  },
+  "cli_sha256": "4ae40dd1784e85753e742e09f267d29ecbb82890361ad3817d27560866d364a6",
+  "observation_date": "2026-09-06"
+}
