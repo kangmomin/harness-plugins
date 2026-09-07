@@ -14,6 +14,8 @@ user-invocable: true
 
 ## Step 1: 변경사항 파악
 
+`git rev-parse --show-toplevel`로 GIT_ROOT를 확정한다. 아래 모든 Git 명령은 `git -C "{GIT_ROOT}"`로 실행하고 소유 경로는 그 root 기준으로 전달한다. nested cwd에서 root-relative 경로에 cwd prefix를 다시 붙이지 않는다.
+
 - `git status`로 staged/unstaged 변경사항 확인
 - `git diff`와 `git diff --cached`로 파일별 변경 내용 파악
 
@@ -26,8 +28,9 @@ user-invocable: true
 
 가장 핵심적인 변경부터, 각 단위별로:
 
-1. `git add {관련 파일들}`
-2. 아래 컨벤션에 맞춰 `git commit -m "Prefix: 한국어 설명"`
+1. 해당 그룹의 명시 경로만 스테이징한다. 변경 전 index와 작업 트리의 차이를 확인하고 사용자 부분 스테이징을 임의로 전체 파일로 덮지 않는다. 파일 전체를 그룹에 포함해도 되는 경우 `git -C "{GIT_ROOT}" add -- {관련 파일 인자들}`을 사용한다.
+2. 메시지는 실행별 파일로 작성하고 `git -C "{GIT_ROOT}" --literal-pathspecs commit --only -F "{MESSAGE_FILE}" -- {관련 파일 인자들}`로 대상 파일을 제한한다. 기존 index에 무관한 파일이 있어도 이 커밋에 섞지 않는다. 부분 hunk만 커밋해야 하면 별도 임시 index를 사용하며 기존 index/working bytes를 보존한다.
+3. 실제 새 커밋의 경로/트리와 계획한 그룹이 같은지 확인한다. hook이 범위를 바꾸었으면 원격 작업 전 보고·정리한다. 동일 파일을 여러 그룹으로 나누는 경우 --only가 작업 트리 전체 파일을 취한다는 점을 적용한다.
 
 ### 커밋 메시지 컨벤션
 

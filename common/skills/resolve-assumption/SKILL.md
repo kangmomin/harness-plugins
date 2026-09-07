@@ -31,20 +31,19 @@ argument-hint: "[경로|--worktree|--branch|--commits]"
 | `--commits` | 미push 커밋 메시지만 |
 | 경로/glob | 해당 경로에 한정 (커밋 메시지 스캔은 생략) |
 
-`{base}`는 알려진 값이 있으면 재사용한다 — 기존 open PR의 `baseRefName`, 직전 `/common:commit-pr`에서 결정한 base. 없으면 `@{upstream}`, 그것도 없으면 기본 브랜치(`origin/HEAD`)와의 merge-base.
+`{base}`는 commit-push Step 3.1과 동일하게 결정한다. 기존 PR/commit-pr의 확정 base를 재사용하고 feature upstream을 코드 base로 추정하지 않는다.
 
 ## Step 2: 스캔
 
+작업 트리 스캔은 아래 helper를 사용한다. 경로/glob 인자는 `--path`로 전달하고, 같은 필터가 tracked·index·untracked에 모두 적용된다. 경로 미지정이면 --path를 생략한다.
+
 ```bash
-# ① 작업 트리 — 추적 파일의 미커밋 추가 라인
-git diff HEAD -- {경로} | grep -n '^+.*\[Assumption\]'
-# ② 작업 트리 — untracked 파일
-git ls-files --others --exclude-standard -z | xargs -0 -r grep -HnI '\[Assumption\]'
-# ③ 브랜치 diff — 이 브랜치가 추가한 라인
-git diff {base}...HEAD -- {경로} | grep -n '^+.*\[Assumption\]'
-# ④ 커밋 메시지 — 미push 커밋 본문 (upstream 없으면 {base}..HEAD)
-git log @{upstream}..HEAD --format='%h %s%n%b' | grep -B1 '\[Assumption\]'
+python3 -I -B "{COMMON_ROOT}/skills/commit/assets/git_checks.py" worktree --cwd "{CWD}" --path "{ROOT_RELATIVE_PATH_OR_GLOB}"
 ```
+
+브랜치·미push 메시지는 commit-push Step 3.1의 helper를 사용한다. --branch면 code_tags만, --commits면 message_tags만 사용한다. 경로 지정 모드는 메시지를 생략하고 code_tags도 동일 경로/glob 필터로 제한한 뒤 표시한다. 원본 파일·라인·현재 텍스트가 일치하는 항목만 수정한다. `source:index`와 작업 트리가 다르면 둘을 동일 내용으로 간주하지 않는다.
+
+helper/명령 오류는 0건이 아니며 재검증 전 종료한다. symlink 대상은 자동으로 읽거나 수정하지 않는다. root-relative 파일 목록과 NUL 구분을 유지한다.
 
 - diff 출력의 `+` 라인만 대상이다 — **브랜치가 만들지 않은 레거시 태그는 건드리지 않는다**(surgical 원칙).
 - ①과 ③은 겹칠 수 있다. 같은 `파일:라인`은 **1건으로 합쳐** 중복 제시하지 않는다.
@@ -123,8 +122,8 @@ restoreStock(ctx, order.Items)
 
 | 대상 | 처리 |
 |------|------|
-| 마지막 커밋 | `git commit --amend`로 본문에서 태그 라인 제거 |
-| 그 이전 커밋 | `git reset --soft {범위 시작}` 후 `/common:commit` 절차로 재커밋 |
+| 마지막 커밋 | `git commit --amend --only --allow-empty -F "{MESSAGE_FILE}"`; 전후 HEAD tree와 무관한 index 보존 확인 |
+| 그 이전 커밋 | 소유 범위의 미push 커밋만 임시 worktree에서 메시지 재작성·tree 검증; 원본 dirty index에 reset --soft 하지 않음 |
 | 이미 push된 커밋 | 건드리지 않는다 (WARN 보고만) |
 
 ### 변경 커밋

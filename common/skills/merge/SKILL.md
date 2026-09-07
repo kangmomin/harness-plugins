@@ -9,164 +9,80 @@ user-invocable: true
 > **Project Overrides**: 실행 전 `.claude/common/common.md`와 `.claude/common/skills/merge.md`를 Read.
 > 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
-# /common:merge — PR 머지
 
-PR의 변경 사항을 `/common:doc-gen`으로 요약해 사용자에게 컨펌받고, 선택한 방식으로 머지한다.
+# PR 머지
 
-## 핵심 원칙
+사용자가 검토·승인한 PR의 **그 HEAD**를 머지하고 원격 완료 상태를 확인한다. 요약 생성, 머지 방식 확인, remote merge, 로컬 동기화·브랜치 정리를 별도 상태로 보고한다. 이미 명시한 승인·방식은 반복해서 묻지 않는다.
 
-- **doc-gen 컨펌 전 머지 금지** — Step 3을 절대 건너뛰지 않는다.
-- **머지 방식은 사용자 선택** — 자동 결정하지 않는다.
-- **취소는 언제든 가능** — 컨펌 단계에서 "취소" 선택 시 머지하지 않고 종료.
-- **브랜치 삭제는 머지 성공 후에만.**
+## Step 1: PR·호스트 확인
 
-## Step 1: 사전 점검
+실제 설치된 gh의 버전·인증·`--match-head-commit` 지원을 확인한다. 지원하지 않는 버전이면 pin 없이 머지하지 않는다. PR 번호/URL과 대상 저장소를 확정하고 모든 조회에 같은 PR URL을 사용한다. 숫자 없는 호출은 현재 브랜치에서 찾되 조회 실패와 PR 없음은 구분한다.
+
+조회 필드:
 
 ```bash
-gh auth status
+gh pr view "{PR_URL}" --json id,number,url,title,state,isDraft,headRefName,headRefOid,baseRefName,baseRefOid,mergeable,autoMergeRequest,mergeCommit,additions,deletions,changedFiles
 ```
 
-실패 시: "GitHub CLI 가 설치/인증되지 않았습니다. `gh auth login` 후 다시 시도하세요." 안내하고 중단.
+이미 MERGED면 mergeCommit을 확인해 보고한다. CLOSED는 머지하지 않는다. draft 해제는 요청 범위에 따라 예약한다. 충돌이면 해결 전 머지하지 않는다. UNKNOWN은 제한된 재조회 후 미확인으로 보고하며 성공으로 바꾸지 않는다.
 
-## Step 2: PR 식별
+## Step 2: 요약에 사용할 HEAD 고정
 
-`$ARGUMENTS`를 정리해 PR 번호를 결정한다.
-
-1. `$ARGUMENTS`에 숫자(예: `42`, `#42`)가 있으면 그 번호를 사용.
-2. 없으면 `gh pr view --json number,headRefName,baseRefName,state,isDraft,title,url,mergeable,additions,deletions,changedFiles`로 현재 브랜치에 연결된 PR 검색.
-3. 둘 다 실패하면 `AskUserQuestion`으로 "PR 번호를 알려주세요" 질문 → 입력값을 사용.
-
-### PR 상태 검증
-
-`gh pr view <num> --json state,isDraft,mergeable,title,url,baseRefName,headRefName,additions,deletions,changedFiles`
-
-| 상태 | 행동 |
-|------|------|
-| `state == "MERGED"` | "이미 머지된 PR 입니다." 보고 후 종료 |
-| `state == "CLOSED"` | "닫힌 PR 입니다. 다시 열고 진행하려면 `gh pr reopen <num>`." 보고 후 종료 |
-| `isDraft == true` | "draft 상태입니다. ready 로 전환 후 진행할까요? (Y/N)" 질문. N이면 종료. Y이면 Step 5에서 `gh pr ready <num>` 호출 예약 |
-| `mergeable == "CONFLICTING"` | "충돌이 있어 머지 불가합니다. 충돌 해결 후 다시 실행하세요." 보고 후 종료 |
-| `mergeable == "UNKNOWN"` | 10초 대기 후 1회 재조회. 여전히 UNKNOWN이면 사용자에게 알리고 계속 진행 (gh가 머지 시점에 재검사) |
-
-이후 단계에서 위 메타데이터(`title`, `url`, `headRefName`, `baseRefName`, `additions/deletions/changedFiles`)를 활용한다.
-
-## Step 3: PR 요약 생성 (doc-gen)
-
-`/common:doc-gen`을 호출해 PR 변경 사항을 md로 요약한다.
-
-```
-/common:doc-gen -md PR#<번호>
-```
-
-doc-gen의 단계적 질문에는 가능하면 사용자 대신 자동 응답한다:
-- **범위 종류**: PR (인자로 이미 분류됨)
-- **PR 번호**: Step 2에서 확정한 번호
-- **문서 초점**: "변경 요약 (review 용)" — diff 요약·영향 범위·핵심 포인트 중심
-- **출력 경로**: 기본값 (`./docs/doc-gen-<unix>.md`)
-
-### 결과 처리
-
-생성된 md 파일을 `Read`로 읽어 핵심 섹션만 사용자에게 인라인 출력하고, 전체 본문은 절대 경로로 안내한다:
-
-```
-📄 PR 요약 문서 생성 완료
-- 경로: <abs path>
-- PR: #<번호> "<제목>" (<base> ← <head>)
-- 변경: +<add> / -<del> / 파일 <N>개
-
-(인라인 요약: TL;DR 3~5줄, 변경 요약 본문, 엣지 케이스/주의 섹션이 있으면 위험 신호 강조)
-```
-
-doc-gen 호출 실패 시 (예: `gh pr diff` 실패, 권한 부족): 사용자에게 그대로 보고하고 Step 4로 진행하되 경고를 표시한다:
-> "doc-gen 요약 실패. PR 변경 사항을 직접 검토했는지 확인 후 진행하세요."
-
-## Step 4: 컨펌 + 머지 방식 선택
-
-`AskUserQuestion`으로 컨펌과 머지 방식 선택을 **한 번에** 받는다.
-
-```
-질문: PR #<번호> "<제목>" 을 어떻게 머지할까요?
-
-1. 일반 머지 — merge commit 생성, 커밋 이력 보존
-2. 스쿼시 머지 — 모든 커밋을 하나로 합쳐 적용
-3. 리베이스 머지 — 커밋들을 base 위에 1:1 재적용
-4. 취소 — 머지하지 않고 종료
-```
-
-| 선택 | gh 옵션 |
-|------|---------|
-| 일반 머지 | `--merge` |
-| 스쿼시 머지 | `--squash` |
-| 리베이스 머지 | `--rebase` |
-| 취소 | (실행 안 함, 종료) |
-
-취소 시: "사용자가 머지를 취소했습니다. doc-gen 요약 파일은 그대로 보존됩니다." 보고 후 종료.
-
-## Step 5: 머지 실행
-
-### Step 5.1: 현재 위치 확인
+요약 **전** 조회 JSON을 실행별 파일 `{PR_BEFORE}`에 저장한다. helper `snapshot`의 결과를 `{REVIEWED}`에 저장하며 여기의 headRefOid/baseRefOid가 요약 입력이다.
 
 ```bash
-git rev-parse --abbrev-ref HEAD
+python3 -I -B "{COMMON_ROOT}/skills/merge/assets/merge_state.py" snapshot --current "{PR_BEFORE}"
 ```
 
-현재 브랜치 == PR의 `headRefName`이면 base로 이동한다 (`--delete-branch`의 로컬 삭제 실패 방지):
-```bash
-git fetch origin
-git checkout <baseRefName>
-```
-
-### Step 5.2: draft 해제 (예약된 경우)
+현재 설치된 common doc-gen으로 PR 요약을 만든다. 가능하면 고정 SHA 범위의 diff를 사용하고 제목에 PR URL/HEAD를 기록한다. PR#로 실시간 diff를 읽은 경우 **요약 직후 다시 조회**하여 아래 check-review를 통과해야 이 요약을 승인 대상으로 쓸 수 있다.
 
 ```bash
-gh pr ready <num>
+python3 -I -B "{COMMON_ROOT}/skills/merge/assets/merge_state.py" check-review --reviewed "{REVIEWED}" --current "{PR_AFTER_SUMMARY}"
 ```
 
-### Step 5.3: 머지
+요약 도중 HEAD/base가 바뀌면 요약을 새 snapshot에서 다시 만든다. 요약 후의 새 HEAD를 이전 요약의 reviewed 값에 덮어쓰지 않는다. 요약 실패는 직접 검토한 고정 diff와 사용자 지시가 있지 않은 한 머지 준비 미완료다.
+
+## Step 3: 검토·방식 확정
+
+고정 HEAD와 변경 요약, 문서 경로를 보여준다. 현재 HEAD에 대한 승인과 merge/squash/rebase 방식이 이미 명시됐으면 재질문하지 않는다. 필요한 경우에만 요약을 기준으로 승인·방식을 함께 확인한다. 취소하면 요약을 보존하고 종료한다. HEAD가 바뀌면 이전 승인을 새 코드에 적용하지 않는다.
+
+## Step 4: pin으로 실행
+
+1. PR을 다시 조회해 check-review를 통과시킨다. snapshot을 갱신해 검사를 우회하지 않는다.
+2. 예약된 draft 해제를 수행한 경우에도 동일 HEAD인지 확인한다.
+3. helper `command`로 argv를 구성하고 해당 인자 그대로 실행한다. helper 자체는 gh를 호출하지 않는다.
 
 ```bash
-gh pr merge <num> <선택된 옵션> --delete-branch
+python3 -I -B "{COMMON_ROOT}/skills/merge/assets/merge_state.py" command --reviewed "{REVIEWED}" --current "{PR_LATEST}" --method "{merge|squash|rebase}"
 ```
 
-실패 시 (충돌, 권한, 보호 규칙 등): gh 에러 원문 보고 + 가능한 원인 한 줄 안내(충돌 / 필수 리뷰 부족 / 상태 체크 실패 등) 후 종료.
+결과는 `gh pr merge {PR_URL} --{method} --match-head-commit {REVIEWED_HEAD}`다. 조회와 실행 사이의 HEAD 변경도 GitHub의 match 검사가 거부한다. `--admin`으로 필수 규칙/queue를 우회하지 않는다. branch deletion은 아직 실행하지 않는다.
 
-### Step 5.4: base 동기화
+## Step 5: 원격 결과 판정
+
+**명령 종료 코드가 0이든 아니든** 같은 PR을 다시 조회하고 결과를 helper에 전달한다. 원격 머지 성공 뒤 응답·로컬 작업만 실패할 수 있다. 조회가 실패하면 `UNKNOWN_REMOTE_STATE`로 보존하고 맹목적으로 merge를 재호출하지 않는다.
 
 ```bash
-git checkout <baseRefName>
-git pull --ff-only origin <baseRefName>
+python3 -I -B "{COMMON_ROOT}/skills/merge/assets/merge_state.py" outcome --reviewed "{REVIEWED}" --current "{PR_AFTER_MERGE}" --command-exit "{MERGE_EXIT}"
 ```
 
-## Step 6: 보고
+| 원격 결과 | 처리 |
+|-----------|------|
+| MERGED + mergeCommit.oid 확인 + reviewed HEAD 일치 | 실제 머지 완료. **mergeCommit.oid**를 보고 |
+| MERGED지만 다른 HEAD/base 또는 SHA 누락 | 차이/증거 부족 보고, 자동 삭제 안 함 |
+| OPEN + autoMergeRequest | PENDING_AUTO_MERGE; 완료 아님 |
+| OPEN, queue 근거 없음 | OPEN_UNCONFIRMED; queue 등록으로 추정하지 않음 |
+| CLOSED | CLOSED_UNMERGED |
+| 조회 실패 | UNKNOWN; 완료·미완료를 단정하지 않음 |
 
-```
-✅ 머지 완료
-- PR: #<번호> "<제목>"
-- 방식: 일반 머지 | 스쿼시 머지 | 리베이스 머지
-- 베이스: <baseRefName> (<merge commit SHA>)
-- 변경: +<add> / -<del> / 파일 <N>개
-- 브랜치: 자동 삭제됨 (원격 + 로컬)
-- 요약 문서: <abs path of doc-gen output>
-- URL: <PR URL>
-```
+필수 merge queue에서는 exit 0이 대기 등록일 수 있다. 실제 queue 진입을 별도 API로 확인하지 않았다면 QUEUED라고 쓰지 않는다. 대기 상태는 원격 MERGED가 확인될 때까지 브랜치 삭제·완료 보고를 하지 않는다. 사용자가 대기 종료를 원하면 현재 상태와 PR URL을 보존한다.
 
-머지 commit SHA는 `git log -1 --format=%H <baseRefName>`로 확인.
+## Step 6: 동기화·정리·보고
 
-## 호출 예시
+MERGED 확인 후에만 base를 fetch하고 필요하면 로컬 base를 ff-only로 갱신한다. dirty worktree·다른 worktree가 점유한 브랜치를 강제로 checkout/delete하지 않는다. 로컬 base가 이후 전진하더라도 이번 PR의 merge SHA는 Step 5 값으로 유지한다.
 
-```bash
-/common:merge        # 현재 브랜치에 연결된 PR 머지
-/common:merge 42     # 특정 PR 번호 지정
-/common:merge #42
-```
+브랜치 삭제는 실제 소유 저장소·head 이름·현재 ref를 확인하고 실행한다. remote ref가 reviewed HEAD 이후 전진했으면 삭제하지 않는다. 원격 삭제는 조회한 ref OID에 대한 lease 조건을 사용하며, fork branch는 다른 저장소의 같은 이름과 구분한다. 로컬 삭제는 `-d`의 병합 확인을 유지하고 실패했다고 강제 삭제하지 않는다. 요청 범위에 없는 branch는 보존한다.
 
-## 실패 메시지 모음
+보고: PR URL·reviewed HEAD·원격 상태·mergeCommit SHA·사용한 방식·동기화 결과·실제 삭제 결과·요약 경로. remote merge가 성공했어도 로컬 동기화/삭제가 실패하면 각각 표시한다. 자기 임시 조회/명령 파일만 정리하고 요약은 보존한다.
 
-| 상황 | 메시지 |
-|------|--------|
-| gh 미인증 | "GitHub CLI 가 설치/인증되지 않았습니다. `gh auth login` 후 다시 시도하세요." |
-| PR 미식별 | "현재 브랜치에서 PR 을 찾지 못했습니다. PR 번호를 인자로 전달하세요. (예: `/common:merge 42`)" |
-| 이미 머지됨 | "PR #<번호> 는 이미 머지된 상태입니다." |
-| 충돌 | "PR 에 충돌이 있어 머지 불가합니다. 충돌 해결 후 다시 실행하세요." |
-| 보호 규칙 위반 | gh 원본 메시지 + "필수 리뷰/체크가 충족되지 않은 것으로 보입니다." |
-| 사용자 취소 | "사용자가 머지를 취소했습니다." |
+공식 계약: [gh pr merge의 HEAD 조건·queue 동작](https://cli.github.com/manual/gh_pr_merge), [gh pr view JSON 필드](https://cli.github.com/manual/gh_pr_view).

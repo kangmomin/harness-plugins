@@ -14,6 +14,8 @@ user-invocable: true
 
 ## Step 1: 브랜치 판정
 
+호출자가 전달한 실효 profile mainBranch와 원격 origin/HEAD의 기본 브랜치도 보호 브랜치에 포함한다(예: trunk). 이름이 고정 목록에 없다는 이유로 기본 브랜치를 feature로 rename하지 않는다. commit-pr Step 0에서 이미 준비한 브랜치는 재생성/재질문하지 않는다.
+
 ```bash
 git branch --show-current
 ```
@@ -103,16 +105,16 @@ git branch --show-current
 | 커밋 메시지 태그 | **미push 커밋**(`@{upstream}..HEAD`, upstream 없으면 `{base}..HEAD`)의 본문 | 하드 게이트 — 해소 전 push 금지 |
 | 이미 push된 커밋 메시지의 태그 | 재작성 불가 (force-push 금지) | WARN 보고만 |
 
+코드 base는 기존 PR base 또는 commit-pr Step 0의 BASE_REF를 재사용한다. 단독 실행은 명시 base·프로젝트 mainBranch·원격 기본 브랜치를 근거로 먼저 결정한다. **동일 feature upstream은 코드 base가 아니다.** 메시지 범위는 실제 존재하는 push upstream, 없으면 확정 base다. ref 부재와 Git 명령 실패를 구분한다.
+
 ```bash
-# 코드 태그: 브랜치 전체 diff의 추가 라인
-git diff {base}...HEAD | grep -n '^+.*\[Assumption\]'
-# 커밋 메시지 태그: 미push 커밋 본문
-git log @{upstream}..HEAD --format='%h %s%n%b' | grep -B1 '\[Assumption\]'
+python3 -I -B "{COMMON_ROOT}/skills/commit/assets/git_checks.py" assumptions \
+  --cwd "{CWD}" --base-ref "{BASE_REF}" --message-base "{UPSTREAM_OR_BASE_REF}"
 ```
 
-- `{base}`는 이미 알려진 값이 있으면 재사용한다 — 기존 open PR의 `baseRefName`, `/common:commit-pr` Step 2에서 결정한 base. 없으면 `@{upstream}`, 그것도 없으면 기본 브랜치(`origin/HEAD`)와의 merge-base.
-- 브랜치 diff 밖(이 브랜치가 만들지 않은 라인)의 레거시 태그는 검사하지 않는다 — surgical 원칙.
-- **모두 0건이면 조용히 통과**하고 Step 4로 진행한다.
+- helper exit 0 + status PASS일 때만 통과한다. exit 1은 태그 발견, exit 2는 Git/파싱 실패다. 파이프라인 마지막 grep의 종료 코드로 판정하지 않는다.
+- 실제 diff hunk의 추가 내용만 검사하므로 파일명/header의 `[Assumption]`은 태그가 아니다. 코드와 미push 메시지 범위를 구분하고 결과의 head SHA를 저장한다.
+- 브랜치가 만들지 않은 레거시 라인은 대상이 아니다. 이미 push된 메시지는 WARN이며 재작성하지 않는다.
 
 ### Step 3.2: 항목별 사용자 확인
 
@@ -129,15 +131,17 @@ git log @{upstream}..HEAD --format='%h %s%n%b' | grep -B1 '\[Assumption\]'
 승인으로 추측이 확정되더라도 태그를 `[확정]`·`(확정)` 등 다른 마커로 치환하지 않는다 — 대체 없이 태그만 삭제한다.
 
 - **코드 주석**: `[Assumption]` 마커를 제거한다. 사유 설명이 코드 이해에 필요하면 태그 없는 일반 주석으로 전환하고, 아니면 라인을 삭제한다. "수정" 항목은 지시에 따라 코드를 고친다.
-- **커밋 메시지** (미push 한정): 마지막 커밋이면 `git commit --amend`, 그 이전 커밋이면 `git reset --soft {범위 시작}` 후 `/common:commit` 절차로 재커밋한다.
+- **커밋 메시지** (미push 한정): 마지막 메시지만 바꾸면 `git commit --amend --only --allow-empty -F "{MESSAGE_FILE}"`을 사용하고 전후 HEAD tree가 같은지 확인한다. 기존 staged 내용은 보존한다. 그 이전 메시지는 소유 범위의 커밋만 대상으로 별도 임시 worktree에서 재작성·검증한 뒤 반영한다. 원본 dirty index에 reset --soft 후 전체 재커밋하는 방식은 쓰지 않는다. 이미 push된 커밋은 재작성하지 않는다.
 - 제거/수정 변경은 관련 논리 단위 커밋에 amend하거나 `Chore: 확인된 Assumption 태그 정리`로 커밋한다.
 - 승인된 항목은 **확정된 결정**으로 기록을 이관한다 — PR 흐름(`/common:commit-pr`)이면 PR 본문의 "확정된 결정" 섹션, 아니면 최종 보고에 포함한다.
 
 ### Step 3.4: 재검사
 
-Step 3.1을 다시 수행한다. **코드 태그 0건 + 미push 메시지 태그 0건**이 될 때까지 반복하며, 그 전에는 Step 4로 진행하지 않는다.
+Step 3.1을 현재 HEAD로 다시 수행한다. 검증된 head SHA와 push할 HEAD가 같아야 한다. **코드 태그 0건 + 미push 메시지 태그 0건**이 될 때까지 반복하며, 그 전에는 Step 4로 진행하지 않는다.
 
 ## Step 4: Push
+
+직전 Gate의 head SHA를 현재 HEAD와 비교한다. 다르면 Gate를 재실행한다. push 실패 후 rebase/merge/amend/VERSION 보완을 했다면 새 HEAD로 재검증한다. Git 오류는 태그 0건이 아니다.
 
 ```bash
 git push -u origin {현재 브랜치}

@@ -34,6 +34,8 @@ base 브랜치를 **현재 브랜치로** merge 하고(base → here), VERSION �
 
 ## Step 1: 브랜치 검증
 
+`git rev-parse --show-toplevel`로 GIT_ROOT를 확정한다. 모든 Git 명령은 `git -C "{GIT_ROOT}"`, 모든 대상 경로는 root-relative로 해석한다. 상태 조회 실패를 빈 목록으로 취급하지 않는다.
+
 ```bash
 git branch --show-current
 ```
@@ -49,7 +51,7 @@ git branch --show-current
 
 ### Step 2.1: 우선순위
 
-`/common:commit-pr` Step 2의 base 결정 규칙을 그대로 따르되, 사용자 인자를 최상위 override 로 둔다.
+`/common:commit-pr` Step 0의 base 결정 규칙을 그대로 따르되, 사용자 인자를 최상위 override 로 둔다.
 
 1. **`$ARGUMENTS`에 브랜치명이 있으면 그 값** — 사용자 명시 override
 2. **오버라이드 `.claude/common/common.md`의 브랜치 모델 표**에서 현재 브랜치 prefix 에 매핑된 base (선언돼 있으면 이 값이 확정이다)
@@ -109,7 +111,7 @@ merge **전에** 재둔다 — merge 후에 세면 merge 커밋·범프 커밋�
 
 > `docs/docs.go` 같은 생성물을 손으로 고치는 것이 프로젝트 정책에 어긋나면(예: `swag init` 재생성이 원칙), 오버라이드에 재생성 커맨드를 선언해 Step 7.2를 치환한다.
 
-여기서 확정한 집합을 **버전 대상 집합**이라 부르고 이후 단계에서 재사용한다.
+여기서 얻은 집합은 merge 전 후보이며, Step 5 및 Step 7 직전의 최신 targets 결과로 현재 VERSION 상태/버전 대상 집합을 **교체**한다. 시작 시 ABSENT였어도 merge가 VERSION을 추가하면 새 FOUND를 기준으로 범프/동기화한다.
 
 ## Step 4: merge
 
@@ -118,12 +120,10 @@ merge **전에** 재둔다 — merge 후에 세면 merge 커밋·범프 커밋�
 먼저 **merge 가 아닌 다른 작업이 진행 중인지** 배제한다 — rebase 는 충돌 중에도 `MERGE_HEAD` 를 노출할 수 있고, cherry-pick 은 `MERGE_HEAD` 없이 충돌만 남긴다:
 
 ```bash
-ls .git/rebase-merge .git/rebase-apply 2>/dev/null
-git rev-parse -q --verify CHERRY_PICK_HEAD
-git rev-parse -q --verify REVERT_HEAD
+python3 -I -B "${CLAUDE_PLUGIN_ROOT}/skills/sync-base/assets/sync_state.py" state --cwd "{GIT_ROOT}"
 ```
 
-하나라도 걸리면 merge 로 착각하지 않고 종료한다 (`BLOCKED:OTHER_OP_IN_PROGRESS`) — "rebase/cherry-pick/revert 가 진행 중입니다. 마무리하거나 중단(`--abort`)한 뒤 다시 실행하세요."
+helper는 `git rev-parse --path-format=absolute --git-path rebase-merge/rebase-apply`로 실제 worktree 메타데이터를 조회한다. exit 2는 조회 실패, exit 1은 다른 작업 진행으로 모두 종료한다. 다른 작업이 하나라도 걸리면 merge 로 착각하지 않고 종료한다 (`BLOCKED:OTHER_OP_IN_PROGRESS`) — "rebase/cherry-pick/revert 가 진행 중입니다. 마무리하거나 중단(`--abort`)한 뒤 다시 실행하세요."
 
 ```bash
 git rev-parse -q --verify MERGE_HEAD
@@ -149,10 +149,22 @@ git status --porcelain
 
 변경사항이 있으면 `AskUserQuestion`:
 > 1. `/common:commit` 으로 커밋 후 진행
-> 2. `git stash` 후 진행 — 완료 시 `git stash pop` 을 안내한다
+> 2. tracked와 untracked를 `git stash push --include-untracked`로 보관 후 진행 (ignored 파일은 제외). 저장한 **정확한 stash OID**로만 복원한다
 > 3. 중단 (`BLOCKED:DIRTY_TREE`)
 
+### stash 보관·복원 계약
+
+선택 2를 실행하기 전에 이 실행 소유 임시 receipt 디렉터리(`mktemp -d`)를 만들고 저장소·브랜치·시작 HEAD(`BEFORE_STASH_SHA`)·untracked 포함 정책과 UUID hex로 만든 `STASH_TOKEN=sync-base:{32자리 hex}`를 **stash 전에** 기록한다. 사용자가 untracked 제외를 명시하면 일반 stash를 사용할 수 있지만 남은 파일로 tree가 dirty면 merge하지 않는다. ignored/secret 파일까지 `--all`로 임의 확장하지 않는다.
+
+1. `git -C "{GIT_ROOT}" stash push --include-untracked -m "{STASH_TOKEN}"` 성공 후 `sync_state.py stash --cwd "{GIT_ROOT}" --token "{STASH_TOKEN}" --before-stash "{BEFORE_STASH_SHA}"`로 **자기 stash OID**를 찾아 receipt에 저장한다. helper는 reflog의 고유 토큰과 commit 메시지·원래 부모 HEAD를 대조하고 정확히 1개일 때만 IDENTIFIED를 반환한다. 다른 worktree가 새 stash를 만들 수 있으므로 현재 refs/stash를 자기 OID로 쓰지 않는다. 변경 없음·0개/여러 개 후보·조회 실패는 복원 대상을 추측하지 않고 BLOCKED로 보존한다.
+2. `sync_state.py state`의 dirty=false와 원래 HEAD/브랜치를 확인한 뒤만 merge한다. stash 실패·dirty 잔여는 BLOCKED:DIRTY_TREE다.
+3. 성공·충돌·push 실패 모두 receipt 경로/OID를 보고하고 보존한다. 재개 시 같은 저장소/브랜치 receipt를 사용하며 다른 실행의 top stash를 선택하지 않는다.
+4. merge/반영이 끝난 clean tree에서 `git -C "{GIT_ROOT}" stash apply --index "{SAVED_STASH_OID}"`로 원래 index/worktree/untracked를 복원한다. 적용 충돌이면 현재 내용·stash를 보존하고 BLOCKED:STASH_RESTORE로 보고한다. 맹목적 재적용·reset·pop은 하지 않는다.
+5. 복원 결과를 검토해 원래 변경이 유지됐는지 확인한다. stash 자동 drop은 하지 않고 저장된 OID/복원 완료 여부를 보고한다. 더 최신 stash가 생겼어도 건드리지 않는다. 이 실행 receipt는 복원 확인 뒤에만 정리한다.
+
 ### Step 4.3: merge 실행
+
+merge 직전 HEAD를 `BEFORE_MERGE_SHA`로 실행 receipt에 저장한다. 재개는 원래 값을 보존한다. 이전 receipt가 없으면 MERGE_HEAD 진행 여부와 ORIG_HEAD/reflog로 실제 시작 커밋을 확인하고, 불명확하면 rename 자동 매핑을 BLOCKED로 둔다.
 
 ```bash
 git merge --no-ff origin/{base}
@@ -168,6 +180,12 @@ git merge --no-ff origin/{base}
 | 그 외 실패 (index lock, 손상 등) | 에러 원문 보고 후 종료 (`BLOCKED:MERGE_FAILED`) |
 
 ## Step 5: 충돌 처리
+
+**merge 결과로 대상 집합을 다시 계산한다**. `sync_state.py targets --cwd "{GIT_ROOT}" --before-merge "{BEFORE_MERGE_SHA}"`를 실행하고, override 목록이 있으면 `--configured`에 JSON 배열로 전달한다. NUL Git 목록을 사용하는 helper의 VERSION 후보·swagger·conflicts·missing을 Step 3 목록과 대조한다. 재개 시 사용자 충돌 해결/rename/delete 뒤와 Step 7 쓰기 직전에도 반복하고 **현재 VERSION 상태/대상 목록을 새 결과로 교체**한다. 옛 Step 3의 SKIP 판정을 뒤 단계에 재사용하지 않는다.
+
+- 추가된 VERSION/swagger는 새 집합에 포함한다. 삭제된 옛 경로를 다시 생성하거나 `git add`하지 않는다. rename은 merge 전후 helper의 `renames`(`git diff --name-status -z --find-renames "{BEFORE_MERGE_SHA}" --`, 현재 merge 결과와 비교) 및 실제 파일로 대응을 확인해 override 대상 경로를 이번 실행에서 매핑하고 다시 조회한다. 비표준 새 경로는 추측으로 추가하지 않고 실제 `info.version`/생성물 계약을 확인한다.
+- VERSION과 VERSION.txt가 둘 다 있으면 AMBIGUOUS로 자동 쓰기를 막고 한 기준을 확정한다. 결과에서 VERSION이 사라졌으면 버전 동기화는 SKIPPED:NO_VERSION_FILE, merge/push는 원래 절차대로 진행한다.
+- missing configured 경로가 단순 삭제인지 이름 변경인지 불명확하면 BLOCKED:VERSION_TARGETS를 기록한다. helper는 경로 발견만 수행하며 version 필드의 구조적 적합성은 아래에서 검사한다.
 
 ```bash
 git diff --name-only --diff-filter=U
@@ -186,17 +204,20 @@ git diff --name-only --diff-filter=U
 충돌 헌크 **내부 라인만** 추출해 판정한다. 스테이지 전체(`:2:`/`:3:`)를 비교하지 않는다 — git 이 version 라인만 남기고 나머지를 이미 병합했을 수 있고, 그 경우 전체 비교는 자동 해결 가능한 건을 일반 충돌로 오분류한다:
 
 ```bash
-awk '/^<<<<<<< /{i=1;next} /^=======$/{i=2;next} /^>>>>>>> /{i=0;next} i' {파일}
+python3 -I -B "${CLAUDE_PLUGIN_ROOT}/skills/sync-base/assets/sync_state.py" hunks --file "{파일 절대 경로}"
 ```
+
+helper의 각 hunk에서 ours/theirs만 판정하고 ancestor는 버전 후보에서 제외한다. merge/diff3/zdiff3와 사용자 conflict-marker-size를 지원하며 잘못된/미완료 마커는 BLOCKED다. ancestor의 줄 때문에 정상 version-only 충돌을 일반 충돌로 오분류하지 않는다.
 
 판정은 **그 파일에 배정된 Step 3.2의 대상 필드**로만 한다 — `info.version` / `SwaggerInfo.Version` / `// @version` 중 해당 파일의 것. `version` 이 들어간 아무 라인이나 받아주지 않는다: Go 파일의 다른 `Version:` 구조체 필드, YAML 의 `apiVersion:`·`openapi:` 같은 라인이 함께 충돌한 경우를 버전 충돌로 오분류하기 때문이다.
 
 버전 충돌로 인정하는 조건은 둘 다 만족할 때다:
 - 헌크 내부 ours 쪽과 theirs 쪽에 **대상 필드 라인이 각각 정확히 1줄**씩 있다
-- 헌크 내부에 그 두 줄 **외의 라인이 없다**
+- ours/theirs 각각 그 대상 줄 외의 라인이 없다 (ancestor는 별도 영역이므로 이 개수에서 제외)
+- JSON/YAML/Go의 구조상 대상 필드 위치임을 확인한다. 다른 객체의 version과 같은 문자열이라는 이유로 허용하지 않는다. 구조 확인이 불가능하면 일반 충돌로 남긴다
 
 하나라도 어긋나면 일반 충돌로 분류한다.
-Step 3.1이 `SKIPPED:NO_VERSION_FILE` 이면 swagger 충돌도 일반 충돌로 다룬다 — 기입할 기준값이 없다.
+최신 targets 결과의 VERSION 상태가 `ABSENT` 이면 swagger 충돌도 일반 충돌로 다룬다 — 기입할 기준값이 없다.
 
 ### Step 5.2: 일반 충돌이 하나라도 있으면 중단
 
@@ -226,8 +247,8 @@ merge 를 **되돌리지 않고 그대로 둔 채** 보고하고 종료한다 (`
 
    swagger 파일의 ours/theirs 값은 판정에만 쓰고, 기입값으로는 쓰지 않는다 — 파일 간 값이 어긋나 있어도 이 단계에서 하나로 수렴시킨다.
 3. VERSION 파일은 잠정값 한 줄로 덮어쓴다.
-4. swagger 파일은 **충돌 블록 전체**(`<<<<<<<` 줄부터 `>>>>>>>` 줄까지, 마커 3줄과 양쪽 본문을 모두 포함)를 **ours 쪽 version 라인 한 줄**로 치환하고, 그 줄의 버전 값만 잠정값으로 바꾼다 — 들여쓰기·따옴표·키 표기는 원본 그대로 둔다. 마커만 지우고 양쪽 라인을 모두 남기면 version 키가 중복돼 YAML/JSON 이 깨진다.
-5. `git add {해결한 파일들}` — 커밋은 하지 않는다 (Step 5.4가 단독 출구다).
+4. swagger 파일은 **충돌 블록 전체**(`<<<<<<<` 줄부터 `>>>>>>>` 줄까지, ancestor 구역·모든 마커와 양쪽 본문을 모두 포함)를 **ours 쪽 version 라인 한 줄**로 치환하고, 그 줄의 버전 값만 잠정값으로 바꾼다 — 들여쓰기·따옴표·키 표기는 원본 그대로 둔다. 마커만 지우고 양쪽 라인을 모두 남기면 version 키가 중복돼 YAML/JSON 이 깨진다.
+5. 마커 잔여/중복 필드가 없고 전체 JSON/YAML/Go가 유효한지 파싱·프로젝트 검증 후 `git -C "{GIT_ROOT}" add -- {해결한 파일들}`. 커밋은 하지 않는다 (Step 5.4가 단독 출구다).
 6. semver 파싱에 실패하면 잠정값을 만들 수 없으므로 `AskUserQuestion`:
    > 충돌한 버전 값을 해석하지 못했습니다 (ours: `{값}`, theirs: `{값}`).
    > 1. 잠정값 직접 입력 — `X.Y.Z` 형식만 받는다. 형식이 아니면 1회 재질문하고, 그래도 아니면 2번으로 간다
@@ -253,7 +274,7 @@ git commit --no-edit
 
 ## Step 6: 확정 버전 계산
 
-Step 3.1이 `SKIPPED:NO_VERSION_FILE` 이면 이 단계와 Step 7을 건너뛰고 Step 8로 간다.
+최신 targets 결과의 VERSION 상태가 `ABSENT` 이면 이 단계와 Step 7을 건너뛰고 Step 8로 간다.
 
 ### Step 6.1: 범프 판정
 
@@ -264,7 +285,7 @@ git show origin/{base}:{VERSION파일}     # base 값
 
 | 비교 (semver 3필드 수치) | 확정 버전 |
 |--------------------------|-----------|
-| 로컬 ≤ base | `max(base, 로컬)` 의 patch +1 — `/common:commit-pr` Step 2와 동일한 계산식 |
+| 로컬 ≤ base | `max(base, 로컬)` 의 patch +1 — `/common:commit-pr` Step 1과 동일한 계산식 |
 | 로컬 > base | **로컬 값 그대로** (범프 없음). `SKIPPED:ALREADY_AHEAD` 로 기록하되, swagger 동기화는 이 값으로 계속 수행한다 |
 
 > 무조건 범프하지 않는 이유: 이미 범프한 브랜치에서 다시 실행하면 이중 범프가 된다. 조건부 규칙은 세 경우를 모두 덮는다 — 브랜치만 범프됨(범프 없음, 확정=로컬) / base 만 전진(base+1) / 양쪽 범프(Step 5.3에서 max 로 수렴 후 +1). 이 판단 기준은 `/common:commit-pr` Step 1의 4번(VERSION 재범프 확인)과 같다.
@@ -281,7 +302,7 @@ Step 5.3의 파싱 실패는 이 정책이 아니라 Step 5.3 자체의 선택�
 
 ## Step 7: 파일 갱신 + 커밋
 
-Step 3.1이 `SKIPPED:NO_VERSION_FILE` 이거나 Step 6.2가 `SKIPPED:VERSION_PARSE_FAILED` 면 확정 버전이 없으므로 이 단계 전체를 건너뛰고 Step 8로 간다.
+최신 targets 결과의 VERSION 상태가 `ABSENT` 이거나 Step 6.2가 `SKIPPED:VERSION_PARSE_FAILED` 면 확정 버전이 없으므로 이 단계 전체를 건너뛰고 Step 8로 간다.
 
 ### Step 7.1: VERSION
 
@@ -298,8 +319,8 @@ Step 3.1이 `SKIPPED:NO_VERSION_FILE` 이거나 Step 6.2가 `SKIPPED:VERSION_PAR
 버전 파일만 스테이징해 단독 커밋한다 — merge 커밋과 분리해야 이력에서 버전 변경 지점이 드러난다:
 
 ```bash
-git add {VERSION파일} {갱신한 swagger 파일들}
-git commit -m "Chore: VERSION {확정 버전} 범프 ({base} 동기화)"
+git -C "{GIT_ROOT}" add -- {현재 존재하는 VERSION 및 갱신한 swagger 파일들}
+git -C "{GIT_ROOT}" --literal-pathspecs commit --only -F "{메시지 파일}" -- {같은 명시 파일 목록}
 ```
 
 `SKIPPED:ALREADY_AHEAD` 라도 swagger 가 갱신됐으면 커밋한다 (메시지: `Chore: swagger version {확정 버전} 동기화`). **스테이징한 변경이 하나도 없으면** 이 단계를 건너뛴다. 작업 트리의 다른 변경은 건드리지 않는다.
@@ -335,7 +356,7 @@ merge 만 하고 push 는 나중에 하려면 이 단계에서 중단을 선택�
 - push: 완료 (origin/{현재 브랜치})   (또는 중단 사유)
 ```
 
-재개 경로(Step 4.1)로 진입해 "가져온 커밋" 수를 모르면 그 줄을 생략한다.
+재개 경로(Step 4.1)로 진입해 "가져온 커밋" 수를 모르면 그 줄을 생략한다. stash를 썼다면 저장 OID·복원 여부·receipt 보존/정리 경로를 함께 기록한다.
 
 ## 상태 코드
 

@@ -18,7 +18,7 @@ user-invocable: true
 ## Step 2: Assumption Gate
 
 `/common:commit-push`의 Step 3(Assumption Gate) 절차를 수행한다. `[Assumption]` 태그가 모두 해소되기 전에는 push하지 않는다.
-(base 폴백: `@{upstream}` → 기본 브랜치와의 merge-base. 보호 브랜치에서 직접 push하는 경우 upstream이 곧 base다.)
+코드 base와 미push 메시지 기준을 구분한다. 보호 브랜치 직접 push는 fetch한 해당 원격 브랜치를 코드 기준으로 쓸 수 있다. feature upstream을 PR base로 임의 대체하지 않는다. 명시 upstream/base 미존재나 Git 오류는 BLOCKED다. 커밋 이후 검사한 HEAD를 기록하고 push 직전 동일성을 확인한다.
 
 ## Step 3: Push
 
