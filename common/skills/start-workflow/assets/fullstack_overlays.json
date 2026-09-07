@@ -1,0 +1,152 @@
+{
+  "minmos-harness": [
+    {
+      "id": "mm.preflight",
+      "order": 0,
+      "point": "preflight",
+      "files": [
+        "overlay/common.md",
+        "overlay/references/db-safety.md"
+      ],
+      "when": [],
+      "requires": [],
+      "owner": "orchestrator",
+      "valid_for": "run"
+    },
+    {
+      "id": "mm.request",
+      "order": 10,
+      "point": "phase1.request",
+      "files": [
+        "overlay/request.md"
+      ],
+      "when": [
+        "request_needed"
+      ],
+      "requires": [],
+      "owner": "orchestrator",
+      "valid_for": "spec"
+    },
+    {
+      "id": "mm.e2e-flow",
+      "order": 11,
+      "point": "phase1.after-spec",
+      "files": [
+        "overlay/start-workflow.md"
+      ],
+      "when": [],
+      "requires": [],
+      "owner": "orchestrator",
+      "valid_for": "run"
+    },
+    {
+      "id": "mm.plan-review",
+      "order": 40,
+      "point": "phase4.review",
+      "files": [
+        "overlay/start-workflow.md"
+      ],
+      "when": [
+        "codex_enabled"
+      ],
+      "requires": [
+        "review"
+      ],
+      "owner": "orchestrator",
+      "valid_for": "iteration"
+    },
+    {
+      "id": "mm.conventions",
+      "order": 60,
+      "point": "phase6-and7.conventions",
+      "files": [
+        "overlay/default-conventions.md",
+        "overlay/convention-check.md",
+        "overlay/references/postmath-conventions.md"
+      ],
+      "when": [],
+      "requires": [],
+      "owner": "be-owner",
+      "valid_for": "tested_tree"
+    },
+    {
+      "id": "mm.e2e",
+      "order": 71,
+      "point": "phase7.be.e2e",
+      "files": [
+        "overlay/e2e-test.md",
+        "overlay/e2e-test-loop.md",
+        "overlay/references/e2e-test-postmath.md",
+        "overlay/references/grpc-testing.md",
+        "overlay/references/db-safety.md"
+      ],
+      "when": [
+        "e2e"
+      ],
+      "requires": [
+        "http-or-grpc"
+      ],
+      "owner": "be-owner",
+      "valid_for": "tested_tree"
+    },
+    {
+      "id": "mm.quality-review",
+      "order": 72,
+      "point": "phase7.be.after-quality",
+      "files": [
+        "overlay/references/codex-review.md"
+      ],
+      "when": [],
+      "requires": [
+        "review"
+      ],
+      "owner": "advisor-to-be-owner",
+      "valid_for": "tested_tree"
+    },
+    {
+      "id": "mm.doc-sync",
+      "order": 73,
+      "point": "phase7.be.docs",
+      "files": [
+        "agents/workflow-doc-sync.md",
+        "skills/e2e-apidog-schema-gen/SKILL.md",
+        "skills/apidog-schema-gen/SKILL.md"
+      ],
+      "when": [
+        "api_change"
+      ],
+      "requires": [
+        "apidog-read",
+        "apidog-import-authorized"
+      ],
+      "owner": "orchestrator",
+      "valid_for": "tested_tree"
+    }
+  ],
+  "hyeondongs-harness": [
+    {
+      "id": "hd.profile",
+      "order": 1,
+      "point": "preflight",
+      "files": [
+        "overlay/common.md"
+      ],
+      "when": [],
+      "requires": [],
+      "owner": "orchestrator",
+      "valid_for": "run"
+    },
+    {
+      "id": "hd.backend",
+      "order": 2,
+      "point": "preflight.domain-handoff",
+      "files": [
+        "overlay/start-workflow.md"
+      ],
+      "when": [],
+      "requires": [],
+      "owner": "orchestrator",
+      "valid_for": "run"
+    }
+  ]
+}
