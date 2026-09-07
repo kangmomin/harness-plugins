@@ -49,27 +49,29 @@ user-invocable: true
 아래 **디자인 프롬프트**를 따라 문서를 생성한다.
 
 - `-md`: 동일한 구조·스타일 규칙을 Markdown으로 적용. Mermaid는 ` ```mermaid ` 코드펜스 사용.
-- `-html`: 디자인 프롬프트의 HTML 규칙대로 standalone HTML 생성.
+- `-html`: Markdown 원문에서 아래 renderer로 정적 SVG를 포함한 standalone HTML을 생성한다.
 - `--twin`: 동일 내용을 두 포맷으로 모두 생성 (md가 원본, html은 동일 구조의 변환본).
 - `--brief`: 디자인 프롬프트의 **Brief Mode** 규칙을 적용 (다른 플래그와 조합 가능).
 
-저장 전, 문서 내 **각 Mermaid 블록에 대해 "Mermaid Rules"의 Lint 체크리스트를 1회 자체 점검**하고 위반을 수정한다.
+저장 전 Mermaid 원문을 실제 renderer로 파싱·렌더링한다. 문법 오류나 지원하지 않는 활성 SVG 요소는 FAIL이며 코드펜스만 남긴 채 다이어그램 성공으로 보고하지 않는다. Markdown-only 출력도 동일하게 검증한다.
 
 ## Step 4: 저장 및 보고
 
-1. `./docs/` 디렉토리가 없으면 생성한다.
-2. `./docs/doc-gen-{unix epoch}.{md|html}` 로 저장한다. `--twin`이면 같은 epoch로 `.md`와 `.html` 두 파일을 저장한다.
-3. `--twin`이면 **정합 검증**을 수행한다: 두 파일의 ① Mermaid 블록 수 일치 ② 섹션 헤더 목록 패리티.
-   - 불일치 감지 → 어긋난 쪽을 1회 재생성 → 재검증.
-   - 재실패 시 `FAIL` 보고 — 두 파일 저장은 유지하고 불일치 목록을 첨부한다.
-4. 절대 경로와 문서 핵심 요약(TL;DR)을 보고한다.
+1. 완성한 Markdown을 실행 소유 임시 파일에 저장한다. 기존 docs 파일을 중간 원본으로 덮지 않는다.
+2. `assets/package-lock.json`의 고정 runtime(mermaid/markdown-it/puppeteer)이 설치됐는지 확인한다. 없으면 필요한 설치를 명시하고 `npm ci --prefix <현재 스킬의 assets 절대 경로>`로 준비한다. 이 설치는 최초 의존성·Chromium 다운로드를 수행할 수 있다. 진단 단계에서 자동 다운로드하지 않는다.
+3. `node <현재 스킬의 assets/docgen.mjs> <원문.md> <프로젝트/docs> md|html|twin`을 실행한다. 경로는 현재 세션에서 발견한 실제 스킬 위치를 사용하고 각각 인자로 전달한다.
+4. renderer가 모든 Mermaid를 strict 모드로 정적 SVG로 만든 뒤, `doc-gen-{epoch}-{UUID}.{md|html}`을 exclusive write한다. twin은 동일 basename 두 파일이며 기존 파일과 충돌하면 덮지 않는다. 두 번째 파일 실패 시 이번 실행이 만든 첫 파일만 소유 inode를 확인해 정리한다.
+5. twin 정합 검사는 전체 Markdown→HTML 변환을 비교한다. 본문·코드·표 값·링크·각 Mermaid 원문과 SVG 대응이 대상이다. 헤더/블록 개수만으로 PASS하지 않는다. 결과 파일을 수정했다면 다시 변환·검증한다.
+6. 반환된 절대 경로, 다이어그램 수, 검증 결과와 핵심 내용을 보고한다. 임시 원문은 소유 경로만 정리한다. 실패·부분 정리 경고를 DONE으로 바꾸지 않는다.
+
+`HARNESS_DOCGEN_NO_SANDBOX=1`은 Chromium sandbox를 제공하지 않는 격리 테스트 컨테이너에서만 명시적으로 사용한다. 일반 사용자 환경에서는 browser sandbox가 기본이다. 생성된 HTML을 읽을 때는 Node·Chromium·인터넷이 필요 없다.
 
 ## 상태 코드
 
 | 코드 | 의미 |
 |------|------|
 | `DONE` | 문서 생성·저장 완료 (twin이면 정합 검증까지 통과) |
-| `FAIL` | `--twin` 정합 검증이 재생성 후에도 불일치 — 불일치 목록 첨부 |
+| `FAIL` | Mermaid 렌더/정합/저장 실패 — 원인·부분 정리 경고 첨부 |
 
 ---
 
@@ -135,13 +137,11 @@ ALWAYS: split flows into multiple small diagrams, ONE concept per diagram, optim
 GOOD: separate diagrams for ① Insert flow ② Conflict handling ③ Error branch ④ Rollback path.
 Each Mermaid block should be independently understandable.
 
-### Mermaid Lint (syntax — check EVERY block before saving)
+### Mermaid 검증
 
-1. Edge labels `|...|` MUST NOT contain `(` or `)` — they break the parser.
-   BAD (real failure): `A -->|발행 동기화 (필요시)| B` → `Parse error on line 3`
-   GOOD: `A -->|발행 동기화, 필요시| B`
-2. Node labels containing parentheses or special characters MUST be quoted: `A["결제 (KCP)"]`.
-3. Every ` ```mermaid ` fence must have a matching closing fence (blocks in pairs).
+1. 특수문자가 있는 label은 따옴표로 감싼다. backtick/tilde fence를 정확히 닫는다.
+2. 실제 Mermaid parser/renderer 성공을 확인한다. 자체 문법 체크리스트만으로 렌더 성공을 추정하지 않는다.
+3. 문서별 init directive/frontmatter config를 넣지 않는다. `securityLevel: strict`, `htmlLabels: false`를 renderer에서 고정하고 동적 HTML·외부 resource·event handler를 거부한다.
 
 ## Before / After Rules
 
@@ -189,27 +189,13 @@ Always include rejected alternatives and tradeoffs (e.g., DO UPDATE trick reject
 
 Explicitly highlight: race conditions, rollback boundaries, compatibility concerns, regression fallback, data consistency, concurrency behavior, edge-case handling.
 
-## HTML Rules (`-html` only)
+## HTML Rules (`-html` / `--twin`)
 
-Single standalone HTML: no build tools, no frameworks, self-contained, responsive, mobile-first, dark mode by default, clean card-based layout, inline CSS only, soft borders, rounded cards, aggressive spacing, overflow scrolling for Mermaid/code.
+Single standalone HTML, responsive layout, inline CSS and embedded static SVG images. No CDN, remote fonts, JavaScript runtime or build step is required to open the result offline.
 
-Always initialize Mermaid using this exact pattern:
+The Markdown renderer disables raw HTML. Code, descriptions and diagram source are escaped. Remote Markdown images are shown as escaped alt/source text; they are not downloaded. Mermaid uses strict security and SVG validation; active elements, event handlers, external href/CSS resources and unsupported foreignObject fail rendering. SVG is embedded as an image, with escaped diagram source in expandable details. The page CSP blocks scripts and external resources.
 
-```html
-<script type="module">
-import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-
-mermaid.initialize({
-  startOnLoad: true,
-  theme: 'dark',
-  securityLevel: 'loose',
-  flowchart: {
-    useMaxWidth: true,
-    htmlLabels: true
-  }
-});
-</script>
-```
+The pinned renderer is the executable contract. [Mermaid security configuration](https://mermaid.js.org/config/schema-docs/config.html) describes strict mode; this does not replace the additional offline/SVG checks here. The actual browser fixture tests Korean flowchart/sequence diagrams, escaped code, invalid syntax, offline image dimensions and zero external requests.
 
 ## Final Goal
 
