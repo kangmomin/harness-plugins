@@ -16,9 +16,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 
 export const CONFIG_BASENAME = '.work-log.json';
 export const DEFAULT_EXCLUDES = ['.obsidian', '.trash', '.git', 'node_modules', '.wiki'];
+const CONFIG_MISSING = Symbol('config missing');
 
 /** 클라이언트 중립 전역 설정과 기존 Claude 설정의 위치를 계산한다. */
 export function globalConfigPaths({ env = process.env, home = os.homedir() } = {}) {
@@ -50,7 +52,7 @@ function readJson(file) {
   try {
     raw = fs.readFileSync(file, 'utf8');
   } catch (e) {
-    if (e.code === 'ENOENT' || e.code === 'ENOTDIR') return null; // 존재하지 않음 — 정상적인 miss
+    if (e.code === 'ENOENT') return CONFIG_MISSING;
     throw new ConfigError(`설정 파일 읽기 실패: ${file} (${e.message})`, file);
   }
   try {
@@ -96,7 +98,17 @@ function validateRoot(root, source) {
 
 function fromConfigFile(file) {
   const cfg = readJson(file);
-  if (!cfg) return null;
+  if (cfg === CONFIG_MISSING) return null;
+  if (!cfg || typeof cfg !== 'object' || Array.isArray(cfg)) {
+    throw new ConfigError(`설정 루트는 JSON 객체여야 합니다: ${file}`, file);
+  }
+  if (cfg.scope !== undefined && !['global', 'project'].includes(cfg.scope)) {
+    throw new ConfigError(`scope 는 global 또는 project 여야 합니다: ${file}`, file);
+  }
+  if (cfg.excludes !== undefined && (!Array.isArray(cfg.excludes) ||
+      !cfg.excludes.every((name) => typeof name === 'string' && name.length > 0))) {
+    throw new ConfigError(`excludes 는 폴더명 문자열 배열이어야 합니다: ${file}`, file);
+  }
 
   const scope = cfg.scope === 'project' ? 'project' : 'global';
   if (typeof cfg.root !== 'string' || cfg.root.trim() === '') {
@@ -123,7 +135,8 @@ function walkUp(startDir) {
   let dir = path.resolve(startDir);
   for (;;) {
     const candidate = path.join(dir, CONFIG_BASENAME);
-    if (fs.existsSync(candidate)) return fromConfigFile(candidate);
+    const cfg = fromConfigFile(candidate);
+    if (cfg) return cfg;
 
     // .git 은 디렉토리(일반) 또는 파일(worktree/submodule) 둘 다 가능
     if (fs.existsSync(path.join(dir, '.git'))) return null; // 저장소 경계에서 정지
@@ -193,7 +206,7 @@ export function cacheDirFor(vaultRoot, { env = process.env, home = os.homedir() 
 }
 
 // CLI 진입점 — 스킬이 `node config.js` 로 호출한다.
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   try {
     const cfg = resolveConfig();
     if (cfg.root) cfg.cacheDir = cacheDirFor(cfg.root).dir;

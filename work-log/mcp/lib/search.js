@@ -5,6 +5,7 @@
  */
 
 import { nfc } from './vault.js';
+import { markdownLines } from './markdown.js';
 
 /** 1 토큰 ≈ 4자. Node 내장만으로는 진짜 토크나이저를 돌릴 수 없어 근사치다. */
 export const CHARS_PER_TOKEN = 4;
@@ -122,31 +123,20 @@ function snippet(doc, terms, width = 160) {
 export function extractSection(body, topic) {
   if (!topic) return { text: body, matchedHeading: null };
   const want = norm(topic);
-  const lines = body.split('\n');
-
-  let startIdx = -1;
-  let level = 0;
-  for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/^(#{1,6})\s+(.+?)\s*$/);
-    if (m && norm(m[2]).includes(want)) {
-      startIdx = i;
-      level = m[1].length;
-      break;
-    }
-  }
+  const lines = markdownLines(body);
+  const startIdx = lines.findIndex(({ heading }) => heading && norm(heading.title).includes(want));
   if (startIdx === -1) return { text: body, matchedHeading: null, sectionNotFound: true };
 
   let endIdx = lines.length;
   for (let i = startIdx + 1; i < lines.length; i++) {
-    const m = lines[i].match(/^(#{1,6})\s+/);
-    if (m && m[1].length <= level) {
+    if (lines[i].heading && lines[i].heading.level <= lines[startIdx].heading.level) {
       endIdx = i;
       break;
     }
   }
   return {
-    text: lines.slice(startIdx, endIdx).join('\n'),
-    matchedHeading: lines[startIdx].replace(/^#+\s*/, ''),
+    text: lines.slice(startIdx, endIdx).map(({ text }) => text).join('\n'),
+    matchedHeading: lines[startIdx].heading.title,
   };
 }
 

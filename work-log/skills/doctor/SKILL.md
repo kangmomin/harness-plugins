@@ -40,6 +40,9 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
 | `indexExists` | false 면 sync 스킬 필요 |
 | `indexAgeSeconds` | 24시간(86400) 초과면 "오래됨" 경고 + sync 권장 |
 | `counts` | 문서 수가 예상과 크게 다르면 excludes 설정 확인 |
+| `indexState` / `errors` | `INDEX_*`면 재생성 필요, `DEGRADED`면 경로별 읽기/파싱 오류를 먼저 해결한다 |
+| `safeIO` | `available:false`면 이유를 보고하고 Python 3.9+/Linux·macOS API를 점검한다. 캐시 읽기와 쓰기/sync 지원을 구별한다 |
+| `scan` | 읽은 파일·bytes·소요 ms·오류 수. 실행별 규모와 시간을 함께 비교한다 |
 
 ### cwd 해석 (중요)
 
@@ -63,7 +66,7 @@ node "<plugin-root>/mcp/lib/config.js"
 
 ## Step 4: MCP 미연결 시
 
-1. `node --version` 으로 Node 18 이상인지 확인 (내장 모듈만 쓰므로 설치할 의존성은 없다)
+1. `node --version` 으로 Node 18 이상인지 확인 (캐시 읽기용 서버). 쓰기/sync는 `python3 -I -B "<plugin-root>/mcp/lib/io_worker.py" --probe`로 진단한다. 진단 중 패키지를 다운로드하지 않는다
 2. 서버를 직접 실행해 응답을 확인:
    ```bash
    printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}' \
@@ -86,6 +89,7 @@ node "<plugin-root>/mcp/lib/config.js"
 | 설정 출처 | | configSource |
 | 인덱스 | 있음(N분 전) / 없음 | 문서 수 |
 | Node | v24.x | >=18 필요 |
+| 안전한 쓰기/sync | available / unavailable | Python >=3.9, Linux/macOS; safeIO.reason |
 
 권장 조치: ...
 ```

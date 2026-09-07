@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 import {
   ConfigError,
@@ -128,4 +130,38 @@ test('설정이 없으면 중립 경로가 포함된 init 안내를 반환한다
   assert.equal(result.needsInit, true);
   assert.equal(result.configSource, null);
   assert.match(result.hint, new RegExp(f.paths.global.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+});
+
+test('잘못된 프로젝트 설정 값은 다른 vault로 fallback하지 않는다', (t) => {
+  const f = fixture(t);
+  writeJson(f.paths.global, { scope: 'global', root: f.vaults.global });
+  const candidate = path.join(f.root, 'repo', '.work-log.json');
+  const invalid = [null, false, 0, [], 'config',
+    { scope: 'typo', root: f.vaults.project },
+    { root: f.vaults.project, excludes: 'private' },
+    { root: f.vaults.project, excludes: [null] },
+  ];
+  for (const value of invalid) {
+    writeJson(candidate, value);
+    assert.throws(() => resolveConfig({ cwd: f.cwd, home: f.home, env: f.env }),
+      (e) => e instanceof ConfigError && e.source === candidate, JSON.stringify(value));
+  }
+  fs.unlinkSync(candidate);
+  assert.equal(resolveConfig({ cwd: f.cwd, home: f.home, env: f.env }).root, f.vaults.global);
+});
+
+test('설정 CLI가 공백·한글·URL 예약 문자가 있는 경로에서도 JSON을 출력한다', (t) => {
+  const f = fixture(t);
+  for (const name of ['plain', 'plugin with space', '플러그인', 'plugin#fragment', 'plugin%encoded']) {
+    const dir = path.join(f.root, name);
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, 'package.json'), '{"type":"module"}');
+    const cli = path.join(dir, 'config.js');
+    fs.copyFileSync(fileURLToPath(new URL('../mcp/lib/config.js', import.meta.url)), cli);
+    const result = spawnSync(process.execPath, [cli], {
+      cwd: f.cwd, env: { ...process.env, WORK_LOG_ROOT: f.vaults.env }, encoding: 'utf8',
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(JSON.parse(result.stdout).root, f.vaults.env, name);
+  }
 });

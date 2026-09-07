@@ -8,6 +8,8 @@ allowed-tools: Bash, Read
 
 vault 를 전체 재스캔해 인덱스를 다시 만들고, 무엇이 바뀌었는지 보고한다.
 
+쓰기/sync는 Linux/macOS의 Python 3.9 이상을 사용한다. `wiki_status.safeIO`가 unavailable이면 원인을 보고한다. 인덱스 잠금은 mtime으로 탈취하지 않으며, timeout을 풀기 위해 `index.lock`을 삭제하지 않는다. 업그레이드 전 같은 vault의 구버전 MCP 서버를 모두 종료한다.
+
 ## Language Rule
 
 유저와의 모든 대화는 **한국어**로 진행한다.
@@ -19,19 +21,22 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
 
 - **sync 는 vault 에 0 바이트를 쓴다.** 인덱스는 vault 밖(`$XDG_CACHE_HOME/work-log/<vault해시>/index.json`, 기본 `~/.cache`)에 저장된다
 - 기존 문서에 frontmatter 를 주입하지 않는다. 없는 문서는 제목·경로에서 메타를 **추론**해 인덱스에만 기록한다
-- `.obsidian`·`.trash`·`.git`·`node_modules` 는 스캔하지 않는다
+- 기본 제외 목록은 `.obsidian`·`.trash`·`.git`·`node_modules`·`.wiki`다. 설정의 비어 있지 않은 `excludes` 배열은 기본 목록을 대체하고, 생략/빈 배열은 기본 목록을 사용한다
 
 ## Step 1: 동기화 실행
 
 기본 이름이 `wiki_sync` 인 MCP 툴을 호출한다 (인자 없음).
 
 
-전체 스캔 + 전체 해시 방식이다. 수백 개 문서 기준 수백 ms 걸린다.
+전체 스캔 + 전체 해시 방식이다. 응답의 `scan.filesRead`·`bytesRead`·`durationMs`로 실제 비용을 확인한다.
 크기와 수정시각이 같아도 내용이 바뀌었으면 잡아낸다.
 
 ## Step 2: 리포트 해석
 
 응답의 `counts` 와 `drift` 를 한국어 표로 정리한다.
+`status == DEGRADED`이면 `errors`의 경로·작업·원인을 함께 보고한다.
+읽기/파싱 실패한 문서와 디렉터리 하위의 기존 인덱스는 `stale: true`로 보존되며 삭제로 집계하지 않는다.
+실패한 신규 문서는 오류에만 나타난다. 오류를 해결한 뒤 `wiki_sync`로 최신 상태를 복원한다.
 
 ### 요약
 
@@ -57,6 +62,7 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
 | 항목 | 의미 | 대응 |
 |------|------|------|
 | `drift.brokenLinks` | `[[링크]]` 가 가리키는 문서가 없음 | 경로를 고칠지 사용자에게 **묻는다** |
+| `drift.ambiguousLinks` | 파일명만 쓴 링크에 후보가 여러 개 | `candidates`를 보여주고 의도한 전체 상대 경로로 연결한다. 같은 폴더의 정확한 경로가 있으면 그것이 우선한다 |
 | `drift.keyCollisions` | 한글 정규화(NFC) 후 같은 이름이 되는 서로 다른 파일 | 파일명 충돌 — 반드시 보고 |
 | `drift.noFrontmatter` | frontmatter 없는 문서 수 | **정상이다.** 기존 문서는 비파괴 원칙상 그대로 둔다. 일괄 주입을 제안하지 말 것 |
 | `drift.orphanCount` | 아무도 링크하지 않는 문서 수 | `drift.orphansSuppressed` 가 true 면 목록을 출력하지 않는다 — 링크 사용률(`linkedRatio`)이 낮아 대부분이 고아로 잡히는 상태라 의미가 없다. 개수만 언급하고 넘어간다 |

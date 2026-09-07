@@ -6,11 +6,11 @@
  */
 
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { hostname } from 'node:os';
 import { cacheDirFor, DEFAULT_EXCLUDES } from './config.js';
+import { markdownLines } from './markdown.js';
+import { ioTransaction } from './io.js';
 
 const MD = '.md';
 
@@ -22,7 +22,7 @@ const ATTACHMENT_EXT = new Set([
   '.zip', '.xlsx', '.pptx', '.docx',
 ]);
 const HTML = '.html';
-export const INDEX_VERSION = 1;
+export const INDEX_VERSION = 2;
 
 const TYPE_SUFFIXES = ['plan', 'report', 'design', 'note', 'spec', 'meeting', 'decision'];
 const FOLDER_TYPE = {
@@ -149,6 +149,39 @@ export function renderFrontmatter(fm) {
   return `---\n${lines.join('\n')}\n---\n\n`;
 }
 
+const INDEX_SCALARS = ['title', 'type', 'status', 'created', 'updated'];
+const yamlValue = (value) => value.replace(/("(?:\\.|[^"\\])*"|'(?:''|[^'])*')|(?:^|\s+)#.*$/g, '$1').trim();
+const nonStringYaml = (value) => /^[{[]/.test(value) ||
+  /^(?:null|~|true|false|[-+]?(?:\d[\d_]*(?:\.\d*)?|\.\d+)(?:e[-+]?\d+)?|0x[0-9a-f]+|[-+]?\.(?:inf|nan))$/i.test(value);
+
+/** Indexing fields have known types; unknown Obsidian metadata remains untouched. */
+export function validateFrontmatter(fm, raw = '') {
+  if (fm === undefined || fm === null) return;
+  if (typeof fm !== 'object' || Array.isArray(fm)) throw new Error('frontmatter 는 객체여야 합니다');
+  for (const key of INDEX_SCALARS) {
+    if (Object.hasOwn(fm, key) && typeof fm[key] !== 'string') {
+      throw new Error(`frontmatter.${key} 는 문자열이어야 합니다`);
+    }
+  }
+  if (Object.hasOwn(fm, 'tags') && typeof fm.tags !== 'string' &&
+      !(Array.isArray(fm.tags) && fm.tags.every((tag) => typeof tag === 'string'))) {
+    throw new Error('frontmatter.tags 는 문자열 또는 문자열 배열이어야 합니다');
+  }
+  for (const { key, value, raw: block } of frontmatterBlocks(raw)) {
+    const val = yamlValue(value);
+    if (INDEX_SCALARS.includes(key) && (nonStringYaml(val) ||
+        (!val && /^[ \t]+[^\s#][^\n]*:\s/m.test(block)))) {
+      throw new Error(`frontmatter.${key} 는 YAML 문자열이어야 합니다`);
+    }
+    if (key === 'tags') {
+      const values = val.startsWith('[')
+        ? [...val.slice(1, -1).matchAll(/(?:^|,)\s*("(?:\\.|[^"\\])*"|'(?:''|[^'])*'|[^,]*)(?=\s*(?:,|$))/g)].map((m) => m[1].trim())
+        : !val ? [...block.matchAll(/^\s*-\s+(.+)$/gm)].map((m) => yamlValue(m[1])) : [val];
+      if (values.some(nonStringYaml)) throw new Error('frontmatter.tags 는 YAML 문자열 목록이어야 합니다');
+    }
+  }
+}
+
 function mergeFrontmatter(existingRaw, incomingRaw, overrides) {
   const blocks = frontmatterBlocks(existingRaw, true);
   const updates = [...frontmatterBlocks(incomingRaw, true),
@@ -206,31 +239,30 @@ function inferCreated(rel, mtimeMs) {
 
 /** md 본문에서 인덱스 필드를 뽑는다. */
 function parseMarkdown(rel, text, stat) {
-  const { frontmatter, body } = splitFrontmatter(text);
+  const { frontmatter, body, raw } = splitFrontmatter(text);
+  validateFrontmatter(frontmatter, raw);
 
   const headings = [];
   let h1 = null;
-  for (const line of body.split('\n')) {
-    const m = line.match(/^(#{1,6})\s+(.+?)\s*$/);
-    if (!m) continue;
-    const title = m[2].replace(/[*_`]/g, '').trim();
-    if (m[1].length === 1 && h1 === null) h1 = title;
+  const lines = markdownLines(body);
+  for (const { heading } of lines) {
+    if (!heading) continue;
+    const title = heading.title.replace(/[*_`]/g, '').trim();
+    if (heading.level === 1 && h1 === null) h1 = title;
     headings.push(nfc(title));
     if (headings.length >= 60) break;
   }
 
   // 본문 앞부분 — summary(200자) 와 랭킹용 excerpt(1500자)
-  const plain = body
+  const prose = lines.filter(({ code }) => !code).map(({ text }) => text).join('\n');
+  const plain = prose
     .replace(/^#{1,6}\s+.*$/gm, ' ')
-    .replace(/```[\s\S]*?```/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
   // 링크는 코드를 걷어낸 본문에서만 뽑는다. Obsidian 도 코드 안의 [[...]] 는 링크로 만들지
   // 않는다 — bash 의 [[ "$f" == x* ]] 조건문과 문서화 예시가 그대로 오탐이 된다.
-  const linkable = body
-    .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/`[^`\n]*`/g, ' ');
+  const linkable = prose.replace(/`[^`\n]*`/g, ' ');
 
   const links = [];
   for (const m of linkable.matchAll(/\[\[([^\]|#]+)(?:[|#][^\]]*)?\]\]/g)) {
@@ -267,18 +299,25 @@ function parseHtmlTitle(rel, text) {
 
 /* ────────────────────────────── 스캔 ────────────────────────────── */
 
-function walk(dir, vaultRoot, excludes, out = []) {
+function scanError(errors, root, abs, operation, error) {
+  if (error.code !== 'ENOENT') errors.push({
+    path: path.relative(root, abs), operation, code: error.code ?? 'INVALID_METADATA', message: error.message,
+  });
+}
+
+function walk(dir, vaultRoot, excludes, errors, out = []) {
   let entries;
   try {
     entries = fs.readdirSync(dir, { withFileTypes: true });
-  } catch {
+  } catch (error) {
+    scanError(errors, vaultRoot, dir, 'readdir', error);
     return out;
   }
   for (const e of entries) {
     if (excludes.includes(e.name)) continue;
     const abs = path.join(dir, e.name);
     if (e.isDirectory()) {
-      walk(abs, vaultRoot, excludes, out);
+      walk(abs, vaultRoot, excludes, errors, out);
     } else if (e.isFile()) {
       const ext = path.extname(e.name).toLowerCase();
       if (ext === MD || ext === HTML) out.push(path.relative(vaultRoot, abs));
@@ -291,9 +330,12 @@ function walk(dir, vaultRoot, excludes, out = []) {
  * vault 전체를 스캔해 인덱스를 만든다. v0.1 은 항상 전체 스캔 + 전체 해시다
  * (mtime+size 증분은 같은 크기의 내용 교체를 놓치고 삭제 감지도 어차피 전체 열거가 필요하다).
  */
-export function buildIndex(cfg) {
+export function buildIndex(cfg, { previous = null } = {}) {
+  const started = performance.now();
   const { root, excludes = DEFAULT_EXCLUDES } = cfg;
-  const files = walk(root, root, excludes);
+  const errors = [];
+  const files = walk(root, root, excludes, errors);
+  let bytesRead = 0, filesRead = 0;
 
   const mdByStem = new Map();  // "dir/stem" -> doc
   const docs = [];
@@ -307,9 +349,12 @@ export function buildIndex(cfg) {
     try {
       stat = fs.statSync(abs);
       buf = fs.readFileSync(abs);
-    } catch {
+    } catch (error) {
+      scanError(errors, root, abs, 'read', error);
       continue; // 스캔 중 사라진 파일
     }
+    bytesRead += buf.length;
+    filesRead++;
     const ext = path.extname(rel).toLowerCase();
     const key = nfc(rel);
 
@@ -326,7 +371,13 @@ export function buildIndex(cfg) {
     };
 
     if (ext === MD) {
-      const parsed = parseMarkdown(rel, buf.toString('utf8'), stat);
+      let parsed;
+      try {
+        parsed = parseMarkdown(rel, buf.toString('utf8'), stat);
+      } catch (error) {
+        scanError(errors, root, abs, 'parse', error);
+        continue;
+      }
       const doc = { ...common, kind: 'md', ...parsed, companions: [] };
       docs.push(doc);
       mdByStem.set(path.join(path.dirname(rel), path.basename(rel, MD)), doc);
@@ -335,9 +386,18 @@ export function buildIndex(cfg) {
     }
   }
 
+  // Keep last known entries for failed files/subtrees before recomputing twins and links.
+  const affected = (rel) => errors.some((e) => rel === e.path ||
+    (e.operation === 'readdir' && (!e.path || rel.startsWith(e.path + path.sep))));
+  for (const old of previous?.docs ?? []) {
+    if (affected(old.path) && !docs.some((d) => d.key === old.key)) {
+      const kept = { ...old, stale: true, companions: [] };
+      docs.push(kept);
+      if (kept.kind === 'md') mdByStem.set(path.join(path.dirname(kept.path), path.basename(kept.path, MD)), kept);
+    }
+  }
+
   // twin 병합: 같은 디렉토리·같은 stem 의 html 은 md 의 companion 으로 접는다.
-  let htmlOnly = 0;
-  let companions = 0;
   for (const h of htmlPending) {
     const stem = path.join(path.dirname(h.path), path.basename(h.path, HTML));
     const canonical = mdByStem.get(stem);
@@ -345,9 +405,7 @@ export function buildIndex(cfg) {
       canonical.companions.push({
         path: h.path, mtime: h.mtime, size: h.size, hash: h.hash,
       });
-      companions++;
     } else {
-      htmlOnly++;
       docs.push({
         path: h.path, key: h.key, kind: 'html',
         title: parseHtmlTitle(h.path, h.text),
@@ -361,18 +419,28 @@ export function buildIndex(cfg) {
       });
     }
   }
+  for (const old of previous?.docs ?? []) {
+    const canonical = docs.find((d) => d.key === old.key);
+    for (const companion of old.companions ?? []) {
+      if (canonical && affected(companion.path) && !canonical.companions.some((c) => c.path === companion.path)) {
+        canonical.companions.push({ ...companion, stale: true });
+      }
+    }
+  }
 
   // 링크 그래프는 문서 하나만 바뀌어도 전역 재계산이 필요하다.
   const byKey = new Map(docs.map((d) => [d.key, d]));
   const backlinks = {};
   const brokenLinks = [];
+  const ambiguousLinks = [];
   const linked = new Set();
 
   for (const d of docs) {
     for (const raw of d.links) {
-      const target = resolveLink(raw, d.path, byKey);
+      const { target, candidates } = resolveLink(raw, d.path, byKey);
       if (!target) {
-        brokenLinks.push({ from: d.path, to: raw });
+        if (candidates.length > 1) ambiguousLinks.push({ from: d.path, to: raw, candidates });
+        else brokenLinks.push({ from: d.path, to: raw });
         continue;
       }
       (backlinks[target] ??= []).push(d.path);
@@ -385,13 +453,22 @@ export function buildIndex(cfg) {
 
   return {
     version: INDEX_VERSION,
+    status: errors.length ? 'DEGRADED' : 'OK',
+    errors,
     scope: cfg.scope ?? 'global',   // 마지막 sync 시점 스냅샷 — 권위 없음
     root,
     generatedAt: new Date().toISOString(),
-    counts: { canonical: docs.filter((d) => d.kind === 'md').length, htmlOnly, companions, files: files.length },
+    counts: {
+      canonical: docs.filter((d) => d.kind === 'md').length,
+      htmlOnly: docs.filter((d) => d.kind === 'html').length,
+      companions: docs.reduce((n, d) => n + d.companions.length, 0),
+      files: new Set([...files, ...docs.flatMap((d) => [d.path, ...d.companions.map((c) => c.path)])]).size,
+    },
+    scan: { filesDiscovered: files.length, filesRead, bytesRead, errors: errors.length, durationMs: Math.round(performance.now() - started) },
     docs,
     backlinks,
     brokenLinks,
+    ambiguousLinks,
     orphans,
     keyCollisions,
   };
@@ -403,12 +480,13 @@ function resolveLink(raw, fromPath, byKey) {
   const withExt = raw.endsWith(MD) ? raw : `${raw}${MD}`;
   candidates.push(nfc(path.normalize(path.join(path.dirname(fromPath), withExt))));
   candidates.push(nfc(path.normalize(withExt)));
-  for (const c of candidates) if (byKey.has(c)) return c;
+  for (const c of candidates) if (byKey.has(c)) return { target: c, candidates: [] };
 
   // 파일명만 적은 경우 — 전체에서 basename 일치 탐색
   const base = nfc(path.basename(withExt));
-  for (const [k] of byKey) if (path.basename(k) === base) return k;
-  return null;
+  const matches = raw.includes('/') || raw.includes('\\') ? []
+    : [...byKey.keys()].filter((k) => path.basename(k) === base).sort();
+  return { target: matches.length === 1 ? matches[0] : null, candidates: matches };
 }
 
 /* ────────────────────────── 인덱스 I/O (vault 밖) ────────────────────────── */
@@ -424,63 +502,58 @@ export function indexPaths(vaultRoot) {
 }
 
 export function readIndex(vaultRoot) {
+  return readIndexState(vaultRoot).index;
+}
+
+export function readIndexState(vaultRoot) {
   const { file } = indexPaths(vaultRoot);
   try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
-  } catch {
-    return null;
+    return parseIndexState(vaultRoot, fs.readFileSync(file, 'utf8'));
+  } catch (error) {
+    return { index: null, reason: error.code === 'ENOENT' ? 'INDEX_MISSING' : 'INDEX_INVALID' };
   }
 }
 
-const LOCK_STALE_MS = 5 * 60 * 1000;
-
-/** 스캔–커밋 전체를 감싸는 크로스 프로세스 락. 동시 sync 가 인덱스를 덮어쓰지 않게 한다. */
-async function withLock(vaultRoot, fn) {
-  const { dir, lock, marker } = indexPaths(vaultRoot);
-  await fsp.mkdir(dir, { recursive: true });
-  await fsp.writeFile(marker, vaultRoot + '\n', 'utf8');
-
-  for (let attempt = 0; ; attempt++) {
-    try {
-      const fh = await fsp.open(lock, 'wx');
-      await fh.writeFile(String(process.pid));
-      await fh.close();
-      break;
-    } catch (e) {
-      if (e.code !== 'EEXIST') throw e;
-      let age = Infinity;
-      try {
-        age = Date.now() - (await fsp.stat(lock)).mtimeMs;
-      } catch { /* 그 사이 풀렸다 */ }
-      if (age > LOCK_STALE_MS) {
-        await fsp.rm(lock, { force: true });   // 오래된 락 회수
-        continue;
-      }
-      if (attempt >= 50) throw new Error('인덱스 락 획득 실패 (다른 sync 가 진행 중입니다)');
-      await new Promise((r) => setTimeout(r, 100));
-    }
-  }
-
+function parseIndexState(vaultRoot, raw) {
   try {
-    return await fn();
-  } finally {
-    await fsp.rm(lock, { force: true });
+    if (raw === null) return { index: null, reason: 'INDEX_MISSING' };
+    const index = JSON.parse(raw);
+    const strings = (v) => Array.isArray(v) && v.every((s) => typeof s === 'string');
+    const numbers = (v, keys) => v && keys.every((k) => Number.isFinite(v[k]) && v[k] >= 0);
+    if (!index || index.version !== INDEX_VERSION) return { index: null, reason: 'INDEX_VERSION' };
+    if (typeof index.root !== 'string' || fs.realpathSync(index.root) !== fs.realpathSync(vaultRoot)) {
+      return { index: null, reason: 'INDEX_ROOT' };
+    }
+    if (!['OK', 'DEGRADED'].includes(index.status) || !Number.isFinite(Date.parse(index.generatedAt)) ||
+        !Array.isArray(index.errors) || !index.errors.every((e) => e &&
+          ['path', 'operation', 'code', 'message'].every((k) => typeof e[k] === 'string')) ||
+        !numbers(index.scan, ['filesDiscovered', 'filesRead', 'bytesRead', 'errors', 'durationMs']) ||
+        !numbers(index.counts, ['canonical', 'htmlOnly', 'companions', 'files']) ||
+        !index.backlinks || typeof index.backlinks !== 'object' || !Object.values(index.backlinks).every(strings) ||
+        !strings(index.orphans) || !Array.isArray(index.brokenLinks) || !Array.isArray(index.ambiguousLinks) ||
+        !Array.isArray(index.keyCollisions) || !Array.isArray(index.docs) || !index.docs.every((d) => d &&
+        ['path', 'key', 'title', 'type', 'hash', 'summary', 'excerpt', 'created', 'status'].every((k) => typeof d[k] === 'string') &&
+        d.path && !path.isAbsolute(d.path) && !d.path.split(path.sep).includes('..') && d.key === nfc(d.path) &&
+        ['md', 'html'].includes(d.kind) && numbers(d, ['mtime', 'size']) &&
+        ['tags', 'headings', 'links'].every((k) => strings(d[k])) &&
+        Array.isArray(d.companions) && d.companions.every((c) => c && typeof c.path === 'string' && typeof c.hash === 'string'))) {
+      return { index: null, reason: 'INDEX_SCHEMA' };
+    }
+    return { index, reason: null };
+  } catch (error) {
+    return { index: null, reason: error.code === 'ENOENT' ? 'INDEX_MISSING' : 'INDEX_INVALID' };
   }
 }
 
-/** 전체 스캔 후 인덱스를 원자적으로 커밋하고 drift 리포트를 돌려준다. */
+/** The helper holds the cache lock throughout scan and atomic publication. */
 export async function syncIndex(cfg) {
-  return withLock(cfg.root, async () => {
-    const before = readIndex(cfg.root);
-    const index = buildIndex(cfg);
-    const { dir, file } = indexPaths(cfg.root);
-
-    const tmp = path.join(dir, `.index.${process.pid}.${Date.now()}.tmp`);
-    await fsp.writeFile(tmp, JSON.stringify(index), 'utf8');
-    await fsp.rename(tmp, file);
-
-    return { index, drift: diffIndex(before, index) };
+  const { dir } = indexPaths(cfg.root);
+  const { value } = await ioTransaction({ operation: 'index', root: dir, relPath: 'index.json', vaultRoot: cfg.root }, (raw) => {
+    const before = parseIndexState(cfg.root, raw).index;
+    const index = buildIndex(cfg, { previous: before });
+    return { content: JSON.stringify(index), value: { index, drift: diffIndex(before, index) } };
   });
+  return value;
 }
 
 function diffIndex(before, after) {
@@ -507,6 +580,7 @@ function diffIndex(before, after) {
     firstRun: !before,
     added, changed, removed,
     brokenLinks: after.brokenLinks,
+    ambiguousLinks: after.ambiguousLinks,
     orphanCount: after.orphans.length,
     orphans: linkedRatio >= 0.3 ? after.orphans : [],
     orphansSuppressed: linkedRatio < 0.3,
@@ -520,52 +594,26 @@ const companionSig = (d) => (d.companions ?? []).map((c) => `${c.path}:${c.hash}
 
 /* ────────────────────────────── 안전 쓰기 ────────────────────────────── */
 
-async function withDocumentLock(abs, fn) {
-  // 실제 문서 옆에 두어 vault 별칭·서로 다른 XDG cache의 프로세스도 같은 락을 쓴다.
-  const lock = path.join(path.dirname(abs), `.${path.basename(abs)}.write-lock`);
-  await fsp.mkdir(path.dirname(abs), { recursive: true });
-  const deadline = Date.now() + 5000;
-  for (;;) {
-    try {
-      await fsp.mkdir(lock);
-      break;
-    } catch (error) {
-      if (error.code !== 'EEXIST') throw error;
-      if (Date.now() >= deadline) {
-        const owner = await fsp.readFile(path.join(lock, 'owner.json'), 'utf8').catch(() => '소유자 정보 없음');
-        throw new Error(`문서 쓰기 잠금 대기 시간 초과: ${lock} (${owner}). 소유 실행의 종료를 확인한 뒤 이 잠금 디렉토리만 제거하세요.`);
-      }
-      await new Promise(resolve => setTimeout(resolve, 50));
-    }
-  }
-  try {
-    await fsp.writeFile(path.join(lock, 'owner.json'), JSON.stringify({
-      pid: process.pid, host: hostname(), started: new Date().toISOString(),
-    }), 'utf8');
-    return await fn();
-  } finally {
-    // 시간만으로 다른 실행의 락을 회수하지 않는다. 자신이 획득한 락만 해제한다.
-    await fsp.rm(lock, { recursive: true, force: true });
-  }
-}
-
 /**
  * vault 에 문서를 쓴다. 이것이 vault 를 변경하는 유일한 경로다.
- * 읽기·hash 확인·쓰기를 문서별 프로세스 간 잠금으로 보호한다. create 는 wx 로 원자 생성한다.
+ * 읽기·hash 확인·쓰기를 문서별 프로세스 간 잠금으로 보호한다. create 는 완성된 파일의 exclusive link 로 원자 생성한다.
  */
 export async function writeDoc(cfg, args) {
-  const { abs, rel } = safeResolve(cfg.root, args.relPath, { forWrite: true });
-  return withDocumentLock(abs, () => writeDocLocked(abs, rel, args));
+  if (args.frontmatter === null) throw new Error('frontmatter 는 객체여야 합니다');
+  validateFrontmatter(args.frontmatter);
+  const incoming = splitFrontmatter(args.content);
+  if ((args.mode ?? 'create') !== 'append') validateFrontmatter(incoming.frontmatter, incoming.raw);
+  safeResolve(cfg.root, args.relPath, { forWrite: true });
+  const { value, durability, cleanupWarnings } = await ioTransaction({
+    operation: 'write', root: cfg.root, relPath: args.relPath, mode: args.mode ?? 'create', excludes: DEFAULT_EXCLUDES,
+  }, (existing, rel) => {
+    const final = renderDocument(existing, rel, args);
+    return { content: final, value: { path: rel, bytes: Buffer.byteLength(final), hash: sha1(Buffer.from(final)), mode: args.mode ?? 'create' } };
+  });
+  return { ...value, durability, cleanupWarnings };
 }
 
-async function writeDocLocked(abs, rel, { content, frontmatter, mode = 'create', expectedHash }) {
-  let existing = null;
-  try {
-    existing = await fsp.readFile(abs, 'utf8');
-  } catch (error) {
-    if (error.code !== 'ENOENT') throw error;
-  }
-
+function renderDocument(existing, rel, { content, frontmatter, mode = 'create', expectedHash }) {
   if (mode === 'create' && existing !== null) {
     throw new Error(`파일이 이미 있습니다. 덮어쓰려면 mode:"overwrite" 를 명시하세요: ${rel}`);
   }
@@ -629,25 +677,9 @@ async function writeDocLocked(abs, rel, { content, frontmatter, mode = 'create',
     }
   }
 
-  if (mode === 'create') {
-    // 존재 확인 후 rename 은 그 사이 생긴 파일을 덮어쓴다. wx 로 원자 생성한다.
-    const fh = await fsp.open(abs, 'wx');
-    try {
-      await fh.writeFile(final, 'utf8');
-    } finally {
-      await fh.close();
-    }
-  } else {
-    const tmp = path.join(path.dirname(abs), `.${path.basename(abs)}.${process.pid}.${Date.now()}.tmp`);
-    try {
-      await fsp.writeFile(tmp, final, 'utf8');
-      await fsp.rename(tmp, abs);
-    } finally {
-      await fsp.rm(tmp, { force: true });
-    }
-  }
-
-  return { path: rel, bytes: Buffer.byteLength(final), hash: sha1(Buffer.from(final, 'utf8')), mode };
+  const parsedFinal = splitFrontmatter(final);
+  validateFrontmatter(parsedFinal.frontmatter, parsedFinal.raw);
+  return final;
 }
 
 export { nfc, sha1 };

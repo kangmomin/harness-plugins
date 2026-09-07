@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * work-log MCP 서버 — stdio JSON-RPC 2.0, 런타임 의존성 0.
+ * work-log MCP 서버 — Node stdio JSON-RPC; write/sync use the Python POSIX helper.
  *
  * 규율:
  *   - stdout 에는 JSON-RPC 메시지만. 모든 로그는 stderr (console.log 한 줄이 세션을 깨뜨린다).
@@ -13,11 +13,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { resolveConfig, ConfigError } from './lib/config.js';
 import {
-  syncIndex, readIndex, safeResolve, splitFrontmatter, writeDoc, indexPaths,
+  syncIndex, readIndexState, safeResolve, splitFrontmatter, writeDoc, indexPaths,
 } from './lib/vault.js';
 import { rank, extractSection, applyBudget } from './lib/search.js';
+import { ioCapability } from './lib/io.js';
 
-const SERVER_INFO = { name: 'work-log', version: '0.2.2' };
+const SERVER_INFO = { name: 'work-log', version: '0.3.0' };
 const SUPPORTED_PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
 const log = (...a) => process.stderr.write(`[work-log] ${a.join(' ')}\n`);
@@ -115,9 +116,9 @@ function requireConfig() {
 }
 
 function loadIndex(cfg) {
-  const idx = readIndex(cfg.root);
+  const { index: idx, reason } = readIndexState(cfg.root);
   if (!idx) {
-    const e = new Error('인덱스가 아직 없습니다. wiki_sync 를 먼저 실행하세요.');
+    const e = new Error(`인덱스를 다시 생성해야 합니다 (${reason}). wiki_sync 를 실행하세요.`);
     e.userFacing = true;
     throw e;
   }
@@ -127,10 +128,10 @@ function loadIndex(cfg) {
 const HANDLERS = {
   wiki_status() {
     const cfg = resolveConfig();
-    const base = { cwd: cfg.cwd, configSource: cfg.configSource, server: SERVER_INFO.version };
+    const base = { cwd: cfg.cwd, configSource: cfg.configSource, server: SERVER_INFO.version, safeIO: ioCapability() };
     if (cfg.needsInit) return text({ ...base, needsInit: true, hint: cfg.hint });
 
-    const idx = readIndex(cfg.root);
+    const { index: idx, reason } = readIndexState(cfg.root);
     const { dir, file } = indexPaths(cfg.root);
     let indexAge = null;
     try {
@@ -148,6 +149,9 @@ const HANDLERS = {
       indexAgeSeconds: indexAge,
       generatedAt: idx?.generatedAt ?? null,
       counts: idx?.counts ?? null,
+      indexState: reason ?? idx.status,
+      errors: idx?.errors ?? [],
+      scan: idx?.scan ?? null,
     });
   },
 
@@ -159,6 +163,9 @@ const HANDLERS = {
       scope: cfg.scope,
       generatedAt: index.generatedAt,
       counts: index.counts,
+      status: index.status,
+      errors: index.errors,
+      scan: index.scan,
       drift,
     });
   },
@@ -212,11 +219,19 @@ const HANDLERS = {
     // 인덱스를 즉시 갱신해 방금 쓴 문서가 바로 검색된다.
     // 의도적으로 **전체 sync** 를 돈다 (엔트리 하나만 patch 하지 않는다):
     // 새 문서의 링크가 다른 문서의 backlink/brokenLinks/orphans 를 바꾸므로
-    // 그래프는 어차피 전역 재계산이 필요하다. 300개 규모에서 수백 ms.
-    // 지연이 실제로 관측되면 그때 증분화한다 (plan §2.3 과 동일한 판단).
-    const { index } = await syncIndex(cfg);
-    const entry = index.docs.find((d) => d.path === res.path) ?? null;
-    return text({ written: res, indexed: entry ? { title: entry.title, type: entry.type, tags: entry.tags } : null });
+    // 그래프는 전역 재계산이 필요하다. scan 계측에서 지연이 확인되면 증분화를 검토한다.
+    try {
+      const { index } = await syncIndex(cfg);
+      const entry = index.docs.find((d) => d.path === res.path) ?? null;
+      return text({
+        written: res,
+        indexed: entry ? { title: entry.title, type: entry.type, tags: entry.tags } : null,
+        indexing: { status: index.status, errors: index.errors, retry: index.status === 'OK' ? null : 'wiki_sync' },
+      });
+    } catch (error) {
+      // Document storage already committed. Retrying the append would duplicate content.
+      return text({ written: res, indexed: null, indexing: { status: 'FAILED', error: error.message, retry: 'wiki_sync' } });
+    }
   },
 };
 
@@ -237,7 +252,7 @@ function validateArgs(tool, args) {
     if (spec.type === 'string' && typeof val !== 'string') throw new Error(`${key} 는 string 이어야 합니다`);
     if (spec.type === 'integer' && !Number.isInteger(val)) throw new Error(`${key} 는 integer 여야 합니다`);
     if (spec.type === 'array' && !Array.isArray(val)) throw new Error(`${key} 는 array 여야 합니다`);
-    if (spec.type === 'object' && (typeof val !== 'object' || Array.isArray(val))) {
+    if (spec.type === 'object' && (val === null || typeof val !== 'object' || Array.isArray(val))) {
       throw new Error(`${key} 는 object 여야 합니다`);
     }
     if (spec.enum && !spec.enum.includes(val)) {
@@ -292,7 +307,8 @@ async function handleMessage(msg) {
       } catch (e) {
         // 툴 실행 실패는 JSON-RPC error 가 아니라 isError 결과다
         if (!(e instanceof ConfigError) && !e.userFacing) log('tool error', name, e.stack ?? e.message);
-        return ok(id, toolError(e.message));
+        return ok(id, toolError(e.writeState ? JSON.stringify({ message: e.message, write_state: e.writeState,
+          retry: e.writeState === 'unknown' ? 'wiki_read before deciding whether to retry' : null }) : e.message));
       }
     }
 

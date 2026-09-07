@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import fsp from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -73,23 +72,6 @@ test('쓰기 거부 뒤 잠금을 해제하여 다음 수정이 가능하다', a
   await writeDoc(cfg, { relPath: 'doc.md', mode: 'append', content: 'next' });
   assert.equal(fs.readFileSync(path.join(cfg.root, 'doc.md'), 'utf8'), '# Original\n\nnext');
   assert.deepEqual(fs.readdirSync(cfg.root), ['doc.md']);
-});
-
-test('소유자 기록·rename 오류에도 자기 잠금과 임시 파일을 정리한다', async (t) => {
-  const cfg = fixture(t);
-  fs.writeFileSync(path.join(cfg.root, 'doc.md'), '# Original');
-  for (const method of ['writeFile', 'rename']) {
-    const original = fsp[method];
-    const mock = t.mock.method(fsp, method, async (...args) => {
-      if (method === 'rename' || String(args[0]).endsWith('/owner.json')) throw new Error('injected I/O failure');
-      return original(...args);
-    });
-    await assert.rejects(writeDoc(cfg, { relPath: 'doc.md', mode: 'append', content: 'lost' }), /injected I\/O failure/);
-    mock.mock.restore();
-    assert.deepEqual(fs.readdirSync(cfg.root), ['doc.md']);
-    assert.equal(fs.readFileSync(path.join(cfg.root, 'doc.md'), 'utf8'), '# Original');
-  }
-  await writeDoc(cfg, { relPath: 'doc.md', mode: 'append', content: 'next' });
 });
 
 test('보유된 문서 락을 회수하지 않고 다른 문서는 독립적으로 쓴다', { timeout: 10000 }, async (t) => {
