@@ -1,0 +1,145 @@
+{
+  "versions": {
+    "vue": "3.5.42",
+    "react": "18.3.1",
+    "vite": "6.4.3",
+    "typescript": "5.9.3",
+    "vue-tsc": "3.2.5",
+    "vitest": "3.2.7",
+    "jest": "30.2.0"
+  },
+  "cases": [
+    {
+      "framework": "nuxt",
+      "typescript": true,
+      "runner": "jest",
+      "verdict": "BLOCKED_BEFORE_WRITE"
+    },
+    {
+      "framework": "nuxt",
+      "typescript": false,
+      "runner": "jest",
+      "verdict": "BLOCKED_BEFORE_WRITE"
+    },
+    {
+      "check": "build",
+      "verdict": "PASS"
+    },
+    {
+      "check": "typecheck",
+      "verdict": "PASS"
+    },
+    {
+      "check": "vitest",
+      "verdict": "PASS"
+    },
+    {
+      "check": "jest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "nextjs",
+      "typescript": true,
+      "runner": "vitest",
+      "name": "NextjsTypeScriptVitest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "nextjs",
+      "typescript": true,
+      "runner": "jest",
+      "name": "NextjsTypeScriptJest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "nextjs",
+      "typescript": false,
+      "runner": "vitest",
+      "name": "NextjsJavaScriptVitest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "nextjs",
+      "typescript": false,
+      "runner": "jest",
+      "name": "NextjsJavaScriptJest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "vite",
+      "typescript": true,
+      "runner": "vitest",
+      "name": "ViteTypeScriptVitest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "vite",
+      "typescript": true,
+      "runner": "jest",
+      "name": "ViteTypeScriptJest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "vite",
+      "typescript": false,
+      "runner": "vitest",
+      "name": "ViteJavaScriptVitest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "vite",
+      "typescript": false,
+      "runner": "jest",
+      "name": "ViteJavaScriptJest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "cra",
+      "typescript": true,
+      "runner": "vitest",
+      "name": "CraTypeScriptVitest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "cra",
+      "typescript": true,
+      "runner": "jest",
+      "name": "CraTypeScriptJest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "cra",
+      "typescript": false,
+      "runner": "vitest",
+      "name": "CraJavaScriptVitest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "cra",
+      "typescript": false,
+      "runner": "jest",
+      "name": "CraJavaScriptJest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "nuxt",
+      "typescript": true,
+      "runner": "vitest",
+      "name": "NuxtTypeScriptVitest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "nuxt",
+      "typescript": false,
+      "runner": "vitest",
+      "name": "NuxtJavaScriptVitest",
+      "verdict": "PASS"
+    }
+  ],
+  "scope": "Framework-neutral components: React JSX and Nuxt-compatible Vue SFC; no Next/Nuxt/CRA application/router or Storybook UI build",
+  "environment": {
+    "node": "24.11.0",
+    "date": "2026-09-06",
+    "os": "Linux"
+  }
+}

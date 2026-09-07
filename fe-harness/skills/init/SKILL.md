@@ -14,6 +14,10 @@ user-invocable: true
 
 플러그인에서 사용하는 모든 환경 설정을 한 번에 세팅한다.
 
+## 생성 기능의 지원 범위
+
+framework·typescript·testRunner·uiLibrary 선택을 함께 검증한다. component SKILL.md Step 1의 조합 표를 먼저 읽는다. Nuxt는 Vue SFC를 생성하고 JavaScript는 TS 문법을 생성하지 않는다. Nuxt+Jest나 Vue+React 전용 UI를 선택하면 기본 generator 미지원임을 설정 저장 전에 알린다. 기존 프로젝트에서 그 조합을 사용하는 profile을 임의 React/Vitest로 바꾸지 않으며, 검증된 프로젝트 템플릿이 없으면 생성 작업은 BLOCKED다. Vitest globals 설정을 true로 바꾸는 작업은 요구하지 않는다.
+
 ## Language Rule
 
 유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.

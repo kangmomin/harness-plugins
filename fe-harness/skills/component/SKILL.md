@@ -23,21 +23,29 @@ user-invocable: true
 
 ## Prerequisites
 
-- `.claude/fe-harness.local.md` 필요. 없으면 `/fe-harness:init` 실행을 안내한다.
+먼저 현재 설치된 FE `skills/config/assets/profile.py resolve --domain fe --cwd "{CWD}"`로 실효 설정을 읽는다. primary가 없고 유효 legacy만 있으면 정상 진행하며 JSON에는 쓰지 않는다. 둘 다 없는 경우에만 init으로 설정 생성을 안내한다. 아래의 profile 표/설정 조회는 모두 이 실효 결과를 뜻한다.
+
+
+- 실효 profile 필요. 레거시는 읽기 전용으로 정상 지원한다.
 
 ---
 
 ## 실행 흐름
 
-### Step 1: 설정 로드
+### Step 1: 설정·지원 조합 확인
 
-`.claude/fe-harness.local.md`에서 다음을 읽는다:
-- `framework` — 프레임워크 (nextjs, vite 등)
-- `uiLibrary` — UI 라이브러리 (tailwind, styled-components 등)
-- `testRunner` — 테스트 러너 (vitest, jest)
-- `componentPattern` — 컴포넌트 구조 패턴 (feature-based, atomic, flat)
-- `typescript` — TypeScript 사용 여부
-- `storybook` — Storybook 사용 여부
+실효 profile의 framework·typescript·testRunner·uiLibrary·componentPattern·storybook을 읽고 기존 파일과 package 의존성이 선택과 일치하는지 확인한다. `vite`는 이 하네스에서 React + Vite 선택이다. Vue Vite 등 다른 조합이면 프로젝트 템플릿을 먼저 확인하고 임의 React 생성은 하지 않는다.
+
+| framework | 언어 | 단위 러너 | 생성 형태 |
+|-----------|------|-----------|-----------|
+| nextjs / vite(React) / cra | TypeScript | Vitest / Jest | .tsx 컴포넌트·테스트, .ts 배럴·스토리 |
+| nextjs / vite(React) / cra | JavaScript | Vitest / Jest | .jsx 컴포넌트·테스트, .js 배럴·스토리 |
+| nuxt(Vue 3) | TypeScript / JavaScript | Vitest | .vue SFC(script lang 분기), .ts/.js 테스트·배럴·스토리 |
+| nuxt + Jest / 알 수 없는 framework·언어 / Vue + React 전용 UI | 해당 조합 | 해당 러너 | 파일 생성 전 BLOCKED:UNSUPPORTED_COMBINATION; 기존 프로젝트의 검증된 템플릿이 제공되면 그 경로 사용 |
+
+Nuxt의 기본 UI는 tailwind/css-modules를 지원한다. Vue에 styled-components/shadcn/mui/antd의 React 템플릿을 적용하지 않는다. 이 helper는 framework-neutral 컴포넌트 골격이다. Next client boundary, Nuxt auto-import/composable/SSR, CRA 설정을 포함한 앱 통합은 기존 프로젝트 규칙을 별도로 따른다.
+
+테스트 API는 Vitest면 `vitest`, Jest면 `@jest/globals`에서 **명시 import**한다. globals 설정을 요구하지 않는다. Testing Library는 React/Vue에 맞춰 선택한다. Storybook은 선택한 renderer의 패키지·기존 구성에서 사용 가능할 때만 생성하며 JS에는 `import type`/interface/타입 주석을 쓰지 않는다. 누락 의존성을 자동 설치하지 않는다.
 
 ### Step 2: 컴포넌트 정보 수집
 
@@ -57,99 +65,25 @@ user-invocable: true
 
 기존 프로젝트의 디렉토리 구조를 `Glob`으로 탐색하여 적합한 경로를 제안한다.
 
-### Step 3: 파일 생성
+### Step 3: 템플릿 생성·적용·검증
 
-설정에 따라 다음 파일들을 생성한다:
+선택 조합을 helper에 전달한다. helper는 JSON만 반환하며 프로젝트 파일을 쓰지 않는다.
 
-#### 3.1 컴포넌트 파일 (`{ComponentName}.tsx`)
-
-```tsx
-interface {ComponentName}Props {
-  // TODO: props 정의
-}
-
-export function {ComponentName}({ }: {ComponentName}Props) {
-  return (
-    <div>
-      {/* TODO: 구현 */}
-    </div>
-  );
-}
+```bash
+python3 -I -B "{PLUGIN_ROOT}/skills/component/assets/component_templates.py" \
+  --name "{ComponentName}" --framework "{framework}" --typescript "{true|false}" \
+  --runner "{testRunner}" --ui "{uiLibrary}"
 ```
 
-**인터랙티브 요소가 포함되는 경우**, 보일러플레이트에 `aria-label`을 기본 포함한다:
+storybook:true이면 `--storybook`을 추가한다. BLOCKED(exit 2)는 파일을 하나도 쓰지 않고 사용자에게 원인을 알린다. 이름·경로가 부정확하면 임의 정규화하지 않는다.
 
-```tsx
-// 버튼이 포함되는 컴포넌트
-export function {ComponentName}({ }: {ComponentName}Props) {
-  return (
-    <div>
-      <button aria-label="{ComponentName} 동작 설명">
-        {/* 아이콘 버튼이면 aria-label 필수 */}
-      </button>
-    </div>
-  );
-}
+- `files` 객체에서 반환한 확장자·import·언어를 그대로 시작점으로 삼고 요청된 props/동작에 맞춰 최소 수정한다. React와 Vue 파일을 섞지 않는다.
+- 목적지에 같은 파일이 있으면 기존 내용을 읽어 요청된 변경으로 통합한다. 새 보일러플레이트로 전체 덮어쓰지 않는다. 파일 생성 전 충돌 목록을 확인한다.
+- 기본 scaffold는 React children / Vue slot 콘텐츠를 전달하며 테스트는 그 콘텐츠가 렌더되는지 확인한다. 도메인 동작 테스트는 요청된 관측 가능한 요구사항이 있을 때 추가한다.
+- 스타일 파일은 uiLibrary별로 생성하고, 스토리는 해당 renderer의 형식을 사용한다. 인터랙티브 요소를 추가했으면 실제 역할·레이블·키보드 동작을 확인한다.
+- 실효 build/type/unit 명령으로 새 파일을 검증한다. TypeScript false는 타입 검사를 SKIP하고 JS 컴파일·선택 runner 검증은 수행한다. Vitest globals:false에서도 테스트가 실행돼야 한다.
 
-// 입력 필드가 포함되는 컴포넌트
-export function {ComponentName}({ }: {ComponentName}Props) {
-  return (
-    <div>
-      <label htmlFor="{componentName}-input">레이블</label>
-      <input id="{componentName}-input" aria-describedby="{componentName}-help" />
-      <p id="{componentName}-help">도움말 텍스트</p>
-    </div>
-  );
-}
-```
-
-#### 3.2 스타일 파일 (uiLibrary에 따라 분기)
-
-| uiLibrary | 파일 | 형식 |
-|-----------|------|------|
-| `tailwind` | 생성 안 함 | className으로 직접 작성 |
-| `css-modules` | `{ComponentName}.module.css` | CSS Modules |
-| `styled-components` | `{ComponentName}.styled.ts` | Styled Components |
-| `shadcn` | 생성 안 함 | shadcn 컴포넌트 조합 |
-| `mui` / `antd` | 생성 안 함 | 라이브러리 컴포넌트 조합 |
-
-#### 3.3 테스트 파일 (`{ComponentName}.test.tsx`)
-
-```tsx
-import { render, screen } from '@testing-library/react';
-import { {ComponentName} } from './{ComponentName}';
-
-describe('{ComponentName}', () => {
-  it('renders without crashing', () => {
-    render(<{ComponentName} />);
-  });
-});
-```
-
-#### 3.4 Storybook 파일 (`{ComponentName}.stories.tsx`) — storybook: true일 때만
-
-```tsx
-import type { Meta, StoryObj } from '@storybook/react';
-import { {ComponentName} } from './{ComponentName}';
-
-const meta: Meta<typeof {ComponentName}> = {
-  title: '{경로}/{ComponentName}',
-  component: {ComponentName},
-};
-
-export default meta;
-type Story = StoryObj<typeof {ComponentName}>;
-
-export const Default: Story = {
-  args: {},
-};
-```
-
-#### 3.5 배럴 파일 (`index.ts`)
-
-```ts
-export { {ComponentName} } from './{ComponentName}';
-```
+저장소 fixture `tests/fixtures/fe-components/verify.py`는 생성 helper를 직접 실행해 React/Vue·JS/TS·Vitest/Jest 지원 조합을 Vite build, vue-tsc, 실제 두 runner로 검증한다. 이는 Next/Nuxt/CRA 앱 전체나 Storybook 브라우저 빌드 검증과 구별한다. 프로젝트 검증에 실패하면 생성 완료 PASS를 보고하지 않는다.
 
 ### Step 4: 결과 보고
 
@@ -163,7 +97,7 @@ export { {ComponentName} } from './{ComponentName}';
 | 스토리 | `src/features/auth/components/LoginForm/LoginForm.stories.tsx` |
 | 배럴 | `src/features/auth/components/LoginForm/index.ts` |
 
-다음 단계: 컴포넌트 Props를 정의하고 UI를 구현하세요.
+선택한 framework·언어·runner, 실제 실행한 검증과 SKIP/미검증 범위를 함께 보고한다.
 ```
 
 ---

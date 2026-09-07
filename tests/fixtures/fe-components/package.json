@@ -1,0 +1,35 @@
+{
+  "name": "harness-fe-component-fixtures",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "verify": "python3 -B verify.py"
+  },
+  "devDependencies": {
+    "@babel/core": "7.28.5",
+    "@babel/preset-env": "7.28.5",
+    "@babel/preset-react": "7.28.5",
+    "@babel/preset-typescript": "7.28.5",
+    "@storybook/react": "8.6.14",
+    "@storybook/vue3": "8.6.14",
+    "@testing-library/react": "14.3.1",
+    "@testing-library/vue": "8.1.0",
+    "@types/react": "18.3.27",
+    "@types/react-dom": "18.3.7",
+    "@vitejs/plugin-react": "4.7.0",
+    "@vitejs/plugin-vue": "5.2.4",
+    "@vue/test-utils": "2.4.6",
+    "babel-jest": "30.2.0",
+    "jest": "30.2.0",
+    "jest-environment-jsdom": "30.2.0",
+    "jsdom": "24.1.3",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "styled-components": "6.1.19",
+    "typescript": "5.9.3",
+    "vite": "6.4.3",
+    "vitest": "3.2.7",
+    "vue": "3.5.42",
+    "vue-tsc": "3.2.5"
+  }
+}
