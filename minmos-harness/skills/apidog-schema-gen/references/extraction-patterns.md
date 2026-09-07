@@ -2,7 +2,7 @@
 
 ## 핵심 원칙
 
-**재사용(2곳 이상)되는 객체만 `$ref`로 분리한다.** 나머지는 필드 수, 중첩 깊이와 관계없이 모두 flat 인라인으로 출력한다. 유저가 스키마를 한 번에 copy 할 수 있어야 한다.
+`schema-contract.md`가 dialect/참조 정책의 canonical이다. 비순환 객체는 인라인 표시할 수 있고 재사용·순환 객체는 필요한 local 정의와 함께 전달한다. 순환 입력을 무한 확장하거나 임의 깊이에서 자르지 않는다.
 
 ---
 
@@ -119,25 +119,7 @@ Ref schema - `CartPriceInfo`:
 
 ## Pattern 4: Nullable Fields
 
-OAS에서 `"type": "null"`인 필드는 nullable로 변환한다.
-
-**Input:**
-```json
-{
-  "previewPdfPath": { "type": "null" },
-  "difficulty": { "type": "null" }
-}
-```
-
-**Output:**
-```json
-{
-  "previewPdfPath": { "type": ["string", "null"] },
-  "difficulty": { "type": ["object", "null"] }
-}
-```
-
-> OAS 원본에 `type: "null"`만 있는 경우, example 값이나 description에서 실제 타입을 유추한다. 유추 불가 시 `"type": ["string", "null"]`을 기본값으로 사용하되 유저에게 확인한다.
+`schema-contract.md`의 dialect별 표현을 따른다. OAS 3.0 import는 `type: string, nullable: true`, OAS 3.1 출력은 `type: [string, 'null']`이다. array/object와 composition 안에도 같은 규칙을 적용하고 enum/oneOf의 null·비null 의미를 검증한다. null만 관찰했다고 기본 string 타입을 발명하지 않는다.
 
 ---
 
@@ -276,20 +258,20 @@ OAS 원본에 `required` 배열이 있으면 그대로 유지. 없으면 `requir
 배열 아이템이 객체인 경우에도 재사용 기준을 동일하게 적용한다. 1곳에서만 사용되면 인라인, 2곳 이상이면 ref.
 
 ### Query Parameters (GET)
-GET 엔드포인트의 query parameters는 ref 분리 대상이 아니다. **CSV 형태**로 정리한다.
+모든 method의 실제 query parameters는 ref 분리 대상이 아니다. **CSV 형태**로 정리한다.
 
 #### CSV 형식 규칙
 
 - **컬럼 헤더 없이** 데이터만 출력한다.
-- 컬럼 순서: `이름, 유형, 예시, 설명`
+- 컬럼 순서: `이름, 유형, 필수, 예시, 고정 파라미터, 설명` (SKILL Step 6.3과 동일)
 - 중간 필드가 비어도 쉼표(`,`)는 반드시 유지한다.
 - 값에 쉼표가 포함되면 해당 값을 큰따옴표로 감싼다.
 
 ```csv
-cursor,string,W3siY29sdW1uIjoi....,페이지네이션 커서
-limit,string,,조회 건수
-order,string,created_at:desc,정렬 기준
-keyword,string,그립,검색 키워드
+cursor,string,false,W3siY29sdW1uIjoi....,,페이지네이션 커서
+limit,integer,false,20,,조회 건수
+order,string,false,created_at:desc,,정렬 기준
+keyword,string,false,그립,,검색 키워드
 ```
 
 #### Query Parameter JSON Schema 옵션

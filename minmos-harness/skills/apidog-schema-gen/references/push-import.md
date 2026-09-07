@@ -2,7 +2,9 @@
 
 # Apidog Push 상세 + Import API 레퍼런스
 
-## Step 8.1: 환경 변수 확인
+## Step 8.1: 실제 도구·대상 고정 및 환경 확인
+
+먼저 `import-contract.md`의 실제 callable/project/branch 확인을 수행한다. `--skip-doctor`, deprecated 분기도 생략하지 않는다. 이 문서의 전송/재시도 경계는 `import-contract.md`가 canonical이다.
 
 필요한 환경 변수 2개: `APIDOG_ACCESS_TOKEN` (Personal Access Token), `APIDOG_PROJECT_ID` (대상 프로젝트 ID)
 
@@ -85,12 +87,7 @@ status 는 **항상 명시한다** — 생략하지 않는다. import 시 `x-api
    - `deprecated: true` (OpenAPI 표준 필드 — Apidog 외 도구에서도 인식된다)
 3. Step 4(코드베이스 교차 검증)와 Step 8.3(스키마 재구성)은 건너뛴다 — 대조할 코드가 없고, 재구성은 보존과 상충한다.
 4. **재발행 전 차이 검증**: 생성한 YAML 과 원본 정의를 비교해 **위 두 필드 외에 달라진 곳이 없는지** 확인한다. 다른 차이가 있으면 push 하지 않고 보고한다 — "기존 정의를 그대로 보존하지 못해 중단했습니다."
-5. **검증한 페이로드를 저장한다** — Step 8.4가 읽는 경로와 동일해야 한다:
-   ```bash
-   # 보존 + 두 필드만 추가한 결과를 저장
-   /tmp/apidog-push-{endpoint-slug}.yaml
-   ```
-   이 분기는 Step 8.3을 건너뛰므로, 여기서 저장하지 않으면 Step 8.4가 파일을 찾지 못하거나 **이전 실행이 남긴 낡은 파일**을 읽어 엉뚱한 스펙을 push 한다. 저장 후 파일이 방금 만든 내용인지(대상 경로·method·`x-apidog-status: deprecated`·`deprecated: true`) 확인하고 Step 8.4로 넘어간다.
+5. **기존 dialect와 선택된 정의를 보존한 채 freeze한다.** `import-contract.md`의 `freeze`로 run 전용 디렉터리·원래 receipt를 만들고, Step 8.4에서 그 receipt를 사용한다. 이 분기는 normalize/코드 재생성을 하지 않는다. 두 필드 외 차이가 있거나 해당 dialect validator를 통과하지 못하면 BLOCKED다.
 6. **overwrite 모드 제약**: 이 분기는 `OVERWRITE_EXISTING` 으로만 push 한다.
    - `--keep`(KEEP_EXISTING) → status 갱신이 무시된다. 거부하고 안내한다.
    - `--new`(CREATE_NEW) → 엔드포인트가 중복 생성된다. 거부하고 안내한다.
@@ -120,108 +117,23 @@ status 는 **항상 명시한다** — 생략하지 않는다. import 시 `x-api
 
 출처: <https://docs.apidog.com/x-apidog-status-1981670m0> (literal 목록), <https://docs.apidog.com/endpoint-status-539760m0> (신규 기본값 `developing`)
 
-## Step 8.3: OpenAPI Spec 생성
+## Step 8.3: OpenAPI Spec 생성과 freeze
 
-코드 기준 최종 스키마를 단일 엔드포인트 OpenAPI 3.0 YAML로 변환한다.
+`import-contract.md`의 select → 확인된 필드 수정 → dialect normalization → 전체 OAS validation → freeze를 수행한다. 실제 모든 응답 status, parameter 위치, body 유무와 참조를 보존한다. `responses.200` 고정이나 method별 생략 규칙을 사용하지 않는다. `schema-contract.md`의 nullable/순환 ref 규칙을 따른다.
 
-> **예외**: Step 8.2.5에서 status 가 `deprecated` 로 결정된 경우 이 단계를 수행하지 않는다 — 그 분기는 "deprecated push 특칙"에서 기존 정의를 그대로 재발행하며 종결되고, **YAML 저장도 그 분기가 직접 수행한다**(같은 `/tmp/apidog-push-{endpoint-slug}.yaml` 경로). 저장까지 마친 뒤 아래 Step 8.4(Import API 호출)로 바로 넘어간다.
-
-- `openapi: "3.0.0"` 고정
-- `info.title`: 프로젝트명 또는 서비스명
-- `paths`: 해당 엔드포인트 1개만 포함
-- **`x-apidog-status`**: Step 8.2.5에서 결정한 값을 **operation 레벨에** 반드시 기입한다 (생략 금지)
-- `deprecated: true`: status 가 `deprecated` 일 때만 operation 에 함께 기입한다
-- `parameters`: GET이면 query params 포함
-- `requestBody`: POST/PUT/PATCH이면 request schema 포함
-- `responses.200`: response schema 포함
-- 모든 스키마는 flat 인라인 (Step 5 원칙 유지)
-
-배치 위치 예시 (operation 레벨 — `responses` 와 같은 깊이):
-
-```yaml
-paths:
-  /v1/reviews:
-    post:
-      summary: 리뷰 생성
-      x-apidog-status: developing
-      requestBody: { ... }
-      responses: { ... }
-```
-
-**파일 저장**: `/tmp/apidog-push-{endpoint-slug}.yaml`
-
-저장 직후 status 가 실제로 들어갔는지 확인한다 — 누락된 채 push 하면 기존 status 가 어떻게 되는지 보장되지 않는다:
-
-```bash
-grep -n 'x-apidog-status' /tmp/apidog-push-{endpoint-slug}.yaml
-```
-
-0건이면 push 하지 않고 YAML 생성을 다시 한다.
+`deprecated` 분기는 Step 8.2.5에서 기존 정의와 dialect를 보존하여 freeze했으므로 이 단계를 건너뛰고 **같은 receipt**로 Step 8.4에 진입한다.
 
 ## Step 8.4: Apidog Import API 호출
 
-```bash
-curl -s -X POST \
-  "https://api.apidog.com/v1/projects/${APIDOG_PROJECT_ID}/import-openapi" \
-  -H "Authorization: Bearer ${APIDOG_ACCESS_TOKEN}" \
-  -H "X-Apidog-Api-Version: 2024-03-28" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"input\": $(cat /tmp/apidog-push-{endpoint-slug}.yaml | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))'),
-    \"options\": {
-      \"endpointOverwriteBehavior\": \"OVERWRITE_EXISTING\",
-      \"schemaOverwriteBehavior\": \"OVERWRITE_EXISTING\",
-      \"updateFolderOfChangedEndpoint\": false,
-      \"prependBasePath\": false,
-      \"targetFolderId\": {folderId 또는 생략}
-    }
-  }"
-```
+`import-contract.md`의 `request`에 원래 receipt/run/target을 전달한다. 반환한 request bytes 자체를 메모리에서 전송한다. 토큰은 header로만 전달하고, body를 shell 문자열로 재구성하거나 파일을 다시 읽지 않는다. targetBranchId·folder·overwrite mode도 검증된 body에 이미 포함되어 있다. 실제 전송 hash와 응답을 기록한다.
 
-- `targetFolderId`: Step 8.2에서 결정한 폴더 ID. 기존 경로 수정 시에는 생략한다.
+## Step 8.5: 결과 확인과 제한된 재시도
 
-## Step 8.5: MCP Scraping Fallback (REST API 실패 시)
-
-REST API 호출이 실패하면 (302, 401, 400, 빈 응답, timeout 등), MCP에서 프로젝트 정보를 스크래핑하여 **1회 재시도**한다.
-
-**실패 감지:** HTTP status 비 2xx / `"success": false` 응답 / curl 자체 에러 (timeout, connection refused 등)
-
-**스크래핑 절차:**
-
-1. **MCP 설정 파싱** — 현재 클라이언트에서 읽을 수 있는 MCP 설정을 확인하여 인증 정보를 추출한다. `.mcp.json`에 한정하지 않는다.
-   - **Project ID**: 설정의 `args`에서 `--project-id=` 인자를 찾고 `APIDOG_PROJECT_ID`와 대조, 불일치 시 MCP 설정 값을 우선 사용
-   - **Access Token** 탐색 우선순위:
-     1. MCP 설정의 `args`에 `--api-key=` 또는 `--access-token=` 인자
-     2. MCP 설정의 `env` 섹션의 `APIDOG_ACCESS_TOKEN`
-     3. 둘 다 없으면 현재 셸의 `APIDOG_ACCESS_TOKEN` 환경 변수 유지
-2. **OAS 구조 확인** — `mcp__apidog__read_project_oas_*` 호출로 프로젝트 접근 가능 여부 확인, 대상 경로 존재 여부 재확인, 기존 경로 목록으로 folder 배치 후보 파악 (Step 8.2의 prefix 매칭 재사용).
-3. **교정된 파라미터로 1회 재시도**: 교정된 Project ID/Access Token 적용, 올바른 targetFolderId 지정, YAML 포맷은 기존 OAS 엔드포인트 구조를 참고하여 호환성 검증.
-
-> **핵심**: MCP가 OAS를 정상 조회하고 있어도 인증 정보가 반드시 `.mcp.json`에 있는 것은 아니다. 읽을 수 있는 MCP 설정과 현재 환경 변수를 함께 사용한다.
-
-재시도도 실패하면 즉시 수동 안내로 전환한다. **2회 이상 반복 시도하지 않는다.**
-
-> 수동 안내: "자동 Push가 실패했습니다. 아래 YAML 파일을 Apidog에서 수동으로 Import 해주세요: `/tmp/apidog-push-{endpoint-slug}.yaml`"
+`import-contract.md`의 outcome → decision → 같은 대상의 최신 read-back을 따른다. 인증 교체가 대상 project/branch/folder를 바꾸지 않는다. 확정된 미전송/무변경 거절만 같은 request로 1회 재시도한다. timeout/빈 응답/부분 적용 뒤에는 MCP→REST 자동 전환이나 수동 재import를 제안하지 않고 UNKNOWN을 유지한다.
 
 ## Step 8.6: 결과 보고
 
-API 응답의 `data.counters`를 파싱하여 유저에게 보고:
-
-```
-### Apidog Push 결과
-| 항목 | 생성 | 수정 | 실패 | 무시 |
-|------|------|------|------|------|
-| Endpoint | {created} | {updated} | {failed} | {ignored} |
-| Schema | {created} | {updated} | {failed} | {ignored} |
-```
-
-적용한 status 도 함께 보고한다:
-
-```
-- status: `{값}` ({한국어 라벨}) — {플래그 지정 | 추론: 사유 | 기존 값 유지}
-```
-
-`errors` 배열이 비어있지 않으면 에러 내용도 함께 출력한다.
+project/branch/method/path, request hash, 시도별 HTTP/MCP 결과, counters/errors, 실제 read-back 상태와 적용 status를 보고한다. 성공 counters가 있어도 부분 실패·pending이면 완료가 아니다. `OBSERVED_MATCH`는 현재 문서 일치이며 이 요청의 적용 원인까지 증명한 것은 아니다. UNKNOWN일 때는 보존된 artifact와 미확정 원인을 함께 보고한다.
 
 ## Step 8.7: Push 옵션
 
@@ -235,7 +147,7 @@ API 응답의 `data.counters`를 파싱하여 유저에게 보고:
 | `--new` | 항상 새로 생성 (CREATE_NEW) | OVERWRITE_EXISTING |
 | `--branch {id}` | 대상 브랜치 ID | main |
 | `--status {값}` | 엔드포인트 status 지정 (10종 literal, Step 8.2.5 표 참조) | 컨텍스트 추론 |
-| `--dry-run` | YAML만 생성하고 실제 푸시하지 않음 (생성된 `x-apidog-status` 값도 함께 출력) | false |
+| `--dry-run` | 검증된 run 전용 OAS/receipt만 생성하고 전송하지 않음 (생성된 `x-apidog-status` 값도 함께 출력) | false |
 
 ---
 
@@ -301,7 +213,7 @@ POST https://api.apidog.com/v1/projects/{projectId}/import-openapi
 
 | 증상 | 원인 | 해결 |
 |------|------|------|
-| 302 Redirect | URL 오타 또는 프로젝트 ID 오류 | Step 8.5 MCP Fallback → project ID 추출 후 1회 재시도. 재실패 시 수동 안내 |
-| 401 Unauthorized | 토큰 만료/잘못됨 | Step 8.5 MCP Fallback → 토큰 추출 후 1회 재시도. 재실패 시 `APIDOG_ACCESS_TOKEN` 재생성 안내 |
-| 400 Bad Request | YAML 포맷 오류 | Step 8.5 MCP Fallback → 기존 OAS 구조 참조하여 YAML 검증 후 1회 재시도 |
-| `errors` 배열 비어있지 않음 | 스키마 충돌 | 에러 메시지 확인 후 options 조정 |
+| 302 Redirect | URL 오타 또는 프로젝트 ID 오류 | 대상 고정 유지, redirect는 UNKNOWN 처리 후 같은 대상 read-back |
+| 401 Unauthorized | 토큰 만료/잘못됨 | 같은 대상의 인증 수단만 교체. 확정 무변경 거절 근거가 있을 때만 같은 request로 1회 재시도 |
+| 400 Bad Request | YAML 포맷 오류 | 부분 적용 여부 확인. schema 수정이 필요하면 새 diff·validation·freeze, 이전 request의 재시도로 취급하지 않음 |
+| `errors` 배열 비어있지 않음 | 스키마 충돌 | 부분 적용/UNKNOWN 확인 후 read-back. options를 자동 변경하여 재전송하지 않음 |

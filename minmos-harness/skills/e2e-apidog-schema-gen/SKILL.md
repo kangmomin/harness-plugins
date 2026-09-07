@@ -1,7 +1,7 @@
 ---
 name: e2e-apidog-schema-gen
 description: "E2E 테스트 결과(요청/응답 실측)를 기반으로 Apidog 명세의 응답 케이스를 추가하고 스키마를 보정한다. e2e-test 실행 후 'Apidog 명세 보정해줘', 'E2E 결과로 문서 갱신' 요청 시 사용."
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, WebFetch, mcp__apidog__read_project_oas_w9of5k, mcp__apidog__read_project_oas_ref_resources_w9of5k, mcp__apidog__refresh_project_oas_w9of5k
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, WebFetch
 argument-hint: <API 경로 또는 'all'>
 user-invocable: true
 ---
@@ -10,6 +10,8 @@ user-invocable: true
 
 E2E 테스트에서 수집된 **실제 요청/응답 데이터**를 기반으로 Apidog 명세를 보정한다.
 테스트에서 관찰된 모든 응답 케이스(성공, 에러)를 명세에 반영하여, 문서와 실제 동작의 괴리를 제거한다.
+
+최초 호출 전 `../apidog-schema-gen/references/import-contract.md`의 discovery로 `APIDOG_CALLABLES`를 확정한다. `--skip-doctor`와 Phase 5 직접 실행도 discovery/대상 고정/validation/freeze/read-back을 생략하지 않는다.
 
 ## Language Rule
 
@@ -110,8 +112,8 @@ E2E 테스트에서 수집된 **실제 요청/응답 데이터**를 기반으로
 
 ### 2.1 OAS 읽기
 
-1. `mcp__apidog__read_project_oas_w9of5k`로 해당 경로의 `$ref` 확인
-2. `mcp__apidog__read_project_oas_ref_resources_w9of5k`로 상세 스키마 로드
+1. `{APIDOG_CALLABLES.read}`로 해당 경로의 `$ref` 확인
+2. `{APIDOG_CALLABLES.refs}`로 상세 스키마 로드
 3. 현재 정의된 `responses` 섹션의 status code 목록을 추출
 
 ### 2.2 코드베이스 교차 검증
@@ -140,7 +142,7 @@ E2E의 Happy Path 응답 body를 기반으로 스키마를 생성한다.
 - 실측 응답 body의 모든 필드를 포함
 - 코드의 response struct와 교차 검증하여 누락 필드 보완
 - 타입은 실측 값에서 유추하되, 코드 struct가 우선
-- **`/minmos-harness:apidog-schema-gen`의 flat 인라인 원칙을 따른다**
+- **`/minmos-harness:apidog-schema-gen`의 schema-contract.md의 선언 dialect/유한 local ref 원칙을 따른다**
 
 ### 3.2 에러 응답 케이스
 
@@ -179,7 +181,7 @@ E2E의 Validation 테스트 결과를 기반으로 request 스키마도 보정�
 
 - `required` 배열: 필수 필드 누락 시 400이 반환된 필드 목록
 - `enum`: 잘못된 값 시 400이 반환된 필드의 허용 값 목록
-- nullable: null 전송 시 정상 처리된 필드 → `["type", "null"]`
+- nullable: null 전송 시 정상 처리된 필드 → `선언 dialect의 nullable 표현 (schema-contract.md)`
 
 ---
 
@@ -213,11 +215,11 @@ E2E의 Validation 테스트 결과를 기반으로 request 스키마도 보정�
 
 `/minmos-harness:apidog-schema-gen`과 동일한 형식으로 출력한다:
 
-1. **Response Schema (성공)** — flat 인라인 JSON Schema
+1. **Response Schema (성공)** — 실제 status/media type별 선언 dialect 스키마
 2. **Response Schema (에러 케이스별)** — status code별 JSON Schema + 예시
 3. **Request Schema (보정 반영)** — 해당 시
 4. **OAS vs E2E 비교 테이블** — 명세와 실측의 차이
-5. **Query Parameters CSV** — GET 엔드포인트 해당 시
+5. **Query Parameters CSV** — 모든 method에서 실제 query가 있을 때
 
 ### 4.3 에러 케이스 상세 출력
 
@@ -235,7 +237,7 @@ E2E의 Validation 테스트 결과를 기반으로 request 스키마도 보정�
   "properties": {
     "code": { "type": "string", "example": "WARN_PMS_001" },
     "message": { "type": "string", "example": "필수 필드가 누락되었습니다" },
-    "detail": { "type": ["string", "null"] }
+    "detail": { "type": "string", "nullable": true }
   },
   "required": ["code", "message"]
 }
@@ -269,7 +271,7 @@ Push 전에 해당 API 경로가 Apidog에 이미 존재하는지 확인한다.
 ### 5.0.5 status 결정
 
 E2E 실측 결과를 근거로 엔드포인트 status 를 정하고 push 페이로드에 **반드시 기입**한다 (`x-apidog-status`, operation 레벨).
-허용 값 10종·deprecated 특칙의 canonical 은 `/minmos-harness:apidog-schema-gen` 의 `references/push-import.md` **Step 8.2.5** 다. 이 절은 그 우선순위를 E2E 맥락에 맞춰 확정한 것이며, 충돌하면 canonical 이 우선한다.
+허용 값 10종·deprecated 특칙의 canonical 은 `/minmos-harness:apidog-schema-gen` 의 [push-import 계약](../apidog-schema-gen/references/push-import.md) 다. 이 절은 그 우선순위를 E2E 맥락에 맞춰 확정한 것이며, 충돌하면 canonical 이 우선한다.
 
 **결정 순서 — 위에서 정해지면 아래는 보지 않는다:**
 
@@ -287,87 +289,13 @@ E2E 실측 결과를 근거로 엔드포인트 status 를 정하고 push 페이�
 
 기존 status 는 Phase 5.0에서 OAS 를 읽을 때 함께 확인한다 (`x-apidog-status`, 없으면 `developing` 으로 간주).
 
-### 5.0.6 push 페이로드 확정
+### 5.0.6 페이로드 검증과 freeze
 
-**전송 수단을 고르기 전에** 최종 operation 페이로드를 만들고 검증한다 — 5.1의 두 경로(MCP write / REST API)가 **같은 페이로드**를 보내야 status 누락이 생기지 않는다.
+`../apidog-schema-gen/references/import-contract.md`를 로드하고 한 operation의 실제 responses/status/parameters/body와 참조 의존성을 보존한다. dialect 변환은 같은 폴더의 `schema-contract.md`를 따른다. Phase 5.0.5에서 확정한 status를 반영한 최종 전체 OAS를 validator로 검증하고 `freeze`한다. status만 바뀌어도 변경이며 기존 스키마를 재생성하지 않는다.
 
-1. 코드·E2E 기준 스키마에 5.0.5의 status 를 얹어 단일 엔드포인트 OpenAPI 3.0 YAML 을 만든다 (`/tmp/apidog-push-{endpoint-slug}.yaml`).
-2. 구조 검증 — 셋 다 만족해야 5.1로 진행한다:
-   - `x-apidog-status` 가 **operation 레벨**에 있다 (`responses` 와 같은 깊이. `info` 나 path 레벨이 아니다)
-   - 값이 canonical 10종 literal 중 하나다
-   - status 가 `deprecated` 면 `deprecated: true` 도 함께 있다
-3. 검증 실패 시 push 하지 않고 YAML 생성을 다시 한다.
+### 5.1 Push 실행과 결과 확인
 
-> **변경 판정 주의**: Phase 5의 "변경 사항이 있으면 push" 판정에 **status 변경도 포함**한다. 스키마가 그대로여도 status 가 기존 값과 다르면 변경으로 보고 push 한다 — 그러지 않으면 status 전이(`testing` → `tested` 등)가 영영 반영되지 않는다.
-
-### 5.1 Push 실행 (MCP → REST API fallback)
-
-두 시도 모두 **5.0.6에서 확정·검증한 페이로드를 그대로** 전송한다. 전송 수단이 달라도 보내는 내용은 동일해야 한다.
-
-#### 시도 1: MCP write (Apidog MCP에 write 기능이 있는 경우)
-
-MCP tool로 직접 push를 시도한다 — 5.0.6의 페이로드(= `x-apidog-status` 포함)를 그대로 넘긴다. 성공하면 5.2로 진행.
-
-#### 시도 2: Apidog REST API (MCP write 불가 시)
-
-MCP에 write 기능이 없거나 실패하면, **즉시 Apidog REST API로 자동 전환**한다.
-반복 디버깅하지 않고 바로 대안을 사용한다.
-
-```bash
-# 1. 5.0.6에서 확정·검증한 /tmp/apidog-push-{endpoint-slug}.yaml 를 그대로 사용한다
-#    (여기서 스키마를 다시 만들지 않는다 — 재생성하면 status 검증 결과가 무효가 된다)
-
-# 2. Apidog Import API 호출
-curl -s -X POST \
-  "https://api.apidog.com/v1/projects/${APIDOG_PROJECT_ID}/import-openapi" \
-  -H "Authorization: Bearer ${APIDOG_ACCESS_TOKEN}" \
-  -H "X-Apidog-Api-Version: 2024-03-28" \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"input\": $(cat /tmp/apidog-push-{endpoint-slug}.yaml | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))'),
-    \"options\": {
-      \"endpointOverwriteBehavior\": \"OVERWRITE_EXISTING\",
-      \"schemaOverwriteBehavior\": \"OVERWRITE_EXISTING\",
-      \"updateFolderOfChangedEndpoint\": false,
-      \"prependBasePath\": false
-    }
-  }"
-```
-
-**필요 환경 변수**: `APIDOG_ACCESS_TOKEN`, `APIDOG_PROJECT_ID`
-미설정 시 유저에게 설정 안내 후 수동 가이드를 제공한다.
-
-#### 시도 2.5: MCP Scraping Fallback (REST API 실패 시)
-
-REST API 호출이 실패하면 (302, 401, 400, 빈 응답 등), MCP에서 프로젝트 정보를 스크래핑하여 **1회 재시도**한다.
-
-**스크래핑 절차:**
-
-1. **MCP 설정 파싱** — 현재 클라이언트에서 읽을 수 있는 MCP 설정을 확인하여 인증 정보를 추출한다. `.mcp.json`에 한정하지 않는다.
-   - **Project ID**: 설정의 `args`에서 `--project-id=` 인자를 찾고 `APIDOG_PROJECT_ID`와 대조, 불일치 시 MCP 설정 값을 우선 사용
-   - **Access Token**: 아래 우선순위로 탐색:
-     1. 읽을 수 있는 MCP 설정의 `args`에 `--api-key=` 또는 `--access-token=` 인자가 있으면 추출
-     2. 읽을 수 있는 MCP 설정의 `env` 섹션에 `APIDOG_ACCESS_TOKEN`이 있으면 추출
-     3. 둘 다 없으면 현재 셸의 `APIDOG_ACCESS_TOKEN` 환경 변수 유지
-
-2. **OAS 구조 확인** — `mcp__apidog__read_project_oas_w9of5k`를 호출하여:
-   - 프로젝트 접근 가능 여부 확인
-   - 대상 경로 존재 여부 및 기존 엔드포인트 경로 목록 확인
-   - 유사 경로의 path prefix 매칭으로 folder 배치 후보 파악 (Phase 5.0 로직 재사용)
-
-3. **교정된 파라미터로 1회 재시도:**
-   - 교정된 Project ID 및 Access Token 적용
-   - 올바른 targetFolderId 지정
-   - YAML 호환성 검증 (기존 OAS 구조 참조)
-
-> **핵심**: MCP가 OAS를 정상 조회하고 있어도 인증 정보가 반드시 `.mcp.json`에 있는 것은 아니다. 다른 설정 경로를 쓰는 클라이언트를 고려해 읽을 수 있는 MCP 설정과 현재 환경 변수를 함께 사용한다.
-
-재시도도 실패하면 **반복 시도 없이** 즉시 시도 3으로 전환한다.
-
-#### 시도 3: 수동 안내 (REST API도 실패 시 — 최후 수단)
-
-REST API 호출이 실패(302/redirect, 인증 에러 등)하면 수동 가이드를 제공한다:
-> "자동 Push가 실패했습니다. 아래 스키마를 Apidog에서 수동으로 업데이트해주세요."
+`import-contract.md`의 request → actual transport → outcome → decision/read-back을 그대로 따른다. 원래 receipt의 target과 request bytes를 유지한다. MCP write가 지원되지 않으면 첫 전송 전에 REST를 선택한다. 호출 후 timeout/부분 실패를 REST 자동 재전송으로 처리하지 않는다. 다른 MCP project/branch의 인증 정보로 대상을 바꾸지 않는다. 확정 미전송/무변경 거절만 동일 요청으로 1회 재시도할 수 있다.
 
 ### 5.2 Push 결과 보고
 
@@ -390,5 +318,5 @@ API 응답의 `data.counters`를 파싱하여 보고:
 1. **실측 데이터가 최우선** — E2E에서 관찰된 실제 응답이 스키마의 근거다.
 2. **코드로 보완** — 실측에서 커버하지 못한 케이스는 코드 분석으로 보충한다.
 3. **기존 명세를 존중** — 기존 명세에 이미 올바르게 정의된 부분은 건드리지 않는다.
-4. **flat 인라인 원칙 유지** — apidog-schema-gen과 동일한 출력 규칙을 따른다.
+4. **dialect/참조 계약 유지** — apidog-schema-gen의 schema-contract.md를 따른다.
 5. **에러 케이스는 개별 복사 가능하게** — 각 케이스를 독립적으로 Apidog에 붙여넣을 수 있어야 한다.

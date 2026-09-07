@@ -1,15 +1,17 @@
 ---
 name: apidog-schema-gen
-description: "This skill should be used when the user asks to \"generate API schema from Apidog\", \"extract request response schema\", \"Apidog에서 스키마 뽑아줘\", \"API 스키마 생성\", \"엔드포인트 스키마 추출\", \"스키마 파일로 저장\", \"flat schema\", \"Apidog에 푸시\", \"Apidog 동기화\", \"API 문서 업데이트\", or mentions extracting JSON schema from Apidog OAS endpoints or pushing specs to Apidog. Reads Apidog OAS endpoint definitions, cross-references with Go codebase structs to catch missing fields, generates flat inline JSON schemas, and optionally pushes OpenAPI specs to Apidog via Import API."
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, WebFetch, mcp__apidog__read_project_oas_w9of5k, mcp__apidog__read_project_oas_ref_resources_w9of5k, mcp__apidog__refresh_project_oas_w9of5k
+description: "This skill should be used when the user asks to \"generate API schema from Apidog\", \"extract request response schema\", \"Apidog에서 스키마 뽑아줘\", \"API 스키마 생성\", \"엔드포인트 스키마 추출\", \"스키마 파일로 저장\", \"flat schema\", \"Apidog에 푸시\", \"Apidog 동기화\", \"API 문서 업데이트\", or mentions extracting JSON schema from Apidog OAS endpoints or pushing specs to Apidog. Reads Apidog OAS endpoint definitions, cross-references with Go codebase structs to catch missing fields, generates dialect-explicit JSON schemas with finite local references, and optionally pushes OpenAPI specs to Apidog via Import API."
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, WebFetch
 user-invocable: true
 ---
 
 # Apidog Schema Generator
 
-Apidog OAS 엔드포인트 정의에서 request/response JSON 스키마를 추출하고, 모든 중첩 객체를 flat 인라인으로 펼쳐서 생성한다.
+Apidog OAS 엔드포인트 정의에서 request/response JSON 스키마를 추출하고, 선언된 dialect의 인라인/유한 local ref 스키마를 생성한다.
 
-Apidog MCP 도구는 `mcp__apidog__read_project_oas_*` 패턴으로 세션 도구 목록에서 탐색한다 (이 프로젝트 기본: `..._w9of5k`).
+Apidog MCP 도구는 `mcp__apidog__read_project_oas_*` 패턴으로 세션 도구 목록에서 탐색한다.
+
+모든 경로의 첫 호출 전에 `references/import-contract.md`의 discovery로 `APIDOG_CALLABLES`를 확정한다. 진단과 실제 실행은 같은 project/branch의 실제 호출명을 사용한다.
 
 ## Language Rule
 
@@ -28,7 +30,7 @@ Apidog MCP 도구는 `mcp__apidog__read_project_oas_*` 패턴으로 세션 도�
 
 `$ARGUMENTS`가 `--init`이면 아래 절차를 실행하고 종료한다:
 
-1. **Apidog MCP 연결 확인**: `mcp__apidog__read_project_oas_w9of5k` 호출 가능 여부와 응답을 확인한다.
+1. **Apidog MCP 연결 확인**: `{APIDOG_CALLABLES.read}` 호출 가능 여부와 응답을 확인한다.
    - 정상 응답이면 OK로 판정한다.
    - 호출 불가/실패면 현재 클라이언트의 MCP 설정 점검을 안내한다:
      > "Apidog MCP 서버에 연결할 수 없습니다. 사용하는 MCP 클라이언트 설정에 아래 서버를 등록하세요 (Claude/Codex는 `.mcp.json`, 일부 클라이언트는 별도 MCP 설정 위치):"
@@ -100,7 +102,7 @@ OAS에서 해당 경로를 찾을 수 없는 경우 (신규 API 등):
 ## Step 3: Read Endpoint OAS
 
 1. 해당 경로의 `$ref` 값을 확인한다.
-2. `mcp__apidog__read_project_oas_ref_resources_w9of5k`로 상세 스키마를 가져온다.
+2. `{APIDOG_CALLABLES.refs}`로 상세 스키마를 가져온다.
 3. 선택한 method의 `requestBody.content.application/json.schema`와 `responses.{statusCode}.content.application/json.schema`를 추출한다.
 4. **현재 status 캡처**: 같은 operation 의 `x-apidog-status` 값을 함께 읽어 보관한다 (없으면 `developing` 으로 간주). Step 7의 status 확인과 Step 8.2.5의 "현재 status 유지"·다운그레이드 금지 판정이 이 값을 근거로 한다 — 여기서 읽지 않으면 뒤에서 확인할 방법이 없다.
 
@@ -114,7 +116,7 @@ OAS 스키마를 Go 코드베이스의 실제 struct 정의와 교차 검증하�
 2. **필드 비교**: Go struct의 `json` 태그 필드 목록과 OAS `properties` 키를 비교한다.
 3. **누락 필드 보완**: Go struct에는 있지만 OAS에 없는 필드를 스키마에 추가한다.
    - 타입 매핑: `string`→`"string"`, `int/int64`→`"integer"`, `float64`→`"number"`, `bool`→`"boolean"`, `[]T`→`"array"`, struct→`"object"`
-   - 포인터 타입(`*string` 등)은 optional로 간주한다.
+   - 포인터 타입의 null 가능성과 required 여부를 실제 binding/validation에서 각각 확인한다.
    - 코드 내 validation 함수 등에서 enum 값이 확인되면 `enum` 배열을 추가한다.
    - 스키마에 `[코드 기준 추가]` 같은 태그를 붙이지 않는다 — 출처는 Step 6.2 비교 테이블에서 정리한다.
 4. **불일치 보고**: OAS와 코드 간 타입/필드 차이는 출력 시 별도 안내한다.
@@ -127,7 +129,7 @@ OAS 스키마를 Go 코드베이스의 실제 struct 정의와 교차 검증하�
 
 OAS raw schema를 교차 검증 결과와 병합하여 분석한다.
 
-**출력 원칙 — 항상 Flat**: 모든 중첩 객체는 예외 없이 flat 인라인으로 출력한다. `$ref` 분리를 하지 않는다. 동일 구조가 반복되더라도 매번 전체 필드를 펼친다.
+**출력 원칙**: `references/schema-contract.md`를 따른다. 비순환 객체는 인라인 표시할 수 있고 재사용/순환 객체는 필요한 local 정의와 `$ref`를 함께 보존한다.
 
 > **핵심**: 유저가 스키마를 **한 번에 copy → Apidog에 붙여넣기** 할 수 있어야 한다. 각 섹션이 self-contained JSON schema여야 한다.
 
@@ -137,7 +139,7 @@ OAS raw schema를 교차 검증 결과와 병합하여 분석한다.
 
 ### Step 6.1: Main Schema
 
-Response Schema 1개 + (해당 시) Request Schema 1개. **코드 기준으로 완전한 스키마** — 코드에 존재하는 모든 필드 포함, 태그 없음.
+실제 status/media type별 Response Schema + (해당 시) Request Schema. **코드 기준으로 완전한 스키마** — 코드에 존재하는 모든 필드 포함, 태그 없음.
 
 ### Step 6.2: OAS vs 코드 비교 테이블
 
@@ -156,9 +158,9 @@ Main Schema 하단에 OAS와 코드 간 차이를 별도 테이블로 정리한�
 
 분류: **코드에만 존재** / **OAS에만 존재** (deprecated 가능성) / **타입 불일치** (스키마는 코드 기준) / **키 이름 불일치**
 
-### Step 6.3: Query Parameters (GET 엔드포인트)
+### Step 6.3: Parameters (모든 method)
 
-query parameters는 **CSV 형태, 헤더 행 없이** 출력한다. 컬럼 순서 (고정):
+query parameters는 **CSV 형태, 헤더 행 없이** 출력한다. path/header/cookie parameter와 body도 실제 operation에 있으면 method와 무관하게 별도 표시한다. 컬럼 순서 (고정):
 
 ```
 이름,유형,필수,예시,고정 파라미터,설명
@@ -190,8 +192,8 @@ query parameters는 **CSV 형태, 헤더 행 없이** 출력한다. 컬럼 순�
      ]
    }
    ```
-2. Main Schema 하단에 `extraInfo[0] — variant_name` 형태로 각 variant의 full schema를 **별도 섹션**에 flat 인라인 출력한다 (Apidog의 해당 `oneOf` 인덱스에 직접 붙여넣기 가능).
-3. variant 내부의 중첩 객체도 재사용되지 않으면 인라인으로 펼친다.
+2. Main Schema 하단에 `extraInfo[0] — variant_name` 형태로 각 variant의 schema와 필요한 local 정의를 **별도 섹션**에 출력한다 (Apidog의 해당 `oneOf` 인덱스에 직접 붙여넣기 가능).
+3. variant 내부도 schema-contract.md의 순환/재사용 ref 규칙을 따른다.
 
 ## Step 7: Confirmation
 
@@ -212,7 +214,7 @@ Push 로 이어질 경우 **적용할 status 도 이 단계에서 함께 보여�
 
 > 유저가 처음부터 "Apidog에 푸시해줘", "Apidog 동기화" 등을 요청한 경우, Step 1~7을 모두 수행한 후 자동으로 Step 8을 진행한다.
 
-> Step 8 진입 시 MUST: 같은 폴더의 `references/push-import.md`를 Read하고 절차(환경 변수 확인 → 폴더 결정 → **status 결정** → YAML 생성 → Import API 호출 → 실패 시 MCP Fallback 1회 → 결과 보고)를 따른다.
+> Step 8 진입 시 MUST: 같은 폴더의 `references/push-import.md`를 Read하고 절차(환경 변수 확인 → 폴더 결정 → **status 결정** → YAML 생성 → Import API 호출 → outcome/read-back → 근거가 있는 동일 요청 재시도 → 결과 보고)를 따른다.
 
 ## Key Rules
 
@@ -220,16 +222,16 @@ Push 로 이어질 경우 **적용할 status 도 이 단계에서 함께 보여�
 |------|------|
 | `pagination` 객체 | 인라인 유지 (ref 분리 안 함) |
 | `data` wrapper | 인라인 유지 |
-| `null` 타입 필드 | nullable로 표기: `"type": ["{inferredType}", "null"]` (상세: `references/extraction-patterns.md` Pattern 4) |
+| `null` 타입 필드 | nullable로 표기: OAS 3.0은 단일 type + nullable:true, 3.1은 type union (`references/schema-contract.md`) |
 | `required` 배열 | OAS 원본의 required 필드를 그대로 유지 |
 | 빈 `items: {}` | 그대로 유지 (any type array) |
-| `example` 필드 | 스키마 출력에서 제외 |
+| `example` 필드 | 원본/import에서 보존. 간략 화면 출력에서만 생략 가능 |
 | `deprecated` 엔드포인트 | 유저에게 deprecated 경고 표시 |
 | 엔드포인트 삭제 요청 | Apidog 은 import 로 삭제할 수 없다. 삭제 대신 `x-apidog-status: deprecated` push 로 대체한다 (기존 정의 재발행 — 빈 스펙 덮어쓰기 금지) |
 | Push 시 status | 항상 명시한다. 생략 시 기존 status 보존 여부가 보장되지 않는다 (Step 8.2.5) |
 | 코드 vs OAS 불일치 | 코드 기준 우선. 불일치는 출력 하단에 별도 안내 |
 | 코드 추가 필드 | 스키마에 태그 없이 포함. 출처는 비교 테이블(Step 6.2)에서 정리 |
-| Go 포인터 타입 | optional로 간주 (required에 포함하지 않음) |
+| Go 포인터 타입 | null 허용과 required를 별도로 실제 validation에서 확인 |
 
 ## Output Customization
 
@@ -241,4 +243,6 @@ Push 로 이어질 경우 **적용할 status 도 이 단계에서 함께 보여�
 | 파일 | 로드 시점 |
 |------|----------|
 | `references/extraction-patterns.md` | Step 5~6 (추출 상세 패턴, 엣지 케이스, 실제 예시) |
+| `references/import-contract.md` | 실제 도구 발견부터 모든 push/read-back 경로 |
+| `references/schema-contract.md` | Step 5부터 모든 dialect/참조 변환 |
 | `references/push-import.md` | Step 8 진입 시 (Push 절차 + Import API 레퍼런스) |
