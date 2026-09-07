@@ -25,43 +25,27 @@ argument-hint: "[--be|--fe|--mm|--hd] [스킬명]"
 
 플래그가 없어도 **선택지를 묻지 않는다.** 전체 안내가 기본 동작이며, 이것이 처음 쓰는 사용자에게 가장 유용하다.
 
-## Step 2: 스킬 수집
+## Step 2: 실제 세션 metadata 수집
 
-세션 스킬 목록에서 아래 접두를 가진 항목을 수집한다:
+접두사 목록으로 설치 여부를 추정하지 않는다. 호스트가 현재 세션에 제공한 스킬의 정확한 `name`, `description`, `argument_hint`, 실제 `invocation`(제공된 경우)을 수집한다. 설치 이름이 바뀌거나 새 하네스가 추가돼도 원래 호출 식별자를 보존한다. 파일 경로만 발견된 스킬은 호출 가능하다고 표시하지 않는다.
 
-`common:` · `be-harness:` · `fe-harness:` · `minmos-harness:` · `hyeondongs-harness:`
+`assets/skill_catalog.py`에 `{skills:[...], filter?, plugin?, skill?}` JSON을 전달해 목록을 구성한다. 이 helper는 스킬 실행이나 설치를 하지 않는다.
 
-각 스킬의 `description` 첫 문장을 요약으로 쓴다. 스킬 파일을 직접 읽지 않는다 (세션 목록으로 충분하고, 미설치 플러그인 경로 접근을 피한다).
+- `roles`는 호스트/설치 manifest에서 확인한 논리 역할 `be|fe|mm|hd`이며 근거 경로/metadata key를 `roles_source`로 함께 전달한다. 이름만 보고 역할을 붙이지 않는다.
+- 역할 정보가 없으면 기본 전체 안내에 `분류 미확인`으로 함께 표시한다. `--be` 등 역할 필터에 대해 근거가 없으면 `UNVERIFIED_FILTER`를 보고하며, 현재 실제 plugin 이름으로 좁힐 수 있음을 안내한다.
+- 플러그인별로 묶되 동일 basename의 스킬을 합치지 않는다. `start-workflow` 제공자는 모두 보존한다.
+- plugin 목록이 비었거나 요청 스킬이 없으면 `NO_MATCH`와 현재 확인 가능한 이름만 보고한다. 정적인 설치 명령이나 존재하지 않는 호출명을 대신 만들지 않는다.
 
 ## Step 3: 출력
 
-```markdown
-## 설치된 harness 스킬
+각 plugin별로 `스킬 | 실제 호출명 | 설명` 표를 만든다. 설명은 metadata 첫 문장을 사용한다. 예시의 호출명도 행의 실제 식별자를 그대로 사용한다.
 
-### common — 공용 진입점
-| 스킬 | 호출 | 설명 |
-|------|------|------|
-| start-workflow | `/common:start-workflow` | 워크플로우 단일 진입점 (도메인 판정 → 위임 / 풀스택 직접 실행) |
-| commit-push | `/common:commit-push` | 커밋 후 push |
+진입점 안내는 반환된 `entrypoints`가 있을 때만 출력한다. 여러 개면 역할/설치 설명에 따라 나란히 보여 준다. common이 없는 환경에 common 호출을 권하지 않는다. 반환된 `invocation`이 없으면 정확한 `name`과 ‘세션의 스킬 선택/호출 도구에서 이 이름 사용’을 표시하며 `/`·`$` 형태를 추측하지 않는다.
 
-### be-harness — 범용 백엔드
-| 스킬 | 호출 | 설명 |
-|------|------|------|
+워크플로우 flags·모델 슬롯 예시는 해당 스킬의 현재 `argument_hint` 또는 사용자가 선택한 상세 문서로 검증한 것만 쓴다. 다른 배포판의 고정 예시를 복사하지 않는다.
 
-(설치된 플러그인만 섹션으로 출력)
+## Step 4: 개별 스킬 상세
 
----
-**워크플로우는 `/common:start-workflow` 하나로 시작합니다.** 요청을 분석해 백엔드/프론트엔드/풀스택을 판정하고 확인을 거쳐 실행합니다.
-도메인을 미리 알면 플래그로 고정할 수 있습니다: `/common:start-workflow --be`, `--fe`, `--fs`
-성찰은 기본 off입니다 — 주기적으로 `--reflect`를 붙여 실행하세요. 검증 티어(light/standard)는 Spec 점수로 자동 판정되며 `--tier standard`로 상향을 강제할 수 있습니다.
-Codex 사용 모드는 `--codex none|mix|max`로 지정하면 profile `codexMode`에 저장됩니다 (기본 mix — Plan 리뷰만 Codex, max는 서브에이전트까지 Codex 위임). 위임 모델은 슬롯별로 `--codex-models review=zai/glm-5.3@high` 형식으로 바꿀 수 있습니다 (profile `codexModels` 저장 — provider는 Codex `~/.codex/config.toml`의 `[model_providers.<id>]`에 정의, GLM·Kimi 등).
-그 외 스킬은 하네스를 직접 지정합니다: `/be-harness:request`, `/fe-harness:component`
-```
+해당 항목의 `description` 전문과 `argument_hint`를 보여 준다. 실제 세션 metadata가 제공한 스킬 경로가 있으면 필요한 문서 하나를 읽어 예시를 작성한다. 모든 예시의 호출 부분은 같은 항목의 `invocation`/`name`을 사용한다. 경로나 인자 계약을 확인할 수 없으면 설명까지만 제공한다.
 
-- 설치된 플러그인이 `common` 뿐이면 하네스 설치를 안내한다:
-  > "harness 플러그인이 설치되어 있지 않습니다. `/plugin install be-harness@harness-plugins` 처럼 필요한 하네스를 설치하세요."
-
-## Step 4: 개별 스킬 상세 (스킬명이 주어진 경우)
-
-해당 스킬의 `description` 전문과 `argument-hint` 를 보여주고, 실행 예시 2~3개를 제시한다.
-같은 이름을 여러 플러그인이 제공하면 **플러그인별로 나란히** 보여주고 차이를 한 줄로 밝힌다.
+같은 이름을 여러 플러그인이 제공하면 플러그인별로 나란히 보여 주고, 확인된 차이만 밝힌다.
