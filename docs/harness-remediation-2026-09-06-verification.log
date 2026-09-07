@@ -1,0 +1,517 @@
+active contracts: OK
+check-plugins: OK
+test_all_plugin_agents_and_recorded_actual_loader_tools (test_agent_contract.AgentContractTests.test_all_plugin_agents_and_recorded_actual_loader_tools) ... ok
+test_parallel_review_prompts_return_and_parent_records (test_agent_contract.AgentContractTests.test_parallel_review_prompts_return_and_parent_records) ... ok
+test_rejects_skill_field_missing_or_duplicate_tools_and_reader_shell (test_agent_contract.AgentContractTests.test_rejects_skill_field_missing_or_duplicate_tools_and_reader_shell) ... ok
+test_delete_body_and_get_body_are_preserved_by_actual_contract (test_apidog_contract.ApidogContractTests.test_delete_body_and_get_body_are_preserved_by_actual_contract) ... ok
+test_discriminator_and_security_name_closure_excludes_literal_refs (test_apidog_contract.ApidogContractTests.test_discriminator_and_security_name_closure_excludes_literal_refs) ... ok
+test_dynamic_tool_names_and_both_project_arg_formats (test_apidog_contract.ApidogContractTests.test_dynamic_tool_names_and_both_project_arg_formats) ... ok
+test_partial_and_pending_responses_never_become_safe_retry (test_apidog_contract.ApidogContractTests.test_partial_and_pending_responses_never_become_safe_retry) ... ok
+test_proto_provider_resolves_moved_install_and_actual_script_argument (test_apidog_contract.ApidogContractTests.test_proto_provider_resolves_moved_install_and_actual_script_argument) ... ok
+test_select_preserves_all_statuses_parameters_bodies_and_reachable_recursive_refs (test_apidog_contract.ApidogContractTests.test_select_preserves_all_statuses_parameters_bodies_and_reachable_recursive_refs) ... ok
+test_component_and_header_named_schema_are_maps_not_schema_objects (test_apidog_contract.ApidogValidatedTests.test_component_and_header_named_schema_are_maps_not_schema_objects) ... ok
+test_declared_dialect_validation_and_nullable_enum_semantics (test_apidog_contract.ApidogValidatedTests.test_declared_dialect_validation_and_nullable_enum_semantics) ... ok
+test_deprecated_preserves_original_dialect_and_only_changes_two_fields (test_apidog_contract.ApidogValidatedTests.test_deprecated_preserves_original_dialect_and_only_changes_two_fields) ... ok
+test_exclusive_bound_conversion_keeps_boundary_values_and_bad_schema_blocks (test_apidog_contract.ApidogValidatedTests.test_exclusive_bound_conversion_keeps_boundary_values_and_bad_schema_blocks) ... ok
+test_interleaved_same_slug_projects_transmit_original_bytes_to_correct_local_path (test_apidog_contract.ApidogValidatedTests.test_interleaved_same_slug_projects_transmit_original_bytes_to_correct_local_path) ... ok
+test_local_server_accepts_body_but_loses_response_then_readback_no_resend (test_apidog_contract.ApidogValidatedTests.test_local_server_accepts_body_but_loses_response_then_readback_no_resend) ... ok
+test_modified_payload_and_cross_target_credentials_block_before_request (test_apidog_contract.ApidogValidatedTests.test_modified_payload_and_cross_target_credentials_block_before_request) ... ok
+test_timeout_requires_matching_fresh_full_readback_and_never_blind_retry (test_apidog_contract.ApidogValidatedTests.test_timeout_requires_matching_fresh_full_readback_and_never_blind_retry) ... ok
+test_preserves_unowned_bytecode_and_cleans_own_cache (test_check_plugins.CheckPluginsTest.test_preserves_unowned_bytecode_and_cleans_own_cache) ... ok
+test_javascript_vue_has_vue_artifacts_and_explicit_runner_apis (test_component_templates.ComponentTemplateTests.test_javascript_vue_has_vue_artifacts_and_explicit_runner_apis) ... ok
+test_ui_and_identifier_validation_precedes_generation (test_component_templates.ComponentTemplateTests.test_ui_and_identifier_validation_precedes_generation) ... ok
+test_unsupported_combination_produces_no_files_or_partial_json (test_component_templates.ComponentTemplateTests.test_unsupported_combination_produces_no_files_or_partial_json) ... ok
+test_active_file_reference_and_actual_internal_call_fail (test_contract_checks.ContractChecksTests.test_active_file_reference_and_actual_internal_call_fail) ... ok
+test_invalid_manifest_agent_field_and_parity_fail (test_contract_checks.ContractChecksTests.test_invalid_manifest_agent_field_and_parity_fail) ... ok
+test_migration_exclusion_keeps_current_replacement_column_active (test_contract_checks.ContractChecksTests.test_migration_exclusion_keeps_current_replacement_column_active) ... ok
+test_phase_and_override_drift_fail (test_contract_checks.ContractChecksTests.test_phase_and_override_drift_fail) ... ok
+test_repository_passes_with_historical_calls_and_explicit_examples (test_contract_checks.ContractChecksTests.test_repository_passes_with_historical_calls_and_explicit_examples) ... ok
+test_root_active_docs_codex_manifest_and_go_assets_are_checked (test_contract_checks.ContractChecksTests.test_root_active_docs_codex_manifest_and_go_assets_are_checked) ... ok
+test_exact_ids_and_schema_collisions_preserve_input_and_bind_values (test_db_ownership.DbOwnershipTests.test_exact_ids_and_schema_collisions_preserve_input_and_bind_values) ... ok
+test_invalid_cli_nested_shapes_return_blocked_without_traceback (test_db_ownership.DbOwnershipTests.test_invalid_cli_nested_shapes_return_blocked_without_traceback) ... ok
+test_metadata_trigger_drift_and_false_transaction_block (test_db_ownership.DbOwnershipTests.test_metadata_trigger_drift_and_false_transaction_block) ... ok
+test_ownership_proof_rejects_existing_upsert_and_unresolved_creation (test_db_ownership.DbOwnershipTests.test_ownership_proof_rejects_existing_upsert_and_unresolved_creation) ... ok
+test_target_identity_and_schema_mismatch_fail_closed (test_db_ownership.DbOwnershipTests.test_target_identity_and_schema_mismatch_fail_closed) ... ok
+test_unowned_child_outside_schema_hidden_rows_and_cycle_block (test_db_ownership.DbOwnershipTests.test_unowned_child_outside_schema_hidden_rows_and_cycle_block) ... ok
+test_interleaved_writers_colliding_schema_ids_fk_and_safe_trigger (test_db_ownership.PostgreSqlOwnershipTests.test_interleaved_writers_colliding_schema_ids_fk_and_safe_trigger) ... ok
+test_post_update_verification_failure_rolls_back_all_tables (test_db_ownership.PostgreSqlOwnershipTests.test_post_update_verification_failure_rolls_back_all_tables) ... ok
+test_recreated_relation_with_reused_pk_blocks_before_nonowned_row_update (test_db_ownership.PostgreSqlOwnershipTests.test_recreated_relation_with_reused_pk_blocks_before_nonowned_row_update) ... ok
+test_trigger_can_change_unowned_row_despite_normal_returning_and_drift_blocks (test_db_ownership.PostgreSqlOwnershipTests.test_trigger_can_change_unowned_row_despite_normal_returning_and_drift_blocks) ... ok
+test_unowned_incoming_child_and_other_schema_fk_prevent_any_cleanup (test_db_ownership.PostgreSqlOwnershipTests.test_unowned_incoming_child_and_other_schema_fk_prevent_any_cleanup) ... ok
+test_upsert_returning_existing_row_does_not_grant_ownership (test_db_ownership.PostgreSqlOwnershipTests.test_upsert_returning_existing_row_does_not_grant_ownership) ... ok
+test_verified_physical_delete_lifecycle_allows_remaining_cleanup (test_db_ownership.PostgreSqlOwnershipTests.test_verified_physical_delete_lifecycle_allows_remaining_cleanup) ... ok
+test_diagnosis_executes_no_project_command_or_package_manager (test_doctor.DoctorTests.test_diagnosis_executes_no_project_command_or_package_manager) ... ok
+test_legacy_stays_read_only_and_actual_tool_names_are_preserved (test_doctor.DoctorTests.test_legacy_stays_read_only_and_actual_tool_names_are_preserved) ... ok
+test_modern_js_cypress_none_checks_only_selected_features (test_doctor.DoctorTests.test_modern_js_cypress_none_checks_only_selected_features) ... ok
+test_native_host_does_not_require_delegation_mcp (test_doctor.DoctorTests.test_native_host_does_not_require_delegation_mcp) ... ok
+test_stop_gate_keeps_executed_records_and_renderer_reports_interruption (test_e2e_interruption.E2EInterruptionTests.test_stop_gate_keeps_executed_records_and_renderer_reports_interruption) ... ok
+test_concurrent_acquires_have_one_winner (test_e2e_lock.LockTests.test_concurrent_acquires_have_one_winner) ... ok
+test_default_port_and_opaque_handle (test_e2e_lock.LockTests.test_default_port_and_opaque_handle) ... ok
+test_different_runs_exclude_each_other_and_same_run_can_resume (test_e2e_lock.LockTests.test_different_runs_exclude_each_other_and_same_run_can_resume) ... ok
+test_loopback_aliases_share_real_socket_lock (test_e2e_lock.LockTests.test_loopback_aliases_share_real_socket_lock) ... ok
+test_missing_token_fails_without_creating_lock (test_e2e_lock.LockTests.test_missing_token_fails_without_creating_lock) ... ok
+test_namespace_is_part_of_resource_identity (test_e2e_lock.LockTests.test_namespace_is_part_of_resource_identity) ... ok
+test_stale_lock_takeover_rejects_previous_owner (test_e2e_lock.LockTests.test_stale_lock_takeover_rejects_previous_owner) ... ok
+test_wildcard_overlap_and_independent_addresses (test_e2e_lock.LockTests.test_wildcard_overlap_and_independent_addresses) ... ok
+test_work_log_scope_does_not_change_lock_root (test_e2e_lock.LockTests.test_work_log_scope_does_not_change_lock_root) ... ok
+test_wrong_owner_cannot_touch_or_release_lock (test_e2e_lock.LockTests.test_wrong_owner_cannot_touch_or_release_lock) ... ok
+test_documented_scope_includes_committed_staged_unstaged_and_owned_untracked (test_fe_review_scope.FEReviewScopeTests.test_documented_scope_includes_committed_staged_unstaged_and_owned_untracked) ... ok
+test_accepted_push_and_pr_response_loss_never_resends_and_existing_pr_is_reused (test_feedback.FeedbackTests.test_accepted_push_and_pr_response_loss_never_resends_and_existing_pr_is_reused) ... ok
+test_duplicate_only_real_git_clone_does_not_invoke_empty_commit_push_or_pr (test_feedback.FeedbackTests.test_duplicate_only_real_git_clone_does_not_invoke_empty_commit_push_or_pr) ... ok
+test_every_transport_failure_preserves_local_copy_and_only_owned_checkout_is_cleaned (test_feedback.FeedbackTests.test_every_transport_failure_preserves_local_copy_and_only_owned_checkout_is_cleaned) ... ok
+test_invalid_path_modified_artifact_and_symlink_block (test_feedback.FeedbackTests.test_invalid_path_modified_artifact_and_symlink_block) ... ok
+test_legacy_entry_fields_are_recognized_as_duplicate (test_feedback.FeedbackTests.test_legacy_entry_fields_are_recognized_as_duplicate) ... ok
+test_mapping_preview_matches_written_paths_and_common_slug_collision (test_feedback.FeedbackTests.test_mapping_preview_matches_written_paths_and_common_slug_collision) ... ok
+test_base_resolves_without_version_and_version_is_root_relative (test_git_checks.GitChecksTests.test_base_resolves_without_version_and_version_is_root_relative) ... ok
+test_branch_code_and_unpublished_messages_have_distinct_ranges (test_git_checks.GitChecksTests.test_branch_code_and_unpublished_messages_have_distinct_ranges) ... ok
+test_bump_only_preserves_unrelated_stage_and_worktree (test_git_checks.GitChecksTests.test_bump_only_preserves_unrelated_stage_and_worktree) ... ok
+test_failed_git_lookup_cannot_be_a_clean_gate (test_git_checks.GitChecksTests.test_failed_git_lookup_cannot_be_a_clean_gate) ... ok
+test_hard_path_commits_dirty_quality_fix_before_gate_and_push (test_git_checks.GitChecksTests.test_hard_path_commits_dirty_quality_fix_before_gate_and_push) ... ok
+test_message_only_amend_preserves_head_tree_and_staged_changes (test_git_checks.GitChecksTests.test_message_only_amend_preserves_head_tree_and_staged_changes) ... ok
+test_nested_workflow_commit_uses_root_paths (test_git_checks.GitChecksTests.test_nested_workflow_commit_uses_root_paths) ... ok
+test_tag_in_filename_is_not_content_but_hunk_content_is_found (test_git_checks.GitChecksTests.test_tag_in_filename_is_not_content_but_hunk_content_is_found) ... ok
+test_worktree_path_filter_applies_to_tracked_and_untracked (test_git_checks.GitChecksTests.test_worktree_path_filter_applies_to_tracked_and_untracked) ... ok
+test_missing_server_invalid_argument_fails_actual_probe (test_grpc_probe.GrpcProbeTests.test_missing_server_invalid_argument_fails_actual_probe) ... ok
+test_exit_zero_open_is_neither_merged_nor_proven_queued (test_merge_state.MergeStateTests.test_exit_zero_open_is_neither_merged_nor_proven_queued) ... ok
+test_missing_merge_evidence_or_different_head_is_not_reviewed_success (test_merge_state.MergeStateTests.test_missing_merge_evidence_or_different_head_is_not_reviewed_success) ... ok
+test_remote_merge_commit_wins_even_when_command_exit_is_nonzero (test_merge_state.MergeStateTests.test_remote_merge_commit_wins_even_when_command_exit_is_nonzero) ... ok
+test_summary_and_approval_are_bound_to_original_head (test_merge_state.MergeStateTests.test_summary_and_approval_are_bound_to_original_head) ... ok
+test_encoder_never_returns_cursor_that_decoder_rejects_for_size (test_pagination.PaginationTests.test_encoder_never_returns_cursor_that_decoder_rejects_for_size) ... ok
+test_equal_sort_values_mixed_directions_no_missing_duplicate_or_removed_rows (test_pagination.PaginationTests.test_equal_sort_values_mixed_directions_no_missing_duplicate_or_removed_rows) ... ok
+test_even_valid_signature_rejects_legacy_no_id_null_duplicates_missing_values (test_pagination.PaginationTests.test_even_valid_signature_rejects_legacy_no_id_null_duplicates_missing_values) ... ok
+test_exact_limit_final_page_empty_input_and_omitted_order_with_cursor (test_pagination.PaginationTests.test_exact_limit_final_page_empty_input_and_omitted_order_with_cursor) ... ok
+test_invalid_order_keys_directions_syntax_limits_reject_before_sql (test_pagination.PaginationTests.test_invalid_order_keys_directions_syntax_limits_reject_before_sql) ... ok
+test_unique_id_is_in_order_predicate_cursor_and_int64_stays_exact (test_pagination.PaginationTests.test_unique_id_is_in_order_predicate_cursor_and_int64_stays_exact) ... ok
+test_apostrophe_in_plain_scalar_does_not_consume_comment (test_profile.ProfileTests.test_apostrophe_in_plain_scalar_does_not_consume_comment) ... ok
+test_batch_invalid_duplicate_or_unsupported_never_writes (test_profile.ProfileTests.test_batch_invalid_duplicate_or_unsupported_never_writes) ... ok
+test_block_sequence_preserves_positions_and_comments (test_profile.ProfileTests.test_block_sequence_preserves_positions_and_comments) ... ok
+test_cli_atomic_apply_hash_modes_and_no_creation (test_profile.ProfileTests.test_cli_atomic_apply_hash_modes_and_no_creation) ... ok
+test_custom_lint_runs_exact_workspace_env_command_without_eslint (test_profile.ProfileTests.test_custom_lint_runs_exact_workspace_env_command_without_eslint) ... ok
+test_empty_scalar_insertion_with_comments (test_profile.ProfileTests.test_empty_scalar_insertion_with_comments) ... ok
+test_installed_lint_fallback_fix_and_missing_skip (test_profile.ProfileTests.test_installed_lint_fallback_fix_and_missing_skip) ... ok
+test_invalid_layout_does_not_become_a_valid_default_profile (test_profile.ProfileTests.test_invalid_layout_does_not_become_a_valid_default_profile) ... ok
+test_invalid_model_slot_preserves_valid_siblings (test_profile.ProfileTests.test_invalid_model_slot_preserves_valid_siblings) ... ok
+test_legacy_mapping_invalid_primary_and_ambiguous_lockfiles (test_profile.ProfileTests.test_legacy_mapping_invalid_primary_and_ambiguous_lockfiles) ... ok
+test_mixed_eol_quotes_comments_body_and_multiple_edits (test_profile.ProfileTests.test_mixed_eol_quotes_comments_body_and_multiple_edits) ... ok
+test_new_children_inherit_indent_and_preserve_untouched_slots (test_profile.ProfileTests.test_new_children_inherit_indent_and_preserve_untouched_slots) ... ok
+test_placeholder_only_first_activation_and_body_delimiter (test_profile.ProfileTests.test_placeholder_only_first_activation_and_body_delimiter) ... ok
+test_profile_schema_matches_documented_keys (test_profile.ProfileTests.test_profile_schema_matches_documented_keys) ... ok
+test_resolve_be_missing_preset_defaults_and_explicit_empty (test_profile.ProfileTests.test_resolve_be_missing_preset_defaults_and_explicit_empty) ... ok
+test_resolve_fe_primary_ignores_invalid_legacy_and_selected_flags (test_profile.ProfileTests.test_resolve_fe_primary_ignores_invalid_legacy_and_selected_flags) ... ok
+test_slot_merge_preserves_other_slots_quotes_and_eol (test_profile.ProfileTests.test_slot_merge_preserves_other_slots_quotes_and_eol) ... ok
+test_unchanged_is_byte_exact_even_noncanonical_quotes_and_numbers (test_profile.ProfileTests.test_unchanged_is_byte_exact_even_noncanonical_quotes_and_numbers) ... ok
+test_unrelated_unsupported_value_is_opaque (test_profile.ProfileTests.test_unrelated_unsupported_value_is_opaque) ... ok
+test_missing_catalog_and_duplicate_full_identifier (test_skill_catalog.CatalogTests.test_missing_catalog_and_duplicate_full_identifier) ... ok
+test_renamed_new_plugins_and_duplicate_basenames_keep_actual_calls (test_skill_catalog.CatalogTests.test_renamed_new_plugins_and_duplicate_basenames_keep_actual_calls) ... ok
+test_role_filter_needs_evidence_and_missing_invocation_is_not_invented (test_skill_catalog.CatalogTests.test_role_filter_needs_evidence_and_missing_invocation_is_not_invented) ... ok
+test_diff3_and_zdiff3_separate_ancestor_and_preserve_nonconflict_lines (test_sync_state.SyncStateTests.test_diff3_and_zdiff3_separate_ancestor_and_preserve_nonconflict_lines) ... ok
+test_new_version_from_merge_replaces_premerge_absent_status (test_sync_state.SyncStateTests.test_new_version_from_merge_replaces_premerge_absent_status) ... ok
+test_refresh_added_renamed_deleted_targets_without_recreating_old_path (test_sync_state.SyncStateTests.test_refresh_added_renamed_deleted_targets_without_recreating_old_path) ... ok
+test_saved_stash_oid_restores_index_and_untracked_after_other_stash (test_sync_state.SyncStateTests.test_saved_stash_oid_restores_index_and_untracked_after_other_stash) ... ok
+test_worktree_subdirectory_detects_real_rebase_and_retains_conflict (test_sync_state.SyncStateTests.test_worktree_subdirectory_detects_real_rebase_and_retains_conflict) ... ok
+test_init_panic_in_other_package_is_not_ignored (test_test_failures.GoIdentityTests.test_init_panic_in_other_package_is_not_ignored) ... ok
+test_legacy_baseline_is_not_silently_reused (test_test_failures.GoIdentityTests.test_legacy_baseline_is_not_silently_reused) ... ok
+test_message_less_leaf_failure_is_unparsed (test_test_failures.GoIdentityTests.test_message_less_leaf_failure_is_unparsed) ... ok
+test_missing_package_summary_is_incomplete (test_test_failures.GoIdentityTests.test_missing_package_summary_is_incomplete) ... ok
+test_new_failure_in_different_package_is_regression (test_test_failures.GoIdentityTests.test_new_failure_in_different_package_is_regression) ... ok
+test_nonverbose_go_failure_keeps_message_after_header (test_test_failures.GoIdentityTests.test_nonverbose_go_failure_keeps_message_after_header) ... ok
+test_nonverbose_parent_error_after_child_is_a_separate_regression (test_test_failures.GoIdentityTests.test_nonverbose_parent_error_after_child_is_a_separate_regression) ... ok
+test_old_message_less_baseline_is_not_comparable (test_test_failures.GoIdentityTests.test_old_message_less_baseline_is_not_comparable) ... ok
+test_parallel_cont_and_name_keep_failure_messages_with_their_test (test_test_failures.GoIdentityTests.test_parallel_cont_and_name_keep_failure_messages_with_their_test) ... ok
+test_parent_filter_does_not_remove_other_package_failure (test_test_failures.GoIdentityTests.test_parent_filter_does_not_remove_other_package_failure) ... ok
+test_parent_own_failure_is_kept_alongside_failed_child (test_test_failures.GoIdentityTests.test_parent_own_failure_is_kept_alongside_failed_child) ... ok
+test_parent_without_own_error_is_only_a_container (test_test_failures.GoIdentityTests.test_parent_without_own_error_is_only_a_container) ... ok
+test_pass_in_other_package_cannot_mark_failure_flaky (test_test_failures.GoIdentityTests.test_pass_in_other_package_cannot_mark_failure_flaky) ... ok
+test_rerun_panic_is_reported_and_cannot_mark_failure_flaky (test_test_failures.GoIdentityTests.test_rerun_panic_is_reported_and_cannot_mark_failure_flaky) ... ok
+test_same_package_pass_can_mark_failure_flaky (test_test_failures.GoIdentityTests.test_same_package_pass_can_mark_failure_flaky) ... ok
+test_testmap_does_not_suffix_match_go_id (test_test_failures.GoIdentityTests.test_testmap_does_not_suffix_match_go_id) ... ok
+test_trailing_crash_without_package_summary_is_incomplete (test_test_failures.GoIdentityTests.test_trailing_crash_without_package_summary_is_incomplete) ... ok
+test_unparsed_baseline_cannot_become_flaky_on_rerun (test_test_failures.GoIdentityTests.test_unparsed_baseline_cannot_become_flaky_on_rerun) ... ok
+test_jest_verbose_nested_pass_keeps_filename_suite_and_case (test_test_failures.JavascriptIdentityTests.test_jest_verbose_nested_pass_keeps_filename_suite_and_case) ... ok
+test_json_failure_values_and_parameterized_ids_are_preserved (test_test_failures.JavascriptIdentityTests.test_json_failure_values_and_parameterized_ids_are_preserved) ... ok
+test_missing_failure_message_is_not_baseline_evidence (test_test_failures.JavascriptIdentityTests.test_missing_failure_message_is_not_baseline_evidence) ... ok
+test_real_jest_received_change_is_a_regression (test_test_failures.JavascriptIdentityTests.test_real_jest_received_change_is_a_regression) ... ok
+test_real_vitest_duplicate_titles_only_changed_file_is_regression (test_test_failures.JavascriptIdentityTests.test_real_vitest_duplicate_titles_only_changed_file_is_regression) ... ok
+test_real_vitest_partial_rerun_cannot_pass_unexecuted_file (test_test_failures.JavascriptIdentityTests.test_real_vitest_partial_rerun_cannot_pass_unexecuted_file) ... ok
+test_reported_but_unidentified_failure_blocks_green (test_test_failures.JavascriptIdentityTests.test_reported_but_unidentified_failure_blocks_green) ... ok
+test_test_map_requires_file_and_runner (test_test_failures.JavascriptIdentityTests.test_test_map_requires_file_and_runner) ... ok
+test_concurrent_publication_preserves_existing_report (test_workflow_archive.ArchiveTest.test_concurrent_publication_preserves_existing_report) ... ok
+test_concurrent_same_run_has_one_archive (test_workflow_archive.ArchiveTest.test_concurrent_same_run_has_one_archive) ... ok
+test_degraded_reuse_retains_status_across_task_change (test_workflow_archive.ArchiveTest.test_degraded_reuse_retains_status_across_task_change) ... ok
+test_git_paths_with_newline_tab_colon_unicode_roundtrip (test_workflow_archive.ArchiveTest.test_git_paths_with_newline_tab_colon_unicode_roundtrip) ... ok
+test_latest_paired_counts_and_domain_phases_are_preserved (test_workflow_archive.ArchiveTest.test_latest_paired_counts_and_domain_phases_are_preserved) ... ok
+test_no_replace_fallback_when_atomic_link_is_unsupported (test_workflow_archive.ArchiveTest.test_no_replace_fallback_when_atomic_link_is_unsupported) ... 오류: 아카이브 생성 실패: [Errno 95] unsupported
+ok
+test_output_directory_and_read_errors_return_exit_two (test_workflow_archive.ArchiveTest.test_output_directory_and_read_errors_return_exit_two) ... ok
+test_run_conflict_and_duplicate_frontmatter_are_controlled (test_workflow_archive.ArchiveTest.test_run_conflict_and_duplicate_frontmatter_are_controlled) ... ok
+test_unfinished_result_cannot_be_archived_as_complete (test_workflow_archive.ArchiveTest.test_unfinished_result_cannot_be_archived_as_complete) ... ok
+test_documented_fe_checks_preserve_failure_exit_codes (test_workflow_commands.WorkflowCommandTests.test_documented_fe_checks_preserve_failure_exit_codes) ... ok
+test_base_selection_auto_overlay_and_wrappers_use_actual_calls (test_workflow_policy.WorkflowPolicyTests.test_base_selection_auto_overlay_and_wrappers_use_actual_calls) ... ok
+test_blocked_fullstack_reaches_decision_without_git_even_without_tdd (test_workflow_policy.WorkflowPolicyTests.test_blocked_fullstack_reaches_decision_without_git_even_without_tdd) ... ok
+test_contract_three_way_comparison_detects_same_direction_drift (test_workflow_policy.WorkflowPolicyTests.test_contract_three_way_comparison_detects_same_direction_drift) ... ok
+test_domain_mode_matrix_and_aliases_never_dispatch_unsupported (test_workflow_policy.WorkflowPolicyTests.test_domain_mode_matrix_and_aliases_never_dispatch_unsupported) ... ok
+test_domain_transitions_do_not_widen_local_or_drop_read_mode (test_workflow_policy.WorkflowPolicyTests.test_domain_transitions_do_not_widen_local_or_drop_read_mode) ... ok
+test_literal_arguments_and_flag_values_not_interpreted (test_workflow_policy.WorkflowPolicyTests.test_literal_arguments_and_flag_values_not_interpreted) ... ok
+test_overlay_forward_plan_covers_skipped_request_and_no_api_docs_file (test_workflow_policy.WorkflowPolicyTests.test_overlay_forward_plan_covers_skipped_request_and_no_api_docs_file) ... ok
+test_partial_copied_overlay_deduplicates_per_file_and_keeps_user_rules (test_workflow_policy.WorkflowPolicyTests.test_partial_copied_overlay_deduplicates_per_file_and_keeps_user_rules) ... ok
+test_resume_mismatch_and_lost_cli_flags_preserve_mode_and_hard (test_workflow_policy.WorkflowPolicyTests.test_resume_mismatch_and_lost_cli_flags_preserve_mode_and_hard) ... ok
+test_unsupported_cli_is_read_only_and_all_packaged_copies_agree (test_workflow_policy.WorkflowPolicyTests.test_unsupported_cli_is_read_only_and_all_packaged_copies_agree) ... ok
+test_client_parse_failure_cannot_claim_server_validation (test_workflow_results.ResultsTest.test_client_parse_failure_cannot_claim_server_validation) ... ok
+test_conflicting_and_stale_evidence_is_rejected (test_workflow_results.ResultsTest.test_conflicting_and_stale_evidence_is_rejected) ... ok
+test_fix_after_other_case_is_attached_to_exact_iteration_and_id (test_workflow_results.ResultsTest.test_fix_after_other_case_is_attached_to_exact_iteration_and_id) ... ok
+test_latest_unit_and_readback_are_independent (test_workflow_results.ResultsTest.test_latest_unit_and_readback_are_independent) ... ok
+test_recorded_grpcurl_boundary_does_not_promote_client_errors (test_workflow_results.ResultsTest.test_recorded_grpcurl_boundary_does_not_promote_client_errors) ... ok
+test_rest_rpc_and_mixed_denominators_include_uncalled_rpc (test_workflow_results.ResultsTest.test_rest_rpc_and_mixed_denominators_include_uncalled_rpc) ... ok
+test_single_file_review_fix_requires_new_verification_even_while_running (test_workflow_results.ResultsTest.test_single_file_review_fix_requires_new_verification_even_while_running) ... ok
+test_unsupported_streaming_stays_in_denominator (test_workflow_results.ResultsTest.test_unsupported_streaming_stays_in_denominator) ... ok
+test_completed_or_overwritten_state_is_rejected (test_workflow_run.WorkflowRunTests.test_completed_or_overwritten_state_is_rejected) ... ok
+test_incomplete_state_without_remaining_phases_is_rejected (test_workflow_run.WorkflowRunTests.test_incomplete_state_without_remaining_phases_is_rejected) ... ok
+test_new_runs_have_distinct_state_notes_and_reports (test_workflow_run.WorkflowRunTests.test_new_runs_have_distinct_state_notes_and_reports) ... ok
+test_other_repo_or_mode_cannot_resume (test_workflow_run.WorkflowRunTests.test_other_repo_or_mode_cannot_resume) ... ok
+test_relative_state_path_is_rejected (test_workflow_run.WorkflowRunTests.test_relative_state_path_is_rejected) ... ok
+test_unrelated_legacy_state_is_rejected (test_workflow_run.WorkflowRunTests.test_unrelated_legacy_state_is_rejected) ... ok
+test_cli_git_error_is_nonzero_and_never_empty_success (test_workflow_scope.ScopeTests.test_cli_git_error_is_nonzero_and_never_empty_success) ... ok
+test_committed_implementation_survives_unrelated_untracked_dirty_tree (test_workflow_scope.ScopeTests.test_committed_implementation_survives_unrelated_untracked_dirty_tree) ... ok
+test_hard_mode_commit_on_base_branch_retains_start_scope (test_workflow_scope.ScopeTests.test_hard_mode_commit_on_base_branch_retains_start_scope) ... ok
+test_index_change_not_hidden_by_worktree_restored_to_baseline (test_workflow_scope.ScopeTests.test_index_change_not_hidden_by_worktree_restored_to_baseline) ... ok
+test_rename_delete_and_symlink_do_not_read_external_target (test_workflow_scope.ScopeTests.test_rename_delete_and_symlink_do_not_read_external_target) ... ok
+test_staged_and_working_and_owned_untracked_union_from_subdirectory (test_workflow_scope.ScopeTests.test_staged_and_working_and_owned_untracked_union_from_subdirectory) ... ok
+test_standalone_explicit_base_and_invalid_start_fail_closed (test_workflow_scope.ScopeTests.test_standalone_explicit_base_and_invalid_start_fail_closed) ... ok
+test_tree_identity_is_repository_root_relative (test_workflow_scope.ScopeTests.test_tree_identity_is_repository_root_relative) ... ok
+test_existing_files_and_symlinks_are_never_overwritten (test_worktree_init.WorktreeCopyTests.test_existing_files_and_symlinks_are_never_overwritten) ... ok
+test_legal_trailing_newline_worktree_path_keeps_complete_root (test_worktree_init.WorktreeCopyTests.test_legal_trailing_newline_worktree_path_keeps_complete_root) ... ok
+test_missing_ignore_or_tracked_source_blocks_before_any_copy (test_worktree_init.WorktreeCopyTests.test_missing_ignore_or_tracked_source_blocks_before_any_copy) ... ok
+test_parent_directory_swap_blocks_external_write_and_preserves_sentinel (test_worktree_init.WorktreeCopyTests.test_parent_directory_swap_blocks_external_write_and_preserves_sentinel) ... ok
+test_real_installed_sessionstart_from_nested_whitespace_path_copies_exact_files (test_worktree_init.WorktreeCopyTests.test_real_installed_sessionstart_from_nested_whitespace_path_copies_exact_files) ... ok
+test_directory_fsync_after_write_is_unknown_and_cleanup_failure_is_separate (test_worktree_init.WorktreeInstallTests.test_directory_fsync_after_write_is_unknown_and_cleanup_failure_is_separate) ... ok
+test_existing_hooks_metadata_and_user_script_preserved (test_worktree_init.WorktreeInstallTests.test_existing_hooks_metadata_and_user_script_preserved) ... ok
+test_hook_directory_symlink_never_creates_external_bundle (test_worktree_init.WorktreeInstallTests.test_hook_directory_symlink_never_creates_external_bundle) ... ok
+test_interrupt_before_settings_publish_leaves_original_and_no_partial_temp (test_worktree_init.WorktreeInstallTests.test_interrupt_before_settings_publish_leaves_original_and_no_partial_temp) ... ok
+test_interrupt_during_bundle_creation_cleans_earlier_owned_file (test_worktree_init.WorktreeInstallTests.test_interrupt_during_bundle_creation_cleans_earlier_owned_file) ... ok
+test_invalid_duplicate_and_legacy_settings_block_unchanged (test_worktree_init.WorktreeInstallTests.test_invalid_duplicate_and_legacy_settings_block_unchanged) ... ok
+test_last_moment_publication_change_reports_unknown_without_false_installed (test_worktree_init.WorktreeInstallTests.test_last_moment_publication_change_reports_unknown_without_false_installed) ... ok
+test_metadata_class_keeps_tested_linux_darwin_boundary_parity (test_worktree_init.WorktreeInstallTests.test_metadata_class_keeps_tested_linux_darwin_boundary_parity) ... ok
+test_missing_settings_first_install_and_repeat_keep_exact_bytes (test_worktree_init.WorktreeInstallTests.test_missing_settings_first_install_and_repeat_keep_exact_bytes) ... ok
+test_noncooperating_settings_change_and_first_create_are_not_overwritten (test_worktree_init.WorktreeInstallTests.test_noncooperating_settings_change_and_first_create_are_not_overwritten) ... ok
+test_replaced_temp_does_not_overwrite_settings_or_delete_other_writer_temp (test_worktree_init.WorktreeInstallTests.test_replaced_temp_does_not_overwrite_settings_or_delete_other_writer_temp) ... ok
+test_exact_host_job_stop_evidence_required_and_wrong_owner_rejected (test_writer_guard.WriterGuardTests.test_exact_host_job_stop_evidence_required_and_wrong_owner_rejected) ... ok
+test_isolated_slice_violation_is_detected_without_reverting_other_work (test_writer_guard.WriterGuardTests.test_isolated_slice_violation_is_detected_without_reverting_other_work) ... ok
+test_lost_handle_while_process_alive_never_allows_second_writer (test_writer_guard.WriterGuardTests.test_lost_handle_while_process_alive_never_allows_second_writer) ... ok
+test_new_files_transfer_bytes_modes_and_symlink_metadata_and_nested_checkout_blocks (test_writer_guard.WriterGuardTests.test_new_files_transfer_bytes_modes_and_symlink_metadata_and_nested_checkout_blocks) ... ok
+
+----------------------------------------------------------------------
+Ran 197 tests in 21.732s
+
+OK
+test_cleanup_failure_after_create_keeps_one_written_response (test_io_worker.IOTest.test_cleanup_failure_after_create_keeps_one_written_response) ... ok
+test_default_acl_is_not_added_to_replacement (test_io_worker.IOTest.test_default_acl_is_not_added_to_replacement) ... ok
+test_eof_abort_cleans_temp_and_releases_lock (test_io_worker.IOTest.test_eof_abort_cleans_temp_and_releases_lock) ... ok
+test_index_lock_replacement_cannot_be_committed_or_removed (test_io_worker.IOTest.test_index_lock_replacement_cannot_be_committed_or_removed) ... ok
+test_mode_owner_xattr_preservation_and_private_temp (test_io_worker.IOTest.test_mode_owner_xattr_preservation_and_private_temp) ... ok
+test_path_swap_after_lock_and_after_temp (test_io_worker.IOTest.test_path_swap_after_lock_and_after_temp) ... ok
+test_path_swap_while_waiting_for_document_lock (test_io_worker.IOTest.test_path_swap_while_waiting_for_document_lock) ... ok
+test_replaced_temp_is_neither_published_nor_deleted (test_io_worker.IOTest.test_replaced_temp_is_neither_published_nor_deleted) ... ok
+test_source_name_race_at_syscall_is_unknown_never_false_success (test_io_worker.IOTest.test_source_name_race_at_syscall_is_unknown_never_false_success) ... ok
+test_stopped_index_owner_is_not_evicted_by_age_and_death_releases (test_io_worker.IOTest.test_stopped_index_owner_is_not_evicted_by_age_and_death_releases) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 6.136s
+
+OK
+✔ WORK_LOG_ROOT가 project와 global 설정보다 우선한다 (3.081594ms)
+✔ project 설정이 XDG와 legacy 설정보다 우선한다 (3.652559ms)
+✔ XDG 설정이 legacy 설정보다 우선한다 (1.656424ms)
+✔ XDG 설정이 없으면 기존 Claude 설정을 읽는다 (1.386114ms)
+✔ 손상된 XDG 설정은 legacy로 내려가지 않고 실패한다 (2.01842ms)
+✔ 상대 XDG_CONFIG_HOME은 무시하고 ~/.config를 사용한다 (1.473289ms)
+✔ 설정이 없으면 중립 경로가 포함된 init 안내를 반환한다 (1.333235ms)
+✔ 잘못된 프로젝트 설정 값은 다른 vault로 fallback하지 않는다 (2.713461ms)
+✔ 설정 CLI가 공백·한글·URL 예약 문자가 있는 경로에서도 JSON을 출력한다 (218.294089ms)
+✔ 잘못된 frontmatter 타입은 파일 생성 전에 거부한다 (5.004063ms)
+✔ 외부 손상 문서를 경로별로 보고하고 정상 문서는 검색할 수 있게 저장한다 (59.036334ms)
+✔ 읽기 오류의 문서와 디렉터리 subtree는 삭제 drift에서 제외하고 링크도 보존한다 (196.623519ms)
+✔ 다른 root·버전·손상 schema의 캐시는 로드하지 않고 재생성한다 (192.860938ms)
+✔ Codex manifest가 상대 MCP 경로와 환경 전달을 선언한다 (2.756212ms)
+✔ 저장 후 인덱스 timeout은 저장 성공으로 응답하고 sync만 재시도한다 (5321.043229ms)
+✔ 공백이 있는 독립 경로에서 initialize와 tools/list가 동작한다 (59.093193ms)
+✔ 코드 펜스 밖의 제목만 섹션 경계와 인덱스에 사용한다 (8.585885ms)
+✔ 명시한 경로는 basename fallback하지 않고 동명 후보는 모호함으로 보고한다 (3.306357ms)
+✔ 별도 프로세스·cache·경로 별칭의 같은 hash 수정은 한 번만 성공한다 (263.027999ms)
+✔ hash 없는 동시 append는 모든 프로세스의 내용을 보존한다 (262.021664ms)
+✔ 쓰기 거부 뒤 잠금을 해제하여 다음 수정이 가능하다 (99.919369ms)
+✔ 보유된 문서 락을 회수하지 않고 다른 문서는 독립적으로 쓴다 (5070.792529ms)
+✔ 본문 overwrite가 블록 배열·중첩 객체·따옴표·모르는 키를 보존한다 (56.016698ms)
+✔ 명시한 메타데이터만 덮어쓰고 incoming raw 블록을 보존한다 (48.091876ms)
+✔ scalar·flow 배열·block 배열 tags 문서가 함께 인덱싱되고 검색된다 (3.316422ms)
+✔ 신규 메타데이터의 콜론·쉼표·따옴표가 다시 읽혀도 유지된다 (47.228557ms)
+✔ CRLF YAML 블록을 유지하고 frontmatter 없는 문서에는 주입하지 않는다 (93.8036ms)
+✔ updated 뒤의 따옴표 키·한글 키도 별도 블록으로 보존한다 (48.07474ms)
+✔ 공백 있는 flow tags와 들여쓰기 없는 block tags를 읽는다 (0.368067ms)
+✔ tags의 인라인 주석은 제외하고 인용 문자열 안의 #은 보존한다 (1.750127ms)
+✔ 미지원 루트 YAML을 overwrite할 때 원본을 변경하지 않는다 (88.995641ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6172.642541
+✔ actual flowchart and sequence SVG open offline without scripts or external requests (1465.154291ms)
+✔ full twin comparison detects prose code and table edits under unchanged headings (11.12303ms)
+✔ invalid Mermaid and injected config fail before any publication (1938.594418ms)
+✔ concurrent exclusive twins never overwrite another output (13.36084ms)
+✔ second file collision preserves existing file and removes only own partial twin (2.645094ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3765.545957
+PASS NextjsTypeScriptJest/NextjsTypeScriptJest.test.tsx
+  NextjsTypeScriptJest
+    ✓ renders supplied content (25 ms)
+
+PASS NextjsJavaScriptJest/NextjsJavaScriptJest.test.jsx
+  NextjsJavaScriptJest
+    ✓ renders supplied content (5 ms)
+
+PASS ViteTypeScriptJest/ViteTypeScriptJest.test.tsx
+  ViteTypeScriptJest
+    ✓ renders supplied content (4 ms)
+
+PASS ViteJavaScriptJest/ViteJavaScriptJest.test.jsx
+  ViteJavaScriptJest
+    ✓ renders supplied content (3 ms)
+
+PASS CraTypeScriptJest/CraTypeScriptJest.test.tsx
+  CraTypeScriptJest
+    ✓ renders supplied content (3 ms)
+
+PASS CraJavaScriptJest/CraJavaScriptJest.test.jsx
+  CraJavaScriptJest
+    ✓ renders supplied content (3 ms)
+
+Test Suites: 6 passed, 6 total
+Tests:       6 passed, 6 total
+Snapshots:   0 total
+Time:        1.522 s
+Ran all test suites.
+vite v6.4.3 building for production...
+transforming...
+✓ 41 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/components.css  0.03 kB │ gzip: 0.05 kB
+dist/components.js   2.89 kB │ gzip: 0.71 kB
+✓ built in 248ms
+
+ RUN  v3.2.7 /tmp/harness-components-0pr3m07_
+
+ ✓ NuxtCssModulesVitest/NuxtCssModulesVitest.test.ts > NuxtCssModulesVitest > renders supplied content 35ms
+ ✓ NuxtTypeScriptVitest/NuxtTypeScriptVitest.test.ts > NuxtTypeScriptVitest > renders supplied content 35ms
+ ✓ NuxtJavaScriptVitest/NuxtJavaScriptVitest.test.js > NuxtJavaScriptVitest > renders supplied content 35ms
+ ✓ ViteCssModulesVitest/ViteCssModulesVitest.test.tsx > ViteCssModulesVitest > renders supplied content 25ms
+ ✓ CraJavaScriptVitest/CraJavaScriptVitest.test.jsx > CraJavaScriptVitest > renders supplied content 24ms
+ ✓ NextjsTypeScriptVitest/NextjsTypeScriptVitest.test.tsx > NextjsTypeScriptVitest > renders supplied content 13ms
+ ✓ ViteJavaScriptVitest/ViteJavaScriptVitest.test.jsx > ViteJavaScriptVitest > renders supplied content 24ms
+ ✓ CraTypeScriptVitest/CraTypeScriptVitest.test.tsx > CraTypeScriptVitest > renders supplied content 24ms
+ ✓ NextjsJavaScriptVitest/NextjsJavaScriptVitest.test.jsx > NextjsJavaScriptVitest > renders supplied content 24ms
+ ✓ ViteTypeScriptVitest/ViteTypeScriptVitest.test.tsx > ViteTypeScriptVitest > renders supplied content 24ms
+ ✓ ViteStyledComponentsVitest/ViteStyledComponentsVitest.test.tsx > ViteStyledComponentsVitest > renders supplied content 20ms
+
+ Test Files  11 passed (11)
+      Tests  11 passed (11)
+   Start at  22:46:16
+   Duration  8.54s (transform 263ms, setup 0ms, collect 1.76s, tests 298ms, environment 4.16s, prepare 689ms)
+
+{
+  "versions": {
+    "vue": "3.5.42",
+    "react": "18.3.1",
+    "vite": "6.4.3",
+    "typescript": "5.9.3",
+    "vue-tsc": "3.2.5",
+    "vitest": "3.2.7",
+    "jest": "30.2.0"
+  },
+  "cases": [
+    {
+      "framework": "nuxt",
+      "typescript": true,
+      "runner": "jest",
+      "verdict": "BLOCKED_BEFORE_WRITE"
+    },
+    {
+      "framework": "nuxt",
+      "typescript": false,
+      "runner": "jest",
+      "verdict": "BLOCKED_BEFORE_WRITE"
+    },
+    {
+      "check": "build",
+      "verdict": "PASS"
+    },
+    {
+      "check": "typecheck",
+      "verdict": "PASS"
+    },
+    {
+      "check": "vitest",
+      "verdict": "PASS"
+    },
+    {
+      "check": "jest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "nextjs",
+      "typescript": true,
+      "runner": "vitest",
+      "name": "NextjsTypeScriptVitest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "nextjs",
+      "typescript": true,
+      "runner": "jest",
+      "name": "NextjsTypeScriptJest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "nextjs",
+      "typescript": false,
+      "runner": "vitest",
+      "name": "NextjsJavaScriptVitest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "nextjs",
+      "typescript": false,
+      "runner": "jest",
+      "name": "NextjsJavaScriptJest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "vite",
+      "typescript": true,
+      "runner": "vitest",
+      "name": "ViteTypeScriptVitest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "vite",
+      "typescript": true,
+      "runner": "jest",
+      "name": "ViteTypeScriptJest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "vite",
+      "typescript": false,
+      "runner": "vitest",
+      "name": "ViteJavaScriptVitest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "vite",
+      "typescript": false,
+      "runner": "jest",
+      "name": "ViteJavaScriptJest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "cra",
+      "typescript": true,
+      "runner": "vitest",
+      "name": "CraTypeScriptVitest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "cra",
+      "typescript": true,
+      "runner": "jest",
+      "name": "CraTypeScriptJest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "cra",
+      "typescript": false,
+      "runner": "vitest",
+      "name": "CraJavaScriptVitest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "cra",
+      "typescript": false,
+      "runner": "jest",
+      "name": "CraJavaScriptJest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "nuxt",
+      "typescript": true,
+      "runner": "vitest",
+      "name": "NuxtTypeScriptVitest",
+      "verdict": "PASS"
+    },
+    {
+      "framework": "nuxt",
+      "typescript": false,
+      "runner": "vitest",
+      "name": "NuxtJavaScriptVitest",
+      "verdict": "PASS"
+    }
+  ],
+  "scope": "Framework-neutral components: React JSX and Nuxt-compatible Vue SFC; no Next/Nuxt/CRA application/router or Storybook UI build"
+}
+{
+  "grpcurl_module": "v1.9.3",
+  "grpc_module": "v1.71.0",
+  "transport": "loopback",
+  "offline": true,
+  "observations": [
+    {
+      "case_id": "valid",
+      "server_contact": true,
+      "handler_arrivals": 1,
+      "exit_code": 0,
+      "stdout": "{\n  \"value\": \"ok\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "case_id": "unknown-field",
+      "server_contact": false,
+      "handler_arrivals": 0,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Error invoking method \"fixture.Audit/Read\": error getting request data: message type fixture.Request has no known field named unknown\n"
+    },
+    {
+      "case_id": "oneof-conflict",
+      "server_contact": true,
+      "handler_arrivals": 1,
+      "exit_code": 0,
+      "stdout": "{}\n",
+      "stderr": ""
+    },
+    {
+      "case_id": "server-validation",
+      "server_contact": true,
+      "handler_arrivals": 1,
+      "exit_code": 67,
+      "stdout": "",
+      "stderr": "ERROR:\n  Code: InvalidArgument\n  Message: server validation\n"
+    },
+    {
+      "case_id": "deadline",
+      "server_contact": true,
+      "handler_arrivals": 1,
+      "exit_code": 68,
+      "stdout": "",
+      "stderr": "ERROR:\n  Code: DeadlineExceeded\n  Message: context deadline exceeded\n"
+    }
+  ]
+}

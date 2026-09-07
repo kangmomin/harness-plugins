@@ -1,0 +1,1641 @@
+{
+  "objective": "보고서 전체 41개 결함 및 30개 개선 수정",
+  "date": "2026-09-06",
+  "baseline_commit": "f9ce681427ccfbfd9194d3c3f204a445ae6f45dd",
+  "result": "71 fixed; final verification and independent review passed within stated scope",
+  "verification": {
+    "entrypoint": "bash scripts/verify.sh",
+    "exit_code": 0,
+    "root_python": 197,
+    "worklog_python": 10,
+    "worklog_node": 31,
+    "docgen_node_actual_chromium": 5,
+    "fe_vitest": 11,
+    "fe_jest": 6,
+    "fe_build": "PASS",
+    "fe_typecheck": "PASS",
+    "grpc_loopback_scenarios": 5,
+    "claude_actual_loader_agents": 14,
+    "claude_legacy_negative_control": 1,
+    "hosted_github_actions_run": "NOT_RUN",
+    "remote_branch_protection": "NOT_MODIFIED"
+  },
+  "protected_document_sha256": {
+    "docs/doc-gen-1785996343.md": "56619675db8a06631357f0b5aadb92c068638b2879e08d1aea503a30da3792fe",
+    "docs/doc-gen-1784795493.md": "1b15408e3f7e37a0ea9e32760224072cfc1423bd58bacda4fc54002e2f6e0251",
+    "docs/doc-gen-1787641358.md": "a6bbe9bad40f392f21ae69042a3ae22578bd0f925b8aa42d2849f71ec5f35319",
+    "docs/doc-gen-1787805472.md": "7dd26a8e7ec4c6b54ecceb24c19582e426b918f4b0ebc9c1fe713726d8c9bb08",
+    "docs/harness-audit-2026-09-05.md": "c35031b6d51b34f8659a275a5e85dc58261ce30bd50d7ad0b18657c25615dc36",
+    "docs/harness-audit-2026-09-05-evidence.json": "582a5466614ee3c493ac9e4da003ffbb655d57e852480c0177d464812345e3d4"
+  },
+  "requirements": [
+    {
+      "id": "W01",
+      "p": "P1",
+      "title": "문서 잠금 대기 중 디렉터리 교체로 vault 밖 쓰기",
+      "body": "safeResolve 후 문서 잠금을 기다리는 동안 경로를 다시 검증하지 않는다. 별도 프로세스가 vault/sub를 옮기고 같은 위치를 외부 디렉터리 심볼릭 링크로 바꾸면, 대기 중인 append가 외부 파일에 반영된다. 원본 vault 문서는 그대로이고 외부 파일만 바뀌는 것을 확인했다. 같은 로컬 사용자가 경로를 바꿀 수 있는 조건의 TOCTOU이며, 원격 공격 경로를 재현한 것은 아니다.",
+      "acceptance": "별도 프로세스가 잠금 대기 전후·임시 파일 생성 전후에 디렉터리를 symlink로 바꿔도 외부 파일 해시가 그대로이고 쓰기는 명확히 실패해야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "work-log/mcp/lib/io_worker.py",
+        "work-log/mcp/lib/io.js",
+        "work-log/mcp/lib/vault.js",
+        "work-log/tests/test_io_worker.py"
+      ],
+      "verification": [
+        "Real separate-process swaps while waiting, after acquisition, and after temp creation preserve outside sentinels; temp/lock replacements never delete replacement owner files. Source-name swap inside rename syscall boundary returns unknown, never false done; POSIX noncooperating-writer CAS limitation documented."
+      ]
+    },
+    {
+      "id": "W02",
+      "p": "P2",
+      "title": "title 메타데이터의 타입 오류가 vault 전체 동기화를 중단",
+      "body": "wiki_write의 frontmatter 객체 내부에는 타입 검증이 없다. title을 배열로 주면 파일은 생성되지만 이후 nfc(title)의 normalize 호출이 예외를 낸다. 해당 문서가 하나만 있어도 전체 sync가 실패한다. MCP로 전달하지 않아도 외부에서 편집한 동일 YAML이 같은 문제를 만든다.",
+      "acceptance": "title이 배열·객체·숫자인 문서를 쓰기 전에 거부하고, 외부 편집으로 생긴 손상 문서는 경로별 오류를 내면서 정상 문서의 읽기·검색을 유지한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "work-log/mcp/lib/vault.js",
+        "work-log/mcp/server.js",
+        "work-log/tests/index-integrity.test.js"
+      ],
+      "verification": [
+        "Invalid argument/raw YAML types rejected before document creation; corrupt external document reports per-path error while healthy document is cached"
+      ]
+    },
+    {
+      "id": "W03",
+      "p": "P2",
+      "title": "저장 성공 뒤 인덱싱 실패를 전체 쓰기 실패로 응답",
+      "body": "writeDoc 완료 뒤 syncIndex가 실패하면 wiki_write가 isError:true를 반환한다. W02뿐 아니라 정상 문서에서도 다른 프로세스의 인덱스 잠금을 5초 이상 기다리면 발생한다. 이미 저장된 append를 실패로 보고 재시도하면 내용이 중복된다. 저장과 검색 반영은 서로 다른 완료 상태다.",
+      "acceptance": "문서 저장 직후 인덱스 잠금 timeout을 주입해 written=true를 확인한다. 같은 append 재시도 뒤 문서에는 내용이 한 번만 있어야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "work-log/mcp/server.js",
+        "work-log/skills/edit/SKILL.md",
+        "work-log/tests/mcp-smoke.test.js",
+        "work-log/tests/helpers/sync-worker.mjs",
+        "work-log/README.md"
+      ],
+      "verification": [
+        "Actual MCP sequence with live separate index owner: written + indexing FAILED -> wiki_sync -> exactly one appended payload; arbitrary duplicate writes are not claimed idempotent"
+      ]
+    },
+    {
+      "id": "W04",
+      "p": "P2",
+      "title": "append/overwrite가 기존 파일 접근 권한을 완화",
+      "body": "임시 파일을 기본 mode로 만든 뒤 rename하므로 원본의 권한을 잃는다. 0600 파일이 umask 0002에서 0664로 바뀌었다. 일반적인 0022에서는 0644가 된다. 실제 타 사용자 접근 가능 여부는 상위 디렉터리 권한과 ACL에도 달려 있다.",
+      "acceptance": "0600/0640 파일을 서로 다른 umask에서 append/overwrite해도 mode가 유지되는지 확인한다. 새 임시 파일이 원본보다 넓은 권한으로 노출되지 않아야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "work-log/mcp/lib/io_worker.py",
+        "work-log/tests/test_io_worker.py",
+        "work-log/README.md"
+      ],
+      "verification": [
+        "0600/0640 across umask0002/0022/0077 preserved with uid/gid/xattr; temporary0600 and inherited Linux ACL removed; macOS uses ACL fd APIs with ENOENT normalization but runtime not available here."
+      ]
+    },
+    {
+      "id": "W05",
+      "p": "P2",
+      "title": "인덱스 잠금을 시간만으로 탈취해 최신 결과를 과거 결과로 덮어씀",
+      "body": "5분 넘은 index.lock을 살아 있는 소유자인지 확인하지 않고 삭제하며 finally도 소유권 확인 없이 잠금을 지운다. A sync를 임시 인덱스 생성 시 SIGSTOP, 잠금 mtime을 6분 전으로 설정, 문서 변경 후 B sync 성공, A 재개 순서에서 B의 NEW 인덱스가 A의 OLD로 교체됐다. 6분 실제 대기는 하지 않고 mtime으로 경과 조건을 모사했다.",
+      "acceptance": "정지한 A와 갱신한 B의 실행 순서를 제어해 오래된 A가 B 인덱스를 덮거나 B 잠금을 해제하지 못하는지 확인한다. 죽은 소유자는 안전하게 회수돼야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "work-log/mcp/lib/io_worker.py",
+        "work-log/mcp/lib/vault.js",
+        "work-log/tests/test_io_worker.py"
+      ],
+      "verification": [
+        "SIGSTOP index owner + old mtime does not permit takeover; SIGKILL releases kernel lock; replacement lock is neither committed through nor removed."
+      ]
+    },
+    {
+      "id": "W06",
+      "p": "P2",
+      "title": "공백·한글 설치 경로에서 설정 CLI가 출력 없이 종료",
+      "body": "import.meta.url은 URL 인코딩되지만 비교 대상 file://${process.argv[1]}은 원시 경로다. config.js를 plain, plugin with space, 플러그인 디렉터리에 복사해 같은 WORK_LOG_ROOT로 실행했다. plain은 JSON을 출력했고 나머지는 exit 0, stdout 0바이트였다. init/doctor의 CLI 폴백이 설정을 받지 못한다.",
+      "acceptance": "공백·한글·#·%가 포함된 설치 경로에서 CLI 출력이 모두 유효한 동일 설정 JSON이어야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "work-log/mcp/lib/config.js",
+        "work-log/tests/config.test.js"
+      ],
+      "verification": [
+        "Config suite 9 PASS, including five install path variants; reproduced failure before fix"
+      ]
+    },
+    {
+      "id": "W07",
+      "p": "P2",
+      "title": "null/false 설정을 무시하고 다른 vault로 폴백",
+      "body": "readJson의 파일 부재와 JSON null 값이 같은 값이고 if(!cfg)가 false/0도 함께 무시한다. 프로젝트 .work-log.json에 null, 전역 설정에 유효한 다른 vault를 넣으면 오류 없이 전역 vault를 선택했다. 깨진 우선 설정에서 중단한다는 ConfigError 계약과 다르며 쓰기 대상이 바뀔 수 있다.",
+      "acceptance": "null/false/0/배열 루트인 우선 설정을 모두 오류로 구분한다. 실제 파일 부재일 때만 정상 fallback하며 출력 대상 vault를 확인한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "work-log/mcp/lib/config.js",
+        "work-log/tests/config.test.js"
+      ],
+      "verification": [
+        "Null/false/0/array/string/scope/excludes invalid priority configurations fail closed; missing file alone falls back"
+      ]
+    },
+    {
+      "id": "W08",
+      "p": "P2",
+      "title": "코드 블록의 # 줄을 제목으로 처리해 섹션을 잘라냄",
+      "body": "## Deployment 안의 fenced shell 예제에 # example comment가 있으면 extractSection(Deployment)는 코드 펜스 시작까지만 반환하고 뒤의 본문을 누락한다. example을 검색하면 코드 주석을 실제 제목으로 잡아 다음 정상 섹션까지 섞어 반환했다. 인덱싱의 heading 추출에도 같은 코드 펜스 구분이 필요하다.",
+      "acceptance": "backtick/tilde 코드 펜스 속 # 주석을 무시하고, 지정 섹션 본문은 다음 동급·상위 제목 직전까지 정확히 반환해야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "work-log/mcp/lib/markdown.js",
+        "work-log/mcp/lib/search.js",
+        "work-log/mcp/lib/vault.js",
+        "work-log/tests/search.test.js"
+      ],
+      "verification": [
+        "Search suite 2 PASS; backtick/tilde/variable length/indent/CRLF plus real nested headings; old vault suite 14 PASS"
+      ]
+    },
+    {
+      "id": "W09",
+      "p": "P2",
+      "title": "읽기 권한 오류를 삭제로 보고 정상 인덱스로 저장",
+      "body": "readdir/read/stat 오류를 모두 잡아 무시한다. private.md를 정상 sync 후 chmod 000으로 바꾸고 같은 사용자로 재동기화하면 성공 응답에 docs=[], drift.removed=[private.md]가 나온다. 파일은 삭제되지 않았다. 폴더 오류는 하위 전체를 누락시킬 수 있다.",
+      "acceptance": "EACCES/EIO 주입 시 삭제 drift를 만들지 않아야 한다. ENOENT로 실제 삭제한 경우와 결과·상태가 구분돼야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "work-log/mcp/lib/vault.js",
+        "work-log/tests/index-integrity.test.js",
+        "work-log/skills/sync/SKILL.md"
+      ],
+      "verification": [
+        "File and directory EACCES preserve stale subtree and links without removal drift; true deletion after recovery is reported"
+      ]
+    },
+    {
+      "id": "W10",
+      "p": "P2",
+      "title": "잘못된 경로의 위키 링크를 다른 파일에 연결",
+      "body": "[[missing/guide]]가 없고 real/guide.md만 있을 때 basename fallback이 real/guide.md를 선택해 brokenLinks=[]를 반환했다. 파일명만 쓴 링크용 fallback이 명시적 디렉터리 경로에도 적용된다. 중복 파일명도 첫 항목을 임의 선택한다.",
+      "acceptance": "명시 경로 없음·동일 basename 다수·파일명 단독 유일 후보를 각각 검사해 broken/ambiguous/resolved가 달라야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "work-log/mcp/lib/vault.js",
+        "work-log/tests/search.test.js",
+        "work-log/skills/sync/SKILL.md"
+      ],
+      "verification": [
+        "Explicit wrong paths remain broken, ambiguous basename candidates retained, exact local and unique fallback resolved"
+      ]
+    },
+    {
+      "id": "T01",
+      "p": "P1",
+      "title": "Vitest 동일 제목의 실패 메시지가 다른 파일의 메시지로 덮임",
+      "body": "FAIL 헤더에서 파일명(group 1)을 버리고 describe/it 제목만 msgs 키로 쓴다. 실제 Vitest 4.1.10에서 a.test.js와 b.test.js의 같은 제목을 실패시킨 뒤 a의 구현만 변경해도 두 실패가 모두 pre_existing, regression 0, unparsed 0이었다. 이 버전의 verbose 실패 ID에는 파일명이 들어 있으므로 ID 자체가 합쳐졌다는 설명은 잘못이며 메시지 매핑 충돌이 원인이다. FE 사본도 동일하다.",
+      "acceptance": "실제 Vitest의 서로 다른 파일에 같은 전체 테스트 제목을 두고 한 파일의 assertion 결과만 바꾼다. 그 파일만 변경된 시그니처와 regression을 가져야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/start-workflow/assets/test_failures.py",
+        "fe-harness/skills/start-workflow/assets/test_failures.py",
+        "tests/test_test_failures.py"
+      ],
+      "verification": [
+        "Recorded real Vitest4.1.10 duplicate full titles: only a changed assertion is regression; b remains pre_existing. Red test reproduced before fix."
+      ]
+    },
+    {
+      "id": "T02",
+      "p": "P1",
+      "title": "Jest의 첫 줄만 비교해 실제 단언 값 변화가 회귀에서 빠짐",
+      "body": "실제 Jest 패키지 30.2.0(CLI --version 출력 30.1.3)에서 expect(value()).toBe(1) 테스트는 유지하고 value 구현만 2→4로 바꿨다. Expected는 1로 같고 Received가 2→4로 달라지지만 수집 시그니처는 expect(received).toBe(expected) // Object.is equality로 동일해 pre_existing 1, regression 0으로 분류됐다. 일반 matcher 실패에서 첫 줄은 실제 오류 값이 아니다.",
+      "acceptance": "테스트 소스는 그대로 둔 채 구현 반환값 2→4, 예외 메시지 변화, matcher 변화 로그를 비교한다. 의미 있는 값 변화는 동일 baseline으로 통과시키지 않는다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/start-workflow/assets/test_failures.py",
+        "fe-harness/skills/start-workflow/assets/test_failures.py",
+        "tests/test_test_failures.py"
+      ],
+      "verification": [
+        "Recorded real Jest30.2.0 implementation2→4 with unchanged test is regression; JSON matcher/message/path/Received changes remain distinct, stack locations excluded. Red test reproduced."
+      ]
+    },
+    {
+      "id": "T03",
+      "p": "P2",
+      "title": "다른 파일의 동명 테스트 PASS가 원래 실패를 flaky로 만듦",
+      "body": "JS 러너는 재실행 PASS에 leaf/suffix 매칭을 허용한다. 실제 Vitest에서 a와 b가 실패한 뒤 b 파일만 통과하도록 재실행하면, 실행하지 않은 a까지 flaky로 바뀌었다(원본 실패 2개가 모두 flaky). 재실행에서 해당 테스트가 빠졌는데 PASS 증거로 인정한다. Go의 package exact-match 수정은 JS에 적용되지 않았다.",
+      "acceptance": "B만 PASS한 재실행에서 실행하지 않은 A는 flaky가 될 수 없어야 한다. 파일·suite·parameterized test가 모두 같은 ID인지 확인한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/start-workflow/assets/test_failures.py",
+        "fe-harness/skills/start-workflow/assets/test_failures.py",
+        "tests/test_test_failures.py"
+      ],
+      "verification": [
+        "Real Vitest b-only rerun passes only b; unexecuted a remains regression+rerun_incomplete. Jest nested suites and JSON parameterized tests use exact runner/file/full-name IDs."
+      ]
+    },
+    {
+      "id": "E01",
+      "p": "P1",
+      "title": "gRPC 대상이 E2E 보고서 분모에서 사라져 미검증을 성공으로 보고",
+      "body": "minmos는 같은 renderer를 쓰지만 REQ_RE는 HTTP method만 인식한다. gRPC-only 대상/통과 케이스는 대상 0건 DEGRADED가 된다. 더 위험하게 GET /healthz와 GRPC user.v1.UserService/GetUser를 대상으로 두고 HTTP만 실행하면 대상 1, 호출 1, 미호출 0, 상태 OK·직답 예가 나온다. RPC 실패를 숨긴 실험이 아니라 RPC를 아예 검증하지 않았는데 분모에서 누락된 실험이다.",
+      "acceptance": "REST-only/GRPC-only/MIXED에서 총 대상 수가 입력과 일치해야 한다. 혼합 대상 중 RPC 미호출은 OK/직답 예가 될 수 없어야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/e2e-test-loop/assets/render_e2e_report.py",
+        "be-harness/skills/start-workflow/assets/workflow_results.py",
+        "tests/test_workflow_results.py"
+      ],
+      "verification": [
+        "REST-only/RPC-only report exact target/call counts; MIXED HTTP-called+RPC-uncalled yields denominator2 and DEGRADED/no; unsupported streaming remains denominator."
+      ]
+    },
+    {
+      "id": "E02",
+      "p": "P1",
+      "title": "동일 포트의 localhost와 127.0.0.1이 서로 다른 E2E 잠금을 획득",
+      "body": "호스트 문자열만 파일명으로 정규화해 localhost:PORT와 127.0.0.1:PORT에서 서로 다른 실행 토큰 둘 다 ACQUIRED가 된다. 실제 127.0.0.1 socket에 localhost 연결 성공 및 두 번째 bind의 EADDRINUSE까지 확인했다. 같은 네트워크 namespace·bind 대상이라는 조건에서 서버/바이너리/DB 병렬 충돌을 막지 못한다. FE 사본도 동일하다.",
+      "acceptance": "같은 실제 socket을 가리키는 loopback 별칭 두 개에서는 소유자 하나만 획득해야 한다. 다른 namespace나 실제 독립 서버는 불필요하게 막지 않는지도 확인한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/e2e-test/assets/e2e_lock.py",
+        "be-harness/skills/e2e-test/assets/e2e-lock.sh",
+        "fe-harness/skills/e2e-test/assets/e2e_lock.py",
+        "be-harness/skills/e2e-test/references/run-context.md",
+        "tests/test_e2e_lock.py"
+      ],
+      "verification": [
+        "10 lease tests PASS: actual localhost→127.0.0.1 socket alias conflict; independent 127.0.0.1/127.0.0.2 binds at same port acquire independently; wildcard overlap, IPv4-mapped alias, HTTPS443 default, opaque handle, token guards, common root independent of vault and namespace identity verified. Linux namespace derivation compared with actual /proc inode; separate namespace overlap rule tested without launching another namespace."
+      ]
+    },
+    {
+      "id": "E03",
+      "p": "P2",
+      "title": "E2E 수정 기록이 실패한 케이스가 아니라 마지막 케이스에 붙음",
+      "body": "loop는 모든 케이스를 먼저 append한 후 실패→수정 블록을 append한다(SKILL:138,167). renderer는 **실패 → 수정 (A)**의 A를 읽지 않고 마지막 cur에 붙인다. A 실패, B 통과, A 수정, 다음 회차 둘 다 통과 fixture에서 A는 수정 없는 재시도 INCONCLUSIVE, B는 수정 후 PASS로 기록됐다. 해당 케이스 직후에 넣으라는 규칙(:116)과 append-only(:130)도 충돌한다.",
+      "acceptance": "A 실패→B 통과→A 수정 기록→다음 회차 모두 통과 순서에서 A에만 수정 이력이 붙고, 모르는 case_id는 명시적으로 거부돼야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/e2e-test-loop/assets/render_e2e_report.py",
+        "be-harness/skills/e2e-test-loop/SKILL.md",
+        "tests/test_workflow_results.py"
+      ],
+      "verification": [
+        "A FAIL, B PASS, delayed A fix, next-iteration PASS: fix belongs to A only; unknown/duplicate case+iteration rejected."
+      ]
+    },
+    {
+      "id": "Q01",
+      "p": "P2",
+      "title": "dirty 상태에서 이미 커밋한 구현이 품질 검사 범위에서 누락",
+      "body": "BE/FE simplify는 git status에 하나라도 있으면 git diff HEAD를 택한다. 구현 커밋 후 무관한 untracked notes.md만 남은 fixture에서 diff 0→SKIPPED:NO_CHANGES가 된다. FE convention-check:80도 일반 git diff만 사용해 커밋/staged 변경을 놓친다. FE lint-check:27은 빈 diff면 전체로 확대하지만 일부 dirty 파일만 있으면 기존 커밋 범위는 빠진다. 고쳐진 FE Phase 8 리뷰 범위와 별개의 경로다.",
+      "acceptance": "구현 커밋+무관한 untracked 파일, staged-only, dirty 일부 파일, clean branch의 모든 경우에서 실행 소유 변경 집합이 빠지지 않아야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/start-workflow/assets/workflow_scope.py",
+        "be-harness/skills/start-workflow/references/scope-contract.md",
+        "tests/test_workflow_scope.py",
+        "be-harness/skills/simplify-loop/SKILL.md",
+        "fe-harness/skills/simplify-loop/SKILL.md",
+        "fe-harness/skills/convention-check/SKILL.md",
+        "fe-harness/skills/lint-check/SKILL.md"
+      ],
+      "verification": [
+        "Scope8 PASS: committed+unrelated untracked, staged-only, restored worktree with differing index, root/subdir parity, rename/delete/symlink, direct protected-branch commit retained by START_SHA. Consumers use common scope, owned untracked explicit."
+      ]
+    },
+    {
+      "id": "Q02",
+      "p": "P2",
+      "title": "FE 컴포넌트·접근성 수정 후 빌드/테스트 재검증 단계가 없음",
+      "body": "Phase 7 검증 완료 후 Phase 8에서 Critical을 수정하고 바로 Phase 9 PR로 간다. PR 직전 재검증은 light→standard 승격 조건일 때만 정의돼 있다. 이미 standard이거나 소수 파일 수정인 경우, 수정 전 PASS와 Read-back 결과를 그대로 쓴다. 최종 사용자 결정 후의 재검증 규칙은 이 최초 PR 이전 수정 경로를 보완하지 않는다.",
+      "acceptance": "Phase 8에서 단 한 파일만 수정한 standard 실행도 관련 Phase 7 검증을 다시 거쳐야 한다. PR은 재검증한 tree와 일치해야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "fe-harness/skills/start-workflow/references/agent-prompts.md",
+        "fe-harness/skills/start-workflow/SKILL.md",
+        "be-harness/skills/start-workflow/assets/workflow_results.py",
+        "tests/test_workflow_results.py"
+      ],
+      "verification": [
+        "Results8 PASS: RUNNING FE single-file tree change rejects old PASS; new iteration on current tree permits freshness gate; missing required kind blocks. Verdict/coverage gates remain separate."
+      ]
+    },
+    {
+      "id": "Q03",
+      "p": "P2",
+      "title": "FE lintCommand 설정을 실제 lint 단계가 사용하지 않음",
+      "body": "PROFILE.md는 lintCommand를 자유 문자열로 제공하고 실행에 사용할 것을 요구하지만 lint-check는 npx eslint 명령을 고정한다. 예를 들어 workspace 경로·ESLint 설정·환경변수가 포함된 사용자 lintCommand나 다른 lint runner를 설정해도 그 의미가 적용되지 않는다.",
+      "acceptance": "workspace·환경변수·다른 runner가 포함된 사용자 lintCommand를 실행 추적으로 확인한다. 기본값과 명시 설정의 분기를 구별한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "fe-harness/skills/lint-check/SKILL.md",
+        "fe-harness/skills/config/assets/profile.py",
+        "tests/test_profile.py"
+      ],
+      "verification": [
+        "Actual custom shell runner trace preserves workspace/env/quoted args; configured command --fix rejected before execution; installed fallback --fix and missing SKIP verified."
+      ]
+    },
+    {
+      "id": "C01",
+      "p": "P1",
+      "title": "--bump-only가 기존 staged 파일도 커밋한다",
+      "body": "- 위치: `common/skills/commit-pr/SKILL.md:92`, 기본 커밋 절차 `common/skills/commit/SKILL.md:29`.\n- 조건: 사용자가 다른 변경을 이미 stage한 상태에서 `--bump-only` 실행.\n- 원인: `git add VERSION`은 index의 다른 엔트리를 제외하지 않는다. 이후 일반 `git commit`은 index 전체를 커밋한다.\n- 재현: unrelated.txt를 미리 stage → VERSION만 수정/add → 범프 커밋. `git show --name-only HEAD`에 `VERSION`, `unrelated.txt`가 함께 나타났다.\n- 영향: “코드 변경 커밋 없이 VERSION만”이라는 범위를 위반하며, 요청하지 않은 staged 코드까지 다음 push에 포함된다.\n- 수정: 기존 index 보존·복원 또는 commit pathspec/임시 index로 대상 파일만 커밋하고 결과 tree 범위를 확인한다. `resolve-assumption`의 amend/soft-reset과 논리 단위 commit에도 staged 내용 격리 계약을 공통 적용할 수 있다. clean-tree 선행 조건이 있는 sync-base는 같은 빈도로 발생한다고 주장하지 않는다.",
+      "acceptance": "VERSION 외 staged/unstaged 변경을 함께 준비한다. 범프 커밋은 버전 파일만 포함하고 기존 index/worktree 상태는 보존돼야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/commit/assets/git_checks.py",
+        "common/skills/commit-pr/SKILL.md",
+        "common/skills/commit-push/SKILL.md",
+        "common/skills/commit/SKILL.md",
+        "common/skills/resolve-assumption/SKILL.md",
+        "tests/test_git_checks.py"
+      ],
+      "verification": [
+        "Git fixtures8 PASS: VERSION-only and message-only commit preserve unrelated index/worktree, root paths/nested cwd, tag hunk parsing, separate ranges, fail-closed errors, path filters. Independent local bare transport + mocked gh review corrected trunk protection/root -C/branch-first ordering; VERSION-absent and dirty implementation pushed exactly once in fixture."
+      ]
+    },
+    {
+      "id": "C02",
+      "p": "P2",
+      "title": "PR base 결정이 VERSION 존재에 종속되고 루트 버전 경로가 cwd에 따라 바뀐다",
+      "body": "- 위치: `common/skills/commit-pr/SKILL.md:45`, `:47`, `:51`, `:69`.\n- 조건 A: VERSION/VERSION.txt가 없는 일반 프로젝트. Step 2 전체를 SKIP하지만 Step 4는 “Step 2에서 결정한 base”를 요구한다.\n- 조건 B: 저장소 하위 디렉터리에서 실행. 대상은 루트 VERSION인데 `git rev-parse --show-prefix`를 붙여 `sub/VERSION`을 조회한다.\n- 재현 B: origin/main에는 루트 VERSION=`2.0.0`이 존재했지만 제공된 명령은 `fatal: path 'sub/VERSION' does not exist in 'origin/main'`, exit 128을 반환했다.\n- 영향: A는 base 미정/잘못된 기본 브랜치 사용, B는 정상 원격을 조회 실패로 오판하여 로컬 patch 폴백. 배포 브랜치와 VERSION 비교 기준이 달라질 수 있다.\n- 수정: 저장소 루트·확정 브랜치 prefix·base resolve를 버전 존재 검사보다 앞선 독립 단계로 두고, 루트 상대 VERSION 경로를 사용한다. base 변경을 허용할 때에는 VERSION 계산도 새 base로 갱신해야 한다.\n- 같은 경로의 추가 공백: 기존 open PR 경로(`:39`)는 base VERSION 비교 전에 fetch를 명시하지 않는다. 신규 PR의 “바로 상위 브랜치”에도 결정적인 Git 근거/폴백 순서가 없다. sync-base에는 PR base→origin/HEAD 순서가 있으므로 공통화할 수 있다.",
+      "acceptance": "VERSION 없음·VERSION.txt·하위 cwd·비-main 기본 브랜치·기존 PR·remote 버전 선행을 표로 묶어 같은 base resolver를 검증한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/commit/assets/git_checks.py",
+        "common/skills/commit-pr/SKILL.md",
+        "common/skills/commit-push/SKILL.md",
+        "common/skills/commit/SKILL.md",
+        "common/skills/resolve-assumption/SKILL.md",
+        "tests/test_git_checks.py"
+      ],
+      "verification": [
+        "Git fixtures8 PASS: VERSION-only and message-only commit preserve unrelated index/worktree, root paths/nested cwd, tag hunk parsing, separate ranges, fail-closed errors, path filters. Independent local bare transport + mocked gh review corrected trunk protection/root -C/branch-first ordering; VERSION-absent and dirty implementation pushed exactly once in fixture."
+      ]
+    },
+    {
+      "id": "C03",
+      "p": "P2",
+      "title": "BE/FE workflow-pr의 커밋·버전·base 계약이 common 절차와 갈라졌다",
+      "body": "- 위치: `be-harness/agents/workflow-pr.md:24`, `fe-harness/agents/workflow-pr.md:24` (양쪽 동일 실행 3~7단계), `be-harness/skills/start-workflow/references/agent-prompts.md:209`, `fe-harness/skills/start-workflow/references/agent-prompts.md:328`.\n- 조건: PR 에이전트가 VERSION을 수정하거나, 품질 단계가 미커밋 변경을 남긴 상태에서 PR 생성. 또는 remote base 버전이 로컬보다 높은 상태/재개 시 이미 PR이 존재하는 상태.\n- 원인: VERSION local patch+1 → 브랜치 생성 → `base...HEAD` Assumption Gate → push 순서에 커밋 단계가 없다. common:commit-pr 위임·base 확정·VERSION.txt·기존 PR 처리도 없다. 부모 프롬프트가 이 계약을 보완하지 않는다.\n- 재현: fixture에서 미커밋 VERSION/handler의 `[Assumption]`을 두고 문서의 Gate를 실행하면 stdout 0건; `HEAD:handler.go`는 없고 파일은 작업 트리에 남는다. 원격 push는 실행하지 않았다.\n- 영향: 문서 순서를 그대로 따르면 VERSION/품질 수정은 원격에 포함되지 않는다. 에이전트가 “모든 변경 push”를 만족하려고 Gate 이후 커밋을 추론하면 검사하지 않은 태그가 커밋될 수 있다. 후자는 실행 위험 추론이며 실제 원격 유출 재현으로 표현하지 않는다.\n- 수정: PR 전용 에이전트가 common의 base/버전/커밋/Gate/기존-PR 절차를 명시적으로 재사용하고, `commit → 검증한 HEAD의 Gate → push` 순서를 고정한다. 재개는 이미 완료한 branch/VERSION/PR 단계를 재실행하지 않아야 한다(`finalization.md:7`의 중복 금지와 연결).",
+      "acceptance": "PR 직전 미커밋 변경과 VERSION 수정이 있는 상태에서 commit→Gate→push 순서를 추적한다. 재개 시 기존 branch/버전/PR을 중복 생성하지 않아야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/commit/assets/git_checks.py",
+        "common/skills/commit-pr/SKILL.md",
+        "common/skills/commit-push/SKILL.md",
+        "common/skills/commit/SKILL.md",
+        "common/skills/resolve-assumption/SKILL.md",
+        "tests/test_git_checks.py",
+        "be-harness/agents/workflow-pr.md",
+        "fe-harness/agents/workflow-pr.md"
+      ],
+      "verification": [
+        "Git fixtures8 PASS: VERSION-only and message-only commit preserve unrelated index/worktree, root paths/nested cwd, tag hunk parsing, separate ranges, fail-closed errors, path filters. Independent local bare transport + mocked gh review corrected trunk protection/root -C/branch-first ordering; VERSION-absent and dirty implementation pushed exactly once in fixture."
+      ]
+    },
+    {
+      "id": "C04",
+      "p": "P2",
+      "title": "Read-back의 브랜치 기준 diff가 --hard·FE/FS 비-main 저장소에서 증거를 누락",
+      "body": "- 위치: `common/skills/start-workflow/references/fullstack-agent-prompts.md:138`, `:170`; FE `fe-harness/skills/start-workflow/references/agent-prompts.md:182`; BE `be-harness/skills/start-workflow/references/quality-loop.md:196`.\n- 조건 A: 기본 브랜치가 master/dev이고 로컬 main이 없음. 조건 B: `--hard`로 현재 main에 커밋. 조건 C: 오래된 main을 기준으로 dev에서 분기한 작업.\n- 재현: A는 exit 128로 범위 조회 실패; B는 실제 handler.go 변경이 있어도 stdout이 빈 문자열이다(현재 main=HEAD). START_SHA로 계산하면 handler.go가 나온다.\n- 영향: 풀스택 계약 격리 검증이 멈추거나 빈 범위를 정상으로 오해하고 변경을 놓친다. FE도 literal main을 쓰지만 E2E/공개 인터페이스 폴백이 있으므로 우선 테스트 증거가 누락되는 영향이다. BE는 literal main이 아닌 `{mainBranch}`지만 --hard로 그 브랜치에 직접 커밋하면 같은 빈 범위가 된다. C는 이번 작업과 무관한 base 변경까지 들어온다. 이미 알려진 dirty simplify 범위 누락과는 다른 호출자의 검증 범위 결함이다.\n- 수정: 오케스트레이터가 START_SHA/작업 allowlist와 현재 tracked·untracked 변경을 반영한 읽기 대상 경로를 계산해 프롬프트에 제공한다. 격리 원칙 때문에 상태 파일은 넘기지 않고 경로 목록만 전달한다. ref 오류와 “변경 0건”을 분리한다.",
+      "acceptance": "기본 브랜치 master/dev, 현재 main에 직접 커밋한 --hard, 오래된 main을 가진 저장소에서 START_SHA 이후 변경을 모두 읽어야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/start-workflow/references/quality-loop.md",
+        "fe-harness/skills/start-workflow/references/agent-prompts.md",
+        "common/skills/start-workflow/references/fullstack-agent-prompts.md",
+        "tests/test_workflow_scope.py"
+      ],
+      "verification": [
+        "Scope8 PASS: committed+unrelated untracked, staged-only, restored worktree with differing index, root/subdir parity, rename/delete/symlink, direct protected-branch commit retained by START_SHA. Consumers use common scope, owned untracked explicit."
+      ]
+    },
+    {
+      "id": "C05",
+      "p": "P2",
+      "title": "아카이브가 다른 Phase와 과거 회귀 건수를 최종 결과로 요약한다",
+      "body": "- 위치: `common/skills/start-workflow/assets/workflow_archive.py:159`, `:165`, `:169`, `:218`; BE/FE assets 파일도 바이트 동일.\n- 원인: MODE와 무관하게 BE의 8.1·8.6만 읽고, regression_count는 상태 전문의 첫 정규식 매치를 사용한다.\n- 재현 1: BE 상태에 `8.1 FAIL regression 2건` 다음 `8.1 PASS regression 0건`을 넣으면 `regression_count: 2`, `최종 테스트 판정(8.1): PASS · regression: 2`를 쓰고 `상태: OK`를 반환한다.\n- 재현 2: FE의 7.1 PASS/7.4 E2E PASS를 주면 양쪽 “기록 없음”; 풀스택 Phase 7 BE/FE PASS + 8.1 Read-back WARN을 주면 “최종 테스트 판정: WARN”으로 기록한다.\n- 영향: 보존되는 보고서 요약·frontmatter가 실제 마지막 검증 상태와 다르다. 원문 부록은 남지만 사용자가 요약만 읽거나 인덱스에서 집계하면 잘못된 결과를 얻는다.\n- 수정: MODE별 명시 결과 필드(가능하면 JSON/구조화된 최종 summary)를 읽고, 마지막 완료 검증 회차의 판정·회귀 수를 함께 추출한다. 테스트·Read-back·E2E는 다른 필드로 유지한다.",
+      "acceptance": "BE 실패 후 성공, FE 최종 테스트, FS Read-back WARN 입력에서 각각 마지막 테스트 수·E2E·Read-back이 독립적으로 정확히 보존돼야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/start-workflow/assets/workflow_archive.py",
+        "fe-harness/skills/start-workflow/assets/workflow_archive.py",
+        "common/skills/start-workflow/assets/workflow_archive.py",
+        "tests/test_workflow_archive.py"
+      ],
+      "verification": [
+        "BE failed2 then passed0, FE7.1, FS unit/readback WARN: last paired verdict/count and separate readback preserved from versioned JSON. Legacy is degraded and uses mode-specific last-row pairing."
+      ]
+    },
+    {
+      "id": "C06",
+      "p": "P2",
+      "title": "아카이브 재시도는 DEGRADED를 OK로 바꾸고 입력 run_id 충돌은 중복 파일을 만든다",
+      "body": "- 위치: `common/skills/start-workflow/assets/workflow_archive.py:188`, `:190`, `:238`, `:242`; BE/FE 동일.\n- 재현 A: 필수 헤더 누락으로 첫 실행은 DEGRADED, 같은 인수로 다시 실행하면 INCOMPLETE 본문 그대로인데 `상태: OK(재사용…)`.\n- 재현 B: src frontmatter run_id=old-run, CLI run-id=new-run이면 기존 run_id를 유지한 파일이 생성된다. 동일 호출 재시도는 해당 파일을 같은 실행으로 인식하지 못해 `-2.md`를 추가 생성한다.\n- 영향: 재개/재시도 시 미완전 산출물이 정상으로 보이거나 실행당 보고서 1개라는 기대가 깨진다.\n- 수정: 입력·상태·CLI run_id 일치를 검증하거나 명시적 소유 필드로 덮어쓰고, 저장된 산출물의 completeness/status를 재사용 때에도 그대로 반환한다. 날짜·task 변경 재시도도 RUN_ID 기준 식별을 검토한다(후자는 개선 제안, 날짜 변경 재현은 하지 않음).",
+      "acceptance": "DEGRADED 산출물을 재사용해도 DEGRADED가 유지돼야 한다. CLI/입력 run_id 불일치는 오류나 명시적 정규화로 처리하고 재시도 산출물은 하나여야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/start-workflow/assets/workflow_archive.py",
+        "tests/test_workflow_archive.py"
+      ],
+      "verification": [
+        "DEGRADED stays degraded across same-run retry and task change; source/state/CLI mismatch rejected; four concurrent same-run processes reuse one immutable archive under kernel lock."
+      ]
+    },
+    {
+      "id": "C07",
+      "p": "P2",
+      "title": "--fs --analyze/--verify를 막지 않아 읽기 요청이 Build 경로로 갈 수 있다",
+      "body": "- 위치: `common/skills/start-workflow/SKILL.md:30`, `:52`, `:135`; `common/skills/start-workflow/references/fullstack.md:25`, `:199`, `:296`.\n- 조건: explicit `--fs --analyze` / `--fs --verify`, 또는 Analyze 요청을 자동 도메인 판정에서 풀스택으로 선택.\n- 원인: 라우터는 대상 고유 플래그를 해석하지 않고 전달하지만, fs 플래그/모드 표에는 analyze/verify 처리나 지원하지 않는 조합 차단이 없다. fs는 Phase 5 브랜치, 6 구현, 9 PR을 수행하는 Build 절차뿐이다.\n- 영향: 읽기 전용 분석 의도를 Build로 재해석하거나 불필요한 요구사항/구현 승인을 묻는 비일관성이 생긴다. 실제 모델을 실행해 원격 변경을 재현하지 않았다.\n- 수정: 도메인×모드 지원 표로 진입 전에 검증하고, 미지원 조합은 비파괴적으로 종료하거나 지원되는 읽기 전용 BE/FE 작업으로 명시 라우팅한다. FE Flags(`fe-harness/skills/start-workflow/SKILL.md:29`)에도 analyze/verify가 없다는 루트 교차 검토를 반영한다.",
+      "acceptance": "도메인×Build/Analyze/Verify 지원 조합을 검사한다. 읽기 요청의 미지원 조합에서 구현·branch·PR 도구 호출이 발생하지 않아야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/start-workflow/assets/workflow_policy.py",
+        "common/skills/start-workflow/references/entry-contract.md",
+        "common/skills/start-workflow/SKILL.md",
+        "be-harness/skills/start-workflow/SKILL.md",
+        "fe-harness/skills/start-workflow/SKILL.md",
+        "tests/test_workflow_policy.py"
+      ],
+      "verification": [
+        "Policy10 PASS: domain/mode/aliases/unsupported no-action CLI, explicit base vs auto overlay/actual calls, saved target/publish resume, bidirectional local ceiling, no-TDD blockers reach final decision, overlay forward hooks without request/apiDocsPath, per-file copied source precedence, identical BE/FE drift fails both contract axes. Independent CLI counterexamples fixed and verified. Git9 PASS includes dirty hard commit→blocked Gate→resolved Gate→local bare push. No actual host nested workflow/external API write executed."
+      ]
+    },
+    {
+      "id": "C08",
+      "p": "P2",
+      "title": "이미 queue에 있는 PR을 머지 완료로 오보고하고 base HEAD를 PR merge SHA로 사용",
+      "body": "- 위치: `common/skills/merge/SKILL.md:128`, `:143`, `:148`, `:153`.\n- 조건 A: 아직 OPEN이면서 이미 merge queue에 들어 있는 PR을 이 스킬로 처리한다. 조건 B: 해당 PR 머지 후 base에 다른 커밋이 추가된다.\n- 근거: 설치된 gh 2.89.0의 공식 소스에서 inMergeQueue는 ErrAlreadyInMergeQueue를 반환하고, 최상위 RunE는 이를 nil로 바꿔 성공 종료한다. 이 검사는 canMerge 및 브랜치 삭제보다 앞선다. 스킬은 상태 재조회 없이 머지 완료·원격/로컬 브랜치 삭제를 보고한다. 따라서 A에서는 queue 대기를 완료로 오보고할 수 있다. 이는 공식 코드에서 도출한 계약 결함이며 실제 GitHub queue를 실행한 재현은 아니다. [GitHub CLI v2.89.0 merge 소스](https://github.com/cli/cli/blob/v2.89.0/pkg/cmd/pr/merge/merge.go)\n- 범위 교정: 신규 queue 요청은 현재 명령에 고정된 --delete-branch 때문에 gh가 거부한다. 이 경로를 queue 등록 성공 뒤 완료 오보고 사례로 세면 안 된다. 스킬에는 일반적인 명령 실패 보고 절차가 이미 있다.\n- 별도 영향: B에서는 git log -1 <baseRefName>가 해당 PR의 mergeCommit이 아닌 뒤따른 커밋을 반환해 보고서의 머지 SHA가 잘못된다.\n- 수정: gh pr view의 state/mergedAt/mergeCommit을 재조회하고 MERGED·QUEUED·동기화 실패를 구별한다. queue 지원을 추가한다면 현재 delete-branch 옵션 제약을 반영하고, 실제 브랜치 삭제 여부도 별도로 확인한다.",
+      "acceptance": "이미 queue에 있는 OPEN PR의 성공 종료와 신규 queue의 delete-branch 오류를 구분한다. base 후속 커밋이 있어도 PR mergeCommit을 기록하고 MERGED/QUEUED·삭제 상태를 실제 응답으로 확인한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/merge/assets/merge_state.py",
+        "common/skills/merge/SKILL.md",
+        "tests/test_merge_state.py"
+      ],
+      "verification": [
+        "Pure merge-state fixtures4 PASS: before/after review HEAD pin, OPEN/unknown/merged distinctions, actual mergeCommit SHA. Official gh CLI options verified; no live GitHub merge mutation."
+      ]
+    },
+    {
+      "id": "C09",
+      "p": "P2",
+      "title": "resolve-assumption의 경로 필터가 untracked 검색에 빠져 있다",
+      "body": "- 위치: `common/skills/resolve-assumption/SKILL.md:32`, `:42`.\n- 조건: 경로/glob를 지정했고 그 밖의 untracked 파일에도 태그가 있음.\n- 재현: 요청 범위 src/에 대해 제공된 untracked 명령을 실행하면 `other/out_of_scope.go`, `src/in_scope.go` 모두 출력한다.\n- 영향: 요청하지 않은 파일의 태그가 검토 목록에 포함된다. 승인을 받으면 범위 밖 변경으로 이어질 수 있다.\n- 수정: tracked와 동일한 pathspec을 `git ls-files … -- {경로}`에 전달하고, glob의 Git pathspec/셸 확장 규칙을 일관되게 한다. 대상 pathname은 NUL로 유지한다.",
+      "acceptance": "경로와 glob을 지정한 tracked/untracked 혼합 fixture에서 범위 밖 태그가 결과·수정 대상에 나오지 않아야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/commit/assets/git_checks.py",
+        "common/skills/commit-pr/SKILL.md",
+        "common/skills/commit-push/SKILL.md",
+        "common/skills/commit/SKILL.md",
+        "common/skills/resolve-assumption/SKILL.md",
+        "tests/test_git_checks.py"
+      ],
+      "verification": [
+        "Git fixtures8 PASS: VERSION-only and message-only commit preserve unrelated index/worktree, root paths/nested cwd, tag hunk parsing, separate ranges, fail-closed errors, path filters. Independent local bare transport + mocked gh review corrected trunk protection/root -C/branch-first ordering; VERSION-absent and dirty implementation pushed exactly once in fixture."
+      ]
+    },
+    {
+      "id": "M01",
+      "p": "P1",
+      "title": "E2E 정리 SQL이 다른 작업의 새 데이터까지 soft-delete",
+      "body": "삭제 API가 없는 경우 WHERE id > BASELINE_ID로 일괄 정리하고 자식 테이블도 같은 부모 집합을 따른다. baseline=10 이후 테스트가 11, 다른 writer가 12를 만들면 둘 다 removed가 된다. SQLite 메모리 fixture로 이 WHERE 조건의 대상을 확인했고 실제 PostgreSQL/업무 DB에는 접근하지 않았다. 호스트별 E2E 잠금은 일반 사용자나 다른 포트의 같은 DB writer를 막지 않는다.",
+      "acceptance": "테스트 writer와 일반 writer를 교차 실행해 cleanup 후 테스트 소유 ID만 removed인지 확인한다. 실제 PostgreSQL에서는 FK·trigger·soft-delete까지 추가 검증한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "minmos-harness/overlay/assets/db_ownership.py",
+        "minmos-harness/overlay/references/db-safety.md",
+        "minmos-harness/overlay/e2e-test.md",
+        "minmos-harness/overlay/e2e-test-loop.md",
+        "minmos-harness/overlay/references/e2e-test-postmath.md",
+        "tests/test_db_ownership.py"
+      ],
+      "verification": [
+        "13 PASS including isolated real PostgreSQL17: interleaved general writer, colliding schema IDs, full incoming FK, trigger side effect counterexample/drift guard, same-connection rollback, upsert rejection, recreated relation OID guard and verified physical-delete lifecycle. Independent reviewer rechecked 13 PASS. No actual app/MCP or business DB connection claimed."
+      ]
+    },
+    {
+      "id": "M02",
+      "p": "P1",
+      "title": "Apidog 재시도에서 대상 프로젝트를 자동으로 바꿔 쓰기",
+      "body": "REST 요청이 실패하면 APIDOG_PROJECT_ID와 MCP 설정의 project-id가 다를 때 MCP 값을 우선 사용하도록 지시한다. A 프로젝트를 의도한 환경에서 인증/전송 실패 후 B MCP 설정을 찾으면 같은 schema를 B에 OVERWRITE_EXISTING으로 보낼 수 있다. e2e-apidog-schema-gen:347에도 같은 절차다. 원격 import는 실행하지 않았다.",
+      "acceptance": "대상 A 확정 후 A의 인증·전송 실패와 B의 MCP 설정을 제공한다. 재시도 요청 target은 A로 유지되거나 실패해야 하며 B로 전송되면 안 된다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "minmos-harness/skills/apidog-schema-gen/assets/apidog_contract.py",
+        "minmos-harness/skills/apidog-schema-gen/references/import-contract.md",
+        "minmos-harness/skills/apidog-schema-gen/references/schema-contract.md",
+        "minmos-harness/skills/apidog-schema-gen/references/push-import.md",
+        "minmos-harness/skills/apidog-schema-gen/SKILL.md",
+        "minmos-harness/skills/apidog-schema-gen/references/extraction-patterns.md",
+        "minmos-harness/skills/e2e-apidog-schema-gen/SKILL.md",
+        "minmos-harness/skills/doctor/SKILL.md",
+        "minmos-harness/overlay/references/e2e-test-postmath.md",
+        "tests/test_apidog_contract.py"
+      ],
+      "verification": [
+        "14 PASS in isolated validation venv with openapi-spec-validator0.7.2: actual local HTTP captured original bytes for interleaved projects; accepted body with response lost then readback without resend; target/hash tamper and foreign credentials blocked; partial/pending/new-create states; full operation, recursive refs/security/discriminator, actual nullable/enum/exclusive-bound semantic checks. Independent counterexamples fixed/rechecked. No actual Apidog import/read-back authorized or performed; installed proto provider source inspected, relocation fixture executed."
+      ]
+    },
+    {
+      "id": "M03",
+      "p": "P2",
+      "title": "OpenAPI 3.0 payload에 지원되지 않는 nullable type 배열을 생성",
+      "body": "추출 규칙은 type:[\"string\",\"null\"]을 만들고 push-import:129는 openapi:3.0.0으로 감싼다. E2E 동기화 예제에도 같은 union type이 있다. OpenAPI 3.0은 type을 단일 문자열로 요구하며 nullable:true를 사용한다. Apidog UI용 JSON Schema와 OpenAPI import 스키마를 변환 없이 공유해서 생기는 형식 충돌이다. 실제 Apidog의 관대한 수용 여부는 미검증이다. [OpenAPI 3.0 Schema Object](https://spec.openapis.org/oas/v3.0.3.html#schema-object)",
+      "acceptance": "nullable scalar/array/object와 oneOf를 포함한 생성 문서를 선언한 OAS dialect validator에 통과시킨 뒤 별도 테스트 프로젝트로 import/read-back한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "minmos-harness/skills/apidog-schema-gen/assets/apidog_contract.py",
+        "minmos-harness/skills/apidog-schema-gen/references/import-contract.md",
+        "minmos-harness/skills/apidog-schema-gen/references/schema-contract.md",
+        "minmos-harness/skills/apidog-schema-gen/references/push-import.md",
+        "minmos-harness/skills/apidog-schema-gen/SKILL.md",
+        "minmos-harness/skills/apidog-schema-gen/references/extraction-patterns.md",
+        "minmos-harness/skills/e2e-apidog-schema-gen/SKILL.md",
+        "minmos-harness/skills/doctor/SKILL.md",
+        "minmos-harness/overlay/references/e2e-test-postmath.md",
+        "tests/test_apidog_contract.py"
+      ],
+      "verification": [
+        "14 PASS in isolated validation venv with openapi-spec-validator0.7.2: actual local HTTP captured original bytes for interleaved projects; accepted body with response lost then readback without resend; target/hash tamper and foreign credentials blocked; partial/pending/new-create states; full operation, recursive refs/security/discriminator, actual nullable/enum/exclusive-bound semantic checks. Independent counterexamples fixed/rechecked. No actual Apidog import/read-back authorized or performed; installed proto provider source inspected, relocation fixture executed."
+      ]
+    },
+    {
+      "id": "M04",
+      "p": "P2",
+      "title": "API push가 성공 응답을 200으로 고정",
+      "body": "원래 OAS의 responses.{statusCode}를 읽지만 push 생성 규칙은 responses.200만 명시한다. 201 생성·204 삭제 등 다른 성공 코드를 갖는 API가 200 문서로 재생성되거나 기존 응답 정의를 잃을 수 있다. GET에만 parameters, POST/PUT/PATCH에만 body를 붙이라는 규칙도 operation별 실제 계약을 충분히 보존하지 못한다.",
+      "acceptance": "201/204/복수 성공·오류 응답, query/header/path parameter를 포함한 OAS의 생성 전후 계약 차이를 검사한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "minmos-harness/skills/apidog-schema-gen/assets/apidog_contract.py",
+        "minmos-harness/skills/apidog-schema-gen/references/import-contract.md",
+        "minmos-harness/skills/apidog-schema-gen/references/schema-contract.md",
+        "minmos-harness/skills/apidog-schema-gen/references/push-import.md",
+        "minmos-harness/skills/apidog-schema-gen/SKILL.md",
+        "minmos-harness/skills/apidog-schema-gen/references/extraction-patterns.md",
+        "minmos-harness/skills/e2e-apidog-schema-gen/SKILL.md",
+        "minmos-harness/skills/doctor/SKILL.md",
+        "minmos-harness/overlay/references/e2e-test-postmath.md",
+        "tests/test_apidog_contract.py"
+      ],
+      "verification": [
+        "14 PASS in isolated validation venv with openapi-spec-validator0.7.2: actual local HTTP captured original bytes for interleaved projects; accepted body with response lost then readback without resend; target/hash tamper and foreign credentials blocked; partial/pending/new-create states; full operation, recursive refs/security/discriminator, actual nullable/enum/exclusive-bound semantic checks. Independent counterexamples fixed/rechecked. No actual Apidog import/read-back authorized or performed; installed proto provider source inspected, relocation fixture executed."
+      ]
+    },
+    {
+      "id": "M05",
+      "p": "P2",
+      "title": "worktree 초기화 hook이 공백 경로·설정 파일 없는 첫 설치에서 실패",
+      "body": "git worktree list --porcelain를 awk print $2로 읽어 공백 뒤를 버린다. repo with space를 메인 checkout으로 만든 실제 Git fixture에서 hook exit 0이지만 .env가 복사되지 않았다. 또 settings.json이 없는 fixture에서 :288~291 등록 명령은 jq exit 2, settings 미생성이었다.",
+      "acceptance": "공백·한글 main/worktree 경로, settings.json 없음·기존 hooks 있음·유효하지 않은 JSON에서 설치 결과와 실제 복사를 확인한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "minmos-harness/skills/init/assets/worktree_init.py",
+        "minmos-harness/skills/init/assets/hook_metadata.py",
+        "minmos-harness/skills/init/SKILL.md",
+        "minmos-harness/skills/init/references/worktree-hook.md",
+        "tests/test_worktree_init.py"
+      ],
+      "verification": [
+        "16 real Git/settings/fault tests PASS; independent reviewer rechecked original preservation, descriptor-relative installation, interruption cleanup and post-publication fsync UNKNOWN. Successful write with cleanup failure separately reports cleanup_warnings. Linux metadata verified, Darwin runtime unavailable."
+      ]
+    },
+    {
+      "id": "M06",
+      "p": "P2",
+      "title": "페이지네이션 템플릿의 tie-breaker가 다음 커서에 포함되지 않음",
+      "body": "id가 없으면 SQL ORDER BY에만 id desc를 추가하고 orderSpecs에는 넣지 않은 채 커서를 만든다. created_at이 같은 3개 행, limit=2 fixture에서 첫 페이지 [3,2], 다음 조건 created_at<100은 빈 목록이 되어 id=1을 놓친다. 별도 helper가 id를 보완하지 않는 문서 그대로의 알고리즘을 검증했으며 CloudKit 실제 구현을 실행한 것은 아니다. order/cursor 일치 검사도 본문과 달리 예제에는 없고, 마지막 페이지에서 항상 nonempty cursor를 만드는 코드와 빈 문자열 규칙도 충돌한다.",
+      "acceptance": "정렬값이 같은 행을 여러 페이지로 읽어 누락·중복이 없어야 한다. 역순·복합 정렬·마지막 페이지·cursor/order 불일치도 정본 helper로 실행한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "minmos-harness/skills/pagenation/assets/pagination.go",
+        "minmos-harness/skills/pagenation/SKILL.md",
+        "minmos-harness/skills/pagenation/references/cloudkit-contract.md",
+        "tests/test_pagination.py",
+        "tests/fixtures/cloudkit-cursor/observed.json"
+      ],
+      "verification": [
+        "6 compiled Go/SQL tests PASS; tied keys, mixed directions, final-page sentinel, exact int64, authenticated malformed cursor, allowlist and size boundary. Actual CloudKit source SHA-pinned probe in signed/unsigned processes confirmed precision loss and missing validation; hp1 reference codec explicitly requires migration, not claimed wire-compatible. Independent size roundtrip finding fixed and verified."
+      ]
+    },
+    {
+      "id": "M07",
+      "p": "P2",
+      "title": "snake_case 변환이 SQL Injection을 방지한다는 잘못된 안내",
+      "body": "컬럼명을 snake_case로 바꾸면 SQL Injection이 방지된다고 설명하면서 fmt.Sprintf로 Column/Direction을 Order에 넣는다(:95~96). 이름 스타일 변환은 허용 컬럼·정렬 방향 검증과 다르다. GORM 공식 문서도 Order 문자열을 비이스케이프 입력으로 분류한다. 실제 CloudKit parser 내부의 별도 방어 여부는 이번 범위에서 검증하지 않았으므로 소비 서비스의 확정 취약점으로 주장하지 않는다. [GORM Security](https://gorm.io/docs/security.html)",
+      "acceptance": "허용 목록 밖 컬럼·SQL 구문 문자가 포함된 정렬 키·잘못된 방향은 SQL 실행 전에 거부한다. 실제 CloudKit parser의 해당 보장도 별도로 확인한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "minmos-harness/skills/pagenation/assets/pagination.go",
+        "minmos-harness/skills/pagenation/SKILL.md",
+        "minmos-harness/skills/pagenation/references/cloudkit-contract.md",
+        "tests/test_pagination.py",
+        "tests/fixtures/cloudkit-cursor/observed.json"
+      ],
+      "verification": [
+        "6 compiled Go/SQL tests PASS; tied keys, mixed directions, final-page sentinel, exact int64, authenticated malformed cursor, allowlist and size boundary. Actual CloudKit source SHA-pinned probe in signed/unsigned processes confirmed precision loss and missing validation; hp1 reference codec explicitly requires migration, not claimed wire-compatible. Independent size roundtrip finding fixed and verified."
+      ]
+    },
+    {
+      "id": "M08",
+      "p": "P2",
+      "title": "Apidog·Proto 도구 참조가 환경 탐색/현재 설치 구조와 불일치",
+      "body": "doctor는 read_project_oas_*를 탐색하지만 실제 실행은 _w9of5k 이름으로 고정된다. suffix가 다른 프로젝트에서는 진단 성공 후 호출이 끊긴다(api-share-note는 이미 동적 탐색을 명시). 재시도는 --project-id=만 읽지만 init:90은 --project=<ID>를 권장한다. gRPC reflection 폴백도 e2e-test-postmath:154에서 go-grpc-tools/skills/proto-gen을 참조하는데, 이 환경의 설치 위치는 go-stack-tools/2.0.1/skills/go-codegen/scripts/find-proto.sh다.",
+      "acceptance": "서로 다른 MCP suffix와 신·구 project 인수 형식에서 진단이 찾은 도구를 실제 다음 단계가 쓰는지 확인한다. 외부 proto helper의 설치 위치 변경도 포함한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "minmos-harness/skills/apidog-schema-gen/assets/apidog_contract.py",
+        "minmos-harness/skills/apidog-schema-gen/references/import-contract.md",
+        "minmos-harness/skills/apidog-schema-gen/references/schema-contract.md",
+        "minmos-harness/skills/apidog-schema-gen/references/push-import.md",
+        "minmos-harness/skills/apidog-schema-gen/SKILL.md",
+        "minmos-harness/skills/apidog-schema-gen/references/extraction-patterns.md",
+        "minmos-harness/skills/e2e-apidog-schema-gen/SKILL.md",
+        "minmos-harness/skills/doctor/SKILL.md",
+        "minmos-harness/overlay/references/e2e-test-postmath.md",
+        "tests/test_apidog_contract.py"
+      ],
+      "verification": [
+        "14 PASS in isolated validation venv with openapi-spec-validator0.7.2: actual local HTTP captured original bytes for interleaved projects; accepted body with response lost then readback without resend; target/hash tamper and foreign credentials blocked; partial/pending/new-create states; full operation, recursive refs/security/discriminator, actual nullable/enum/exclusive-bound semantic checks. Independent counterexamples fixed/rechecked. No actual Apidog import/read-back authorized or performed; installed proto provider source inspected, relocation fixture executed."
+      ]
+    },
+    {
+      "id": "M09",
+      "p": "P2",
+      "title": "Apidog 검증 payload가 실행별로 격리되지 않아 다른 실행 내용으로 바뀜",
+      "body": "payload 경로가 /tmp/apidog-push-{endpoint-slug}.yaml로 고정되고 import에서 다시 읽는다(:170). 두 프로젝트/에이전트가 같은 endpoint slug를 처리하면 A가 검증한 파일을 B가 덮어쓴 뒤 A의 대상 프로젝트에 B 내용이 전송되는 interleaving이 가능하다. 재시도·deprecated 경로·E2E 동기화도 같은 파일명을 쓴다. 실제 원격 전송은 실행하지 않았다.",
+      "acceptance": "같은 endpoint slug에 프로젝트 A/B 두 실행을 교차시킨다. 검증한 hash와 실제 전송 bytes·target이 각 실행에서 일치해야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "minmos-harness/skills/apidog-schema-gen/assets/apidog_contract.py",
+        "minmos-harness/skills/apidog-schema-gen/references/import-contract.md",
+        "minmos-harness/skills/apidog-schema-gen/references/schema-contract.md",
+        "minmos-harness/skills/apidog-schema-gen/references/push-import.md",
+        "minmos-harness/skills/apidog-schema-gen/SKILL.md",
+        "minmos-harness/skills/apidog-schema-gen/references/extraction-patterns.md",
+        "minmos-harness/skills/e2e-apidog-schema-gen/SKILL.md",
+        "minmos-harness/skills/doctor/SKILL.md",
+        "minmos-harness/overlay/references/e2e-test-postmath.md",
+        "tests/test_apidog_contract.py"
+      ],
+      "verification": [
+        "14 PASS in isolated validation venv with openapi-spec-validator0.7.2: actual local HTTP captured original bytes for interleaved projects; accepted body with response lost then readback without resend; target/hash tamper and foreign credentials blocked; partial/pending/new-create states; full operation, recursive refs/security/discriminator, actual nullable/enum/exclusive-bound semantic checks. Independent counterexamples fixed/rechecked. No actual Apidog import/read-back authorized or performed; installed proto provider source inspected, relocation fixture executed."
+      ]
+    },
+    {
+      "id": "F01",
+      "p": "P2",
+      "title": "설정에서 지원하는 Nuxt·JavaScript와 FE 생성 템플릿이 맞지 않음",
+      "body": "init은 nuxt(Vue)를 선택지로 제공하고 component는 framework/typescript를 읽지만 템플릿은 항상 React .tsx/interface, @testing-library/react, @storybook/react다. typescript:false 분기도 없다. vitest 선택에서도 describe/it import나 globals 설정을 확인하지 않고 전역 함수를 사용한다. 실제 모델이 상황에 맞게 보완할 수는 있지만 지원 설정에 대한 실행 계약은 빠져 있다.",
+      "acceptance": "명시한 지원 조합마다 생성 산출물을 실제 build/typecheck/test로 검사한다. Nuxt·JavaScript·Vitest globals 비활성 조합을 포함한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "fe-harness/skills/component/assets/component_templates.py",
+        "fe-harness/skills/component/SKILL.md",
+        "fe-harness/skills/unit-test/SKILL.md",
+        "fe-harness/skills/init/SKILL.md",
+        "tests/fixtures/fe-components",
+        "tests/test_component_templates.py"
+      ],
+      "verification": [
+        "Generated current templates for14 supported framework/language/runner combinations +3 style variants: Vite build and vue-tsc PASS; Vitest11 and Jest6 tests PASS with globals disabled/explicit imports. Vue/Jest unsupported variants rejected before writing. Components only; no application/router or Storybook browser build claim. Pinned fixture dependencies and observed versions recorded."
+      ]
+    },
+    {
+      "id": "F02",
+      "p": "P3",
+      "title": "hyeondongs doctor가 정상 현대 profile·선택 설정을 누락으로 보고",
+      "body": "머리말은 fe-harness.local.md가 우선이라고 하지만 점검/필수 표는 .hyeondong-config.json을 필수로 둔다. 현대 profile만 있는 정상 설치도 ISSUES FOUND가 된다. typescript:false에서도 TypeScript 필수, Cypress 선택에도 Playwright 실행 검사, codexMode:none과 다른 Plan 검증 루프 상시 문구, 존재하지 않는 /hyeondong-init 안내가 남아 있다. FE doctor/component/unit-test 본문에도 legacy fallback 머리말과 현대 파일 필수 문구가 함께 남은 곳이 있다.",
+      "acceptance": "현대 profile만 존재·legacy만 존재·typescript:false·Cypress·codexMode:none 조합에서 필수/선택/SKIP 판정과 안내 호출명이 맞아야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/config/assets/doctor.py",
+        "fe-harness/skills/doctor/SKILL.md",
+        "hyeondongs-harness/skills/doctor/SKILL.md",
+        "tests/test_doctor.py",
+        "fe-harness/skills/component/SKILL.md",
+        "fe-harness/skills/unit-test/SKILL.md"
+      ],
+      "verification": [
+        "Doctor4 PASS: modern-only and legacy-only, JavaScript/Cypress/codexMode none skip inactive dependencies; renamed tool discovery preserved; native Codex no delegation dependency; only node --version executes. Host skill loading itself not exercised."
+      ]
+    },
+    {
+      "id": "A01",
+      "p": "P2",
+      "title": "14개 agent의 도구 제한 frontmatter가 공식 필드와 다름",
+      "body": "BE 7개·FE 6개·minmos 1개 agent가 모두 allowed-tools를 쓰고 tools를 선언하지 않는다. 공식 Claude Code subagent 계약은 tools/disallowedTools이며 tools 부재 시 가능한 도구를 상속한다. 스킬용 allowed-tools를 agent에 사용해 의도한 읽기 전용 제한이 공식 계약상 설정되지 않은 상태다. 실제 에이전트의 무단 쓰기는 실행하지 않았다. [Claude Code subagent frontmatter](https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields)",
+      "acceptance": "설치된 host에서 실제 로드된 agent의 도구 목록을 확인한다. frontmatter validator로 잘못된 필드를 차단하고 읽기 전용 역할의 쓰기 경로를 점검한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "scripts/agent_contract.py",
+        "tests/test_agent_contract.py",
+        "tests/fixtures/host-contract/observed.json",
+        "be-harness/agents",
+        "fe-harness/agents",
+        "minmos-harness/agents",
+        "be-harness/skills/start-workflow/references/analyze-verify-modes.md"
+      ],
+      "verification": [
+        "Actual Claude2.1.261 loopback mock loader: all14 agents scoped delegation verified; readers9 exactlyRead/Glob/Grep; legacy allowed-tools negative control inherited Bash/Write/Edit. PR Skill enabled. 3contract testsPASS; independent review closed parent-evidence/analyze/verify/direct-question paths."
+      ]
+    },
+    {
+      "id": "S01",
+      "p": "P3",
+      "title": "구조 검사 cleanup이 자신이 만들지 않은 __pycache__도 삭제",
+      "body": "py_compile 뒤 저장소 전체의 __pycache__를 rm -rf한다(work-log만 제외). tracked 파일의 독립 snapshot에 unrelated/__pycache__/keep.txt를 만든 뒤 검사했더니 check-plugins: OK, exit 0이면서 sentinel은 삭제됐다. 제품 저장소 원본에서는 이 명령을 실행하지 않았다.",
+      "acceptance": "검사 전에 무관한 __pycache__/keep.txt와 기존 bytecode를 만들고 검사 후 해시가 그대로인지 확인한다. 검사 자체 임시 출력만 정리돼야 한다.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "scripts/check-plugins.sh",
+        "tests/test_check_plugins.py"
+      ],
+      "verification": [
+        "python unittest test_check_plugins: 1 PASS; unrelated sentinel and own-cache cleanup asserted"
+      ]
+    },
+    {
+      "id": "I01",
+      "p": "P1",
+      "body": "요약 생성 시 `headRefOid`를 기록하고 `gh pr merge --match-head-commit`으로 검토한 SHA를 고정한다. 현재는 컨펌 대기 중 추가 push된 변경도 포함될 수 있다. 도움말에서 해당 옵션 존재 확인; GitHub 동시 push 실험 미실행.",
+      "acceptance": "Record reviewed head SHA and pin merge to it; a subsequent push must fail the pinned merge fixture.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/merge/assets/merge_state.py",
+        "common/skills/merge/SKILL.md",
+        "tests/test_merge_state.py"
+      ],
+      "verification": [
+        "Pure merge-state fixtures4 PASS: before/after review HEAD pin, OPEN/unknown/merged distinctions, actual mergeCommit SHA. Official gh CLI options verified; no live GitHub merge mutation."
+      ]
+    },
+    {
+      "id": "I02",
+      "p": "P2",
+      "body": "Git 명령 실패와 grep no-match를 분리해 Gate를 닫힌 실패로 만든다. base/upstream 존재를 먼저 확인하고 오류를 0건으로 취급하지 않는다. stderr만 보여주는 파이프라인 예제는 검사 신뢰성이 약하다.",
+      "acceptance": "Missing base/upstream and Git command failure must block the tag gate; no-match alone is successful, including quoted/NUL paths.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/commit/assets/git_checks.py",
+        "common/skills/commit-pr/SKILL.md",
+        "common/skills/commit-push/SKILL.md",
+        "common/skills/commit/SKILL.md",
+        "common/skills/resolve-assumption/SKILL.md",
+        "tests/test_git_checks.py"
+      ],
+      "verification": [
+        "Git fixtures8 PASS: VERSION-only and message-only commit preserve unrelated index/worktree, root paths/nested cwd, tag hunk parsing, separate ranges, fail-closed errors, path filters. Independent local bare transport + mocked gh review corrected trunk protection/root -C/branch-first ordering; VERSION-absent and dirty implementation pushed exactly once in fixture."
+      ]
+    },
+    {
+      "id": "I03",
+      "p": "P2",
+      "body": "문서가 프라이빗 `common.local.md`를 제안하지만 실제 로드 목록은 common.md와 skill.md뿐이다. 지원 경로·우선순위를 명시하거나 예시를 삭제한다. 숨은 호스트 로드 규칙은 확인되지 않았다.",
+      "acceptance": "Document and implement one override path/precedence contract; demonstrate private local override discovery or remove the unsupported promise.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/start-workflow/assets/workflow_policy.py",
+        "common/skills/start-workflow/references/entry-contract.md",
+        "common/skills/start-workflow/SKILL.md",
+        "be-harness/skills/start-workflow/SKILL.md",
+        "fe-harness/skills/start-workflow/SKILL.md",
+        "tests/test_workflow_policy.py",
+        "common/OVERRIDES.md",
+        "be-harness/OVERRIDES.md",
+        "fe-harness/OVERRIDES.md"
+      ],
+      "verification": [
+        "Policy10 PASS: domain/mode/aliases/unsupported no-action CLI, explicit base vs auto overlay/actual calls, saved target/publish resume, bidirectional local ceiling, no-TDD blockers reach final decision, overlay forward hooks without request/apiDocsPath, per-file copied source precedence, identical BE/FE drift fails both contract axes. Independent CLI counterexamples fixed and verified. Git9 PASS includes dirty hard commit→blocked Gate→resolved Gate→local bare push. No actual host nested workflow/external API write executed."
+      ]
+    },
+    {
+      "id": "I04",
+      "p": "P2",
+      "body": "`--be`/`--fe`는 베이스만 쓰는 플래그라는 안내를 실제 위임 우선순위 표에 명시한다. 현재 1순위 오버레이 감지 설명과 별도 안내에 의존한다.",
+      "acceptance": "Explicit --be/--fe selects the base workflow; automatic selection can apply the installed overlay. Verify both routing paths.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/start-workflow/assets/workflow_policy.py",
+        "common/skills/start-workflow/references/entry-contract.md",
+        "common/skills/start-workflow/SKILL.md",
+        "be-harness/skills/start-workflow/SKILL.md",
+        "fe-harness/skills/start-workflow/SKILL.md",
+        "tests/test_workflow_policy.py"
+      ],
+      "verification": [
+        "Policy10 PASS: domain/mode/aliases/unsupported no-action CLI, explicit base vs auto overlay/actual calls, saved target/publish resume, bidirectional local ceiling, no-TDD blockers reach final decision, overlay forward hooks without request/apiDocsPath, per-file copied source precedence, identical BE/FE drift fails both contract axes. Independent CLI counterexamples fixed and verified. Git9 PASS includes dirty hard commit→blocked Gate→resolved Gate→local bare push. No actual host nested workflow/external API write executed."
+      ]
+    },
+    {
+      "id": "I05",
+      "p": "P2",
+      "body": "풀스택의 minmos/hyeondongs “오버레이 요약 전달”을 파일 경로·추가 단계·스킵 조건으로 구조화한다. Phase 번호가 단일 도메인 기준인 hook이 빠지는지 실제 호출 경로 검증이 없다. 전체 중첩 실행 금지는 유지한다.",
+      "acceptance": "Fullstack overlay handoff names files, hooks, conditions, and capabilities; independent forward execution includes required hooks without nested full workflow.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/start-workflow/assets/workflow_policy.py",
+        "common/skills/start-workflow/references/entry-contract.md",
+        "common/skills/start-workflow/SKILL.md",
+        "be-harness/skills/start-workflow/SKILL.md",
+        "fe-harness/skills/start-workflow/SKILL.md",
+        "tests/test_workflow_policy.py",
+        "common/skills/start-workflow/assets/fullstack_overlays.json",
+        "common/skills/start-workflow/references/fullstack-overlays.md",
+        "minmos-harness/skills/start-workflow/SKILL.md",
+        "hyeondongs-harness/skills/start-workflow/SKILL.md"
+      ],
+      "verification": [
+        "Policy10 PASS: domain/mode/aliases/unsupported no-action CLI, explicit base vs auto overlay/actual calls, saved target/publish resume, bidirectional local ceiling, no-TDD blockers reach final decision, overlay forward hooks without request/apiDocsPath, per-file copied source precedence, identical BE/FE drift fails both contract axes. Independent CLI counterexamples fixed and verified. Git9 PASS includes dirty hard commit→blocked Gate→resolved Gate→local bare push. No actual host nested workflow/external API write executed."
+      ]
+    },
+    {
+      "id": "I06",
+      "p": "P2",
+      "body": "TEST_NOT_GREEN 후 Phase 8 강제 진행과 “둘 다 green이면 PR” 사이에서 최종 결정 Phase로 어떻게 넘어가는지 분기를 명시한다. finalization의 재검증·미완료 보존은 올바르지만, PR을 BLOCKED로 둔 채 최종 결정으로 이동하는 표가 fs에 없다.",
+      "acceptance": "A TEST_NOT_GREEN run preserves blocked PR status and reaches the final decision phase without inventing green or DONE.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/start-workflow/assets/workflow_policy.py",
+        "common/skills/start-workflow/references/entry-contract.md",
+        "common/skills/start-workflow/SKILL.md",
+        "be-harness/skills/start-workflow/SKILL.md",
+        "fe-harness/skills/start-workflow/SKILL.md",
+        "tests/test_workflow_policy.py",
+        "common/skills/start-workflow/references/fullstack.md",
+        "common/skills/start-workflow/references/contract-templates.md",
+        "common/skills/start-workflow/references/finalization.md"
+      ],
+      "verification": [
+        "Policy10 PASS: domain/mode/aliases/unsupported no-action CLI, explicit base vs auto overlay/actual calls, saved target/publish resume, bidirectional local ceiling, no-TDD blockers reach final decision, overlay forward hooks without request/apiDocsPath, per-file copied source precedence, identical BE/FE drift fails both contract axes. Independent CLI counterexamples fixed and verified. Git9 PASS includes dirty hard commit→blocked Gate→resolved Gate→local bare push. No actual host nested workflow/external API write executed."
+      ]
+    },
+    {
+      "id": "I07",
+      "p": "P2",
+      "body": "`--hard`가 단일 도메인에서는 직접 push, fs에서는 push 생략이라는 차이를 공용 플래그 표에서 보여준다. 현재 계약은 서로 다르며 자동 도메인 전환 시 사용자의 push 기대가 달라진다.",
+      "acceptance": "Common flag documentation and actual BE/FE/FS --hard routes agree on whether push occurs; verify command traces.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/start-workflow/assets/workflow_policy.py",
+        "common/skills/start-workflow/references/entry-contract.md",
+        "common/skills/start-workflow/SKILL.md",
+        "be-harness/skills/start-workflow/SKILL.md",
+        "fe-harness/skills/start-workflow/SKILL.md",
+        "tests/test_workflow_policy.py",
+        "common/skills/commit-hard-push/SKILL.md",
+        "common/skills/start-workflow/references/finalization.md",
+        "tests/test_git_checks.py"
+      ],
+      "verification": [
+        "Policy10 PASS: domain/mode/aliases/unsupported no-action CLI, explicit base vs auto overlay/actual calls, saved target/publish resume, bidirectional local ceiling, no-TDD blockers reach final decision, overlay forward hooks without request/apiDocsPath, per-file copied source precedence, identical BE/FE drift fails both contract axes. Independent CLI counterexamples fixed and verified. Git9 PASS includes dirty hard commit→blocked Gate→resolved Gate→local bare push. No actual host nested workflow/external API write executed."
+      ]
+    },
+    {
+      "id": "I08",
+      "p": "P2",
+      "body": "아카이브 명령의 경로들을 shell-quote하고, fallback에서도 reportDir 생성·실패 확인·exclusive create를 유지한다. 현재 `cat ... > 기존경로`는 원본 helper의 덮어쓰기 금지/원자성 보장을 잃는다. 경로 공백·동시 fallback·출력 경로가 일반 파일인 경우 테스트가 없다.",
+      "acceptance": "Archive output paths with spaces and concurrent fallback do not overwrite existing files; errors are reported and no unsafe shell redirection remains.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/start-workflow/references/templates.md",
+        "fe-harness/skills/start-workflow/references/templates.md",
+        "common/skills/start-workflow/references/fullstack.md",
+        "be-harness/skills/e2e-test-loop/SKILL.md",
+        "tests/test_workflow_archive.py"
+      ],
+      "verification": [
+        "Quoted artifact paths; unsafe cp/cat redirection fallback removed in favor of preserving original live files and reporting paths/errors; concurrent publishers keep existing sentinel and produce exclusive outputs."
+      ]
+    },
+    {
+      "id": "I09",
+      "p": "P2",
+      "body": "touched_paths는 Git `-z`로 읽고 문자열을 YAML-safe하게 인코딩한다. newline/tab/콜론/비ASCII 경로, input frontmatter의 중복 tier/touched_paths를 다루는 테스트가 없다. dirty baseline 영향은 기존 범위 문제와 중복 집계하지 않는다.",
+      "acceptance": "Actual Git filenames with newline, tab, colon and Unicode survive -z collection and valid metadata encoding without duplicate frontmatter keys.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/start-workflow/assets/workflow_archive.py",
+        "tests/test_workflow_archive.py"
+      ],
+      "verification": [
+        "Actual Git newline/tab/colon/Unicode filenames roundtrip through NUL collection and JSON-compatible YAML metadata; owned keys replaced once; duplicate source keys rejected."
+      ]
+    },
+    {
+      "id": "I10",
+      "p": "P2",
+      "body": "출력 디렉터리 생성/기존 파일 읽기 예외도 exit 2 계약으로 처리한다. hardlink 미지원 fallback의 exists→replace는 no-overwrite 보장과 맞지 않으므로 파일시스템별 생성 방법을 명시한다. 해당 파일시스템 race는 재현하지 않았다.",
+      "acceptance": "Output mkdir/read/publish failures return controlled exit 2; unsupported atomic no-overwrite publication never falls back to replace.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/start-workflow/assets/workflow_results.py",
+        "be-harness/skills/start-workflow/assets/workflow_archive.py",
+        "be-harness/skills/e2e-test-loop/assets/render_e2e_report.py",
+        "tests/test_workflow_archive.py"
+      ],
+      "verification": [
+        "Read/mkdir/publication errors return controlled exit2. Injected EOPNOTSUPP atomic link failure never calls replace and leaves no partial final artifact."
+      ]
+    },
+    {
+      "id": "I11",
+      "p": "P2",
+      "body": "재개 시 핸들 소실을 writer 사망으로 단정하지 말고 실행 소유 PID/작업 ID와 종료 증거를 확인한다. 병렬 범위 준수는 문서도 인정하듯 프롬프트 수준이므로 cross-slice 변경 탐지/격리 fixture가 필요하다. 실제 Codex/MCP 세션 사망 통합은 미검증.",
+      "acceptance": "Losing a writer handle while its process/job lives does not start a second writer. Resume requires ownership and stop evidence; detect cross-slice writes.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/start-workflow/assets/writer_guard.py",
+        "be-harness/skills/start-workflow/references/writer-safety.md",
+        "be-harness/skills/start-workflow/references/codex-mode.md",
+        "be-harness/skills/start-workflow/references/agent-prompts.md",
+        "be-harness/skills/start-workflow/references/tdd.md",
+        "common/skills/start-workflow/references/fullstack-agent-prompts.md",
+        "common/skills/start-workflow/references/fullstack-tdd.md",
+        "tests/test_writer_guard.py"
+      ],
+      "verification": [
+        "Writer4 PASS: real live process with lost handle blocks successor even with contradicted terminal evidence; dead PID alone insufficient; exact owner/job terminal evidence; real separate worktree cross-slice edit blocked without reverting other writer; new file bytes/mode/symlink payload retained; parent-nested worktree blocked. Independent review corrections applied. Host evidence is attestation, not security boundary; real Codex/MCP session termination integration unavailable."
+      ]
+    },
+    {
+      "id": "I12",
+      "p": "P3",
+      "body": "worktree/서브디렉터리에서도 진행 중 rebase 감지는 `git rev-parse --git-path` 사용. `git stash` 후 untracked 포함 여부/복원할 stash ID/merge 전에 clean 여부를 명시한다. 현행 Git 자체가 위험한 merge를 거부하는 경로는 데이터 손실로 과장하지 않는다.",
+      "acceptance": "Worktree/subdirectory rebase detection uses git-path; stash captures declared untracked policy and restores the exact stash ID after a clean-state check.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/sync-base/assets/sync_state.py",
+        "common/skills/sync-base/SKILL.md",
+        "tests/test_sync_state.py"
+      ],
+      "verification": [
+        "Sync5 PASS: actual linked-worktree/subdir rebase, exact owned stash UUID/message/parent under intervening second stash, real merge rename/add/delete target refresh, VERSION absent-to-found, actual Git diff3/zdiff3 marker-size5 and 7/10 parser fixtures. Independent review found and corrected top-stash race, stale SKIP, missing baseline, short markers."
+      ]
+    },
+    {
+      "id": "I13",
+      "p": "P3",
+      "body": "merge 전 VERSION/swagger 목록과 merge 결과가 다를 때(추가·rename·삭제) 대상 목록 재검증을 정의한다. diff3/zdiff3 충돌 표시에서는 현 awk가 공통조상 구역까지 읽어 보수적으로 일반 충돌로 분류할 수 있다. 현재 실제 손실 재현은 없다.",
+      "acceptance": "Recompute conflict file sets after merge including add/rename/delete; diff3 and zdiff3 ancestor sections do not corrupt VERSION/swagger handling.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/sync-base/assets/sync_state.py",
+        "common/skills/sync-base/SKILL.md",
+        "tests/test_sync_state.py"
+      ],
+      "verification": [
+        "Sync5 PASS: actual linked-worktree/subdir rebase, exact owned stash UUID/message/parent under intervening second stash, real merge rename/add/delete target refresh, VERSION absent-to-found, actual Git diff3/zdiff3 marker-size5 and 7/10 parser fixtures. Independent review found and corrected top-stash race, stale SKIP, missing baseline, short markers."
+      ]
+    },
+    {
+      "id": "I14",
+      "p": "P3",
+      "body": "`target_type=common`을 Step3에서 commons로 복수화하는 일반식과 Step5의 common/날짜 파일 예외를 한곳에서 정의. 중복 skip으로 0개 남을 때 빈 commit/PR을 하지 않는 상태를 추가한다. fork/clone/권한/기존 PR 실패의 로컬 fallback 저장 주체·정리 테스트가 없다.",
+      "acceptance": "Feedback destination mapping is consistent; duplicate-only input makes no empty commit/PR; local fallback owns and cleans its artifacts on transport failure.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/submit-feedback/SKILL.md",
+        "common/skills/submit-feedback/assets/feedback.py",
+        "tests/test_feedback.py",
+        "be-harness/skills/start-workflow/references/templates.md",
+        "fe-harness/skills/start-workflow/references/templates.md"
+      ],
+      "verification": [
+        "6testsPASS: actual isolated git clone duplicate-only no commit/PR; private local artifact saved before auth, exact single path mapper including legacycommon duplicate fixture, modified artifact/symlink rejects, stage UNKNOWN never resends, cleanup only owned checkout. Transport state fixtures use mocks; no real remote submission. Independent legacy and caller-state findings fixed."
+      ]
+    },
+    {
+      "id": "I15",
+      "p": "P3",
+      "body": "파일명은 epoch 외 충돌 방지 suffix/exclusive write를 사용한다. HTML은 self-contained를 요구하면서 Mermaid를 CDN에서 가져오므로 “오프라인” 보장 여부를 명시한다. `securityLevel: loose` 기본과 동적 코드/설명 HTML escaping 정책도 검토한다. Mermaid lint는 자체 점검뿐이고 twin 비교도 block 수/헤더만 검사하므로 내용 정합성은 보장하지 않는다.",
+      "acceptance": "Exclusive output names survive concurrency; generated HTML works offline with escaped untrusted input; twin content comparison catches semantic changes, and diagrams render.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/doc-gen/SKILL.md",
+        "common/skills/doc-gen/assets/docgen.mjs",
+        "common/skills/doc-gen/assets/package.json",
+        "common/skills/doc-gen/assets/package-lock.json",
+        "tests/docgen.test.mjs"
+      ],
+      "verification": [
+        "5 actual Chromium tests PASS: Korean flowchart/sequence render with offline mode and zero external requests, rawHTML escaped, full prose/code/table twin diff, fragment anchors including duplicate headings, invalid directive/diagram rejected,20 concurrent exclusive twins, second-file collision cleans only owned partial. Actual renderer dependencies pinned; generated HTML has static SVG, no runtime downloads. Independent anchor counterexample fixed."
+      ]
+    },
+    {
+      "id": "I16",
+      "p": "P3",
+      "body": "플러그인 prefix를 고정 열거하므로 새로운 harness나 Codex 설치 이름 변경을 자동 발견하지 못한다. 세션 제공 스킬 메타데이터 기반 기능 탐색·정확한 실제 호출명 예시를 추가하면 안내가 실제 설치와 어긋나는 문제를 줄인다.",
+      "acceptance": "Usage discovery uses provided session skill metadata and emits actual installed call names, including renamed/new harness plugins.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/how-to-use/SKILL.md",
+        "common/skills/how-to-use/assets/skill_catalog.py",
+        "tests/test_skill_catalog.py"
+      ],
+      "verification": [
+        "3testsPASS including renamed Codex prefix/new plugin, same basename multipleproviders, actualinvocation retention, verified role/namefilters and missingmetadata/duplicates. Independent NO_MATCH counterexample fixed."
+      ]
+    },
+    {
+      "id": "I17",
+      "p": "P3",
+      "body": "“남은 Phase” 예시가 10에서 끝나 최종 11이 빠지고, 템플릿 상단도 최종 보고를 Phase10으로 설명한다. canonical은 11이므로 예시/헤더 상호 검증으로 정리한다.",
+      "acceptance": "All fullstack remaining-phase examples and final report headings agree with canonical Phase 11.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/start-workflow/assets/workflow_policy.py",
+        "common/skills/start-workflow/references/entry-contract.md",
+        "common/skills/start-workflow/SKILL.md",
+        "be-harness/skills/start-workflow/SKILL.md",
+        "fe-harness/skills/start-workflow/SKILL.md",
+        "tests/test_workflow_policy.py",
+        "common/skills/start-workflow/references/fullstack-agent-prompts.md",
+        "common/skills/start-workflow/references/contract-templates.md"
+      ],
+      "verification": [
+        "Policy10 PASS: domain/mode/aliases/unsupported no-action CLI, explicit base vs auto overlay/actual calls, saved target/publish resume, bidirectional local ceiling, no-TDD blockers reach final decision, overlay forward hooks without request/apiDocsPath, per-file copied source precedence, identical BE/FE drift fails both contract axes. Independent CLI counterexamples fixed and verified. Git9 PASS includes dirty hard commit→blocked Gate→resolved Gate→local bare push. No actual host nested workflow/external API write executed."
+      ]
+    },
+    {
+      "id": "I18",
+      "p": "P3",
+      "body": "“BE/FE가 동일 방향으로 계약을 이탈하면 contract 대조는 통과”라는 설명은 논리적으로 맞지 않는다. 계약이 명시한 필드/타입과 양쪽이 똑같이 달라도 BE↔contract·FE↔contract가 차이를 잡아야 한다. 3축 검증 필요성은 유지하고 설명만 정확히 고친다.",
+      "acceptance": "A fixture where BE and FE both diverge from the contract fails both contract comparisons; explanatory text matches the three comparisons.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "common/skills/start-workflow/assets/workflow_policy.py",
+        "common/skills/start-workflow/references/entry-contract.md",
+        "common/skills/start-workflow/SKILL.md",
+        "be-harness/skills/start-workflow/SKILL.md",
+        "fe-harness/skills/start-workflow/SKILL.md",
+        "tests/test_workflow_policy.py",
+        "common/skills/start-workflow/references/fullstack.md",
+        "common/skills/start-workflow/references/fullstack-agent-prompts.md"
+      ],
+      "verification": [
+        "Policy10 PASS: domain/mode/aliases/unsupported no-action CLI, explicit base vs auto overlay/actual calls, saved target/publish resume, bidirectional local ceiling, no-TDD blockers reach final decision, overlay forward hooks without request/apiDocsPath, per-file copied source precedence, identical BE/FE drift fails both contract axes. Independent CLI counterexamples fixed and verified. Git9 PASS includes dirty hard commit→blocked Gate→resolved Gate→local bare push. No actual host nested workflow/external API write executed."
+      ]
+    },
+    {
+      "id": "D01",
+      "p": "P2",
+      "body": "CI에서 Python·Node 테스트, 구조 검사, marketplace/manifest 검증을 하나의 필수 job으로 실행한다. manifest 검증만으로 agent frontmatter·workflow 상태 계약을 검증했다고 취급하지 않는다. 복제본 parity 검사는 유지하되 공통 결함도 잡는 실행 fixture를 함께 둔다.",
+      "acceptance": "Required CI runs meaningful Python/Node tests, structure, manifest/marketplace/agent/schema/parity checks and returns failure for injected violations.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        ".github/workflows/verify.yml",
+        "scripts/verify.sh",
+        "scripts/check-plugins.sh",
+        "tests/requirements.txt",
+        "tests/fixtures/grpcurl/go.mod",
+        "tests/fixtures/grpcurl/go.sum",
+        "tests/fixtures/grpcurl/verify.py",
+        "tests/test_grpc_probe.py"
+      ],
+      "verification": [
+        "Same scripts/verify.sh required workflow entrypoint executed locally exit0: rootPython197,worklogPython10,worklogNode31,docgenNode5,FEbuild+type+Vitest11+Jest6,actualgrpcurl5 loopback cases. Required Go/OpenAPI/PostgreSQL missing dependencies fail, installs separated from offline checks. GitHub hosted job not run; branch protection settings not remotely modified.",
+        "Final review fault injection: removing server InvalidArgument now makes actual probe fail; all5 real responses/exit/status/handler counts asserted. Final full union rerun exit0 with rootPython197."
+      ]
+    },
+    {
+      "id": "D02",
+      "p": "P2",
+      "body": "실제 Jest/Vitest reporter 로그를 고정 fixture로 보관하고 지원 runner 버전별 표본으로 파서를 확인한다. 문구 존재 assertion 외에 서로 다른 파일·변한 실패 값·누락된 rerun을 포함한다. 매 테스트에서 package를 새로 설치할 필요는 없다.",
+      "acceptance": "Persist real versioned Jest/Vitest logs and regression fixtures for duplicate titles, changed failure values, and incomplete reruns without per-test downloads.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "tests/fixtures/runners/README.md",
+        "tests/fixtures/runners/jest",
+        "tests/fixtures/runners/vitest",
+        "tests/test_test_failures.py"
+      ],
+      "verification": [
+        "Actual versioned audit logs checked in with provenance; Python26 parser tests run offline with no package downloads."
+      ]
+    },
+    {
+      "id": "D03",
+      "p": "P2",
+      "body": "검증 결과의 run_id·mode·phase·iteration·case_id·tested tree·최종 상태를 구조화하고 Markdown은 그 값에서 출력한다. C05/C06/E03처럼 출력 문장과 Phase 번호를 다시 파싱하는 경로를 줄이는 공통 개선이며 별도 결함으로 중복 집계하지 않는다.",
+      "acceptance": "A versioned result contract carries run/mode/domain/phase/iteration/case/protocol/tested-tree/terminal state; render and archive consume it and reject conflicting evidence.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/start-workflow/assets/workflow_results.py",
+        "be-harness/skills/start-workflow/references/result-contract.md",
+        "be-harness/skills/start-workflow/references/run-lifecycle.md",
+        "be-harness/skills/e2e-test-loop/assets/render_e2e_report.py",
+        "be-harness/skills/start-workflow/assets/workflow_archive.py"
+      ],
+      "verification": [
+        "Version1 run/mode/domain/phase/iteration/case/protocol/tested_tree/terminal contract consumed by renderer/archive; duplicate keys, wrong domain/run, stale final PASS, and incomplete PASS rejected. BE/FE/common parity maintained."
+      ]
+    },
+    {
+      "id": "D04",
+      "p": "P2",
+      "body": "현재 긴 prose 편집 규칙을 작은 결정적 profile helper로 옮길지 검토한다. 도입한다면 CRLF/혼합 EOL·인라인 주석·따옴표·중복 키·여러 키 원자 수정·변경 없음의 바이트 보존을 실행으로 검증한다. 지원하지 않는 YAML까지 범위를 넓힐 필요는 없다.",
+      "acceptance": "A bounded deterministic profile helper preserves comments, quotes, mixed EOL, body and unchanged bytes; rejects duplicates/unsupported layouts and applies multiple keys atomically.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "be-harness/skills/config/assets/profile.py",
+        "fe-harness/skills/config/assets/profile.py",
+        "tests/test_profile.py"
+      ],
+      "verification": [
+        "Profile19 PASS: mixed EOL/quotes/comments/body/exact no-op, invalid batches unchanged, atomic hash/mode, primary/legacy precedence, slot merge. Independent reviewer counterexamples fixed and retested."
+      ]
+    },
+    {
+      "id": "D05",
+      "p": "P3",
+      "body": "문서 수·읽은 bytes·scan 시간·누락/오류 수·index 생성 시각을 진단에 노출하고 현실적인 vault 크기로 측정한다. 전체 스캔이 문제로 측정된 경우에만 증분 인덱싱을 도입한다. 이번 감사에서 처리량 한계나 성능 저하를 실측한 것은 아니다.",
+      "acceptance": "Expose scan file/byte/error counts and timing in sync/status/doctor; measure two representative sizes and document excludes semantics and measurement limits.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "work-log/mcp/lib/vault.js",
+        "work-log/mcp/server.js",
+        "work-log/skills/doctor/SKILL.md",
+        "work-log/skills/sync/SKILL.md",
+        "work-log/README.md"
+      ],
+      "verification": [
+        "Synthetic warm-cache Linux Node24 scan: 300 docs/998180 bytes/35 ms; 3000 docs/9987780 bytes/253 ms; work-log-performance.json"
+      ]
+    },
+    {
+      "id": "D06",
+      "p": "P2",
+      "body": "cache의 index 버전·루트 일치·손상/이전 schema 처리 규칙을 테스트하고 재생성 경로를 안내한다. 캐시에 남는 제목/excerpt의 권한·보관·삭제 범위도 명시한다. 현재 타 사용자에게 실제 내용이 노출됐다고 주장하는 항목은 아니다.",
+      "acceptance": "Validate cache root/version/schema and regenerate invalid cache; verify 0700/0600 protection and document excerpt retention and scoped removal.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "work-log/mcp/lib/vault.js",
+        "work-log/mcp/server.js",
+        "work-log/tests/index-integrity.test.js",
+        "work-log/skills/doctor/SKILL.md",
+        "work-log/README.md"
+      ],
+      "verification": [
+        "Root/version/schema invalid cache rejected and rebuilt, directory0700/file0600 asserted; retention and scoped removal documented"
+      ]
+    },
+    {
+      "id": "D07",
+      "p": "P2",
+      "body": "Claude plugin 실행, Codex-native work-log, Codex에 대한 작업 위임을 구별하는 지원 표를 둔다. package/host 버전별 설치·실제 agent 도구·필요 MCP 발견 smoke test를 마련한다. doctor는 선언된 framework/runner/codexMode에 필요한 의존성만 검사하고 진단 중 다운로드 여부도 표시한다.",
+      "acceptance": "Document Claude-native/Codex-native/delegation capabilities; diagnose only active framework/runner/host dependencies, distinguish optional downloads, and validate agent tool contracts.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "README.md",
+        "docs/host-contract.md",
+        "tests/fixtures/host-contract/claude_loader_smoke.py",
+        "tests/test_agent_contract.py"
+      ],
+      "verification": [
+        "Support table distinguishes repository packaging, installed Codex skills and separateCLI delegation. Claude2.1.261/CodexCLI0.153.4 read-only metadata observed; actual local loader probe uses no remote inference; worklog stdio/tools/list and doctor active-dependency fixtures remain required. Independent reviewed."
+      ]
+    },
+    {
+      "id": "D08",
+      "p": "P2",
+      "body": "환경 파일의 허용 DB_HOST 확인과 실제 앱/MCP 연결 대상 확인을 연결한다. 가능하면 DB명·port·schema·서버 식별을 비교하고 터널/컨테이너 별칭의 의미를 명시한다. FK 탐색은 schema를 함께 식별한다. 현재 운영 DB에 연결됐다는 증거는 없으며 M01의 소유 ID cleanup과 함께 검증할 경계다.",
+      "acceptance": "Bind app/MCP DB identity and schema to the owned-row ledger; identify FK tables with schema and reject unverified or mismatched cleanup targets.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "minmos-harness/overlay/assets/db_ownership.py",
+        "minmos-harness/overlay/references/db-safety.md",
+        "minmos-harness/overlay/e2e-test.md",
+        "minmos-harness/overlay/e2e-test-loop.md",
+        "minmos-harness/overlay/references/e2e-test-postmath.md",
+        "tests/test_db_ownership.py"
+      ],
+      "verification": [
+        "13 PASS including isolated real PostgreSQL17: interleaved general writer, colliding schema IDs, full incoming FK, trigger side effect counterexample/drift guard, same-connection rollback, upsert rejection, recreated relation OID guard and verified physical-delete lifecycle. Independent reviewer rechecked 13 PASS. No actual app/MCP or business DB connection claimed."
+      ]
+    },
+    {
+      "id": "D09",
+      "p": "P2",
+      "body": "grpcurl의 JSON 파싱 거부와 서버가 반환한 gRPC 상태를 구분하고, unknown field/oneof·deadline·streaming 지원 여부를 결과에 기록한다. 미지원/미호출은 성공과 분리한다. 실제 서버에 도달하지 않은 요청이 서버 validation을 검증했다고 보고되는지 통합 테스트가 필요하다.",
+      "acceptance": "Distinguish grpcurl client parsing/no-server-contact from server status; preserve deadline/streaming/unsupported/uncalled evidence in protocol-aware results.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "minmos-harness/overlay/references/grpc-testing.md",
+        "minmos-harness/overlay/references/e2e-report-templates.md",
+        "tests/fixtures/grpcurl",
+        "tests/test_workflow_results.py"
+      ],
+      "verification": [
+        "Real offline local grpcurl1.9.3 + Go grpc1.71.0 server: unknown field handler arrivals0, oneof-conflict arrivals1, server InvalidArgument arrivals1, client DeadlineExceeded after handler arrivals1. Contact and status origin separated; streaming support limits retained."
+      ]
+    },
+    {
+      "id": "D10",
+      "p": "P2",
+      "body": "SKILL의 항상 flat 규칙(:130)과 reference의 재사용 객체 $ref 규칙을 하나로 정리한다. 자기 참조/순환 schema의 유한 표현도 정의한다. import timeout은 서버가 이미 수락했을 가능성을 read-back으로 구분하고 재시도 대상·payload 고정은 M02/M09 수정과 공유한다. 순환 입력/timeout 원격 실험은 미실행이다.",
+      "acceptance": "One schema dialect/flattening policy preserves recursive schemas; immutable target and payload plus read-back distinguish timeout-unknown from safe retry.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "minmos-harness/skills/apidog-schema-gen/assets/apidog_contract.py",
+        "minmos-harness/skills/apidog-schema-gen/references/import-contract.md",
+        "minmos-harness/skills/apidog-schema-gen/references/schema-contract.md",
+        "minmos-harness/skills/apidog-schema-gen/references/push-import.md",
+        "minmos-harness/skills/apidog-schema-gen/SKILL.md",
+        "minmos-harness/skills/apidog-schema-gen/references/extraction-patterns.md",
+        "minmos-harness/skills/e2e-apidog-schema-gen/SKILL.md",
+        "minmos-harness/skills/doctor/SKILL.md",
+        "minmos-harness/overlay/references/e2e-test-postmath.md",
+        "tests/test_apidog_contract.py"
+      ],
+      "verification": [
+        "14 PASS in isolated validation venv with openapi-spec-validator0.7.2: actual local HTTP captured original bytes for interleaved projects; accepted body with response lost then readback without resend; target/hash tamper and foreign credentials blocked; partial/pending/new-create states; full operation, recursive refs/security/discriminator, actual nullable/enum/exclusive-bound semantic checks. Independent counterexamples fixed/rechecked. No actual Apidog import/read-back authorized or performed; installed proto provider source inspected, relocation fixture executed."
+      ]
+    },
+    {
+      "id": "D11",
+      "p": "P2",
+      "body": "worktree hook 설치는 기존 사용자 hook과 settings 권한을 보존하는 병합으로 정의하고 임시 파일을 실행별로 격리한다. .env/secret 복사의 실제 대상과 ignore 상태를 검증한다. M05의 재현 결함 외 기존 설정 동시 수정·중간 실패·민감 파일의 잘못된 추적 여부는 추가 fixture 대상이다.",
+      "acceptance": "Hook installation atomically preserves existing settings/hooks/modes with isolated temporary files; verify copied secret/env paths and ignore status.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "minmos-harness/skills/init/assets/worktree_init.py",
+        "minmos-harness/skills/init/assets/hook_metadata.py",
+        "minmos-harness/skills/init/SKILL.md",
+        "minmos-harness/skills/init/references/worktree-hook.md",
+        "tests/test_worktree_init.py"
+      ],
+      "verification": [
+        "16 real Git/settings/fault tests PASS; independent reviewer rechecked original preservation, descriptor-relative installation, interruption cleanup and post-publication fsync UNKNOWN. Successful write with cleanup failure separately reports cleanup_warnings. Linux metadata verified, Darwin runtime unavailable."
+      ]
+    },
+    {
+      "id": "D12",
+      "p": "P3",
+      "body": "로컬 문서 링크·실제 skill 호출명·Phase 표·canonical/override 우선순위를 함께 검사한다. 단순 문자열 검색은 폐기된 예시나 상위 overlay가 대체한 경로를 현재 실행 결함으로 오판하므로 실행에서 쓰는 참조를 구분한다. 버전은 제품별 정책에 맞춰 갱신하고 의도적으로 다른 제품 버전을 일괄 통일하지 않는다.",
+      "acceptance": "Validate active local references/call names/phase and override contracts with explicit historical/example exclusions; enforce product-specific version consistency.",
+      "status": "fixed; verification passed within recorded scope; final independent review complete",
+      "changes": [
+        "scripts/check_contracts.py",
+        "scripts/check-plugins.sh",
+        "tests/test_contract_checks.py",
+        "README.md",
+        "common/.claude-plugin/plugin.json",
+        "be-harness/.claude-plugin/plugin.json",
+        "fe-harness/.claude-plugin/plugin.json",
+        "minmos-harness/.claude-plugin/plugin.json",
+        "hyeondongs-harness/.claude-plugin/plugin.json"
+      ],
+      "verification": [
+        "6 injected contract violation tests PASS; active local links/skill-owned assets/internal calls, migration previous column only excluded, phase assignment/canonical and overrides,allruntime parity,per-productmanifest versions checked. Worklog included; nested node_modules pruned; checker owns only own cache. Full checker PASS.",
+        "Root README and active docs included; explicit report-history exclusions; Codex local component/MCP paths and .go/.js assets covered by injected violations. Fixed extension-prefix false match."
+      ]
+    }
+  ],
+  "independent_review": {
+    "reviewer": "remediation_plan_review",
+    "result": "All reported counterexamples closed; no further finding in final scope",
+    "limits": "No hosted CI, business services or untested platform execution inferred."
+  },
+  "verification_log": {
+    "path": "docs/harness-remediation-2026-09-06-verification.log",
+    "sha256": "fd6b70e8db331feca80050c415feb383d3ed0ebc3cdb80df8ab09494e64e38df"
+  },
+  "cleanup": {
+    "status": "complete",
+    "removed_owned_paths": [
+      "/workspace/harness-plugins/common/skills/doc-gen/assets/node_modules",
+      "/workspace/harness-plugins/tests/fixtures/fe-components/node_modules",
+      "/tmp/harness-remediation-j78hszij"
+    ],
+    "live_owned_test_servers": 0,
+    "unrelated_caches": "untouched"
+  },
+  "source_sha256": {
+    ".claude-plugin/marketplace.json": "1c8e98adb5ab41c9787a6a2cbec4dc6553269eb465ba9efcf5f7888434a5c104",
+    ".github/workflows/verify.yml": "8a496d300a8db4f05a91cd0f07cc1e607f715f05e5e15bc28c93ed603525a8cf",
+    "README.md": "3cda9b50927fabe359a45b3d4f611e0744c219ce286ebfd28503fefe815f81fa",
+    "be-harness/.claude-plugin/plugin.json": "91d5062b852977e10266cad9e0bf3b5e6be73837569cc3f9e020abd2683d2540",
+    "be-harness/OVERRIDES.md": "05072e8b92699136e7bdffc84ecd3e47d02c5dbf52de51b518807a21370764da",
+    "be-harness/PROFILE.md": "c6b96cdc879b7cd7d5ca9e9991031f41b179b38b922ae164ec99ca5b72d4bfd3",
+    "be-harness/agents/code-analyzer.md": "184a55358e572e09ba3d7083cd57f54932f4a54dfd438ea5ac7e2b5b5896d77f",
+    "be-harness/agents/code-verifier.md": "b44bf332804df0e90d8ed6b1fd2632e93a5836b3580c3c25e11a0b40b9cfb1b5",
+    "be-harness/agents/edge-case-analyzer.md": "8b68a16e1c12bfa6557460f9b2f4d72cfe5f5de80ed5d6c6c2b424137472a515",
+    "be-harness/agents/scope-reviewer.md": "386b3ec1e3ce9b67aaccc4c56cfb8953277786c4173976d0323d213a19efbb99",
+    "be-harness/agents/workflow-implementer.md": "aae9edaa0877452b2c29685216a0c4a7a8b860b79f5fe440999a0e073f46b9f7",
+    "be-harness/agents/workflow-pr.md": "2aa5b562d026f18a3b5bdd411e66eccb8a6e64ab77a56816e158b8494f7b2daf",
+    "be-harness/agents/workflow-reflection.md": "c262bd421d3f7a7443433cd597bbe5538e8c993092b7096eb563c70ed574a0c8",
+    "be-harness/skills/config/SKILL.md": "d021e22c2cde9c4643f212d15229c45950c511d424339b704f23a71c0399f6a9",
+    "be-harness/skills/config/assets/doctor.py": "b4853f88ab10bb4789d11ca8b496e5cd1f4f91de11dd3360ddcf6dc8fff2b38e",
+    "be-harness/skills/config/assets/profile.py": "7e208d5e4796ca3d8eab9209f8569dd31dde4685c4cb4f4dda592120e7c4eeae",
+    "be-harness/skills/convention-check/SKILL.md": "9684acc2383ddd6ebffa9c1d37d5f4a8cfc8ad2ad46dc6b3aefa90681f9da55a",
+    "be-harness/skills/doctor/SKILL.md": "95c2bfc10385b59060318f961c4a9ba6ee788ac6cb3155580712df3a076a539b",
+    "be-harness/skills/e2e-test-loop/SKILL.md": "94fe2df32b2d714f87e3817f8ba09a78d1583bb6b7227d86a12aaeeb422ea481",
+    "be-harness/skills/e2e-test-loop/assets/render_e2e_report.py": "1aca55e0d3f0f21b8c68c98b9f7d0539c4bc700192d5c05774b382df2ec919f7",
+    "be-harness/skills/e2e-test/SKILL.md": "0ba305102c1866e6063370a988c0108c25fe702a7fed9fb943443009c0565103",
+    "be-harness/skills/e2e-test/assets/e2e-lock.sh": "4bb6bfda43ddb4c364a53e5db2f92720c053f37fe7f39c717cce91c89e8d3035",
+    "be-harness/skills/e2e-test/assets/e2e_lock.py": "5301e6638a86e86bbac7cbd9199e0680259f5f706a7530af4e86b832336f4d4b",
+    "be-harness/skills/e2e-test/references/run-context.md": "483ead7087b6f068c7a966df19499d4bdbf0267106eb57c089050fab22a96626",
+    "be-harness/skills/simplify-loop/SKILL.md": "61f62744f7526b5bdd5b8a91f86d01a6197739357b642c3647f11128c7bcbc5b",
+    "be-harness/skills/simplify-loop/references/workflow-script.md": "971d8390d0abcd8c160e59a9dc6eea67ee738cd124eca88f8b17803c233cfb48",
+    "be-harness/skills/start-workflow/SKILL.md": "03d001c26f2db65d263aa609ebb71e0463e0b2eeeb409358107e8a386b235056",
+    "be-harness/skills/start-workflow/assets/test_failures.py": "c4b05fbeac75e9b3681be33415ae8f7e874f81b0552048f2337cf21aa2531827",
+    "be-harness/skills/start-workflow/assets/workflow_archive.py": "6a448ffa15164f96ca0bed635c5ae5a45f763e361d7f57c04ad6fab4d48158b6",
+    "be-harness/skills/start-workflow/assets/workflow_policy.py": "d32685a2727cbe9818e5a0e37c4278e0a73478787215947c5a0046efe3f48bea",
+    "be-harness/skills/start-workflow/assets/workflow_results.py": "3e15f51d744146665d4089cd2fdecda7d19183f00b3642cf2990b1159ddc20b7",
+    "be-harness/skills/start-workflow/assets/workflow_run.py": "93fe695f39559e1c9d9ef0781bc851e586c6f539aca4de5c3f7745440e2a0d80",
+    "be-harness/skills/start-workflow/assets/workflow_scope.py": "061fcd203e17c669825eee7aea4ceb9135cf47436601d5ffd14242e0182e3a08",
+    "be-harness/skills/start-workflow/assets/writer_guard.py": "5013274386392910b705847cd4f6b16ad6be46c2898592876173bc609f34ae3c",
+    "be-harness/skills/start-workflow/references/agent-prompts.md": "3e78369769ebacbb36eb16f163a5f766995a20358bff29ed2f6905e9fb8cf3dc",
+    "be-harness/skills/start-workflow/references/analyze-verify-modes.md": "b59c73b6eceffcbf6b3cf117431613db07d7a751e7dd3a6d0dad69f144086e62",
+    "be-harness/skills/start-workflow/references/codex-mode.md": "7cd8ce5794a1fd495f3ad8d4ae8cb2e5658130de916b29b94882f1b9483b6354",
+    "be-harness/skills/start-workflow/references/entry-contract.md": "e9b9bb5caddf4db346829dd64d279aa412b628d9c16d094b1fe8100fcee180c8",
+    "be-harness/skills/start-workflow/references/finalization.md": "cab5afa53bcf02e39373f1f0b2de6c8cf46388103dc559be9312ede2505a7978",
+    "be-harness/skills/start-workflow/references/quality-loop.md": "84ab55d94c3c29020aad452f1a778947555ef0c5a63462305c01cb768a501265",
+    "be-harness/skills/start-workflow/references/result-contract.md": "8c6620abe8e1a8f6f3cbcf0ca067f87e5e55e8e2487971976941ec6789514c1a",
+    "be-harness/skills/start-workflow/references/run-lifecycle.md": "78f9eff5b34c3ad76f30d30e5c5b2ab6d0830fe58284216edf824a2038f676ef",
+    "be-harness/skills/start-workflow/references/scope-contract.md": "6baac00a7b7c9cf0691bab3d2a991cc1b3c2e0fe94403a4a5e013fc6d8f2a2d8",
+    "be-harness/skills/start-workflow/references/tdd.md": "b06b18f99fb4ce551ff338f6643a078686100ce91fcf9a8b3531b6acf9728863",
+    "be-harness/skills/start-workflow/references/templates.md": "7f6f2800f584958e6be7adfc6c9f13aff2196c65d17364cbaa3bf2c3eeb741a9",
+    "be-harness/skills/start-workflow/references/writer-safety.md": "06bf00f60c1653f4f685e765d7f8835a4411ab4c8ceffba11b5f4fbd44f9ebb9",
+    "be-harness/skills/unit-test/SKILL.md": "f2bae0d654a2dafa2ad41edef86dc8f43fed521cb394c02a556b3c5dbb848294",
+    "common/.claude-plugin/plugin.json": "c571ebf5f37c7c7c6259323f3dab2f34be16fa26225955827e93de4b11668385",
+    "common/OVERRIDES.md": "24f2ce7843640001762db22f1c396e54c0f13052bee6508c5c0feae342d09dc0",
+    "common/skills/commit-hard-push/SKILL.md": "de03136e0db1cd1dac9c7583c4eec52013e5ee49cf3d97d2377c80d2ff671f63",
+    "common/skills/commit-pr/SKILL.md": "5cf1f29e5eaffc9d658fa4962ebd5d11d6cacdadc305be607fc81ffaf42c187a",
+    "common/skills/commit-push/SKILL.md": "ca845957c0d00f22b448f1382ffd304bfcc28865d65d9ef39f58c1dd05519a5f",
+    "common/skills/commit/SKILL.md": "798ad5b2dae294320baa1e250387f01e53a6e0165ff78440922522fb62e09a50",
+    "common/skills/commit/assets/git_checks.py": "307ee4d36f0fd1062a2e5c2bf8b3258e5170f320ce74492a1b9fb3dc419d32bb",
+    "common/skills/doc-gen/SKILL.md": "dfea61c4690f1129a1ae7756d02d43167b4b9f2fcb2d73caba5a15cd41b7d222",
+    "common/skills/doc-gen/assets/.gitignore": "4d56952b0fb13bf8f9b6c13a6d4c34a075bac3af447636a1df4335d7576e2f97",
+    "common/skills/doc-gen/assets/docgen.mjs": "2d3e6a1efdad1ba3f974755ef23f3c2a4ea2375713d190dc808ceb77a7401826",
+    "common/skills/doc-gen/assets/package-lock.json": "cf109e1cf3a1b7ae7321b74671e9b9809bd9fa524275d67d0034cd8a54c8a456",
+    "common/skills/doc-gen/assets/package.json": "52c8cb99b1b7974218a1c460b113c4839d8e7528e35a5780dd2527edcabbe068",
+    "common/skills/how-to-use/SKILL.md": "89b5968587e9c45bfe6660e6b7c9e1f7677e16e16c4ce1f99edee583fe2551ce",
+    "common/skills/how-to-use/assets/skill_catalog.py": "fe92f7bdd89fd2b2e7dbdedcab535c780faab728d6269d12c1a80fe4f2674fd0",
+    "common/skills/merge/SKILL.md": "44d3dcc0f3c42c75d755ad5b2ea4018cd3b0268c638a4fab4804316487c53c2a",
+    "common/skills/merge/assets/merge_state.py": "3b11cc8a6cc5dfbc2a060b8ef12d7b70507312ac509fb8ad220e3d924e12747a",
+    "common/skills/resolve-assumption/SKILL.md": "fa87d46d0142ca63cffc6e00efab50ed24fd4ff1c4557cc651cb017743759e1d",
+    "common/skills/start-workflow/SKILL.md": "3de74e288987cd5d08fe98987368c10161bda88a3b0c8b79fdfd766c3341dc58",
+    "common/skills/start-workflow/assets/fullstack_overlays.json": "5f79f4cdf8fae306bef0b005f5d68cc2973ba50a0cb44c0c420c883ad5aa3442",
+    "common/skills/start-workflow/assets/workflow_archive.py": "6a448ffa15164f96ca0bed635c5ae5a45f763e361d7f57c04ad6fab4d48158b6",
+    "common/skills/start-workflow/assets/workflow_policy.py": "d32685a2727cbe9818e5a0e37c4278e0a73478787215947c5a0046efe3f48bea",
+    "common/skills/start-workflow/assets/workflow_results.py": "3e15f51d744146665d4089cd2fdecda7d19183f00b3642cf2990b1159ddc20b7",
+    "common/skills/start-workflow/assets/workflow_run.py": "93fe695f39559e1c9d9ef0781bc851e586c6f539aca4de5c3f7745440e2a0d80",
+    "common/skills/start-workflow/assets/workflow_scope.py": "061fcd203e17c669825eee7aea4ceb9135cf47436601d5ffd14242e0182e3a08",
+    "common/skills/start-workflow/assets/writer_guard.py": "5013274386392910b705847cd4f6b16ad6be46c2898592876173bc609f34ae3c",
+    "common/skills/start-workflow/references/codex-mode.md": "894622c4af79c09d0bbb2d18f195b8aca5c5b1540c5e9a16a6175a03db0f7e7f",
+    "common/skills/start-workflow/references/contract-templates.md": "a3c727075949a0474bd4ebe855c5aaedcd384799e4331bc8faff8e3237bb2f87",
+    "common/skills/start-workflow/references/entry-contract.md": "e9b9bb5caddf4db346829dd64d279aa412b628d9c16d094b1fe8100fcee180c8",
+    "common/skills/start-workflow/references/finalization.md": "cab5afa53bcf02e39373f1f0b2de6c8cf46388103dc559be9312ede2505a7978",
+    "common/skills/start-workflow/references/fullstack-agent-prompts.md": "d3fa1762fc3c2c284410e5ea5dd931b45c250444bb8d89e0e35fb0e69279e5dd",
+    "common/skills/start-workflow/references/fullstack-overlays.md": "67ac036b7c6fd218bd58bf390fa91eac48ff5f3b37567428e31ad3c1f983969f",
+    "common/skills/start-workflow/references/fullstack-tdd.md": "155a376d04780a8944ec00321e14704b6a4410b02b1d1867f697aa15c16460d4",
+    "common/skills/start-workflow/references/fullstack.md": "bb4dcca6430111f7e01ab129e96cf54a8f18684117c9b4d1d26d432dd8da5242",
+    "common/skills/start-workflow/references/result-contract.md": "8c6620abe8e1a8f6f3cbcf0ca067f87e5e55e8e2487971976941ec6789514c1a",
+    "common/skills/start-workflow/references/run-lifecycle.md": "78f9eff5b34c3ad76f30d30e5c5b2ab6d0830fe58284216edf824a2038f676ef",
+    "common/skills/start-workflow/references/scope-contract.md": "6baac00a7b7c9cf0691bab3d2a991cc1b3c2e0fe94403a4a5e013fc6d8f2a2d8",
+    "common/skills/start-workflow/references/writer-safety.md": "06bf00f60c1653f4f685e765d7f8835a4411ab4c8ceffba11b5f4fbd44f9ebb9",
+    "common/skills/submit-feedback/SKILL.md": "8630014e3884208ddd0004dbf87b7312965a94ccd0ccebe41e4aef7a81e35333",
+    "common/skills/submit-feedback/assets/feedback.py": "46a48d1b1a636ed96fdf7c2606d656a1cc0498fc37da9bcf9bc02cfe39e40062",
+    "common/skills/sync-base/SKILL.md": "4f3a36ae8db2063a60199a20cdbd5b945693afd799633679898e1b1e00041dab",
+    "common/skills/sync-base/assets/sync_state.py": "9f01486a884053ea12622eee616ccf621f04a2713a006c3b95900240d6041ab5",
+    "docs/host-contract.md": "3b5bbcae421df6ccac33e91b17c6cc5fbda880c90917b14f5a0d319c70211727",
+    "docs/overlay.md": "bf3bcb440681c5101848f12e041fbe94d3104884bcdcc184ce439fba36bc954d",
+    "fe-harness/.claude-plugin/plugin.json": "deb9e1b2d1b7d21a82b3c8a86cd3d5990690fcfe292b7ac0be9b107c144a1d2e",
+    "fe-harness/OVERRIDES.md": "8c30baa7ab8f484771c84cfbaeae43ce5f74889f4b8c19abdb56a7eae3b648d7",
+    "fe-harness/PROFILE.md": "0d989353c2d028da9ab8d58a5449aceb00df88e8d84296639fb7d4df9579812b",
+    "fe-harness/agents/a11y-reviewer.md": "fcee5382a510c8d865a5c3c37cf4afecd6cfd369022a6e3766084254c39e7b3f",
+    "fe-harness/agents/component-reviewer.md": "1ecec25e8ffa05808754d88a685edbb9c0488d9f15712965317254901d6069e7",
+    "fe-harness/agents/scope-reviewer.md": "37bacec4c343d369c4409047d6fed64c02a8bfbe751b5e8eac59d2debaa19c14",
+    "fe-harness/agents/workflow-implementer.md": "fd33ccbfdc25c582641f4e45d72a7d105d9ea5182116c355da5aec9206bcbd72",
+    "fe-harness/agents/workflow-pr.md": "61cd3ba57ad9578caf535600e42bb1bffbdbf682f4ad8bdc9eff89c769050b88",
+    "fe-harness/agents/workflow-reflection.md": "4ad4058ed5bcbf002e129841b9800488f6c7e9b8ad6b0c34a1bc64a5f9376546",
+    "fe-harness/skills/component/SKILL.md": "5dbbd2839e136d4ec007dc012504f66ce8e791f8c2fdf40b6d9c93f48c57faab",
+    "fe-harness/skills/component/assets/component_templates.py": "9dbb3cce4d1db078f3998d12526459f31d6550d04c52f30ff041504e550f0da2",
+    "fe-harness/skills/config/SKILL.md": "84eedd02d7f4eb38425f456a93a232fcc914a73abf366c78e885636339ca6d25",
+    "fe-harness/skills/config/assets/doctor.py": "b4853f88ab10bb4789d11ca8b496e5cd1f4f91de11dd3360ddcf6dc8fff2b38e",
+    "fe-harness/skills/config/assets/profile.py": "7e208d5e4796ca3d8eab9209f8569dd31dde4685c4cb4f4dda592120e7c4eeae",
+    "fe-harness/skills/convention-check/SKILL.md": "e35ccb3f81f7dda4b76f091124c2623bbbcbff9b09c170964e4ef9eea9c7298b",
+    "fe-harness/skills/doctor/SKILL.md": "2f8197bad0a4fd99a66050c8732d7415d33062011ff11e17251b6e4720d723c9",
+    "fe-harness/skills/e2e-test/SKILL.md": "656430d0106e7eac1e5ad0fcead44c0efb9cffe69b7b2ad4c046dee1d5076ca6",
+    "fe-harness/skills/e2e-test/assets/e2e-lock.sh": "4bb6bfda43ddb4c364a53e5db2f92720c053f37fe7f39c717cce91c89e8d3035",
+    "fe-harness/skills/e2e-test/assets/e2e_lock.py": "5301e6638a86e86bbac7cbd9199e0680259f5f706a7530af4e86b832336f4d4b",
+    "fe-harness/skills/e2e-test/references/run-context.md": "483ead7087b6f068c7a966df19499d4bdbf0267106eb57c089050fab22a96626",
+    "fe-harness/skills/init/SKILL.md": "600916ec44775c48922b56d4a61a195a7bf6a8aee5054a116ff3b55453cba670",
+    "fe-harness/skills/lint-check/SKILL.md": "c8d46db80a4ea7eed54087e1e783ac791f617f73598c3ae577dab404aa4405e0",
+    "fe-harness/skills/simplify-loop/SKILL.md": "a08bc83eb50df047872df91fdedaf77111f9f9274bd0af4241594eeb65b261f5",
+    "fe-harness/skills/simplify-loop/references/workflow-script.md": "971d8390d0abcd8c160e59a9dc6eea67ee738cd124eca88f8b17803c233cfb48",
+    "fe-harness/skills/start-workflow/SKILL.md": "87cdc4693a5cf606e68363a827fe9efb0146ea7f6842c1653fd3f6c29e63c5a9",
+    "fe-harness/skills/start-workflow/assets/test_failures.py": "c4b05fbeac75e9b3681be33415ae8f7e874f81b0552048f2337cf21aa2531827",
+    "fe-harness/skills/start-workflow/assets/workflow_archive.py": "6a448ffa15164f96ca0bed635c5ae5a45f763e361d7f57c04ad6fab4d48158b6",
+    "fe-harness/skills/start-workflow/assets/workflow_policy.py": "d32685a2727cbe9818e5a0e37c4278e0a73478787215947c5a0046efe3f48bea",
+    "fe-harness/skills/start-workflow/assets/workflow_results.py": "3e15f51d744146665d4089cd2fdecda7d19183f00b3642cf2990b1159ddc20b7",
+    "fe-harness/skills/start-workflow/assets/workflow_run.py": "93fe695f39559e1c9d9ef0781bc851e586c6f539aca4de5c3f7745440e2a0d80",
+    "fe-harness/skills/start-workflow/assets/workflow_scope.py": "061fcd203e17c669825eee7aea4ceb9135cf47436601d5ffd14242e0182e3a08",
+    "fe-harness/skills/start-workflow/assets/writer_guard.py": "5013274386392910b705847cd4f6b16ad6be46c2898592876173bc609f34ae3c",
+    "fe-harness/skills/start-workflow/references/agent-prompts.md": "afec1c5bc621e4403c1cc1e285f5f7054165b740f4e71a618fa21bfe804c3aaf",
+    "fe-harness/skills/start-workflow/references/codex-mode.md": "9bb9065d32f41674f8292c5d648fe71e053c2986317769783793f7f0f3d79f11",
+    "fe-harness/skills/start-workflow/references/entry-contract.md": "e9b9bb5caddf4db346829dd64d279aa412b628d9c16d094b1fe8100fcee180c8",
+    "fe-harness/skills/start-workflow/references/finalization.md": "cab5afa53bcf02e39373f1f0b2de6c8cf46388103dc559be9312ede2505a7978",
+    "fe-harness/skills/start-workflow/references/result-contract.md": "8c6620abe8e1a8f6f3cbcf0ca067f87e5e55e8e2487971976941ec6789514c1a",
+    "fe-harness/skills/start-workflow/references/run-lifecycle.md": "78f9eff5b34c3ad76f30d30e5c5b2ab6d0830fe58284216edf824a2038f676ef",
+    "fe-harness/skills/start-workflow/references/scope-contract.md": "6baac00a7b7c9cf0691bab3d2a991cc1b3c2e0fe94403a4a5e013fc6d8f2a2d8",
+    "fe-harness/skills/start-workflow/references/tdd.md": "c3104f6d3e4624bc2e41d91d2f39d0b272bd953e15e6688a41b874c3e38e3f66",
+    "fe-harness/skills/start-workflow/references/templates.md": "f777ef3900e85c306c4bfa19ff3c92dc9192186cec0b028e602b2c7bbb861a3f",
+    "fe-harness/skills/start-workflow/references/writer-safety.md": "06bf00f60c1653f4f685e765d7f8835a4411ab4c8ceffba11b5f4fbd44f9ebb9",
+    "fe-harness/skills/test-loop/SKILL.md": "952c0002b89e204c97d4d025607a9ea55990e6bbbde8933a6f8f1eb6729b3ffd",
+    "fe-harness/skills/unit-test/SKILL.md": "01ef4af0ba53010698a3de95da278fdb06deea1610ed3c9fc93152a2d05edea3",
+    "hyeondongs-harness/.claude-plugin/plugin.json": "0bca1fd486329e8d0a3d55b1feedf73848073f84da4f7f502b35c9811b852b5a",
+    "hyeondongs-harness/skills/doctor/SKILL.md": "e529ff28b1a7e61ccc4ad88924bf33dae3cda56ff4248630e68321a46001f733",
+    "hyeondongs-harness/skills/start-workflow/SKILL.md": "6b37ace6a4f0a83d036d6e495e2e04e63ade27daaeccd596b479c4eb80eed4c7",
+    "hyeondongs-harness/skills/start-workflow/assets/workflow_policy.py": "d32685a2727cbe9818e5a0e37c4278e0a73478787215947c5a0046efe3f48bea",
+    "hyeondongs-harness/skills/start-workflow/references/entry-contract.md": "e9b9bb5caddf4db346829dd64d279aa412b628d9c16d094b1fe8100fcee180c8",
+    "minmos-harness/.claude-plugin/plugin.json": "d2408b1794ef6329d7e8da0202f1e214d730cdc7fe4a4ebbdb82fc0581f38cd1",
+    "minmos-harness/agents/workflow-doc-sync.md": "4f52aa7da8ec2201a0a84135c8400b6a7854ad140bd619869d8a1c49ff004a02",
+    "minmos-harness/overlay/assets/db_ownership.py": "4ef501244d7d8ca644296311bea0e4d44d18946a1df9a59e0df774c85f8771c1",
+    "minmos-harness/overlay/e2e-test-loop.md": "61efd43ace1d35d82a5bf38285ca81a951873ee9900379159b644ecbd0f9fc89",
+    "minmos-harness/overlay/e2e-test.md": "81a9318d29e0a0b230611cd358455c3bb23a2c983e71c5582a5268f2911761d1",
+    "minmos-harness/overlay/references/db-safety.md": "9200b8bb340cb364a2ae49beed36830462404d97f127fab128a3fdffd2ca9bc6",
+    "minmos-harness/overlay/references/e2e-report-templates.md": "d1c62c3ba77c7ebca3bc5538f4c58c0595e44eb4e43d6d8cf2c58d5a72828b70",
+    "minmos-harness/overlay/references/e2e-test-postmath.md": "ccfed69b40d0102b1134e0ce13ae90af26ac7b607ee5991c60a2d15aa5490c5c",
+    "minmos-harness/overlay/references/grpc-testing.md": "e318dbde1a1512aa639f4b8369a40e9afec2753f8d94a3baba550254c4538ac5",
+    "minmos-harness/skills/apidog-schema-gen/SKILL.md": "7afcdd46b8ddb00c8aff6ffee0ce32fe6960e2616c1bbc6681a3b5a24e60e527",
+    "minmos-harness/skills/apidog-schema-gen/assets/apidog_contract.py": "a6002c517c7ae3d207f22e0e9750017bd04b0919c56b14d9c284e0a1568a0a9e",
+    "minmos-harness/skills/apidog-schema-gen/references/extraction-patterns.md": "1239f2155baf97b5e21f546e0206258af2c2104b0e3b3dace1b59027e1fc6198",
+    "minmos-harness/skills/apidog-schema-gen/references/import-contract.md": "299b5a0ce16dee4c330e1fd9198b1fd9d5f476ac7c7ac3d2fedea4af49780598",
+    "minmos-harness/skills/apidog-schema-gen/references/push-import.md": "fd0c5e51ac0c83b03e2c257fec8705beb829fdf43887a6e17360238d5e0a8f49",
+    "minmos-harness/skills/apidog-schema-gen/references/schema-contract.md": "9612ed61ffbb1953536d5cb0adadda77a9fb9e808ce624833e8da5300e14bca0",
+    "minmos-harness/skills/doctor/SKILL.md": "960b1cc92b5a3288247909441ab2174d65f422b6051a1a5ee37b7254bfc12bba",
+    "minmos-harness/skills/e2e-apidog-schema-gen/SKILL.md": "d112c1cac770076e7de0872fcb72786bee0fa1e465fb467d8ed80276dffc45e2",
+    "minmos-harness/skills/init/SKILL.md": "565b30b508aa75a8dba40287532a455e281aa073c7166ff7403345ddecfb4864",
+    "minmos-harness/skills/init/assets/hook_metadata.py": "83e5de1e5f390ec64eb16f0c3a3895369a68b354f0255470d6222ce974f68ddf",
+    "minmos-harness/skills/init/assets/worktree_init.py": "ce0a95922893857d6d2aa1ce8739c927e9624fa84dc2a3f7e64b10627ccbec6e",
+    "minmos-harness/skills/init/references/worktree-hook.md": "27785ac4affae8f9121c77dc1d37d6a3694931159b4fcf50e2299589ac8c0359",
+    "minmos-harness/skills/pagenation/SKILL.md": "27e2536606213540a4f0c5c8ea2be55a99587ca6b1269f0326e251951d09d011",
+    "minmos-harness/skills/pagenation/assets/pagination.go": "e63f6d73c8f2c04e22abced7583fb3b87313f8ef0b680a06d462fc52045b6160",
+    "minmos-harness/skills/pagenation/references/cloudkit-contract.md": "00bb2d70b3e66c6e3b5899e078ead2bf31d3ca2a927f469e24c1bdeb80e81c14",
+    "minmos-harness/skills/start-workflow/SKILL.md": "9d64d206075ed61298ff116f7444589e187bc1fe9d3313d13038cecb038be575",
+    "minmos-harness/skills/start-workflow/assets/workflow_policy.py": "d32685a2727cbe9818e5a0e37c4278e0a73478787215947c5a0046efe3f48bea",
+    "minmos-harness/skills/start-workflow/references/entry-contract.md": "e9b9bb5caddf4db346829dd64d279aa412b628d9c16d094b1fe8100fcee180c8",
+    "scripts/agent_contract.py": "43de484e27e96c10f7ca4de19e1ed63d983491e4a71ea0f58391f6e20050e7ad",
+    "scripts/check-plugins.sh": "1ea6a3d993b76dd93e4b998052bf89e7e034e55513047d76972c3e5ad6cd2fb3",
+    "scripts/check_contracts.py": "ecc0fe9d0d09ad4c2ecba0b1864c1d4d5f1ceb73dbdc934ca5ecf65f341175b1",
+    "scripts/verify.sh": "2c72090302aaabc47507910611a1c3a46b54dc7de3a5de2e8335473ab63b3f50",
+    "tests/docgen.test.mjs": "a16594a27cf8b048565d1588872a8d4521276d46a143e3e3e43a190526b7a291",
+    "tests/fixtures/cloudkit-cursor/observed.json": "ea174bedfe1895370f4a5cc90e0a784dff4fec7a6667c9bf51122a4166d767a6",
+    "tests/fixtures/fe-components/.gitignore": "4d56952b0fb13bf8f9b6c13a6d4c34a075bac3af447636a1df4335d7576e2f97",
+    "tests/fixtures/fe-components/README.md": "f2ecaa4fe95be58fd04472664d0ac26219efe9044f146df68d8a96ceddf093b8",
+    "tests/fixtures/fe-components/observed.json": "bf6f06e7548da221e9e973c666da57079b2b4f13475d5e24e4314cadb33eb61b",
+    "tests/fixtures/fe-components/package-lock.json": "5873f1de44c21f11fc0432507af0fc8863e26f9c246a5656f59a6ec492da51bf",
+    "tests/fixtures/fe-components/package.json": "e467ec8c206b2593f4a8ad8aa0819bb61c92665d2f212cd271b8a5caa479e494",
+    "tests/fixtures/fe-components/verify.py": "c13129dbd5ab0382b7a094f0b0faddc4db85619df7107bf56197dda464044ce6",
+    "tests/fixtures/grpcurl/fixture.proto": "1de5b2885b1ca8b95a7cbccc6fdd95f4038d2dd504797985bc95aef7e328f37f",
+    "tests/fixtures/grpcurl/go.mod": "adde278a8e44b0a6f91b51f57080cf1db081efea664bdce66c1cacec115fdef2",
+    "tests/fixtures/grpcurl/go.sum": "780a80c6ba0ac5fa3681bfdf46bbe90d87043c687f1faecfffadeb49f372e4f3",
+    "tests/fixtures/grpcurl/observed.json": "66b7f1672348dcd7c0bdff33223428cf3ed15cc04a884c15280b5680a9efc7a2",
+    "tests/fixtures/grpcurl/server.go": "3ddc4419f1626c4a07e5dde36a204bc947ca184210287d8bdc1c2649db6a4d66",
+    "tests/fixtures/grpcurl/verify.py": "16f06c43f0f0a58b5595f4360b403ee9b2ff930f6dd4cd8a38a46cd0a952d32f",
+    "tests/fixtures/host-contract/claude_loader_smoke.py": "23b5d2250f6895584e72cf15b7864cf3c88d501a112204d7f85a86043c46f22b",
+    "tests/fixtures/host-contract/observed.json": "1c8dbe5ffea99e9819c64b815de6194de22bb6bd7c072b0f325a74652c4e201e",
+    "tests/fixtures/runners/README.md": "1953fc032fe55b53816e39baf9b13afa72298237d7d61af47b4fe7f0e4d39ff4",
+    "tests/fixtures/runners/jest/baseline.log": "9873f88190a03b36b805a83311a38b44aaca4a72966d3bd598ddabd9a16e6767",
+    "tests/fixtures/runners/jest/current.log": "01339f5359e50e2e0b12c36f4924916c21da034a26aaf5bf0b96f66fe93515a1",
+    "tests/fixtures/runners/vitest/baseline.log": "69217dc1aca040aaa9d119474504c5e1c176bbb04360c9abd416519983f9cd23",
+    "tests/fixtures/runners/vitest/current.log": "db1314cb86bbc3ba505f1bd27fdadfde2e2e1b80646d49b85f65472fd89e62d5",
+    "tests/fixtures/runners/vitest/rerun-b-only.log": "ef41f1eca5e2b7bf9ecf96d1c43de2b0b5d61c80b750669d69a067a66ae48fdd",
+    "tests/requirements.txt": "c4b5f3dbd431d18cac20d72cf4b70bedfc281acecd2b018b2f03b4386ef37029",
+    "tests/test_agent_contract.py": "d51e4a48df4e9c0a0bab8bc874f008166dfc5a7b38e0714b1e009d0cc07f5286",
+    "tests/test_apidog_contract.py": "0371f7ba7dff903a9ba18b9d7e79cde74d05e105bd9de68d494a99b8e5c2bf29",
+    "tests/test_check_plugins.py": "51af4840f4eddff45e3c2a83882182ee367e07ae8b12067048490e6971760e1c",
+    "tests/test_component_templates.py": "707cd1c04f233af098737972b2cda547425ade86ccc60a3b42fb97c3cad7ec9c",
+    "tests/test_contract_checks.py": "a773119a624d902812c7ceb891b8e4a2c43775fe4fa5b68f3886a6d88db23e84",
+    "tests/test_db_ownership.py": "563fefbd933726a19fa4f5b3357c227a7d288985bff93d8387c04548bbcb656f",
+    "tests/test_doctor.py": "574d778e1bdced162c992548ec949cca0db817dbe22bf6302e97c0b784a83fb5",
+    "tests/test_e2e_lock.py": "f568d9402f8d755892638ed9263118bc9d34d6a20f57a31f1e28c94d0b244f57",
+    "tests/test_fe_review_scope.py": "9de2102b9d37f8bcb13af9ec61774f878463cebfcb68266a7b4e9e3973a2ca8d",
+    "tests/test_feedback.py": "8e09019ae6cb63c308212f492ffa66a7ae207591fc4ca194bf4a91584748ee17",
+    "tests/test_git_checks.py": "115a7f64897e868326e5be32bc298c94ee25dab5b2dc0f6c9e6272eb449551f6",
+    "tests/test_grpc_probe.py": "2dc4bd2e0766a4a5f5e08833338b72fd48a6d15b809576a9abfdacf5e06018f8",
+    "tests/test_merge_state.py": "288b562f94a00f29705cd63f7472901380ec15d78f45de3efca9aa5df739fff0",
+    "tests/test_pagination.py": "0aabe4bee5354cee36409ce86ad126a29d2146bab4b9e7f77a26e451981146c3",
+    "tests/test_profile.py": "d7a72b1135c3ff961d8c4fd643431cce8c3ce0aa76ec1bb7f78556275f87bd6d",
+    "tests/test_skill_catalog.py": "30550b9327f1b37b30684322cf111e73305b6c2196baea7ad7ec6ff8318d0816",
+    "tests/test_sync_state.py": "14e4989eab227c472899738b0fd0ce16bb5c8a620e4424be74bc9138104e5eea",
+    "tests/test_test_failures.py": "3ee0c18d5a9deef04322b1953435d816fdec737a317b8f800ee1538a7e64f944",
+    "tests/test_workflow_archive.py": "2b00b1c81403a6807234c348877be4eac4601cb56185342594612b4764a5f9da",
+    "tests/test_workflow_policy.py": "76f54d72d0f5ede2e2d807e8ee358db3019f0f0175de730f0c717b77cd4be363",
+    "tests/test_workflow_results.py": "94ebf362ca284b0c6f73e9dd26b49bc2fedb57ecb071f86cc1367178f39677b8",
+    "tests/test_workflow_scope.py": "2b54d7f939bf9c33214c2cbd381669d2bec31ab29558f3d5d7ee10fe98d12021",
+    "tests/test_worktree_init.py": "dbfeec37856a6917c9ddecc2839cef440c017515940df8ff2f97755e34c2f915",
+    "tests/test_writer_guard.py": "8ea296ebfc702355e78a87875a24afc64827b5cb6fc1a189d9559279da69d5bd",
+    "work-log/.claude-plugin/plugin.json": "d2481fc2bb64781cfc0219ec4d445517c6988169e99944b3f2d9d6814f7e248a",
+    "work-log/.codex-plugin/plugin.json": "a80c15813fb7bf9f817fced91b24bda6c128f1240934a1f835533231ebfa9098",
+    "work-log/README.md": "2a725165397db36a1557d697952b0f44141c2326ada33c23c23bfd46427b6f9d",
+    "work-log/mcp/lib/config.js": "fe9cd39e9861d3ec0e33fd801a54c11cfa5d61802308ed8819b6ee98bf24e337",
+    "work-log/mcp/lib/io.js": "216458163a5dc1d2c30b84d362bf3bcdbfe77592af1f3cdd193ce3872a376375",
+    "work-log/mcp/lib/io_worker.py": "89f5acf29d4d81c508cdcfe0fbde20bbb6ca5b41f78ffd2a60217b4adadb0e71",
+    "work-log/mcp/lib/markdown.js": "0f2869cb05e36290acb64beecec3797932ae33ebbb6c40e8e5caa6a2aed49fbb",
+    "work-log/mcp/lib/search.js": "474625320a755ebe70d712785d655e8af86a95e5fdd7bcd4991ce5c9da0c9207",
+    "work-log/mcp/lib/vault.js": "8908a6d6376b108dc3d34f2e80160475dac605bb2408c269b78708154086a335",
+    "work-log/mcp/server.js": "c15deece7695f576f016ae19cbf3fddf9e09ff57e7516bde6eebc2d4d21e0f61",
+    "work-log/package.json": "2adc15d9a69f3ed9e890b2c398d1a647b2adb4f0c0410adf9181580ba9af2d4a",
+    "work-log/skills/doctor/SKILL.md": "d14344027494199a624d82201665d0fedb1868c738d468b4e82b6d07e2ba3d9d",
+    "work-log/skills/edit/SKILL.md": "6f81d0f76aa0d4118f1ddffe5c0c69a4439465d48cf63a54a7f2ebdd2c3e51ac",
+    "work-log/skills/sync/SKILL.md": "8978fa809ce5c863d8ca9fe1d7d0b6a6c58940b0553a2bf1488ad466722265a4",
+    "work-log/tests/config.test.js": "f1c320cc8f05146b9a4a05c743d259fc39b810b23f7dd6fb9e68ae01f0c61a7d",
+    "work-log/tests/helpers/io-boundary-worker.py": "85f344400de9f9d0ac0cf899eb29933d415ff20faa8585d6f725503b00e1d5c1",
+    "work-log/tests/helpers/sync-worker.mjs": "88fcfcc94af5078adbdf677dd8118225038137ed992899496c85de5672ace4c0",
+    "work-log/tests/helpers/write-worker.mjs": "74cbc3fc8ee67eb2717605c42c2784a36d9a6f54648aa66c59b692a9a467ed82",
+    "work-log/tests/index-integrity.test.js": "d716086372cf9ca7b2090e356737dfbbd6f9e9a85d3c125f471cd677f0424488",
+    "work-log/tests/mcp-smoke.test.js": "2adc46ed29021af63aed8505766b86a3d8335b9f677e50184d8822402005503f",
+    "work-log/tests/search.test.js": "2c0f7e4b0be0f65e8bbe279ad5d90cfd89b495aadd4259650ab48068d16e0b2e",
+    "work-log/tests/test_io_worker.py": "d97c84be8264688aec7bfe53e8457d78e9842d1d03655fff107dbb710ca9edc1",
+    "work-log/tests/vault.test.js": "c2e56c91184384a995097d4fd9c82cbc494da6aaee9221da35b347c9a6c39da4"
+  },
+  "supplemental_observations": {
+    "work-log-performance.json": {
+      "node": "v24.11.0",
+      "platform": "linux",
+      "kind": "synthetic single-run scan measurement; no performance threshold or production guarantee",
+      "samples": [
+        {
+          "documents": 300,
+          "cache": "warm filesystem cache immediately after fixture creation",
+          "filesDiscovered": 300,
+          "filesRead": 300,
+          "bytesRead": 998180,
+          "errors": 0,
+          "durationMs": 35
+        },
+        {
+          "documents": 3000,
+          "cache": "warm filesystem cache immediately after fixture creation",
+          "filesDiscovered": 3000,
+          "filesRead": 3000,
+          "bytesRead": 9987780,
+          "errors": 0,
+          "durationMs": 253
+        }
+      ]
+    },
+    "grpc-final.json": {
+      "grpcurl_module": "v1.9.3",
+      "grpc_module": "v1.71.0",
+      "transport": "loopback",
+      "offline": true,
+      "observations": [
+        {
+          "case_id": "valid",
+          "server_contact": true,
+          "handler_arrivals": 1,
+          "exit_code": 0,
+          "stdout": "{\n  \"value\": \"ok\"\n}\n",
+          "stderr": ""
+        },
+        {
+          "case_id": "unknown-field",
+          "server_contact": false,
+          "handler_arrivals": 0,
+          "exit_code": 1,
+          "stdout": "",
+          "stderr": "Error invoking method \"fixture.Audit/Read\": error getting request data: message type fixture.Request has no known field named unknown\n"
+        },
+        {
+          "case_id": "oneof-conflict",
+          "server_contact": true,
+          "handler_arrivals": 1,
+          "exit_code": 0,
+          "stdout": "{}\n",
+          "stderr": ""
+        },
+        {
+          "case_id": "server-validation",
+          "server_contact": true,
+          "handler_arrivals": 1,
+          "exit_code": 67,
+          "stdout": "",
+          "stderr": "ERROR:\n  Code: InvalidArgument\n  Message: server validation\n"
+        },
+        {
+          "case_id": "deadline",
+          "server_contact": true,
+          "handler_arrivals": 1,
+          "exit_code": 68,
+          "stdout": "",
+          "stderr": "ERROR:\n  Code: DeadlineExceeded\n  Message: context deadline exceeded\n"
+        }
+      ]
+    }
+  }
+}

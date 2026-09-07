@@ -1,0 +1,1742 @@
+{
+  "schema_version": 1,
+  "scope": "read-only harness audit",
+  "started": "2026-09-05",
+  "completed": "2026-09-06",
+  "head": "f9ce681427ccfbfd9194d3c3f204a445ae6f45dd",
+  "findings": [
+    {
+      "id": "W01",
+      "p": "P1",
+      "title": "문서 잠금 대기 중 디렉터리 교체로 vault 밖 쓰기",
+      "loc": "work-log/mcp/lib/vault.js:557",
+      "kind": "실행 재현·이전 감사",
+      "body": "safeResolve 후 문서 잠금을 기다리는 동안 경로를 다시 검증하지 않는다. 별도 프로세스가 vault/sub를 옮기고 같은 위치를 외부 디렉터리 심볼릭 링크로 바꾸면, 대기 중인 append가 외부 파일에 반영된다. 원본 vault 문서는 그대로이고 외부 파일만 바뀌는 것을 확인했다. 같은 로컬 사용자가 경로를 바꿀 수 있는 조건의 TOCTOU이며, 원격 공격 경로를 재현한 것은 아니다.",
+      "fix": "잠금 획득 후 및 실제 파일 생성·교체 시점의 경로/inode를 검증하고, 심볼릭 링크를 따르지 않는 안전한 I/O 경계를 사용한다. 단순히 검사 위치만 뒤로 옮기는 것으로 경합 전체가 해결됐다고 보지 않는다."
+    },
+    {
+      "id": "W02",
+      "p": "P2",
+      "title": "title 메타데이터의 타입 오류가 vault 전체 동기화를 중단",
+      "loc": "work-log/mcp/lib/vault.js:242",
+      "kind": "실행 재현·이전 감사",
+      "body": "wiki_write의 frontmatter 객체 내부에는 타입 검증이 없다. title을 배열로 주면 파일은 생성되지만 이후 nfc(title)의 normalize 호출이 예외를 낸다. 해당 문서가 하나만 있어도 전체 sync가 실패한다. MCP로 전달하지 않아도 외부에서 편집한 동일 YAML이 같은 문제를 만든다.",
+      "fix": "쓰기 전 메타데이터 스키마를 검증하고, 스캔에서는 문서별 파싱 오류를 경로와 함께 보고한다. 하나의 손상 문서가 전체 인덱스 갱신을 무력화하지 않도록 한다."
+    },
+    {
+      "id": "W03",
+      "p": "P2",
+      "title": "저장 성공 뒤 인덱싱 실패를 전체 쓰기 실패로 응답",
+      "loc": "work-log/mcp/server.js:203",
+      "kind": "실행 재현·이전 감사",
+      "body": "writeDoc 완료 뒤 syncIndex가 실패하면 wiki_write가 isError:true를 반환한다. W02뿐 아니라 정상 문서에서도 다른 프로세스의 인덱스 잠금을 5초 이상 기다리면 발생한다. 이미 저장된 append를 실패로 보고 재시도하면 내용이 중복된다. 저장과 검색 반영은 서로 다른 완료 상태다.",
+      "fix": "응답에 written/path/hash와 indexing 상태를 각각 반환한다. 문서 저장 이후의 실패를 미저장 실패와 구별하고, 재시도는 인덱싱만 수행하거나 쓰기 요청 ID로 중복을 막는다."
+    },
+    {
+      "id": "W04",
+      "p": "P2",
+      "title": "append/overwrite가 기존 파일 접근 권한을 완화",
+      "loc": "work-log/mcp/lib/vault.js:641",
+      "kind": "실행 재현·이전 감사",
+      "body": "임시 파일을 기본 mode로 만든 뒤 rename하므로 원본의 권한을 잃는다. 0600 파일이 umask 0002에서 0664로 바뀌었다. 일반적인 0022에서는 0644가 된다. 실제 타 사용자 접근 가능 여부는 상위 디렉터리 권한과 ACL에도 달려 있다.",
+      "fix": "원본 stat의 mode를 교체 파일에 보존하고, 소유권·ACL·확장 속성의 지원 범위도 정한다. 원본보다 넓은 권한을 갖는 임시 파일을 만들지 않는다."
+    },
+    {
+      "id": "W05",
+      "p": "P2",
+      "title": "인덱스 잠금을 시간만으로 탈취해 최신 결과를 과거 결과로 덮어씀",
+      "loc": "work-log/mcp/lib/vault.js:451",
+      "kind": "실행 재현·이전 감사",
+      "body": "5분 넘은 index.lock을 살아 있는 소유자인지 확인하지 않고 삭제하며 finally도 소유권 확인 없이 잠금을 지운다. A sync를 임시 인덱스 생성 시 SIGSTOP, 잠금 mtime을 6분 전으로 설정, 문서 변경 후 B sync 성공, A 재개 순서에서 B의 NEW 인덱스가 A의 OLD로 교체됐다. 6분 실제 대기는 하지 않고 mtime으로 경과 조건을 모사했다.",
+      "fix": "소유 토큰·프로세스 식별·heartbeat 또는 검증 가능한 lease/fencing을 적용한다. 해제도 자기 소유 잠금에만 수행하고 오래된 writer의 commit을 거부한다."
+    },
+    {
+      "id": "W06",
+      "p": "P2",
+      "title": "공백·한글 설치 경로에서 설정 CLI가 출력 없이 종료",
+      "loc": "work-log/mcp/lib/config.js:196",
+      "kind": "실행 재현",
+      "body": "import.meta.url은 URL 인코딩되지만 비교 대상 file://${process.argv[1]}은 원시 경로다. config.js를 plain, plugin with space, 플러그인 디렉터리에 복사해 같은 WORK_LOG_ROOT로 실행했다. plain은 JSON을 출력했고 나머지는 exit 0, stdout 0바이트였다. init/doctor의 CLI 폴백이 설정을 받지 못한다.",
+      "fix": "pathToFileURL(path.resolve(process.argv[1])).href 또는 fileURLToPath 기반으로 진입점을 판정한다. 공백·한글·#·% 경로를 CLI 테스트에 포함한다."
+    },
+    {
+      "id": "W07",
+      "p": "P2",
+      "title": "null/false 설정을 무시하고 다른 vault로 폴백",
+      "loc": "work-log/mcp/lib/config.js:99",
+      "kind": "실행 재현",
+      "body": "readJson의 파일 부재와 JSON null 값이 같은 값이고 if(!cfg)가 false/0도 함께 무시한다. 프로젝트 .work-log.json에 null, 전역 설정에 유효한 다른 vault를 넣으면 오류 없이 전역 vault를 선택했다. 깨진 우선 설정에서 중단한다는 ConfigError 계약과 다르며 쓰기 대상이 바뀔 수 있다.",
+      "fix": "부재를 별도 sentinel로 구분하고 JSON 루트가 비어 있지 않은 객체인지 검증한다. scope/root/excludes 타입을 검사하며 잘못된 상위 설정은 하위 설정으로 넘기지 않는다."
+    },
+    {
+      "id": "W08",
+      "p": "P2",
+      "title": "코드 블록의 # 줄을 제목으로 처리해 섹션을 잘라냄",
+      "loc": "work-log/mcp/lib/search.js:129",
+      "kind": "실행 재현",
+      "body": "## Deployment 안의 fenced shell 예제에 # example comment가 있으면 extractSection(Deployment)는 코드 펜스 시작까지만 반환하고 뒤의 본문을 누락한다. example을 검색하면 코드 주석을 실제 제목으로 잡아 다음 정상 섹션까지 섞어 반환했다. 인덱싱의 heading 추출에도 같은 코드 펜스 구분이 필요하다.",
+      "fix": "Markdown heading을 코드 펜스 밖에서만 인식하는 공통 파서를 사용한다. backtick/tilde 펜스와 중첩 제목을 포함한 읽기 결과를 검증한다."
+    },
+    {
+      "id": "W09",
+      "p": "P2",
+      "title": "읽기 권한 오류를 삭제로 보고 정상 인덱스로 저장",
+      "loc": "work-log/mcp/lib/vault.js:270",
+      "kind": "실행 재현",
+      "body": "readdir/read/stat 오류를 모두 잡아 무시한다. private.md를 정상 sync 후 chmod 000으로 바꾸고 같은 사용자로 재동기화하면 성공 응답에 docs=[], drift.removed=[private.md]가 나온다. 파일은 삭제되지 않았다. 폴더 오류는 하위 전체를 누락시킬 수 있다.",
+      "fix": "ENOENT와 EACCES/EIO 등을 구별한다. 불완전 스캔은 오류 목록과 DEGRADED 상태를 남기고 기존 엔트리를 보존하거나 전체 commit을 보류한다."
+    },
+    {
+      "id": "W10",
+      "p": "P2",
+      "title": "잘못된 경로의 위키 링크를 다른 파일에 연결",
+      "loc": "work-log/mcp/lib/vault.js:408",
+      "kind": "실행 재현",
+      "body": "[[missing/guide]]가 없고 real/guide.md만 있을 때 basename fallback이 real/guide.md를 선택해 brokenLinks=[]를 반환했다. 파일명만 쓴 링크용 fallback이 명시적 디렉터리 경로에도 적용된다. 중복 파일명도 첫 항목을 임의 선택한다.",
+      "fix": "디렉터리를 명시한 링크는 그 경로로만 해석하고, 파일명만 쓴 링크도 후보가 하나일 때만 연결한다. 다수 후보는 ambiguous로 보고한다."
+    },
+    {
+      "id": "T01",
+      "p": "P1",
+      "title": "Vitest 동일 제목의 실패 메시지가 다른 파일의 메시지로 덮임",
+      "loc": "be-harness/skills/start-workflow/assets/test_failures.py:214",
+      "kind": "실행 재현",
+      "body": "FAIL 헤더에서 파일명(group 1)을 버리고 describe/it 제목만 msgs 키로 쓴다. 실제 Vitest 4.1.10에서 a.test.js와 b.test.js의 같은 제목을 실패시킨 뒤 a의 구현만 변경해도 두 실패가 모두 pre_existing, regression 0, unparsed 0이었다. 이 버전의 verbose 실패 ID에는 파일명이 들어 있으므로 ID 자체가 합쳐졌다는 설명은 잘못이며 메시지 매핑 충돌이 원인이다. FE 사본도 동일하다.",
+      "fix": "파일명+전체 describe/it 경로를 메시지·baseline·Test Map에 일관되게 사용하고 suffix 추정 매칭을 제거한다. 복수 파일의 동일 제목을 실제 러너 fixture로 검증한다."
+    },
+    {
+      "id": "T02",
+      "p": "P1",
+      "title": "Jest의 첫 줄만 비교해 실제 단언 값 변화가 회귀에서 빠짐",
+      "loc": "be-harness/skills/start-workflow/assets/test_failures.py:183",
+      "kind": "실행 재현",
+      "body": "실제 Jest 패키지 30.2.0(CLI --version 출력 30.1.3)에서 expect(value()).toBe(1) 테스트는 유지하고 value 구현만 2→4로 바꿨다. Expected는 1로 같고 Received가 2→4로 달라지지만 수집 시그니처는 expect(received).toBe(expected) // Object.is equality로 동일해 pre_existing 1, regression 0으로 분류됐다. 일반 matcher 실패에서 첫 줄은 실제 오류 값이 아니다.",
+      "fix": "matcher와 Expected/Received 등 의미 있는 오류 본문을 시그니처에 포함한다. 구조화된 JSON reporter의 failureMessages를 활용하고 경로·시간 같은 잡음만 제거한다."
+    },
+    {
+      "id": "T03",
+      "p": "P2",
+      "title": "다른 파일의 동명 테스트 PASS가 원래 실패를 flaky로 만듦",
+      "loc": "be-harness/skills/start-workflow/assets/test_failures.py:411",
+      "kind": "실행 재현",
+      "body": "JS 러너는 재실행 PASS에 leaf/suffix 매칭을 허용한다. 실제 Vitest에서 a와 b가 실패한 뒤 b 파일만 통과하도록 재실행하면, 실행하지 않은 a까지 flaky로 바뀌었다(원본 실패 2개가 모두 flaky). 재실행에서 해당 테스트가 빠졌는데 PASS 증거로 인정한다. Go의 package exact-match 수정은 JS에 적용되지 않았다.",
+      "fix": "runner+파일+전체 테스트 이름의 정확한 ID로 PASS를 확인한다. 원래 실패 ID가 재실행 결과에 없으면 원 분류 유지와 rerun_incomplete로 처리한다."
+    },
+    {
+      "id": "E01",
+      "p": "P1",
+      "title": "gRPC 대상이 E2E 보고서 분모에서 사라져 미검증을 성공으로 보고",
+      "loc": "be-harness/skills/e2e-test-loop/assets/render_e2e_report.py:35",
+      "kind": "실행 재현·이전 감사",
+      "body": "minmos는 같은 renderer를 쓰지만 REQ_RE는 HTTP method만 인식한다. gRPC-only 대상/통과 케이스는 대상 0건 DEGRADED가 된다. 더 위험하게 GET /healthz와 GRPC user.v1.UserService/GetUser를 대상으로 두고 HTTP만 실행하면 대상 1, 호출 1, 미호출 0, 상태 OK·직답 예가 나온다. RPC 실패를 숨긴 실험이 아니라 RPC를 아예 검증하지 않았는데 분모에서 누락된 실험이다.",
+      "fix": "protocol+operation 구조로 REST/RPC 대상을 저장하고 미지원 프로토콜도 분모에 보존한다. grpc-only, mixed partial, streaming skip을 각각 검증한다."
+    },
+    {
+      "id": "E02",
+      "p": "P1",
+      "title": "동일 포트의 localhost와 127.0.0.1이 서로 다른 E2E 잠금을 획득",
+      "loc": "be-harness/skills/e2e-test/assets/e2e-lock.sh:86",
+      "kind": "실행 재현·이전 감사",
+      "body": "호스트 문자열만 파일명으로 정규화해 localhost:PORT와 127.0.0.1:PORT에서 서로 다른 실행 토큰 둘 다 ACQUIRED가 된다. 실제 127.0.0.1 socket에 localhost 연결 성공 및 두 번째 bind의 EADDRINUSE까지 확인했다. 같은 네트워크 namespace·bind 대상이라는 조건에서 서버/바이너리/DB 병렬 충돌을 막지 못한다. FE 사본도 동일하다.",
+      "fix": "논리 URL 대신 실제 점유 자원(namespace/bind 주소/포트)을 기준으로 lock key를 확정한다. loopback·wildcard·기본 포트·별도 gRPC 포트와 공통 lock root를 함께 설계한다."
+    },
+    {
+      "id": "E03",
+      "p": "P2",
+      "title": "E2E 수정 기록이 실패한 케이스가 아니라 마지막 케이스에 붙음",
+      "loc": "be-harness/skills/e2e-test-loop/assets/render_e2e_report.py:144",
+      "kind": "실행 재현·이전 감사",
+      "body": "loop는 모든 케이스를 먼저 append한 후 실패→수정 블록을 append한다(SKILL:138,167). renderer는 **실패 → 수정 (A)**의 A를 읽지 않고 마지막 cur에 붙인다. A 실패, B 통과, A 수정, 다음 회차 둘 다 통과 fixture에서 A는 수정 없는 재시도 INCONCLUSIVE, B는 수정 후 PASS로 기록됐다. 해당 케이스 직후에 넣으라는 규칙(:116)과 append-only(:130)도 충돌한다.",
+      "fix": "수정 블록에 iteration+case_id를 명시하고 그 키로 연결한다. 순서·표시 이름으로 귀속하지 말고 중복/미상 case_id는 오류로 보고한다."
+    },
+    {
+      "id": "Q01",
+      "p": "P2",
+      "title": "dirty 상태에서 이미 커밋한 구현이 품질 검사 범위에서 누락",
+      "loc": "be-harness/skills/simplify-loop/SKILL.md:34",
+      "kind": "실행 재현·이전 감사",
+      "body": "BE/FE simplify는 git status에 하나라도 있으면 git diff HEAD를 택한다. 구현 커밋 후 무관한 untracked notes.md만 남은 fixture에서 diff 0→SKIPPED:NO_CHANGES가 된다. FE convention-check:80도 일반 git diff만 사용해 커밋/staged 변경을 놓친다. FE lint-check:27은 빈 diff면 전체로 확대하지만 일부 dirty 파일만 있으면 기존 커밋 범위는 빠진다. 고쳐진 FE Phase 8 리뷰 범위와 별개의 경로다.",
+      "fix": "START_SHA부터 현재 tree까지의 변경과 실행 소유 untracked 목록을 공통 helper로 계산해 모든 검증 단계에 전달한다. clean/dirty 여부로 검사 기준을 바꾸지 않는다."
+    },
+    {
+      "id": "Q02",
+      "p": "P2",
+      "title": "FE 컴포넌트·접근성 수정 후 빌드/테스트 재검증 단계가 없음",
+      "loc": "fe-harness/skills/start-workflow/references/agent-prompts.md:317",
+      "kind": "계약 결함",
+      "body": "Phase 7 검증 완료 후 Phase 8에서 Critical을 수정하고 바로 Phase 9 PR로 간다. PR 직전 재검증은 light→standard 승격 조건일 때만 정의돼 있다. 이미 standard이거나 소수 파일 수정인 경우, 수정 전 PASS와 Read-back 결과를 그대로 쓴다. 최종 사용자 결정 후의 재검증 규칙은 이 최초 PR 이전 수정 경로를 보완하지 않는다.",
+      "fix": "Phase 8에 코드 변경이 있으면 관련 build/type/unit/E2E와 필요한 Read-back을 다시 실행하고 검증한 tree를 기록한다. 변경 후 검증 완료를 PR 단계의 전제 조건으로 둔다."
+    },
+    {
+      "id": "Q03",
+      "p": "P2",
+      "title": "FE lintCommand 설정을 실제 lint 단계가 사용하지 않음",
+      "loc": "fe-harness/skills/lint-check/SKILL.md:31",
+      "kind": "계약 결함",
+      "body": "PROFILE.md는 lintCommand를 자유 문자열로 제공하고 실행에 사용할 것을 요구하지만 lint-check는 npx eslint 명령을 고정한다. 예를 들어 workspace 경로·ESLint 설정·환경변수가 포함된 사용자 lintCommand나 다른 lint runner를 설정해도 그 의미가 적용되지 않는다.",
+      "fix": "명시 lintCommand를 우선 실행하고 없을 때에만 지원 runner의 기본 명령을 쓴다. 자동 수정 옵션도 runner별로 분리하고 unsupported 명령을 임의 변형하지 않는다."
+    },
+    {
+      "id": "C01",
+      "p": "P1",
+      "title": "--bump-only가 기존 staged 파일도 커밋한다",
+      "loc": "common/skills/commit-pr/SKILL.md:92",
+      "kind": "실행 재현",
+      "body": "- 위치: `common/skills/commit-pr/SKILL.md:92`, 기본 커밋 절차 `common/skills/commit/SKILL.md:29`.\n- 조건: 사용자가 다른 변경을 이미 stage한 상태에서 `--bump-only` 실행.\n- 원인: `git add VERSION`은 index의 다른 엔트리를 제외하지 않는다. 이후 일반 `git commit`은 index 전체를 커밋한다.\n- 재현: unrelated.txt를 미리 stage → VERSION만 수정/add → 범프 커밋. `git show --name-only HEAD`에 `VERSION`, `unrelated.txt`가 함께 나타났다.\n- 영향: “코드 변경 커밋 없이 VERSION만”이라는 범위를 위반하며, 요청하지 않은 staged 코드까지 다음 push에 포함된다.\n- 수정: 기존 index 보존·복원 또는 commit pathspec/임시 index로 대상 파일만 커밋하고 결과 tree 범위를 확인한다. `resolve-assumption`의 amend/soft-reset과 논리 단위 commit에도 staged 내용 격리 계약을 공통 적용할 수 있다. clean-tree 선행 조건이 있는 sync-base는 같은 빈도로 발생한다고 주장하지 않는다.",
+      "fix": null
+    },
+    {
+      "id": "C02",
+      "p": "P2",
+      "title": "PR base 결정이 VERSION 존재에 종속되고 루트 버전 경로가 cwd에 따라 바뀐다",
+      "loc": "common/skills/commit-pr/SKILL.md:45",
+      "kind": "계약 결함 + 실행 재현",
+      "body": "- 위치: `common/skills/commit-pr/SKILL.md:45`, `:47`, `:51`, `:69`.\n- 조건 A: VERSION/VERSION.txt가 없는 일반 프로젝트. Step 2 전체를 SKIP하지만 Step 4는 “Step 2에서 결정한 base”를 요구한다.\n- 조건 B: 저장소 하위 디렉터리에서 실행. 대상은 루트 VERSION인데 `git rev-parse --show-prefix`를 붙여 `sub/VERSION`을 조회한다.\n- 재현 B: origin/main에는 루트 VERSION=`2.0.0`이 존재했지만 제공된 명령은 `fatal: path 'sub/VERSION' does not exist in 'origin/main'`, exit 128을 반환했다.\n- 영향: A는 base 미정/잘못된 기본 브랜치 사용, B는 정상 원격을 조회 실패로 오판하여 로컬 patch 폴백. 배포 브랜치와 VERSION 비교 기준이 달라질 수 있다.\n- 수정: 저장소 루트·확정 브랜치 prefix·base resolve를 버전 존재 검사보다 앞선 독립 단계로 두고, 루트 상대 VERSION 경로를 사용한다. base 변경을 허용할 때에는 VERSION 계산도 새 base로 갱신해야 한다.\n- 같은 경로의 추가 공백: 기존 open PR 경로(`:39`)는 base VERSION 비교 전에 fetch를 명시하지 않는다. 신규 PR의 “바로 상위 브랜치”에도 결정적인 Git 근거/폴백 순서가 없다. sync-base에는 PR base→origin/HEAD 순서가 있으므로 공통화할 수 있다.",
+      "fix": null
+    },
+    {
+      "id": "C03",
+      "p": "P2",
+      "title": "BE/FE workflow-pr의 커밋·버전·base 계약이 common 절차와 갈라졌다",
+      "loc": "be-harness/agents/workflow-pr.md:24",
+      "kind": "계약 결함 + Git 상태 재현",
+      "body": "- 위치: `be-harness/agents/workflow-pr.md:24`, `fe-harness/agents/workflow-pr.md:24` (양쪽 동일 실행 3~7단계), `be-harness/skills/start-workflow/references/agent-prompts.md:209`, `fe-harness/skills/start-workflow/references/agent-prompts.md:328`.\n- 조건: PR 에이전트가 VERSION을 수정하거나, 품질 단계가 미커밋 변경을 남긴 상태에서 PR 생성. 또는 remote base 버전이 로컬보다 높은 상태/재개 시 이미 PR이 존재하는 상태.\n- 원인: VERSION local patch+1 → 브랜치 생성 → `base...HEAD` Assumption Gate → push 순서에 커밋 단계가 없다. common:commit-pr 위임·base 확정·VERSION.txt·기존 PR 처리도 없다. 부모 프롬프트가 이 계약을 보완하지 않는다.\n- 재현: fixture에서 미커밋 VERSION/handler의 `[Assumption]`을 두고 문서의 Gate를 실행하면 stdout 0건; `HEAD:handler.go`는 없고 파일은 작업 트리에 남는다. 원격 push는 실행하지 않았다.\n- 영향: 문서 순서를 그대로 따르면 VERSION/품질 수정은 원격에 포함되지 않는다. 에이전트가 “모든 변경 push”를 만족하려고 Gate 이후 커밋을 추론하면 검사하지 않은 태그가 커밋될 수 있다. 후자는 실행 위험 추론이며 실제 원격 유출 재현으로 표현하지 않는다.\n- 수정: PR 전용 에이전트가 common의 base/버전/커밋/Gate/기존-PR 절차를 명시적으로 재사용하고, `commit → 검증한 HEAD의 Gate → push` 순서를 고정한다. 재개는 이미 완료한 branch/VERSION/PR 단계를 재실행하지 않아야 한다(`finalization.md:7`의 중복 금지와 연결).",
+      "fix": null
+    },
+    {
+      "id": "C04",
+      "p": "P2",
+      "title": "Read-back의 브랜치 기준 diff가 --hard·FE/FS 비-main 저장소에서 증거를 누락",
+      "loc": "common/skills/start-workflow/references/fullstack-agent-prompts.md:138",
+      "kind": "실행 재현",
+      "body": "- 위치: `common/skills/start-workflow/references/fullstack-agent-prompts.md:138`, `:170`; FE `fe-harness/skills/start-workflow/references/agent-prompts.md:182`; BE `be-harness/skills/start-workflow/references/quality-loop.md:196`.\n- 조건 A: 기본 브랜치가 master/dev이고 로컬 main이 없음. 조건 B: `--hard`로 현재 main에 커밋. 조건 C: 오래된 main을 기준으로 dev에서 분기한 작업.\n- 재현: A는 exit 128로 범위 조회 실패; B는 실제 handler.go 변경이 있어도 stdout이 빈 문자열이다(현재 main=HEAD). START_SHA로 계산하면 handler.go가 나온다.\n- 영향: 풀스택 계약 격리 검증이 멈추거나 빈 범위를 정상으로 오해하고 변경을 놓친다. FE도 literal main을 쓰지만 E2E/공개 인터페이스 폴백이 있으므로 우선 테스트 증거가 누락되는 영향이다. BE는 literal main이 아닌 `{mainBranch}`지만 --hard로 그 브랜치에 직접 커밋하면 같은 빈 범위가 된다. C는 이번 작업과 무관한 base 변경까지 들어온다. 이미 알려진 dirty simplify 범위 누락과는 다른 호출자의 검증 범위 결함이다.\n- 수정: 오케스트레이터가 START_SHA/작업 allowlist와 현재 tracked·untracked 변경을 반영한 읽기 대상 경로를 계산해 프롬프트에 제공한다. 격리 원칙 때문에 상태 파일은 넘기지 않고 경로 목록만 전달한다. ref 오류와 “변경 0건”을 분리한다.",
+      "fix": null
+    },
+    {
+      "id": "C05",
+      "p": "P2",
+      "title": "아카이브가 다른 Phase와 과거 회귀 건수를 최종 결과로 요약한다",
+      "loc": "common/skills/start-workflow/assets/workflow_archive.py:159",
+      "kind": "실행 재현",
+      "body": "- 위치: `common/skills/start-workflow/assets/workflow_archive.py:159`, `:165`, `:169`, `:218`; BE/FE assets 파일도 바이트 동일.\n- 원인: MODE와 무관하게 BE의 8.1·8.6만 읽고, regression_count는 상태 전문의 첫 정규식 매치를 사용한다.\n- 재현 1: BE 상태에 `8.1 FAIL regression 2건` 다음 `8.1 PASS regression 0건`을 넣으면 `regression_count: 2`, `최종 테스트 판정(8.1): PASS · regression: 2`를 쓰고 `상태: OK`를 반환한다.\n- 재현 2: FE의 7.1 PASS/7.4 E2E PASS를 주면 양쪽 “기록 없음”; 풀스택 Phase 7 BE/FE PASS + 8.1 Read-back WARN을 주면 “최종 테스트 판정: WARN”으로 기록한다.\n- 영향: 보존되는 보고서 요약·frontmatter가 실제 마지막 검증 상태와 다르다. 원문 부록은 남지만 사용자가 요약만 읽거나 인덱스에서 집계하면 잘못된 결과를 얻는다.\n- 수정: MODE별 명시 결과 필드(가능하면 JSON/구조화된 최종 summary)를 읽고, 마지막 완료 검증 회차의 판정·회귀 수를 함께 추출한다. 테스트·Read-back·E2E는 다른 필드로 유지한다.",
+      "fix": null
+    },
+    {
+      "id": "C06",
+      "p": "P2",
+      "title": "아카이브 재시도는 DEGRADED를 OK로 바꾸고 입력 run_id 충돌은 중복 파일을 만든다",
+      "loc": "common/skills/start-workflow/assets/workflow_archive.py:188",
+      "kind": "실행 재현",
+      "body": "- 위치: `common/skills/start-workflow/assets/workflow_archive.py:188`, `:190`, `:238`, `:242`; BE/FE 동일.\n- 재현 A: 필수 헤더 누락으로 첫 실행은 DEGRADED, 같은 인수로 다시 실행하면 INCOMPLETE 본문 그대로인데 `상태: OK(재사용…)`.\n- 재현 B: src frontmatter run_id=old-run, CLI run-id=new-run이면 기존 run_id를 유지한 파일이 생성된다. 동일 호출 재시도는 해당 파일을 같은 실행으로 인식하지 못해 `-2.md`를 추가 생성한다.\n- 영향: 재개/재시도 시 미완전 산출물이 정상으로 보이거나 실행당 보고서 1개라는 기대가 깨진다.\n- 수정: 입력·상태·CLI run_id 일치를 검증하거나 명시적 소유 필드로 덮어쓰고, 저장된 산출물의 completeness/status를 재사용 때에도 그대로 반환한다. 날짜·task 변경 재시도도 RUN_ID 기준 식별을 검토한다(후자는 개선 제안, 날짜 변경 재현은 하지 않음).",
+      "fix": null
+    },
+    {
+      "id": "C07",
+      "p": "P2",
+      "title": "--fs --analyze/--verify를 막지 않아 읽기 요청이 Build 경로로 갈 수 있다",
+      "loc": "common/skills/start-workflow/SKILL.md:30",
+      "kind": "계약 결함",
+      "body": "- 위치: `common/skills/start-workflow/SKILL.md:30`, `:52`, `:135`; `common/skills/start-workflow/references/fullstack.md:25`, `:199`, `:296`.\n- 조건: explicit `--fs --analyze` / `--fs --verify`, 또는 Analyze 요청을 자동 도메인 판정에서 풀스택으로 선택.\n- 원인: 라우터는 대상 고유 플래그를 해석하지 않고 전달하지만, fs 플래그/모드 표에는 analyze/verify 처리나 지원하지 않는 조합 차단이 없다. fs는 Phase 5 브랜치, 6 구현, 9 PR을 수행하는 Build 절차뿐이다.\n- 영향: 읽기 전용 분석 의도를 Build로 재해석하거나 불필요한 요구사항/구현 승인을 묻는 비일관성이 생긴다. 실제 모델을 실행해 원격 변경을 재현하지 않았다.\n- 수정: 도메인×모드 지원 표로 진입 전에 검증하고, 미지원 조합은 비파괴적으로 종료하거나 지원되는 읽기 전용 BE/FE 작업으로 명시 라우팅한다. FE Flags(`fe-harness/skills/start-workflow/SKILL.md:29`)에도 analyze/verify가 없다는 루트 교차 검토를 반영한다.",
+      "fix": null
+    },
+    {
+      "id": "C08",
+      "p": "P2",
+      "title": "이미 queue에 있는 PR을 머지 완료로 오보고하고 base HEAD를 PR merge SHA로 사용",
+      "loc": "common/skills/merge/SKILL.md:128",
+      "kind": "공식 CLI 소스 + 계약 검토",
+      "body": "- 위치: `common/skills/merge/SKILL.md:128`, `:143`, `:148`, `:153`.\n- 조건 A: 아직 OPEN이면서 이미 merge queue에 들어 있는 PR을 이 스킬로 처리한다. 조건 B: 해당 PR 머지 후 base에 다른 커밋이 추가된다.\n- 근거: 설치된 gh 2.89.0의 공식 소스에서 inMergeQueue는 ErrAlreadyInMergeQueue를 반환하고, 최상위 RunE는 이를 nil로 바꿔 성공 종료한다. 이 검사는 canMerge 및 브랜치 삭제보다 앞선다. 스킬은 상태 재조회 없이 머지 완료·원격/로컬 브랜치 삭제를 보고한다. 따라서 A에서는 queue 대기를 완료로 오보고할 수 있다. 이는 공식 코드에서 도출한 계약 결함이며 실제 GitHub queue를 실행한 재현은 아니다. [GitHub CLI v2.89.0 merge 소스](https://github.com/cli/cli/blob/v2.89.0/pkg/cmd/pr/merge/merge.go)\n- 범위 교정: 신규 queue 요청은 현재 명령에 고정된 --delete-branch 때문에 gh가 거부한다. 이 경로를 queue 등록 성공 뒤 완료 오보고 사례로 세면 안 된다. 스킬에는 일반적인 명령 실패 보고 절차가 이미 있다.\n- 별도 영향: B에서는 git log -1 <baseRefName>가 해당 PR의 mergeCommit이 아닌 뒤따른 커밋을 반환해 보고서의 머지 SHA가 잘못된다.\n- 수정: gh pr view의 state/mergedAt/mergeCommit을 재조회하고 MERGED·QUEUED·동기화 실패를 구별한다. queue 지원을 추가한다면 현재 delete-branch 옵션 제약을 반영하고, 실제 브랜치 삭제 여부도 별도로 확인한다.",
+      "fix": null
+    },
+    {
+      "id": "C09",
+      "p": "P2",
+      "title": "resolve-assumption의 경로 필터가 untracked 검색에 빠져 있다",
+      "loc": "common/skills/resolve-assumption/SKILL.md:32",
+      "kind": "실행 재현",
+      "body": "- 위치: `common/skills/resolve-assumption/SKILL.md:32`, `:42`.\n- 조건: 경로/glob를 지정했고 그 밖의 untracked 파일에도 태그가 있음.\n- 재현: 요청 범위 src/에 대해 제공된 untracked 명령을 실행하면 `other/out_of_scope.go`, `src/in_scope.go` 모두 출력한다.\n- 영향: 요청하지 않은 파일의 태그가 검토 목록에 포함된다. 승인을 받으면 범위 밖 변경으로 이어질 수 있다.\n- 수정: tracked와 동일한 pathspec을 `git ls-files … -- {경로}`에 전달하고, glob의 Git pathspec/셸 확장 규칙을 일관되게 한다. 대상 pathname은 NUL로 유지한다.",
+      "fix": null
+    },
+    {
+      "id": "M01",
+      "p": "P1",
+      "title": "E2E 정리 SQL이 다른 작업의 새 데이터까지 soft-delete",
+      "loc": "minmos-harness/overlay/references/e2e-test-postmath.md:330",
+      "kind": "SQL fixture + 계약 검토",
+      "body": "삭제 API가 없는 경우 WHERE id > BASELINE_ID로 일괄 정리하고 자식 테이블도 같은 부모 집합을 따른다. baseline=10 이후 테스트가 11, 다른 writer가 12를 만들면 둘 다 removed가 된다. SQLite 메모리 fixture로 이 WHERE 조건의 대상을 확인했고 실제 PostgreSQL/업무 DB에는 접근하지 않았다. 호스트별 E2E 잠금은 일반 사용자나 다른 포트의 같은 DB writer를 막지 않는다.",
+      "fix": "INSERT/API 응답에서 얻은 정확한 생성 ID를 run_id별로 추적하고 그 집합만 역 FK 순서로 정리한다. MAX(id)는 참고값으로만 쓰며 소유권 판정에 사용하지 않는다."
+    },
+    {
+      "id": "M02",
+      "p": "P1",
+      "title": "Apidog 재시도에서 대상 프로젝트를 자동으로 바꿔 쓰기",
+      "loc": "minmos-harness/skills/apidog-schema-gen/references/push-import.md:192",
+      "kind": "계약 결함",
+      "body": "REST 요청이 실패하면 APIDOG_PROJECT_ID와 MCP 설정의 project-id가 다를 때 MCP 값을 우선 사용하도록 지시한다. A 프로젝트를 의도한 환경에서 인증/전송 실패 후 B MCP 설정을 찾으면 같은 schema를 B에 OVERWRITE_EXISTING으로 보낼 수 있다. e2e-apidog-schema-gen:347에도 같은 절차다. 원격 import는 실행하지 않았다.",
+      "fix": "처음 확정한 project/branch/endpoint를 불변으로 유지한다. 인증 수단을 교체할 때도 같은 대상임을 검증하고, 다른 프로젝트로의 전환은 별도 대상 변경으로 다룬다."
+    },
+    {
+      "id": "M03",
+      "p": "P2",
+      "title": "OpenAPI 3.0 payload에 지원되지 않는 nullable type 배열을 생성",
+      "loc": "minmos-harness/skills/apidog-schema-gen/SKILL.md:223",
+      "kind": "공식 명세 + 계약 검토",
+      "body": "추출 규칙은 type:[\"string\",\"null\"]을 만들고 push-import:129는 openapi:3.0.0으로 감싼다. E2E 동기화 예제에도 같은 union type이 있다. OpenAPI 3.0은 type을 단일 문자열로 요구하며 nullable:true를 사용한다. Apidog UI용 JSON Schema와 OpenAPI import 스키마를 변환 없이 공유해서 생기는 형식 충돌이다. 실제 Apidog의 관대한 수용 여부는 미검증이다. [OpenAPI 3.0 Schema Object](https://spec.openapis.org/oas/v3.0.3.html#schema-object)",
+      "fix": "출력 dialect를 명시하고 OAS 3.0 변환에서는 type:string, nullable:true로 변환한다. 생성한 전체 문서를 해당 버전 schema validator로 검증한 뒤 import한다."
+    },
+    {
+      "id": "M04",
+      "p": "P2",
+      "title": "API push가 성공 응답을 200으로 고정",
+      "loc": "minmos-harness/skills/apidog-schema-gen/references/push-import.md:136",
+      "kind": "계약 결함",
+      "body": "원래 OAS의 responses.{statusCode}를 읽지만 push 생성 규칙은 responses.200만 명시한다. 201 생성·204 삭제 등 다른 성공 코드를 갖는 API가 200 문서로 재생성되거나 기존 응답 정의를 잃을 수 있다. GET에만 parameters, POST/PUT/PATCH에만 body를 붙이라는 규칙도 operation별 실제 계약을 충분히 보존하지 못한다.",
+      "fix": "코드·기존 OAS의 실제 statusCode, 모든 위치의 parameters, body 유무를 그대로 보존한다. 201/204/다중 응답 operation의 생성 전후 차이를 검증한다."
+    },
+    {
+      "id": "M05",
+      "p": "P2",
+      "title": "worktree 초기화 hook이 공백 경로·설정 파일 없는 첫 설치에서 실패",
+      "loc": "minmos-harness/skills/init/SKILL.md:264",
+      "kind": "실행 재현",
+      "body": "git worktree list --porcelain를 awk print $2로 읽어 공백 뒤를 버린다. repo with space를 메인 checkout으로 만든 실제 Git fixture에서 hook exit 0이지만 .env가 복사되지 않았다. 또 settings.json이 없는 fixture에서 :288~291 등록 명령은 jq exit 2, settings 미생성이었다.",
+      "fix": "worktree 경로는 NUL 형식 또는 worktree 접두사 전체 제거로 읽는다. 설정 파일이 없으면 빈 객체를 원자 생성하고 기존 JSON/권한을 보존하며 설치 후 등록·복사를 확인한다."
+    },
+    {
+      "id": "M06",
+      "p": "P2",
+      "title": "페이지네이션 템플릿의 tie-breaker가 다음 커서에 포함되지 않음",
+      "loc": "minmos-harness/skills/pagenation/SKILL.md:109",
+      "kind": "SQL fixture + 템플릿 검토",
+      "body": "id가 없으면 SQL ORDER BY에만 id desc를 추가하고 orderSpecs에는 넣지 않은 채 커서를 만든다. created_at이 같은 3개 행, limit=2 fixture에서 첫 페이지 [3,2], 다음 조건 created_at<100은 빈 목록이 되어 id=1을 놓친다. 별도 helper가 id를 보완하지 않는 문서 그대로의 알고리즘을 검증했으며 CloudKit 실제 구현을 실행한 것은 아니다. order/cursor 일치 검사도 본문과 달리 예제에는 없고, 마지막 페이지에서 항상 nonempty cursor를 만드는 코드와 빈 문자열 규칙도 충돌한다.",
+      "fix": "정렬·seek predicate·cursor encoding이 같은 정규 OrderSpec을 사용하게 하고 id를 그 배열에 추가한다. limit+1로 마지막 페이지를 판단하고 order 일치/limit 범위도 검사한다. 미정의 vos/helper가 있는 예제를 완성된 정본 템플릿과 대조한다."
+    },
+    {
+      "id": "M07",
+      "p": "P2",
+      "title": "snake_case 변환이 SQL Injection을 방지한다는 잘못된 안내",
+      "loc": "minmos-harness/skills/pagenation/SKILL.md:40",
+      "kind": "공식 문서 + 템플릿 검토",
+      "body": "컬럼명을 snake_case로 바꾸면 SQL Injection이 방지된다고 설명하면서 fmt.Sprintf로 Column/Direction을 Order에 넣는다(:95~96). 이름 스타일 변환은 허용 컬럼·정렬 방향 검증과 다르다. GORM 공식 문서도 Order 문자열을 비이스케이프 입력으로 분류한다. 실제 CloudKit parser 내부의 별도 방어 여부는 이번 범위에서 검증하지 않았으므로 소비 서비스의 확정 취약점으로 주장하지 않는다. [GORM Security](https://gorm.io/docs/security.html)",
+      "fix": "허용 정렬 키→DB 컬럼 매핑과 ASC/DESC enum 검증을 명시하고 검증된 identifier만 SQL 구조에 넣는다. 값은 바인딩하며 잘못된 보안 설명을 제거한다."
+    },
+    {
+      "id": "M08",
+      "p": "P2",
+      "title": "Apidog·Proto 도구 참조가 환경 탐색/현재 설치 구조와 불일치",
+      "loc": "minmos-harness/skills/e2e-apidog-schema-gen/SKILL.md:113",
+      "kind": "정적 대조·설치 파일 확인",
+      "body": "doctor는 read_project_oas_*를 탐색하지만 실제 실행은 _w9of5k 이름으로 고정된다. suffix가 다른 프로젝트에서는 진단 성공 후 호출이 끊긴다(api-share-note는 이미 동적 탐색을 명시). 재시도는 --project-id=만 읽지만 init:90은 --project=<ID>를 권장한다. gRPC reflection 폴백도 e2e-test-postmath:154에서 go-grpc-tools/skills/proto-gen을 참조하는데, 이 환경의 설치 위치는 go-stack-tools/2.0.1/skills/go-codegen/scripts/find-proto.sh다.",
+      "fix": "진단에서 찾은 실제 callable/프로젝트 ID를 실행 단계까지 전달하고 신·구 인수 형식을 지원한다. 외부 스크립트 경로는 제공 skill의 계약으로 resolve하며 없는 의존성은 실행 전에 구체적으로 보고한다."
+    },
+    {
+      "id": "M09",
+      "p": "P2",
+      "title": "Apidog 검증 payload가 실행별로 격리되지 않아 다른 실행 내용으로 바뀜",
+      "loc": "minmos-harness/skills/apidog-schema-gen/references/push-import.md:151",
+      "kind": "계약 결함",
+      "body": "payload 경로가 /tmp/apidog-push-{endpoint-slug}.yaml로 고정되고 import에서 다시 읽는다(:170). 두 프로젝트/에이전트가 같은 endpoint slug를 처리하면 A가 검증한 파일을 B가 덮어쓴 뒤 A의 대상 프로젝트에 B 내용이 전송되는 interleaving이 가능하다. 재시도·deprecated 경로·E2E 동기화도 같은 파일명을 쓴다. 실제 원격 전송은 실행하지 않았다.",
+      "fix": "run_id별 비공유 디렉터리에 payload를 만들고 project/branch/method/path/hash를 묶어 고정한다. 검증한 bytes 자체를 전송하며 재읽을 경우 hash를 확인한다."
+    },
+    {
+      "id": "F01",
+      "p": "P2",
+      "title": "설정에서 지원하는 Nuxt·JavaScript와 FE 생성 템플릿이 맞지 않음",
+      "loc": "fe-harness/skills/component/SKILL.md:64",
+      "kind": "계약 결함",
+      "body": "init은 nuxt(Vue)를 선택지로 제공하고 component는 framework/typescript를 읽지만 템플릿은 항상 React .tsx/interface, @testing-library/react, @storybook/react다. typescript:false 분기도 없다. vitest 선택에서도 describe/it import나 globals 설정을 확인하지 않고 전역 함수를 사용한다. 실제 모델이 상황에 맞게 보완할 수는 있지만 지원 설정에 대한 실행 계약은 빠져 있다.",
+      "fix": "지원 framework×언어×runner 조합을 명시하고 조합별 템플릿·전제 조건을 사용한다. 지원하지 않는 조합은 파일 생성 전에 알리고, 생성 예제를 실제 빌드/runner로 검증한다."
+    },
+    {
+      "id": "F02",
+      "p": "P3",
+      "title": "hyeondongs doctor가 정상 현대 profile·선택 설정을 누락으로 보고",
+      "loc": "hyeondongs-harness/skills/doctor/SKILL.md:154",
+      "kind": "계약 결함",
+      "body": "머리말은 fe-harness.local.md가 우선이라고 하지만 점검/필수 표는 .hyeondong-config.json을 필수로 둔다. 현대 profile만 있는 정상 설치도 ISSUES FOUND가 된다. typescript:false에서도 TypeScript 필수, Cypress 선택에도 Playwright 실행 검사, codexMode:none과 다른 Plan 검증 루프 상시 문구, 존재하지 않는 /hyeondong-init 안내가 남아 있다. FE doctor/component/unit-test 본문에도 legacy fallback 머리말과 현대 파일 필수 문구가 함께 남은 곳이 있다.",
+      "fix": "실효 profile resolver와 runner capability 표를 베이스 doctor와 공유하고, 비활성/레거시를 MISSING과 구분한다. 오래된 진단 문구도 구조 검사 범위에 포함한다."
+    },
+    {
+      "id": "A01",
+      "p": "P2",
+      "title": "14개 agent의 도구 제한 frontmatter가 공식 필드와 다름",
+      "loc": "be-harness/agents/scope-reviewer.md:4",
+      "kind": "공식 계약 + 전체 agent 대조",
+      "body": "BE 7개·FE 6개·minmos 1개 agent가 모두 allowed-tools를 쓰고 tools를 선언하지 않는다. 공식 Claude Code subagent 계약은 tools/disallowedTools이며 tools 부재 시 가능한 도구를 상속한다. 스킬용 allowed-tools를 agent에 사용해 의도한 읽기 전용 제한이 공식 계약상 설정되지 않은 상태다. 실제 에이전트의 무단 쓰기는 실행하지 않았다. [Claude Code subagent frontmatter](https://code.claude.com/docs/en/sub-agents#supported-frontmatter-fields)",
+      "fix": "agent frontmatter를 tools/disallowedTools로 검증하고 host loader에서 실제 도구 목록을 확인한다. FE 병렬 리뷰 프롬프트의 상태 파일 쓰기는 오케스트레이터로 옮겨 읽기 전용 역할과 맞춘다. Bash를 허용하면 파일 쓰기도 가능하다는 범위도 구별한다."
+    },
+    {
+      "id": "S01",
+      "p": "P3",
+      "title": "구조 검사 cleanup이 자신이 만들지 않은 __pycache__도 삭제",
+      "loc": "scripts/check-plugins.sh:55",
+      "kind": "실행 재현",
+      "body": "py_compile 뒤 저장소 전체의 __pycache__를 rm -rf한다(work-log만 제외). tracked 파일의 독립 snapshot에 unrelated/__pycache__/keep.txt를 만든 뒤 검사했더니 check-plugins: OK, exit 0이면서 sentinel은 삭제됐다. 제품 저장소 원본에서는 이 명령을 실행하지 않았다.",
+      "fix": "PYTHONPYCACHEPREFIX를 임시 디렉터리로 두거나 이 실행이 생성한 경로만 추적해 정리한다. 검사가 소유하지 않은 디렉터리에 손대지 않게 한다."
+    }
+  ],
+  "inventory": [
+    {
+      "path": ".claude-plugin/marketplace.json",
+      "sha256": "842e382712eb44be69d1fc407ad9b07c9da346e84e79e6255ef189772d6c8462",
+      "bytes": 1848,
+      "lines": 38
+    },
+    {
+      "path": "README.md",
+      "sha256": "d3990af30283b43e938816db0ccaa584d58906d9c692cdffc9194de170a83ff6",
+      "bytes": 6648,
+      "lines": 118
+    },
+    {
+      "path": "be-harness/.claude-plugin/plugin.json",
+      "sha256": "94415dda4d7a95acfb2ab6dc6116e71c1ed0b376df322fadf2ed0482b1efb0f2",
+      "bytes": 743,
+      "lines": 18
+    },
+    {
+      "path": "be-harness/OVERRIDES.md",
+      "sha256": "2be2909e325d4b8749e71d376ed5559f24e45818679557a070a7fe6f231bb445",
+      "bytes": 7220,
+      "lines": 142
+    },
+    {
+      "path": "be-harness/PROFILE.md",
+      "sha256": "e56ec2ae90c986fffd1122949c6460cedbbaa329477300df4828c1ff4840717f",
+      "bytes": 6644,
+      "lines": 138
+    },
+    {
+      "path": "be-harness/README.md",
+      "sha256": "6a11d0a5dfd968ae4d8f975687507f03475f5879928517f275df5f6f271f3377",
+      "bytes": 5767,
+      "lines": 112
+    },
+    {
+      "path": "be-harness/agents/code-analyzer.md",
+      "sha256": "190b7058a00434b81a69f3a69ab7bbe4bfd6afb4fc1062e9dece9c79be2d8987",
+      "bytes": 7097,
+      "lines": 223
+    },
+    {
+      "path": "be-harness/agents/code-verifier.md",
+      "sha256": "47009c7f9bbad0b82f71c60570e54fbfebcf668a9a2ada43a9b5cbada1cfe7e2",
+      "bytes": 8355,
+      "lines": 204
+    },
+    {
+      "path": "be-harness/agents/edge-case-analyzer.md",
+      "sha256": "cd8170e0451d539797da8c2aa68520f8e6698f772ea51cd342b92854febc9ea7",
+      "bytes": 20316,
+      "lines": 347
+    },
+    {
+      "path": "be-harness/agents/scope-reviewer.md",
+      "sha256": "d919bac9896036212fba26a59694f2ede0a6f2c3231f4ed775f52d12dac32ee9",
+      "bytes": 3069,
+      "lines": 78
+    },
+    {
+      "path": "be-harness/agents/workflow-implementer.md",
+      "sha256": "882cd026ad4a5288b72a347f6ec3fc2041730c577bdcac68bcaec746057aa031",
+      "bytes": 4022,
+      "lines": 110
+    },
+    {
+      "path": "be-harness/agents/workflow-pr.md",
+      "sha256": "18f6fbb86ca20e31f7ef7004f1f84c31c21b93ac77f9d552528bf6246aaa4e29",
+      "bytes": 2468,
+      "lines": 77
+    },
+    {
+      "path": "be-harness/agents/workflow-reflection.md",
+      "sha256": "27f0bc792c42b017ea6a5f921b3eb260a7a7ad58fb933cf416c324b685329c46",
+      "bytes": 2983,
+      "lines": 78
+    },
+    {
+      "path": "be-harness/community-feedback/README.md",
+      "sha256": "a0d13020f2edd17ea778df2f8a43a7462d093707bb536170693f12491bac68d4",
+      "bytes": 2706,
+      "lines": 63
+    },
+    {
+      "path": "be-harness/community-feedback/agents/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "lines": 0
+    },
+    {
+      "path": "be-harness/community-feedback/common/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "lines": 0
+    },
+    {
+      "path": "be-harness/community-feedback/skills/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "lines": 0
+    },
+    {
+      "path": "be-harness/skills/config/SKILL.md",
+      "sha256": "615533f428e8b9b2436cb663efcd78d1b98778ded0a9da123678b262fe6b9656",
+      "bytes": 20515,
+      "lines": 200
+    },
+    {
+      "path": "be-harness/skills/convention-check/SKILL.md",
+      "sha256": "b8a85a99b2a5ef0e7cb9f3e60a12139db7e1a480d22d71f3055702ee5347b0de",
+      "bytes": 5958,
+      "lines": 125
+    },
+    {
+      "path": "be-harness/skills/default-conventions/SKILL.md",
+      "sha256": "59b141dc64f298b402bd808256e658639dfa5e35ad56706cf3e9b6b5363a8485",
+      "bytes": 7097,
+      "lines": 137
+    },
+    {
+      "path": "be-harness/skills/doctor/SKILL.md",
+      "sha256": "28947a741f07d9666080e13a9816b262e6961da3630853749505edc3e17e63e2",
+      "bytes": 5306,
+      "lines": 101
+    },
+    {
+      "path": "be-harness/skills/e2e-test-loop/SKILL.md",
+      "sha256": "9218b95a384116ef81a901fa6a72e25388d7f6276f9489853137fbd892c6d232",
+      "bytes": 19041,
+      "lines": 249
+    },
+    {
+      "path": "be-harness/skills/e2e-test-loop/assets/render_e2e_report.py",
+      "sha256": "e485e50985f184e032044923f5cfa48f3a3df7cb2f7af4962c1bc30f458c666c",
+      "bytes": 24439,
+      "lines": 549
+    },
+    {
+      "path": "be-harness/skills/e2e-test/SKILL.md",
+      "sha256": "e324cbf89f3bd656239eeac5bd4a7bf4d26802b751252fee495f03679447a299",
+      "bytes": 15728,
+      "lines": 283
+    },
+    {
+      "path": "be-harness/skills/e2e-test/assets/e2e-lock.sh",
+      "sha256": "a839196254c73fbb91795fae5c86e8929e62921bea016ba616b186494cbad977",
+      "bytes": 10754,
+      "lines": 344
+    },
+    {
+      "path": "be-harness/skills/e2e-test/references/run-context.md",
+      "sha256": "4ddb7c3587fd7a43aa18b62b8f3bb9eae1ee254a5ad9b90c27113d81211ff7af",
+      "bytes": 1828,
+      "lines": 16
+    },
+    {
+      "path": "be-harness/skills/init/SKILL.md",
+      "sha256": "f0b0324d035234c14f1b2f16bb8c0bc67d2f4c848709477e5c2c0fbcaad43c7a",
+      "bytes": 7222,
+      "lines": 205
+    },
+    {
+      "path": "be-harness/skills/request/SKILL.md",
+      "sha256": "e87286dbebeb4b8043ec83b4d00b33ef6cf6f11aa474a2badd37ecef073a8f43",
+      "bytes": 18365,
+      "lines": 452
+    },
+    {
+      "path": "be-harness/skills/simplify-loop/SKILL.md",
+      "sha256": "3328400e1eff9eba0473c10608955979206cba19b5c133021900e2fcf0bdc834",
+      "bytes": 10145,
+      "lines": 155
+    },
+    {
+      "path": "be-harness/skills/simplify-loop/references/workflow-script.md",
+      "sha256": "61d21d50813af4d427617dfda20452812b4acbf4fe5dbd7d7356c02aec152818",
+      "bytes": 25754,
+      "lines": 455
+    },
+    {
+      "path": "be-harness/skills/start-workflow/SKILL.md",
+      "sha256": "48928f2991f47a7fedcea3028a20bfacca63205af182c03df8f2388bd4927c7d",
+      "bytes": 38979,
+      "lines": 497
+    },
+    {
+      "path": "be-harness/skills/start-workflow/assets/risk_facts.py",
+      "sha256": "1ea5ff3a3ffe253054b6cc68f21429c0889baa2bc9b67a3be86cae6a8301094a",
+      "bytes": 5592,
+      "lines": 147
+    },
+    {
+      "path": "be-harness/skills/start-workflow/assets/test_failures.py",
+      "sha256": "7a6ccc65d76799c15d68d941fbc55e86cbf612f403c4e943dd4f57d6da9a99ec",
+      "bytes": 23533,
+      "lines": 500
+    },
+    {
+      "path": "be-harness/skills/start-workflow/assets/workflow_archive.py",
+      "sha256": "cca44dabb0c703c570d89b4808875da3cc9fb8a1134f0e533cebf7dfa130a302",
+      "bytes": 12542,
+      "lines": 271
+    },
+    {
+      "path": "be-harness/skills/start-workflow/assets/workflow_run.py",
+      "sha256": "1394c30244690555f9d3909ffe9173a833fb6fc06435e89e2b1026c54ff4e981",
+      "bytes": 3851,
+      "lines": 86
+    },
+    {
+      "path": "be-harness/skills/start-workflow/references/agent-prompts.md",
+      "sha256": "7a22cd762c993f6bbdd98b1bcc4c9bd5d057e6ebb28c0b9b591447a6bca426e0",
+      "bytes": 12256,
+      "lines": 235
+    },
+    {
+      "path": "be-harness/skills/start-workflow/references/analyze-verify-modes.md",
+      "sha256": "4ef6bdaf2b43397aa9686e5e8e569196a6ccdce702056d14536c4ecdfa26f3dc",
+      "bytes": 8660,
+      "lines": 274
+    },
+    {
+      "path": "be-harness/skills/start-workflow/references/codex-mode.md",
+      "sha256": "7905fbbed9f0e76004a9a81a7fbc9a81765c8cd4bd96a1c357009d0403ec2db4",
+      "bytes": 29291,
+      "lines": 171
+    },
+    {
+      "path": "be-harness/skills/start-workflow/references/finalization.md",
+      "sha256": "1abd6afb32d2f29a113bf2776a20f9a01987a31c77af6f02b6c76518db32ba50",
+      "bytes": 2363,
+      "lines": 9
+    },
+    {
+      "path": "be-harness/skills/start-workflow/references/quality-loop.md",
+      "sha256": "2352de332554b9f28c2f6dd86532e7be4089e172f8e9dfadb9707e177ac5ecbd",
+      "bytes": 17363,
+      "lines": 284
+    },
+    {
+      "path": "be-harness/skills/start-workflow/references/run-lifecycle.md",
+      "sha256": "955dc289a2d71f198fd94e9552c0ddbabac1a614548f9326bbfd5f4a3a3d5954",
+      "bytes": 2920,
+      "lines": 43
+    },
+    {
+      "path": "be-harness/skills/start-workflow/references/tdd.md",
+      "sha256": "3083794e4b7e942b7c47697b4843b006940463c56c215d08963abf4007b6072a",
+      "bytes": 15725,
+      "lines": 235
+    },
+    {
+      "path": "be-harness/skills/start-workflow/references/templates.md",
+      "sha256": "f3b8dcc07f12329664a884ea039b8c566c2d75426d7c3a65ae70029a1324de3e",
+      "bytes": 22689,
+      "lines": 371
+    },
+    {
+      "path": "be-harness/skills/start-workflow/references/verification-tier.md",
+      "sha256": "3afd3d554040aff14349ec533f21d41ab72564c5ccc24ab5945998cae6566980",
+      "bytes": 10618,
+      "lines": 117
+    },
+    {
+      "path": "be-harness/skills/unit-test/SKILL.md",
+      "sha256": "ee3a86c9f6915ae10e17a3aa86504144d4fbfd4ce7f27161d8b8fa1164d4a887",
+      "bytes": 11818,
+      "lines": 234
+    },
+    {
+      "path": "common/.claude-plugin/plugin.json",
+      "sha256": "4ab809ac06379bb50ce44679258187e4ca620f25adffc0793ae5472f5caaab76",
+      "bytes": 961,
+      "lines": 25
+    },
+    {
+      "path": "common/OVERRIDES.md",
+      "sha256": "2d4ee466e774efc4a382e24833ac5d1aa64dcfb1b3dc3ae7f32d8d2d476b52ab",
+      "bytes": 2449,
+      "lines": 53
+    },
+    {
+      "path": "common/README.md",
+      "sha256": "adb81434a5bb66201394088cddacdf81bc404a05d0bd9c4a54f4413ab717873b",
+      "bytes": 7291,
+      "lines": 128
+    },
+    {
+      "path": "common/skills/commit-hard-push/SKILL.md",
+      "sha256": "69bc73a3088e8acc12615d1fc430ee8a15d26faa9dab77713a8b27402607adbe",
+      "bytes": 1335,
+      "lines": 29
+    },
+    {
+      "path": "common/skills/commit-pr/SKILL.md",
+      "sha256": "e85502fcc63535abc0b6be09f48bee772c7a684337c99a61f24a5475cd2f129f",
+      "bytes": 7011,
+      "lines": 102
+    },
+    {
+      "path": "common/skills/commit-push/SKILL.md",
+      "sha256": "c525da711aab97f336af349e48786047b22ad0e17c83eb00da9034ba43c71eb5",
+      "bytes": 9409,
+      "lines": 155
+    },
+    {
+      "path": "common/skills/commit/SKILL.md",
+      "sha256": "066278b02bbed6c0d6cc8ef5834fe7af8eaa18d6ae68965470bfc26d73404561",
+      "bytes": 2794,
+      "lines": 58
+    },
+    {
+      "path": "common/skills/doc-gen/SKILL.md",
+      "sha256": "96f23af98126200df089241f4389277736cac477b64d7bfad65323c1aa3adeba",
+      "bytes": 9569,
+      "lines": 216
+    },
+    {
+      "path": "common/skills/how-to-use/SKILL.md",
+      "sha256": "c006610a1b35e60fffa497a9d8892623c6c3970c054173ab04a6f5f3867befae",
+      "bytes": 3777,
+      "lines": 67
+    },
+    {
+      "path": "common/skills/merge/SKILL.md",
+      "sha256": "a42332536e90e641848ef39308a4e4c4893e3b2908457ee5bdef1edce874f4d3",
+      "bytes": 6679,
+      "lines": 172
+    },
+    {
+      "path": "common/skills/resolve-assumption/SKILL.md",
+      "sha256": "0f2a42fd5b546c1dab24ad705b05e36794abdf9941b9c8a4743a7d310c82c554",
+      "bytes": 8702,
+      "lines": 173
+    },
+    {
+      "path": "common/skills/start-workflow/SKILL.md",
+      "sha256": "aebf6734acba73a498c36066e1cb358953d399ca1190fe58a42ca232f5cb92ec",
+      "bytes": 9923,
+      "lines": 163
+    },
+    {
+      "path": "common/skills/start-workflow/assets/workflow_archive.py",
+      "sha256": "cca44dabb0c703c570d89b4808875da3cc9fb8a1134f0e533cebf7dfa130a302",
+      "bytes": 12542,
+      "lines": 271
+    },
+    {
+      "path": "common/skills/start-workflow/assets/workflow_run.py",
+      "sha256": "1394c30244690555f9d3909ffe9173a833fb6fc06435e89e2b1026c54ff4e981",
+      "bytes": 3851,
+      "lines": 86
+    },
+    {
+      "path": "common/skills/start-workflow/references/codex-mode.md",
+      "sha256": "0bb6a4b45b0d92d46be0b68e62532a6c54b588845c058a9033e65b67224c5380",
+      "bytes": 29997,
+      "lines": 172
+    },
+    {
+      "path": "common/skills/start-workflow/references/contract-templates.md",
+      "sha256": "8de37698d373971be4ec4459ef99cfffd67cb2b32425761d6f90be965f2a0ba5",
+      "bytes": 10375,
+      "lines": 273
+    },
+    {
+      "path": "common/skills/start-workflow/references/finalization.md",
+      "sha256": "1abd6afb32d2f29a113bf2776a20f9a01987a31c77af6f02b6c76518db32ba50",
+      "bytes": 2363,
+      "lines": 9
+    },
+    {
+      "path": "common/skills/start-workflow/references/fullstack-agent-prompts.md",
+      "sha256": "c31921fc02af02c8b642d8e4ffba2600c980bced1bce602e0c0ec1a12d4cbe6b",
+      "bytes": 11105,
+      "lines": 202
+    },
+    {
+      "path": "common/skills/start-workflow/references/fullstack-tdd.md",
+      "sha256": "fa3e25bcccea3caab9683a0108aff3680d628486ce109acbc41c08ca8270f1dc",
+      "bytes": 10762,
+      "lines": 192
+    },
+    {
+      "path": "common/skills/start-workflow/references/fullstack.md",
+      "sha256": "2a29e9bbbd671fcd328835416df0c00287ddcfe943553d799b55e55e19685063",
+      "bytes": 28543,
+      "lines": 353
+    },
+    {
+      "path": "common/skills/start-workflow/references/run-lifecycle.md",
+      "sha256": "955dc289a2d71f198fd94e9552c0ddbabac1a614548f9326bbfd5f4a3a3d5954",
+      "bytes": 2920,
+      "lines": 43
+    },
+    {
+      "path": "common/skills/submit-feedback/SKILL.md",
+      "sha256": "21b9b2815230b83c7f6e1752f2d2947a20a448f38da2970b44c2647486cb357b",
+      "bytes": 10941,
+      "lines": 322
+    },
+    {
+      "path": "common/skills/sync-base/SKILL.md",
+      "sha256": "9d34faf4f8959c694bdc0eab816eeb0cc27e020b1d97fb7c08c094b40daaac3c",
+      "bytes": 23031,
+      "lines": 368
+    },
+    {
+      "path": "docs/doc-gen-1784795493.md",
+      "sha256": "1b15408e3f7e37a0ea9e32760224072cfc1423bd58bacda4fc54002e2f6e0251",
+      "bytes": 4369,
+      "lines": 62
+    },
+    {
+      "path": "docs/doc-gen-1785996343.md",
+      "sha256": "56619675db8a06631357f0b5aadb92c068638b2879e08d1aea503a30da3792fe",
+      "bytes": 9805,
+      "lines": 231
+    },
+    {
+      "path": "docs/overlay.md",
+      "sha256": "c91ff9e58b64402b0e20465d1077485ebac4dad768d6f4f55fa75c2cfef89f84",
+      "bytes": 8128,
+      "lines": 160
+    },
+    {
+      "path": "docs/persona-edge-case-design.md",
+      "sha256": "6c2090dcddae7c3108da8190631d723b71e059522a4f866cff0f0ee0fd543b51",
+      "bytes": 13753,
+      "lines": 214
+    },
+    {
+      "path": "docs/skill-authoring.md",
+      "sha256": "41c7dca04dba4e84cec2a8f0b6bef1d22182c88b12db0efc3d1fa617f93858a2",
+      "bytes": 10458,
+      "lines": 168
+    },
+    {
+      "path": "fe-harness/.claude-plugin/plugin.json",
+      "sha256": "59b07d8f962b35d641fc68875a0e2f74ed9bebd08306847b078f8b0082e7f16b",
+      "bytes": 753,
+      "lines": 19
+    },
+    {
+      "path": "fe-harness/OVERRIDES.md",
+      "sha256": "b872c2beb02909010e70420535dc160f30927b63259b11784fab15c1ae907b0e",
+      "bytes": 6869,
+      "lines": 142
+    },
+    {
+      "path": "fe-harness/PROFILE.md",
+      "sha256": "d79aedf9845746d0156bb096a05640bc5c4979866398a91f7995d6a9b89be158",
+      "bytes": 8491,
+      "lines": 138
+    },
+    {
+      "path": "fe-harness/README.md",
+      "sha256": "646baa4282171e654e763aea59a8fc9e282b816744af513e09375a459420f997",
+      "bytes": 5910,
+      "lines": 114
+    },
+    {
+      "path": "fe-harness/agents/a11y-reviewer.md",
+      "sha256": "925b89f104ec722baa520e3aeb253a8fa8093bfd03185b997d1f161b3094f744",
+      "bytes": 3888,
+      "lines": 112
+    },
+    {
+      "path": "fe-harness/agents/component-reviewer.md",
+      "sha256": "2d9b037c4cf6d9b3b9ba74ab10c6b7f03ca5e186b3b2659e55fb17bb2321d161",
+      "bytes": 3768,
+      "lines": 105
+    },
+    {
+      "path": "fe-harness/agents/scope-reviewer.md",
+      "sha256": "17bf8ffeeb4874f35453d1150d498db7f5203d69cd1665736fd2d7ec9ffa5573",
+      "bytes": 3021,
+      "lines": 80
+    },
+    {
+      "path": "fe-harness/agents/workflow-implementer.md",
+      "sha256": "86c9c5db34ca055321eab5a8e211494cc6b682ee66a05937494300cafe6810e7",
+      "bytes": 4324,
+      "lines": 114
+    },
+    {
+      "path": "fe-harness/agents/workflow-pr.md",
+      "sha256": "388627b282981adade11752f8a61ef56c2c93e2ccfa0e02f5411dd23c1be6686",
+      "bytes": 2567,
+      "lines": 81
+    },
+    {
+      "path": "fe-harness/agents/workflow-reflection.md",
+      "sha256": "687d1cdf00c333e66b8e0e2a07ce53e91b5612e1fda7f0b3087e08ea39c42a49",
+      "bytes": 3194,
+      "lines": 82
+    },
+    {
+      "path": "fe-harness/community-feedback/README.md",
+      "sha256": "272dfebd74bfbf08b73aed96f0d231567ee8a162d86a9c606d531c91f24590d4",
+      "bytes": 2706,
+      "lines": 63
+    },
+    {
+      "path": "fe-harness/community-feedback/agents/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "lines": 0
+    },
+    {
+      "path": "fe-harness/community-feedback/common/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "lines": 0
+    },
+    {
+      "path": "fe-harness/community-feedback/skills/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "lines": 0
+    },
+    {
+      "path": "fe-harness/skills/component/SKILL.md",
+      "sha256": "6baac7071b5ab57e5540e77bb205c7a2640460da8e68f617385f81a27eba2c92",
+      "bytes": 5500,
+      "lines": 177
+    },
+    {
+      "path": "fe-harness/skills/config/SKILL.md",
+      "sha256": "89a53f4558edb88494c2494209ee3f0c01da83fcc5ce185e7bea5b50590467d4",
+      "bytes": 22888,
+      "lines": 206
+    },
+    {
+      "path": "fe-harness/skills/convention-check/SKILL.md",
+      "sha256": "fb53e275af40c84b473bc218be9b709014ffe2b0b097c2ebe562e851fe7d3b91",
+      "bytes": 7303,
+      "lines": 155
+    },
+    {
+      "path": "fe-harness/skills/default-conventions/SKILL.md",
+      "sha256": "392259964622a761a02532805fc188a2d789b14d5e78bbec78babe06d22afe2d",
+      "bytes": 6899,
+      "lines": 180
+    },
+    {
+      "path": "fe-harness/skills/doctor/SKILL.md",
+      "sha256": "8b9f4e5ab5c9a815b8dc1d92992ae3824b0047599ea4caff3272a40852b5a377",
+      "bytes": 7913,
+      "lines": 182
+    },
+    {
+      "path": "fe-harness/skills/e2e-test/SKILL.md",
+      "sha256": "88eb828f3535bac3bce00e7ca970580d2675b6b7e33b127608707308996e8584",
+      "bytes": 10704,
+      "lines": 239
+    },
+    {
+      "path": "fe-harness/skills/e2e-test/assets/e2e-lock.sh",
+      "sha256": "a839196254c73fbb91795fae5c86e8929e62921bea016ba616b186494cbad977",
+      "bytes": 10754,
+      "lines": 344
+    },
+    {
+      "path": "fe-harness/skills/e2e-test/references/run-context.md",
+      "sha256": "4ddb7c3587fd7a43aa18b62b8f3bb9eae1ee254a5ad9b90c27113d81211ff7af",
+      "bytes": 1828,
+      "lines": 16
+    },
+    {
+      "path": "fe-harness/skills/init/SKILL.md",
+      "sha256": "ec301fdb3afb13c8310d61f850baa421e3fa3a3cc8328cad3f9fb0c6905197af",
+      "bytes": 9341,
+      "lines": 267
+    },
+    {
+      "path": "fe-harness/skills/lint-check/SKILL.md",
+      "sha256": "0ff61f859c1c027be32560e2dbbebcd307efa3e4811fc87eb9d4ffbcb95b22e7",
+      "bytes": 3592,
+      "lines": 112
+    },
+    {
+      "path": "fe-harness/skills/request/SKILL.md",
+      "sha256": "5f44d78cf3c58ee296e0151ca4e060c3c28e90bd06a24eef01848aa53f37fb29",
+      "bytes": 9697,
+      "lines": 157
+    },
+    {
+      "path": "fe-harness/skills/request/references/type-specs.md",
+      "sha256": "c3052065bc347a418b71cbae454a9dfa2879f097e4c5fb459c5a8fbb52810aa1",
+      "bytes": 21071,
+      "lines": 599
+    },
+    {
+      "path": "fe-harness/skills/simplify-loop/SKILL.md",
+      "sha256": "fb8200403e937bfbfdb940581754d01daf0b0169e3597e3898a7a8d5b27530c2",
+      "bytes": 10145,
+      "lines": 155
+    },
+    {
+      "path": "fe-harness/skills/simplify-loop/references/workflow-script.md",
+      "sha256": "61d21d50813af4d427617dfda20452812b4acbf4fe5dbd7d7356c02aec152818",
+      "bytes": 25754,
+      "lines": 455
+    },
+    {
+      "path": "fe-harness/skills/start-workflow/SKILL.md",
+      "sha256": "b97df5d2d1c9691c92071a23f5b55cee4f58a19898fb1e6086e320d8efe06679",
+      "bytes": 37482,
+      "lines": 469
+    },
+    {
+      "path": "fe-harness/skills/start-workflow/assets/risk_facts.py",
+      "sha256": "1ea5ff3a3ffe253054b6cc68f21429c0889baa2bc9b67a3be86cae6a8301094a",
+      "bytes": 5592,
+      "lines": 147
+    },
+    {
+      "path": "fe-harness/skills/start-workflow/assets/test_failures.py",
+      "sha256": "7a6ccc65d76799c15d68d941fbc55e86cbf612f403c4e943dd4f57d6da9a99ec",
+      "bytes": 23533,
+      "lines": 500
+    },
+    {
+      "path": "fe-harness/skills/start-workflow/assets/workflow_archive.py",
+      "sha256": "cca44dabb0c703c570d89b4808875da3cc9fb8a1134f0e533cebf7dfa130a302",
+      "bytes": 12542,
+      "lines": 271
+    },
+    {
+      "path": "fe-harness/skills/start-workflow/assets/workflow_run.py",
+      "sha256": "1394c30244690555f9d3909ffe9173a833fb6fc06435e89e2b1026c54ff4e981",
+      "bytes": 3851,
+      "lines": 86
+    },
+    {
+      "path": "fe-harness/skills/start-workflow/references/agent-prompts.md",
+      "sha256": "57a5af59068f0bfe7fef9331c250f0eb932d84e6498bf8ac3ac2d2f686aa03fc",
+      "bytes": 18546,
+      "lines": 354
+    },
+    {
+      "path": "fe-harness/skills/start-workflow/references/codex-mode.md",
+      "sha256": "5383423c726707ebdd02296d72063e7a1b67bd6903f6a45a3d479d2e19050c29",
+      "bytes": 29194,
+      "lines": 171
+    },
+    {
+      "path": "fe-harness/skills/start-workflow/references/finalization.md",
+      "sha256": "1abd6afb32d2f29a113bf2776a20f9a01987a31c77af6f02b6c76518db32ba50",
+      "bytes": 2363,
+      "lines": 9
+    },
+    {
+      "path": "fe-harness/skills/start-workflow/references/run-lifecycle.md",
+      "sha256": "955dc289a2d71f198fd94e9552c0ddbabac1a614548f9326bbfd5f4a3a3d5954",
+      "bytes": 2920,
+      "lines": 43
+    },
+    {
+      "path": "fe-harness/skills/start-workflow/references/tdd.md",
+      "sha256": "061dd514d4213dee8bf9f4e8bd3317f3aac05e3e3ef77e17155decdea03f8fa1",
+      "bytes": 13770,
+      "lines": 217
+    },
+    {
+      "path": "fe-harness/skills/start-workflow/references/templates.md",
+      "sha256": "ff1a2a3ea7f7178065e292cc1004b9ad4bfcc9587c4bb0f7408cb632d7e4cf63",
+      "bytes": 20316,
+      "lines": 336
+    },
+    {
+      "path": "fe-harness/skills/test-loop/SKILL.md",
+      "sha256": "a00591c820a45f12dba40ec67acf78e2f5872f78d16509eba14fa1fdcde29a76",
+      "bytes": 8500,
+      "lines": 163
+    },
+    {
+      "path": "fe-harness/skills/unit-test/SKILL.md",
+      "sha256": "a8ee0007d4adf13ab9a7cc274d87632d0a11b71b4ce05d93c715785be2111c75",
+      "bytes": 11293,
+      "lines": 263
+    },
+    {
+      "path": "hyeondongs-harness/.claude-plugin/plugin.json",
+      "sha256": "cacc087408fd25ca33d82d501f719c555b3dba38211cbed86642b32ce9c5d024",
+      "bytes": 515,
+      "lines": 13
+    },
+    {
+      "path": "hyeondongs-harness/README.md",
+      "sha256": "906a9a9ed49b4a53b28a2e03ea51b8fd2d9f65d0659b31ef022807456a45c34f",
+      "bytes": 4712,
+      "lines": 89
+    },
+    {
+      "path": "hyeondongs-harness/overlay/common.md",
+      "sha256": "0bd88d3b8eaf919889d22f1f8d2d131ee8e35694a605cdbb7b2b619cd8736f42",
+      "bytes": 1378,
+      "lines": 24
+    },
+    {
+      "path": "hyeondongs-harness/overlay/start-workflow.md",
+      "sha256": "5bd7fdf9d6234e162b35f19732db6273aea3cede2b8a606d0b825d77f47f1549",
+      "bytes": 1418,
+      "lines": 25
+    },
+    {
+      "path": "hyeondongs-harness/skills/doctor/SKILL.md",
+      "sha256": "a688644f4bd13d1c6ef91d6f051c7dddc2f4fd9090a675118ee227d3942e7030",
+      "bytes": 5878,
+      "lines": 164
+    },
+    {
+      "path": "hyeondongs-harness/skills/init/SKILL.md",
+      "sha256": "ffc23ef2ae9eaea00e6fe32a9a02da283830a6f36906eb90f34aa46b1fd62ff7",
+      "bytes": 6570,
+      "lines": 195
+    },
+    {
+      "path": "hyeondongs-harness/skills/start-workflow/SKILL.md",
+      "sha256": "8e69ad42473a15d6c94fa5dc68eea71a0a07f7ddce0b94fbd8976228f1af0b88",
+      "bytes": 2600,
+      "lines": 41
+    },
+    {
+      "path": "minmos-harness/.claude-plugin/plugin.json",
+      "sha256": "fdfb3e1bdc4c2ed125143a4bc6326957cf47f776d0864ffe3b228d125b231a11",
+      "bytes": 585,
+      "lines": 18
+    },
+    {
+      "path": "minmos-harness/README.md",
+      "sha256": "a2d120305ef7d21025193a5a4a82fac9d092ab0351e7fbe4005c537b72c201f1",
+      "bytes": 8961,
+      "lines": 152
+    },
+    {
+      "path": "minmos-harness/agents/workflow-doc-sync.md",
+      "sha256": "89d37abbe380291d2e4a304717525ad1ed04f88aba874c12121b4e7e5ac6f612",
+      "bytes": 2018,
+      "lines": 57
+    },
+    {
+      "path": "minmos-harness/overlay/common.md",
+      "sha256": "dd1af6c58ba2b78c16d591281fa2bbd771a4cb75b15d1be44abcbf1ad89d7167",
+      "bytes": 2158,
+      "lines": 35
+    },
+    {
+      "path": "minmos-harness/overlay/convention-check.md",
+      "sha256": "7c87ae41f19daa66e686dd02b632fdce0be3d081e8d3127cbbc21f92ee398664",
+      "bytes": 1822,
+      "lines": 50
+    },
+    {
+      "path": "minmos-harness/overlay/default-conventions.md",
+      "sha256": "7410186a5362d3c09bc3e59e853eeb84e7b9d3d4623ef07c3b0566866efdce51",
+      "bytes": 771,
+      "lines": 20
+    },
+    {
+      "path": "minmos-harness/overlay/e2e-test-loop.md",
+      "sha256": "e2226f5950f6e12cdd47a0fa4b49b029e3b2e0c3fada26e08acbd29855302c78",
+      "bytes": 1625,
+      "lines": 34
+    },
+    {
+      "path": "minmos-harness/overlay/e2e-test.md",
+      "sha256": "00d1ff435ae449500f7b9a7ad2aa550e87c99a7b72b8644b2e933cfa1debbf70",
+      "bytes": 4820,
+      "lines": 69
+    },
+    {
+      "path": "minmos-harness/overlay/references/codex-review.md",
+      "sha256": "c495c4476b323c39647b640232fb986984988681b9567d0049736e6bed462726",
+      "bytes": 5209,
+      "lines": 68
+    },
+    {
+      "path": "minmos-harness/overlay/references/db-safety.md",
+      "sha256": "28ab7fccae1638e228e11e63478b6ec0c72f5a5c2c68fbcfee45fc4dc41d48d9",
+      "bytes": 9743,
+      "lines": 178
+    },
+    {
+      "path": "minmos-harness/overlay/references/e2e-report-templates.md",
+      "sha256": "d988c6117d2de5b0eb7847adb66247b91e56bdb2fac524e417fe84cc45e7bc88",
+      "bytes": 5508,
+      "lines": 128
+    },
+    {
+      "path": "minmos-harness/overlay/references/e2e-test-postmath.md",
+      "sha256": "762a6cf8ebb91f80413ccdf95e8ec1629a1cd145db1347273c88b6e78f6c6330",
+      "bytes": 22053,
+      "lines": 363
+    },
+    {
+      "path": "minmos-harness/overlay/references/grpc-testing.md",
+      "sha256": "a265255dfd53bb7feec4a9c50657e985891b8e6ab061f1026accdd0d7aed11a1",
+      "bytes": 6291,
+      "lines": 128
+    },
+    {
+      "path": "minmos-harness/overlay/references/postmath-conventions.md",
+      "sha256": "2e193ff74d4cfc07c23e3aa3d7005acea41c70317ad53cd0e37e0a914cb33b88",
+      "bytes": 5588,
+      "lines": 94
+    },
+    {
+      "path": "minmos-harness/overlay/references/status-code-validation.md",
+      "sha256": "50c48718deb3c7c709b6c3519cf972f42284a0a57bb9c1c256019bc2781314cb",
+      "bytes": 3493,
+      "lines": 60
+    },
+    {
+      "path": "minmos-harness/overlay/request.md",
+      "sha256": "3885f2a05ddbca16833e56dab12976c803705b0bd66296ecab34fd688a803cc3",
+      "bytes": 2248,
+      "lines": 56
+    },
+    {
+      "path": "minmos-harness/overlay/start-workflow.md",
+      "sha256": "66c29778b8d165c10aeeb31f4bd0eb4b8b1455a9566519dd339fce460431117d",
+      "bytes": 7536,
+      "lines": 110
+    },
+    {
+      "path": "minmos-harness/skills/api-share-note/SKILL.md",
+      "sha256": "751cd828f8eda2428939e17a9cd07962e18cafc54de2e7fd34c11865edca0420",
+      "bytes": 7203,
+      "lines": 113
+    },
+    {
+      "path": "minmos-harness/skills/apidog-schema-gen/SKILL.md",
+      "sha256": "24109c13a7c1f7bb623d9ccb919538bd7c765a02e1b6df4a2bdfaaaa0e2e18e2",
+      "bytes": 14897,
+      "lines": 244
+    },
+    {
+      "path": "minmos-harness/skills/apidog-schema-gen/references/extraction-patterns.md",
+      "sha256": "86523b38503239d3a408191719ebe2a996a5f2939de028ed61c0e5f85a93fd36",
+      "bytes": 10663,
+      "lines": 362
+    },
+    {
+      "path": "minmos-harness/skills/apidog-schema-gen/references/push-import.md",
+      "sha256": "cb0a7088adef1446927129b272e73a8dd9edfbcc53fcef5acee36b43ed69815b",
+      "bytes": 16555,
+      "lines": 307
+    },
+    {
+      "path": "minmos-harness/skills/db-gen-committed/SKILL.md",
+      "sha256": "cc68f7d9b8cd204fd827fc777c77f0b8b6156d44c5b202bb60b49f041a875873",
+      "bytes": 1618,
+      "lines": 46
+    },
+    {
+      "path": "minmos-harness/skills/doctor/SKILL.md",
+      "sha256": "d72acf7f7d28b73183050d10521478bbef928143135529875e9d4b68fd4f133a",
+      "bytes": 8274,
+      "lines": 176
+    },
+    {
+      "path": "minmos-harness/skills/e2e-apidog-schema-gen/SKILL.md",
+      "sha256": "3ebde78e4bcb8efbc688bb0ee6a43a441bd394d2fa551d6f01d8c00a76c193db",
+      "bytes": 16691,
+      "lines": 394
+    },
+    {
+      "path": "minmos-harness/skills/init/SKILL.md",
+      "sha256": "e87d9efe0d72cece83ab37baf4063e8bef8377de00d20031a84193aee4c84af4",
+      "bytes": 17399,
+      "lines": 369
+    },
+    {
+      "path": "minmos-harness/skills/pagenation/SKILL.md",
+      "sha256": "95f35fd0406ab32a50e428764c239f6f9985e162c60581e7be08ff686b0bef9d",
+      "bytes": 5709,
+      "lines": 139
+    },
+    {
+      "path": "minmos-harness/skills/start-workflow/SKILL.md",
+      "sha256": "4d36145333a480d6bd4afc80aaefa62e5d288eb01126dd5ba2caec92d5e4c9e7",
+      "bytes": 3061,
+      "lines": 44
+    },
+    {
+      "path": "scripts/check-plugins.sh",
+      "sha256": "f598a638aa31f846c64129da85b7d35b3fa5f42016cde292139398bf5d6f33ba",
+      "bytes": 10596,
+      "lines": 125
+    },
+    {
+      "path": "scripts/sync-codex-mode.py",
+      "sha256": "cba492ee1f36b5c7fef961d95420192db537933e08370993886e58b6e9cb7d02",
+      "bytes": 2030,
+      "lines": 57
+    },
+    {
+      "path": "tests/README.md",
+      "sha256": "f40087d1cd92a45aebea8005a43cd636725def404459ed9767e03e6aa1aa8771",
+      "bytes": 644,
+      "lines": 11
+    },
+    {
+      "path": "tests/test_e2e_interruption.py",
+      "sha256": "79c6e512da6ee51b405e573a42f75af79074b7b89f1b323e7545469e551902dc",
+      "bytes": 3519,
+      "lines": 72
+    },
+    {
+      "path": "tests/test_e2e_lock.py",
+      "sha256": "b62bcde075803c633251f9f173e79714d94106c799ec1473d1c3dc839eba904f",
+      "bytes": 3284,
+      "lines": 67
+    },
+    {
+      "path": "tests/test_fe_review_scope.py",
+      "sha256": "e87fb47a8d24712ffa4070a25fa51a8059bd92c03fcf1203f98833b25afd50c8",
+      "bytes": 2939,
+      "lines": 59
+    },
+    {
+      "path": "tests/test_test_failures.py",
+      "sha256": "b4146820f93ed5e5b0eff31d5c670c1f845274560ff64947d814aac007b1e22a",
+      "bytes": 9736,
+      "lines": 189
+    },
+    {
+      "path": "tests/test_workflow_commands.py",
+      "sha256": "c2d5a44b7728d96340a2a72c2bcf55c95c534983e13edcc27d4676dacd527533",
+      "bytes": 1138,
+      "lines": 25
+    },
+    {
+      "path": "tests/test_workflow_run.py",
+      "sha256": "1ab9fda94e90d242c9b39234abc8cb6637d6a767efee45d3f00c76b6ebbcce6d",
+      "bytes": 2851,
+      "lines": 71
+    },
+    {
+      "path": "work-log/.claude-plugin/plugin.json",
+      "sha256": "a012974722d2ecc8c2bd1ddc1018d082fa54997a9c8d7ba38bec6e34c0d2c5a2",
+      "bytes": 633,
+      "lines": 16
+    },
+    {
+      "path": "work-log/.codex-plugin/plugin.json",
+      "sha256": "c5169b659d0e680ee63de80be49fa5fdfe6161d6d254fe6b68124a83c1290db7",
+      "bytes": 1517,
+      "lines": 42
+    },
+    {
+      "path": "work-log/.mcp.json",
+      "sha256": "2fe13c8cddeefceae35b8c067692e853a41ecd6b393de9dcb91f6143972876e0",
+      "bytes": 199,
+      "lines": 11
+    },
+    {
+      "path": "work-log/README.md",
+      "sha256": "188bd3b3aa0b161068d19ee11cd7ef10ec4a0d4ec2f832a26c1e723186acc565",
+      "bytes": 7275,
+      "lines": 127
+    },
+    {
+      "path": "work-log/mcp/lib/config.js",
+      "sha256": "bda85ff0778e0cb67212720eeca438422c7ba2a2e283557a0e7190895efbc5ec",
+      "bytes": 7482,
+      "lines": 207
+    },
+    {
+      "path": "work-log/mcp/lib/search.js",
+      "sha256": "160930f803045174ad85a29a3b7bca1ebecf40448768531cfdcbdcbd3e26abdc",
+      "bytes": 5362,
+      "lines": 169
+    },
+    {
+      "path": "work-log/mcp/lib/vault.js",
+      "sha256": "c83bd996b465695c5b3b37bd6d4414469467171a2d1cf343d58c5dee174dfcd8",
+      "bytes": 25183,
+      "lines": 653
+    },
+    {
+      "path": "work-log/mcp/probe-cwd.js",
+      "sha256": "ff215bffbeb1c13c408e60b985a993883eba0a8fc8c1a75ff94c66285dd0f2b3",
+      "bytes": 2190,
+      "lines": 57
+    },
+    {
+      "path": "work-log/mcp/server.js",
+      "sha256": "9c80f0b906abb5ce16c2a95bb5c58491cbe41049f3463ecfa41b0aa695e0cbe8",
+      "bytes": 13482,
+      "lines": 352
+    },
+    {
+      "path": "work-log/package.json",
+      "sha256": "13591b46a1102159c2ffa6e383b3981be5d6121a5bbd79f26cfe5d84c0e00da0",
+      "bytes": 129,
+      "lines": 9
+    },
+    {
+      "path": "work-log/skills/doctor/SKILL.md",
+      "sha256": "38642362c436875cd53f978c58a397c0426246158a6140d35d05613fa2b517fe",
+      "bytes": 3777,
+      "lines": 91
+    },
+    {
+      "path": "work-log/skills/edit/SKILL.md",
+      "sha256": "31cd11acc23b3b72082daac88db45d84cf7680aee473f3d025645481ec8efc36",
+      "bytes": 4644,
+      "lines": 103
+    },
+    {
+      "path": "work-log/skills/init/SKILL.md",
+      "sha256": "58b3d8c303b0d3c61793b0900b956a43ab058b05d5aa0b0a9aab5e7feb4f7cb0",
+      "bytes": 5854,
+      "lines": 132
+    },
+    {
+      "path": "work-log/skills/search/SKILL.md",
+      "sha256": "014d7eea6c0f93acc4a77f000959dc8bf5b20059d40b62bd15e583bd81b81557",
+      "bytes": 3663,
+      "lines": 82
+    },
+    {
+      "path": "work-log/skills/sync/SKILL.md",
+      "sha256": "37031e4f608512131a617056fefbbf2f0d0f27cda3bdabbb656b3d02a372354f",
+      "bytes": 3507,
+      "lines": 75
+    },
+    {
+      "path": "work-log/tests/config.test.js",
+      "sha256": "42844098d2b0d86cc01825edc34a5253abfdb37d6ce69306296ed363064e1c3f",
+      "bytes": 4637,
+      "lines": 131
+    },
+    {
+      "path": "work-log/tests/helpers/write-worker.mjs",
+      "sha256": "b0af063f8da114b5d135dca383e8600232e90adf79b0ec60cbf7e22cc71a6157",
+      "bytes": 644,
+      "lines": 15
+    },
+    {
+      "path": "work-log/tests/mcp-smoke.test.js",
+      "sha256": "a28ff48e62016cc438e427d6c6bb0c64edac1d8421d18a085c829cb61055fc3e",
+      "bytes": 2281,
+      "lines": 65
+    },
+    {
+      "path": "work-log/tests/vault.test.js",
+      "sha256": "c59b3e1d3c87c5ab207724864d66c8ac4f2c6066a1635416ac439b1ee0458a9b",
+      "bytes": 10358,
+      "lines": 198
+    }
+  ],
+  "protected_user_docs": {
+    "docs/doc-gen-1787641358.md": "a6bbe9bad40f392f21ae69042a3ae22578bd0f925b8aa42d2849f71ec5f35319",
+    "docs/doc-gen-1787805472.md": "7dd26a8e7ec4c6b54ecceb24c19582e426b918f4b0ebc9c1fe713726d8c9bb08"
+  },
+  "verification": {
+    "python_unittest": {
+      "passed": 32,
+      "seconds": 0.815
+    },
+    "node_test": {
+      "passed": 23,
+      "seconds": 5.625
+    },
+    "check_plugins": {
+      "exit": 0,
+      "where": "independent tracked-file snapshot",
+      "unrelated_pycache_sentinel_survived": false
+    },
+    "manifest_validation": {
+      "plugins": 6,
+      "exit": 0,
+      "warnings": [
+        "author absent (all)",
+        "unknown upstream field ignored (BE/FE)"
+      ]
+    },
+    "common_fixture_assertions": 11
+  },
+  "prior_same_head_evidence": {
+    "ids": [
+      "W01",
+      "W02",
+      "W03",
+      "W04",
+      "W05",
+      "E01",
+      "E02",
+      "E03",
+      "Q01"
+    ],
+    "note": "Previous audit execution at the same HEAD; not rerun during final report assembly. Original disposable fixtures were cleaned; conditions and observations are retained in each finding."
+  },
+  "external_sources": [
+    {
+      "url": "https://github.com/cli/cli/blob/v2.89.0/pkg/cmd/pr/merge/merge.go",
+      "applies_to": [
+        "C08"
+      ],
+      "verified_contract": "Already-queued PR returns success before deletion checks; a new queue request with delete-branch is rejected. Actual remote queue not exercised."
+    }
+  ],
+  "limitations": [
+    "No actual GitHub push/PR/merge queue operations.",
+    "No Apidog import or production/consumer database writes.",
+    "SQLite checks validate documented predicates, not deployed PostgreSQL or CloudKit internals.",
+    "No live model workflow, host agent permission enforcement, Codex worker-death or browser-rendering integration tests."
+  ],
+  "recorded_results": {
+    "common-repro-results.json": {
+      "bump_only_staged_contamination": {
+        "committed_files": [
+          "VERSION",
+          "unrelated.txt"
+        ],
+        "expected_only": [
+          "VERSION"
+        ]
+      },
+      "root_version_subdir_lookup": {
+        "returncode": 128,
+        "stderr": "fatal: path 'sub/VERSION' does not exist in 'origin/main'",
+        "root_version": "2.0.0"
+      },
+      "readback_main_missing": {
+        "returncode": 128,
+        "stderr": "fatal: ambiguous argument 'main...HEAD': unknown revision or path not in the working tree.\nUse '--' to separate paths from revisions, like this:\n'git <command> [<revision>...] -- [<file>...]'",
+        "valid_scope": "handler.go"
+      },
+      "readback_hard_main_empty": {
+        "observed": "",
+        "actual_changed": "handler.go"
+      },
+      "workflow_pr_gate_before_commit": {
+        "gate_stdout": "",
+        "gate_rc": 1,
+        "uncommitted": "?? VERSION\n?? handler.go",
+        "committed_handler": 128
+      },
+      "resolve_assumption_untracked_path_filter_missing": {
+        "requested_path": "src/",
+        "actual_matches": [
+          "other/out_of_scope.go:1:// [Assumption] outside request",
+          "src/in_scope.go:1:// [Assumption] requested scope"
+        ]
+      },
+      "archive_first_regression_in_history": {
+        "summary": [
+          "regression_count: 2",
+          "- 최종 테스트 판정(8.1): PASS · regression: 2"
+        ],
+        "final_source": "PASS regression 0건",
+        "status": "상태: OK"
+      },
+      "archive_fe_wrong_phase": {
+        "summary": [
+          "- 최종 테스트 판정(8.1): 기록 없음 · regression: 0",
+          "- E2E(8.6): 기록 없음"
+        ],
+        "status": "상태: OK"
+      },
+      "archive_fs_readback_as_test": {
+        "summary": [
+          "- 최종 테스트 판정(8.1): WARN · regression: 0"
+        ],
+        "actual_tests": "BE PASS / FE PASS",
+        "status": "상태: OK"
+      },
+      "archive_degraded_retry_masks_status": {
+        "first_status": "상태: DEGRADED(머리글 누락: Required)",
+        "retry_status": "상태: OK(재사용 — 같은 run_id 파일 존재)",
+        "file_still_incomplete": true
+      },
+      "archive_input_run_id_mismatch_breaks_reuse": {
+        "input_run_id": "old-run",
+        "argument_run_id": "new-run",
+        "retry_creates_second_file": true
+      }
+    },
+    "worklog-additional-evidence.json": {
+      "plain": {
+        "exit": 0,
+        "stdout_bytes": 383,
+        "stderr": ""
+      },
+      "plugin with space": {
+        "exit": 0,
+        "stdout_bytes": 0,
+        "stderr": ""
+      },
+      "플러그인": {
+        "exit": 0,
+        "stdout_bytes": 0,
+        "stderr": ""
+      },
+      "shape-sections": {
+        "exit": 0,
+        "output": "{\n  \"nullProject\": {\n    \"cwd\": \"$AUDIT_TMP/worklog-cases/project\",\n    \"home\": \"$AUDIT_TMP/worklog-cases/home\",\n    \"scope\": \"global\",\n    \"root\": \"$AUDIT_TMP/worklog-cases/vault\",\n    \"excludes\": [\n      \".obsidian\",\n      \".trash\",\n      \".git\",\n      \"node_modules\",\n      \".wiki\"\n    ],\n    \"configSource\": \"$AUDIT_TMP/worklog-cases/home/.config/work-log/config.json\"\n  },\n  \"section\": {\n    \"text\": \"## Deployment\\nbefore\\n```sh\",\n    \"matchedHeading\": \"Deployment\"\n  },\n  \"codeHeading\": {\n    \"text\": \"# example comment\\necho deploy\\n```\\nCRITICAL AFTER\\n## Next\\nnext body\",\n    \"matchedHeading\": \"example comment\"\n  }\n}\n",
+        "stderr": ""
+      },
+      "scan-links-final-capture": {
+        "exit": 0,
+        "results": [
+          {
+            "test": "unreadable",
+            "before": [
+              "private.md"
+            ],
+            "after": [],
+            "drift": {
+              "firstRun": false,
+              "added": [],
+              "changed": [],
+              "removed": [
+                "private.md"
+              ],
+              "brokenLinks": [],
+              "orphanCount": 0,
+              "orphans": [],
+              "orphansSuppressed": true,
+              "linkedRatio": 0,
+              "keyCollisions": [],
+              "noFrontmatter": 0
+            }
+          },
+          {
+            "test": "wrong-link",
+            "counts": {
+              "canonical": 3,
+              "htmlOnly": 0,
+              "companions": 0,
+              "files": 3
+            },
+            "docs": [
+              {
+                "path": "index.md",
+                "links": [
+                  "missing/guide"
+                ]
+              },
+              {
+                "path": "private.md",
+                "links": []
+              },
+              {
+                "path": "real/guide.md",
+                "links": []
+              }
+            ],
+            "brokenLinks": []
+          }
+        ],
+        "stderr": ""
+      }
+    },
+    "minmos-local-evidence.json": {
+      "cleanup_sql": [
+        [
+          10,
+          "existing",
+          "active"
+        ],
+        [
+          11,
+          "e2e-run",
+          "removed"
+        ],
+        [
+          12,
+          "another-writer",
+          "removed"
+        ]
+      ],
+      "pagination_first": [
+        [
+          3,
+          100
+        ],
+        [
+          2,
+          100
+        ]
+      ],
+      "pagination_next": [],
+      "hook_space": {
+        "exit": 0,
+        "env_copied": false,
+        "worktree_line": "worktree $AUDIT_TMP/repo with space"
+      },
+      "settings_first_install": {
+        "exit": 2,
+        "stdout": "",
+        "stderr": "jq: error: Could not open file $AUDIT_TMP/final-evidence-4cz28vui/new-install/.claude/settings.json: No such file or directory\n",
+        "settings_created": false
+      }
+    },
+    "js-real-evidence.json": {
+      "jest": {
+        "baseline": "## test_failures — suite `unit` (runner jest, exit 1)\n- 러너 완주: Y\n- 통과: 0 / 실패: 1 / unparsed: 0\n\n| 식별자 | 분류 | 시그니처 | 비고 |\n|--------|------|----------|------|\n| `User › rejects invalid input` | - | `expect(received).toBe(expected) // Object.is equality #321f8878` | - |\n\nbaseline 행:\n| unit | - | Y | 0 | 1 | `User › rejects invalid input` :: `expect(received).toBe(expected) // Object.is equality` |\n요약: 완주 Y / 통과 0 / 실패 1 / unparsed 0\n",
+        "current": "## test_failures — suite `unit` (runner jest, exit 1)\n- 러너 완주: Y\n- 통과: 0 / 실패: 1 / unparsed: 0\n\n| 식별자 | 분류 | 시그니처 | 비고 |\n|--------|------|----------|------|\n| `User › rejects invalid input` | pre_existing | `expect(received).toBe(expected) // Object.is equality #321f8878` | baseline 동일 시그니처 |\n요약: 완주 Y / 통과 0 / 실패 1 / unparsed 0 / regression 0 / new_red 0 / pre_existing 1 / flaky 0 / unparsed 0\n"
+      },
+      "vitest": {
+        "baseline": "## test_failures — suite `unit` (runner vitest, exit 1)\n- 러너 완주: Y\n- 통과: 0 / 실패: 2 / unparsed: 0\n\n| 식별자 | 분류 | 시그니처 | 비고 |\n|--------|------|----------|------|\n| `a.test.js > User > rejects invalid input` | - | `AssertionError: expected 3 to be 1 // Object.is equality #e5c55003` | - |\n| `b.test.js > User > rejects invalid input` | - | `AssertionError: expected 3 to be 1 // Object.is equality #e5c55003` | - |\n\nbaseline 행:\n| unit | - | Y | 0 | 2 | `a.test.js > User > rejects invalid input` :: `AssertionError: expected 3 to be 1 // Object.is equality` / `b.test.js > User > rejects invalid input` :: `AssertionError: expected 3 to be 1 // Object.is equality` |\n요약: 완주 Y / 통과 0 / 실패 2 / unparsed 0\n",
+        "current": "## test_failures — suite `unit` (runner vitest, exit 1)\n- 러너 완주: Y\n- 통과: 0 / 실패: 2 / unparsed: 0\n\n| 식별자 | 분류 | 시그니처 | 비고 |\n|--------|------|----------|------|\n| `b.test.js > User > rejects invalid input` | pre_existing | `AssertionError: expected 3 to be 1 // Object.is equality #e5c55003` | baseline 동일 시그니처 |\n| `a.test.js > User > rejects invalid input` | pre_existing | `AssertionError: expected 3 to be 1 // Object.is equality #e5c55003` | baseline 동일 시그니처 |\n요약: 완주 Y / 통과 0 / 실패 2 / unparsed 0 / regression 0 / new_red 0 / pre_existing 2 / flaky 0 / unparsed 0\n",
+        "rerun_other_file": "## test_failures — suite `unit` (runner vitest, exit 1)\n- 러너 완주: Y\n- 통과: 0 / 실패: 2 / unparsed: 0\n\n| 식별자 | 분류 | 시그니처 | 비고 |\n|--------|------|----------|------|\n| `b.test.js > User > rejects invalid input` | flaky | `AssertionError: expected 3 to be 1 // Object.is equality #e5c55003` | baseline 동일 시그니처; 재실행 PASS 명시 |\n| `a.test.js > User > rejects invalid input` | flaky | `AssertionError: expected 3 to be 1 // Object.is equality #e5c55003` | baseline 동일 시그니처; 재실행 PASS 명시 |\n요약: 완주 Y / 통과 0 / 실패 2 / unparsed 0 / regression 0 / new_red 0 / pre_existing 0 / flaky 2 / unparsed 0\n"
+      }
+    }
+  },
+  "fixture_sources": {
+    "common-repros.py": "#!/usr/bin/env python3\n\"\"\"Read-only audit reproductions. Only disposable Git fixtures and artifacts under this directory are written.\"\"\"\nimport json\nimport os\nfrom pathlib import Path\nimport re\nimport subprocess\nimport tempfile\n\nROOT = Path(\"/workspace/harness-plugins\")\nHERE = Path(__file__).resolve().parent\nARCHIVE = ROOT / \"common/skills/start-workflow/assets/workflow_archive.py\"\n\ndef run(argv, cwd, check=True):\n    env = os.environ.copy()\n    env.update({\"GIT_CONFIG_NOSYSTEM\":\"1\", \"GIT_CONFIG_GLOBAL\":\"/dev/null\", \"GIT_TERMINAL_PROMPT\":\"0\", \"PYTHONDONTWRITEBYTECODE\":\"1\"})\n    r = subprocess.run(argv, cwd=cwd, env=env, text=True, capture_output=True)\n    if check and r.returncode:\n        raise RuntimeError(f\"{argv!r} -> {r.returncode}: {r.stderr}\")\n    return r\n\ndef git(cwd, *args, check=True):\n    return run([\"git\", *args], cwd, check)\n\ndef repo(parent, name, branch=\"main\"):\n    d = parent / name\n    d.mkdir()\n    git(d, \"init\", \"-q\", \"-b\", branch)\n    git(d, \"config\", \"user.name\", \"Audit Fixture\")\n    git(d, \"config\", \"user.email\", \"audit@example.invalid\")\n    (d / \"seed.txt\").write_text(\"initial\\n\")\n    git(d, \"add\", \"seed.txt\")\n    git(d, \"commit\", \"-qm\", \"seed\")\n    return d\n\ndef archive(parent, name, state, report=\"# Report\\n\", headings=None, run_id=None, task=\"audit\"):\n    d = parent / name\n    d.mkdir(exist_ok=True)\n    (d / \"state.md\").write_text(state)\n    (d / \"report.md\").write_text(report)\n    argv = [\"python3\", str(ARCHIVE), \"report\", \"--src\", str(d / \"report.md\"), \"--state\", str(d / \"state.md\"), \"--run-id\", run_id or (name.replace(\"-\", \"\")[:32]), \"--report-dir\", str(d / \"out\"), \"--task\", task]\n    if headings:\n        argv += [\"--require-headings\", headings]\n    r = run(argv, d)\n    path = Path(next(l.removeprefix(\"경로: \") for l in r.stdout.splitlines() if l.startswith(\"경로: \")))\n    return r, path.read_text(), argv\n\nresults = {}\nwith tempfile.TemporaryDirectory(prefix=\"common-fixture-\", dir=HERE) as tmp:\n    root = Path(tmp)\n    d = repo(root, \"bump-only\")\n    (d / \"VERSION\").write_text(\"1.2.3\\n\")\n    git(d, \"add\", \"VERSION\")\n    git(d, \"commit\", \"-qm\", \"version seed\")\n    (d / \"unrelated.txt\").write_text(\"already staged user work\\n\")\n    git(d, \"add\", \"unrelated.txt\")\n    (d / \"VERSION\").write_text(\"1.2.4\\n\")\n    git(d, \"add\", \"VERSION\")  # commit-pr Bump-Only step 3\n    git(d, \"commit\", \"-qm\", \"Chore: VERSION patch\")\n    committed = git(d, \"show\", \"--format=\", \"--name-only\", \"HEAD\").stdout.splitlines()\n    assert \"unrelated.txt\" in committed\n    results[\"bump_only_staged_contamination\"] = {\"committed_files\": committed, \"expected_only\": [\"VERSION\"]}\n\n    d = repo(root, \"version-subdir\")\n    (d / \"VERSION\").write_text(\"2.0.0\\n\")\n    (d / \"sub\").mkdir()\n    git(d, \"add\", \"VERSION\")\n    git(d, \"commit\", \"-qm\", \"root version\")\n    git(d, \"update-ref\", \"refs/remotes/origin/main\", \"HEAD\")\n    r = run([\"bash\", \"-c\", \"git show origin/main:$(git rev-parse --show-prefix)VERSION\"], d / \"sub\", False)\n    assert r.returncode == 128\n    results[\"root_version_subdir_lookup\"] = {\"returncode\":r.returncode, \"stderr\":r.stderr.strip(), \"root_version\":git(d,\"show\",\"origin/main:VERSION\").stdout.strip()}\n\n    d = repo(root, \"readback-master\", \"master\")\n    git(d, \"checkout\", \"-qb\", \"feat/api-change\")\n    (d / \"handler.go\").write_text(\"package api\\n\")\n    git(d, \"add\", \"handler.go\")\n    git(d, \"commit\", \"-qm\", \"API change\")\n    r = git(d, \"diff\", \"--name-only\", \"main...HEAD\", check=False)\n    assert r.returncode == 128\n    results[\"readback_main_missing\"] = {\"returncode\":r.returncode, \"stderr\":r.stderr.strip(), \"valid_scope\":git(d,\"diff\",\"--name-only\",\"master...HEAD\").stdout.strip()}\n\n    d = repo(root, \"readback-hard-main\")\n    start = git(d,\"rev-parse\",\"HEAD\").stdout.strip()\n    (d / \"handler.go\").write_text(\"package api\\n\")\n    git(d, \"add\", \"handler.go\")\n    git(d, \"commit\", \"-qm\", \"API change on current main --hard\")\n    observed = git(d,\"diff\",\"--name-only\",\"main...HEAD\").stdout.strip()\n    assert observed == \"\"\n    results[\"readback_hard_main_empty\"] = {\"observed\":observed, \"actual_changed\":git(d,\"diff\",\"--name-only\",start).stdout.strip()}\n\n    d = repo(root, \"workflow-pr-dirty\")\n    git(d, \"checkout\", \"-qb\", \"feat/api-change\")\n    (d / \"VERSION\").write_text(\"1.0.1\\n\")\n    (d / \"handler.go\").write_text(\"// [Assumption] missing confirmation\\n\")\n    observed = run([\"bash\", \"-c\", \"git diff main...HEAD | grep '^+.*\\\\[Assumption\\\\]'\"], d, False)\n    assert not observed.stdout\n    results[\"workflow_pr_gate_before_commit\"] = {\"gate_stdout\":observed.stdout, \"gate_rc\":observed.returncode, \"uncommitted\":git(d,\"status\",\"--porcelain\").stdout.strip(), \"committed_handler\":git(d,\"cat-file\",\"-e\",\"HEAD:handler.go\",check=False).returncode}\n\n    d = repo(root, \"assumption-path-scope\")\n    (d / \"src\").mkdir()\n    (d / \"other\").mkdir()\n    (d / \"src\" / \"in_scope.go\").write_text(\"// [Assumption] requested scope\\n\")\n    (d / \"other\" / \"out_of_scope.go\").write_text(\"// [Assumption] outside request\\n\")\n    r = run([\"bash\", \"-c\", \"git ls-files --others --exclude-standard -z | xargs -0 -r grep -HnI '\\\\[Assumption\\\\]'\"],d)\n    assert \"other/out_of_scope.go\" in r.stdout\n    results[\"resolve_assumption_untracked_path_filter_missing\"] = {\"requested_path\":\"src/\", \"actual_matches\":r.stdout.splitlines()}\n\n    state_be = \"\"\"## Flags\n- MODE: be\n## Phase Results\n| Phase | Status | 결과 요약 | 진단 |\n|-------|--------|----------|------|\n| 8.1 | DONE | FAIL regression 2건 | - |\n| 8.1 | DONE | PASS regression 0건 | - |\n| 8.6 | DONE | PASS | - |\n\"\"\"\n    r, body, _ = archive(root,\"archive-regression\",state_be)\n    assert \"regression_count: 2\" in body and \"최종 테스트 판정(8.1): PASS · regression: 2\" in body\n    results[\"archive_first_regression_in_history\"] = {\"summary\":[x for x in body.splitlines() if \"최종 테스트 판정\" in x or x.startswith(\"regression_count\")], \"final_source\":\"PASS regression 0건\", \"status\":r.stdout.strip().splitlines()[-1]}\n\n    state_fe = \"\"\"## Flags\n- MODE: fe\n## Phase Results\n| Phase | Status | 결과 요약 | 진단 |\n|-------|--------|----------|------|\n| 7.1 | DONE | PASS regression 0건 | - |\n| 7.4 | DONE | E2E PASS | - |\n\"\"\"\n    r, body, _ = archive(root,\"archive-fe\",state_fe)\n    assert \"최종 테스트 판정(8.1): 기록 없음\" in body and \"E2E(8.6): 기록 없음\" in body\n    results[\"archive_fe_wrong_phase\"] = {\"summary\":[x for x in body.splitlines() if \"최종 테스트 판정\" in x or \"E2E(8.6)\" in x], \"status\":r.stdout.strip().splitlines()[-1]}\n\n    state_fs = \"\"\"## Flags\n- MODE: fs\n## Phase Results\n| Phase | Status | 결과 요약 | 진단 |\n|-------|--------|----------|------|\n| 7 | DONE | BE PASS / FE PASS regression 0건 | - |\n| 8.1 | DONE | Read-back WARN | - |\n\"\"\"\n    r, body, _ = archive(root,\"archive-fs\",state_fs)\n    assert \"최종 테스트 판정(8.1): WARN\" in body\n    results[\"archive_fs_readback_as_test\"] = {\"summary\":[x for x in body.splitlines() if \"최종 테스트 판정\" in x], \"actual_tests\":\"BE PASS / FE PASS\", \"status\":r.stdout.strip().splitlines()[-1]}\n\n    r, body, args = archive(root,\"archive-degraded\",\"## Flags\\n- MODE: be\\n\",headings=\"Required\")\n    again = run(args, root / \"archive-degraded\")\n    assert \"DEGRADED\" in r.stdout and \"상태: OK\" in again.stdout and \"INCOMPLETE\" in body\n    results[\"archive_degraded_retry_masks_status\"] = {\"first_status\":r.stdout.strip().splitlines()[-1], \"retry_status\":again.stdout.strip().splitlines()[-1], \"file_still_incomplete\":True}\n\n    r, body, args = archive(root,\"archive-frontmatter\",\"## Flags\\n- MODE: be\\n\",report=\"---\\nrun_id: old-run\\n---\\n# Report\\n\",run_id=\"new-run\")\n    again = run(args, root / \"archive-frontmatter\")\n    first_path = r.stdout.splitlines()[0]\n    second_path = again.stdout.splitlines()[0]\n    assert first_path != second_path\n    results[\"archive_input_run_id_mismatch_breaks_reuse\"] = {\"input_run_id\":\"old-run\", \"argument_run_id\":\"new-run\", \"retry_creates_second_file\":True}\n\n(HERE / \"common-repro-results.json\").write_text(json.dumps(results,ensure_ascii=False,indent=2)+\"\\n\")\nprint(json.dumps(results,ensure_ascii=False,indent=2))\n",
+    "worklog-cases/shape-and-sections.mjs": "import fs from 'node:fs';\nimport {resolveConfig} from '/workspace/harness-plugins/work-log/mcp/lib/config.js';\nimport {extractSection} from '/workspace/harness-plugins/work-log/mcp/lib/search.js';\nconst root=process.argv[2];fs.mkdirSync(root+'/project',{recursive:true});fs.mkdirSync(root+'/home/.config/work-log',{recursive:true});\nfs.writeFileSync(root+'/project/.work-log.json','null');fs.writeFileSync(root+'/home/.config/work-log/config.json',JSON.stringify({scope:'global',root:root+'/vault'}));\nconst cfg=resolveConfig({cwd:root+'/project',home:root+'/home',env:{}});\nconst body=['## Deployment','before','```sh','# example comment','echo deploy','```','CRITICAL AFTER','## Next','next body'].join('\\n');\nconsole.log(JSON.stringify({nullProject:cfg,section:extractSection(body,'Deployment'),codeHeading:extractSection(body,'example')},null,2));\n",
+    "worklog-cases/scan-links.mjs": "import fs from 'node:fs';\nimport {syncIndex,buildIndex} from '/workspace/harness-plugins/work-log/mcp/lib/vault.js';\nconst base=process.argv[2];const root=base+'/scan-vault';fs.mkdirSync(root,{recursive:true});\nconst file=root+'/private.md';fs.writeFileSync(file,'# Private\\ncontent');\nconst first=await syncIndex({root});fs.chmodSync(file,0);\ntry {const second=await syncIndex({root}); console.log(JSON.stringify({test:'unreadable',before:first.index.docs.map(d=>d.path),after:second.index.docs.map(d=>d.path),drift:second.drift}));}\nfinally{fs.chmodSync(file,0o600);}\nfs.mkdirSync(root+'/real',{recursive:true});fs.writeFileSync(root+'/real/guide.md','# Guide');fs.writeFileSync(root+'/index.md','# Index\\n[[missing/guide]]');\nconst idx=buildIndex({root});console.log(JSON.stringify({test:'wrong-link',counts:idx.counts,docs:idx.docs.map(d=>({path:d.path,links:d.links,backlinks:d.backlinks})),brokenLinks:idx.brokenLinks}));\n",
+    "common-gh-merge-help.txt": "Merge a pull request on GitHub.\n\nWithout an argument, the pull request that belongs to the current branch\nis selected.\n\nWhen targeting a branch that requires a merge queue, no merge strategy is required.\nIf required checks have not yet passed, auto-merge will be enabled.\nIf required checks have passed, the pull request will be added to the merge queue.\nTo bypass a merge queue and merge directly, pass the `--admin` flag.\n\n\nUSAGE\n  gh pr merge [<number> | <url> | <branch>] [flags]\n\nFLAGS\n      --admin                   Use administrator privileges to merge a pull request that does not meet requirements\n  -A, --author-email text       Email text for merge commit author\n      --auto                    Automatically merge only after necessary requirements are met\n  -b, --body text               Body text for the merge commit\n  -F, --body-file file          Read body text from file (use \"-\" to read from standard input)\n  -d, --delete-branch           Delete the local and remote branch after merge\n      --disable-auto            Disable auto-merge for this pull request\n      --match-head-commit SHA   Commit SHA that the pull request head must match to allow merge\n  -m, --merge                   Merge the commits with the base branch\n  -r, --rebase                  Rebase the commits onto the base branch\n  -s, --squash                  Squash the commits into one commit and merge it into the base branch\n  -t, --subject text            Subject text for the merge commit\n\nINHERITED FLAGS\n      --help                     Show help for command\n  -R, --repo [HOST/]OWNER/REPO   Select another repository using the [HOST/]OWNER/REPO format\n\nLEARN MORE\n  Use `gh <command> <subcommand> --help` for more information about a command.\n  Read the manual at https://cli.github.com/manual\n  Learn about exit codes using `gh help exit-codes`\n  Learn about accessibility experiences using `gh help accessibility`\n\n"
+  },
+  "runner_files": {
+    "jest-real/a.test.js": "const value=require('./value.cjs');describe('User',()=>{it('rejects invalid input',()=>{expect(value()).toBe(1);});});",
+    "jest-real/baseline.log": "FAIL ./a.test.js\n  User\n    ✕ rejects invalid input (3 ms)\n\n  ● User › rejects invalid input\n\n    expect(received).toBe(expected) // Object.is equality\n\n    Expected: 1\n    Received: 2\n\n    > 1 | const value=require('./value.cjs');describe('User',()=>{it('rejects invalid input',()=>{expect(value()).toBe(1);});});\n        |                                                                                                         ^\n\n      at Object.toBe (a.test.js:1:105)\n\nTest Suites: 1 failed, 1 total\nTests:       1 failed, 1 total\nSnapshots:   0 total\nTime:        0.33 s\nRan all test suites.\n",
+    "jest-real/current.log": "FAIL ./a.test.js\n  User\n    ✕ rejects invalid input (4 ms)\n\n  ● User › rejects invalid input\n\n    expect(received).toBe(expected) // Object.is equality\n\n    Expected: 1\n    Received: 4\n\n    > 1 | const value=require('./value.cjs');describe('User',()=>{it('rejects invalid input',()=>{expect(value()).toBe(1);});});\n        |                                                                                                         ^\n\n      at Object.toBe (a.test.js:1:105)\n\nTest Suites: 1 failed, 1 total\nTests:       1 failed, 1 total\nSnapshots:   0 total\nTime:        0.337 s\nRan all test suites.\n",
+    "jest-real/package.json": "{\"name\": \"audit-jest\", \"private\": true, \"jest\": {\"testEnvironment\": \"node\"}}",
+    "jest-real/state.md": "## Test Baseline\n| unit | - | Y | 0 | 1 | `User › rejects invalid input` :: `expect(received).toBe(expected) // Object.is equality` |\n",
+    "jest-real/value.cjs": "module.exports = () => 4;",
+    "vitest-real/a.test.js": "import value from './value.cjs';describe('User',()=>{it('rejects invalid input',()=>{expect(value()).toBe(1);});});",
+    "vitest-real/b.test.js": "describe('User',()=>{it('rejects invalid input',()=>{expect(1).toBe(1);});});",
+    "vitest-real/baseline.log": "\n RUN  v4.1.10 $AUDIT_TMP/vitest-real\n\n × a.test.js > User > rejects invalid input 8ms\n   → expected 2 to be 1 // Object.is equality\n × b.test.js > User > rejects invalid input 8ms\n   → expected 3 to be 1 // Object.is equality\n\n Test Files  2 failed (2)\n      Tests  2 failed (2)\n   Start at  21:14:13\n   Duration  376ms (transform 31ms, setup 0ms, import 50ms, tests 19ms, environment 0ms)\n\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  a.test.js > User > rejects invalid input\nAssertionError: expected 2 to be 1 // Object.is equality\n\n- Expected\n+ Received\n\n- 1\n+ 2\n\n ❯ a.test.js:1:101\n      1| import value from './value.cjs';describe('User',()=>{it('rejects inval…\n       |                                                                                                     ^\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n\n FAIL  b.test.js > User > rejects invalid input\nAssertionError: expected 3 to be 1 // Object.is equality\n\n- Expected\n+ Received\n\n- 1\n+ 3\n\n ❯ b.test.js:1:64\n      1| describe('User',()=>{it('rejects invalid input',()=>{expect(3).toBe(1)…\n       |                                                                ^\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n\n",
+    "vitest-real/current.log": "\n RUN  v4.1.10 $AUDIT_TMP/vitest-real\n\n × b.test.js > User > rejects invalid input 8ms\n   → expected 3 to be 1 // Object.is equality\n × a.test.js > User > rejects invalid input 8ms\n   → expected 4 to be 1 // Object.is equality\n\n Test Files  2 failed (2)\n      Tests  2 failed (2)\n   Start at  21:14:14\n   Duration  385ms (transform 33ms, setup 0ms, import 56ms, tests 19ms, environment 0ms)\n\n\n⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯\n\n FAIL  a.test.js > User > rejects invalid input\nAssertionError: expected 4 to be 1 // Object.is equality\n\n- Expected\n+ Received\n\n- 1\n+ 4\n\n ❯ a.test.js:1:101\n      1| import value from './value.cjs';describe('User',()=>{it('rejects inval…\n       |                                                                                                     ^\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯\n\n FAIL  b.test.js > User > rejects invalid input\nAssertionError: expected 3 to be 1 // Object.is equality\n\n- Expected\n+ Received\n\n- 1\n+ 3\n\n ❯ b.test.js:1:64\n      1| describe('User',()=>{it('rejects invalid input',()=>{expect(3).toBe(1)…\n       |                                                                ^\n\n⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯\n\n",
+    "vitest-real/package.json": "{\"name\": \"audit-vitest\", \"private\": true, \"type\": \"module\"}",
+    "vitest-real/rerun-b-only.log": "\n RUN  v4.1.10 $AUDIT_TMP/vitest-real\n\n ✓ b.test.js > User > rejects invalid input 2ms\n\n Test Files  1 passed (1)\n      Tests  1 passed (1)\n   Start at  21:14:15\n   Duration  184ms (transform 19ms, setup 0ms, import 30ms, tests 3ms, environment 0ms)\n\n",
+    "vitest-real/state.md": "## Test Baseline\n| unit | - | Y | 0 | 2 | `a.test.js > User > rejects invalid input` :: `AssertionError: expected 3 to be 1 // Object.is equality` / `b.test.js > User > rejects invalid input` :: `AssertionError: expected 3 to be 1 // Object.is equality` |\n",
+    "vitest-real/value.cjs": "module.exports = () => 4;"
+  },
+  "final_integrity": {
+    "head": "f9ce681427ccfbfd9194d3c3f204a445ae6f45dd",
+    "branch": "main",
+    "tracked_file_hashes_matched": 176,
+    "preexisting_user_doc_hashes_matched": 2,
+    "new_files": [
+      "docs/harness-audit-2026-09-05.md",
+      "docs/harness-audit-2026-09-05-evidence.json"
+    ],
+    "local_file_link_occurrences_checked": 72,
+    "finding_anchors_checked": 41,
+    "tables_checked": 7,
+    "owned_temp_directory_removed": true,
+    "owned_bytecode_removed": true,
+    "running_fixture_processes": 0,
+    "report_sha256": "c35031b6d51b34f8659a275a5e85dc58261ce30bd50d7ad0b18657c25615dc36"
+  },
+  "independent_final_review": {
+    "result": "reviewed; all reported corrections applied",
+    "corrections": [
+      "GFM table row gaps removed",
+      "T01 observation and T02 Expected/Received wording corrected",
+      "C08 restricted to already-queued OPEN PR success and base HEAD mismatch; new queue delete-branch rejection distinguished",
+      "W09/W10 and M05 missing result capture supplemented with targeted local fixture executions"
+    ],
+    "unchanged_findings_count": 41
+  }
+}
