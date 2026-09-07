@@ -84,7 +84,7 @@
 
 단일 경로 `mcp__codex__codex` (CLI 폴백 없음):
 - `model`: `{슬롯.model}` · `config`: `{"model_provider": "{슬롯.provider}", "model_reasoning_effort": "{effort}"}` — `model_provider`는 **항상 명시**(유저 root config의 `model_provider`와 무관 — 호출은 슬롯 삼중항의 순수 함수), `model_reasoning_effort`는 `CODEX_MODELS`의 확정값(`-`면 키 생략). 슬롯 값 출처 = `{STATE_FILE}` `## Flags` `CODEX_MODELS` (상태 파일 생성 이전 `$CODEX_MODELS`).
-- `sandbox`: 슬롯 고정 — `review`·`explore`·`judge` `read-only` / `write` `workspace-write` · `"approval-policy": "never"` · `cwd`: `{CWD}`
+- `sandbox`: 슬롯 고정 — `review`·`explore`·`judge` `read-only` / `write` `workspace-write` · `"approval-policy": "never"` · `cwd`: 병렬 writer는 `{WRITER_CWD}`(writer-safety.md), 읽기/단일 실행은 `{CWD}`
 - `prompt`: 기존 references의 해당 에이전트 프롬프트 본문 그대로 (+ §4 `required_reads`·결과 상한 문구). "Agent tool" 호출을 이 호출로 치환한다.
 - `developer-instructions` 3줄 — ① "역할 정의 `{역할 파일 절대 경로}`를 먼저 Read하고 그 규칙을 따르세요." ② "프로젝트 오버라이드가 있으면 함께 Read하세요: `{CWD}/.claude/{harness}/common.md`, `{CWD}/.claude/{harness}/agents/{name}.md`" (존재하는 것만) ③ "결과는 프롬프트가 지정한 형식으로만 반환하세요." general-purpose 작업은 ①·②를 생략한다.
 - 에이전트 정의의 `allowed-tools`는 sandbox로 대체한다.
@@ -105,10 +105,10 @@
   ( d=$(mktemp -d) && trap 'rm -rf "$d"' EXIT && export GIT_INDEX_FILE="$d/index" && git read-tree HEAD && git add -A && printf '%s %s\n' "$(git rev-parse HEAD)" "$(git write-tree)" )
   ```
   비0 종료·빈 출력 = 닫힌 실패 (S 불명 → "진행"으로 간주). `{STATE_FILE}`·`{IMPL_NOTES}`가 오버라이드로 작업 트리 안에 있을 때만 `git add -A -- . ':(exclude){경로}'`로 제외한다.
-- **호출 전 영속**: `## Codex Runtime`의 `pending` 표에 행 `| {호출 ID} | {사용 종류 목록} | {범위 all \| slice:{id}} | {S0 \| -} | {핸들 \| -} |`을 dispatch **전에** 기록한다 (병렬 슬라이스는 모든 행을 기록한 뒤 한 메시지로 동시 dispatch). 논리 호출당 행 1개 — 재호출 전 같은 행의 사용 종류·핸들을 갱신한다. 행은 `VERIFIED` 또는 종료 조건 도달 시에만 삭제한다.
+- **호출 전 영속**: `writer-safety.md`를 Read해 실행 소유 receipt(run/call/host/job·실제 PID identity)를 기록한다.  `## Codex Runtime`의 `pending` 표에 행 `| {호출 ID} | {사용 종류 목록} | {범위 all \| slice:{id}} | {S0 \| -} | {핸들 \| -} |`을 dispatch **전에** 기록한다 (병렬 슬라이스는 모든 행을 기록한 뒤 한 메시지로 동시 dispatch). 논리 호출 행의 각 시도 receipt는 보존한다. 행은 종료 증거와 결과 검증을 확인한 뒤에만 해소한다.
 - **실행**: 120초 초과 시 Claude Code가 백그라운드 태스크로 전환한다 → 핸들을 행에 기록하고 완료 알림을 **최대 30분** 대기 (대기 중 재호출·Claude 폴백·다음 쓰기 단계 시작 금지). 완료 → 결과 형식 검증 → `VERIFIED` / `FAILED(invalid_result)`.
-- **선행 호출 종료 확인** = 아래 모든 전이의 공통 전제. 오류·완료 종료는 그 자체로 확인. 대기 상한 초과 시 `TaskStop`(핸들) → 정지 확인 → `FAILED(no_result)`. 정지·조회를 확인할 수 없으면 재호출 금지 → 즉시 종료 조건 (동일 트리에 두 writer 금지).
-- **재개**: `pending` 행이 남아 있으면 마지막 종류의 호출이 사망한 것으로 보고 아래 매트릭스를 적용한다 (핸들은 세션 종료로 소멸 = 종료 확인됨).
+- **선행 호출 종료 확인** = 모든 전이의 공통 전제. `writer_guard.py check-stop`이 실제 호스트 종료 근거와 소유 ID를 검증해 STOP_CONFIRMED일 때만 아래 매트릭스를 적용한다. MCP 오류·timeout·stop 접수만으로 종료를 인정하지 않는다. 불명은 BLOCKED:WRITER_UNKNOWN(재호출/폴백 금지).
+- **재개**: pending의 소유 job/PID와 실제 종료 근거를 `writer-safety.md`대로 복구·조회한다. 핸들 유실은 사망이 아니다. 살아 있으면 대기/소유 작업 중지 확인, 불명확하면 BLOCKED로 보존하며 새 writer를 시작하지 않는다.
 - `FAILED` 사유 = `tool_error` (MCP 오류·타임아웃·5xx) / `no_result` (빈 결과·대기 상한 초과·핸들 소실) / `invalid_result` (형식 검증 실패). 셋 다 동일 매트릭스 — 각 종류 최대 1회, 모든 경로가 4회 이내에 끝난다:
 
 | 실패한 종류 | sequential 무진행 (`S == S0`) | sequential 진행 (`S != S0`, 닫힌 실패 포함) | parallel-slices (판정 없음) |
@@ -118,8 +118,8 @@
 | `continue` | `fallback` (Claude 이어서) | `fallback` (Claude 이어서) | `fallback` (Claude 이어서) |
 | `fallback` | 종료 조건 | 종료 조건 | 종료 조건 |
 
-- 종료 조건 = 기존 사망 규약의 종료 조건 (구현·수정류 `BLOCKED:AGENT_DIED`). 이어서 프롬프트에는 변경 파일 목록·HEAD 이동과 "다른 슬라이스 allowlist 파일 수정 금지 — 수정했다면 되돌리고 보고"를 포함한다.
-- 교차 슬라이스 소유권은 기존과 동일한 **프롬프트 수준 규칙**("위 파일 범위에 해당하는 파일만 수정하세요. 범위 밖 파일은 절대 수정하지 않습니다.")이다 — git 수준 귀속·격리는 하지 않는다. 다음 쓰기 단계는 `pending` 표가 비어야 시작한다.
+- 종료 조건 = 기존 사망 규약의 종료 조건 (구현·수정류 `BLOCKED:AGENT_DIED`). 이어서 프롬프트에는 변경 파일 목록·HEAD 이동과 "범위 밖 수정은 보고하고 해당 worker 결과를 보존하세요. 다른 writer의 파일을 자동 복원하지 마세요"를 포함한다.
+- 병렬 slice는 `writer-safety.md`의 실행 소유 별도 checkout·정확한 allow_files·종료 배리어·`writer_guard.py scope`를 적용한다. scope PASS인 patch만 오케스트레이터가 부모에 순차 반영한다. 격리/종료 확인이 불가능하면 병렬 쓰기 금지. 다음 묶음/재시도는 앞선 pending 해소 뒤 시작한다.
 - 커밋: sequential 구현 에이전트의 논리 단위 커밋은 기존 규칙 유지 (HEAD 이동 = 진행). parallel-slices는 Codex의 커밋·빌드·테스트 명령 실행 금지 (테스트 파일·스텁 **작성**은 허용), 배리어에서 오케스트레이터가 단독 수행한다.
 
 ## 6. Claude 패널 (`none`의 정규 리뷰 경로 · `mix`/`max`의 리뷰 폴백)

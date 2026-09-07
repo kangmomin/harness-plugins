@@ -13,8 +13,8 @@
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_run.py" create --cwd "{CWD}" --mode "{RUN_MODE}"
 ```
 
-JSON 출력의 `CWD`, `RUN_ID`, `RUN_DIR`, `STATE_FILE`, `IMPL_NOTES`, `WORK_REPORT` 절대 경로를 이번 실행의 유일한 값으로 보관한다. `{RUN_DIR}/run.json`은 변경하지 않는다. 경로를 셸 코드로 eval하지 않는다.
-모든 하위 에이전트/스킬에 필요한 실제 경로를 전달한다. baseline·iteration 로그도 `{RUN_DIR}` 아래에 저장한다. 격리 Read-back에는 이 경로를 전달하지 않는다.
+JSON 출력의 `CWD`, `RUN_ID`, `RUN_DIR`, `STATE_FILE`, `IMPL_NOTES`, `WORK_REPORT`, `RESULTS_FILE` 절대 경로를 이번 실행의 유일한 값으로 보관한다. `{RUN_DIR}/run.json`은 변경하지 않는다. 경로를 셸 코드로 eval하지 않는다.
+첫 검증 전에 같은 디렉터리의 [result-contract.md](result-contract.md)를 읽고 RESULTS_FILE을 초기화한다. 모든 하위 에이전트/스킬에 필요한 실제 경로를 전달한다. baseline·iteration 로그도 `{RUN_DIR}` 아래에 저장한다. 격리 Read-back에는 이 경로를 전달하지 않는다.
 상태 본문을 처음 생성할 때 아래 헤더를 포함한다. `RUN_ID`는 재생성하지 않고 `START_SHA`만 구현 직전 기존 Phase에서 수집한다.
 
 ```markdown
@@ -41,3 +41,5 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_run.py" res
 
 최종 승인 수정의 검증·commit/push 결과까지 반영한 뒤 상태를 마감하고 아카이브한다. 미해결 BLOCKED/FAIL을 DONE으로 바꾸지 않는다.
 기본은 실행 디렉토리를 보관한다. 정리 요청 시 서버/세션 종료를 확인하고 검증된 이번 `{RUN_DIR}`만 삭제한다. 완료된 실행의 상태는 새 작업에 재사용하지 않는다.
+
+품질·리뷰·Read-back의 범위는 `scope-contract.md`를 따른다. `OWNED_FILES`는 create가 만든 실행별 JSON 배열이며 오케스트레이터가 소유 파일만 합친다. resume에서 초기화하지 않는다. 오래된 실행에서 파일이 없으면 기존 구현 기록으로 복구한 뒤 범위 수집을 진행한다.

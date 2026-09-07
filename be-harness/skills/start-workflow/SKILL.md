@@ -11,8 +11,7 @@ user-invocable: true
 
 # Start Workflow — Orchestrator
 
-전체 개발 라이프사이클을 **오케스트레이션 패턴**으로 실행한다.
-각 자율 실행 Phase를 전용 서브 에이전트에 위임하여, 단일 컨텍스트 소진 없이 전 단계를 완주한다.
+전체 개발 라이프사이클의 자율 Phase를 전용 서브 에이전트에 위임해 오케스트레이션한다.
 
 **플레이스홀더 정의** (본문·references 공통, 값 변경은 여기 한 곳만 수정):
 
@@ -23,6 +22,10 @@ user-invocable: true
 - `{PLAN_MAX}` = Phase 4.3 상한 (standard 5 / light 2) · `{QL_MAX}` = Phase 8 상한 (standard 3 / light 2)
 - `{CWD}` = 현재 작업 디렉토리 (프로젝트 루트)
 - `{buildCommand}` 등 profile 변수 = Pre-flight에서 로드
+
+## 진입 검사 (모든 모드)
+
+먼저 `references/entry-contract.md`를 Read하고 동봉 `assets/workflow_policy.py route`를 `entry: "be"`로 실행한다. init/Plan/profile 저장/RUN 생성보다 앞서며 미지원·상충 조합은 종료한다. 직접 호출·오버레이 위임·재개도 동일하다. 유효 `PUBLISH_POLICY`를 상태에 보존한다.
 
 ## Flags
 
@@ -47,7 +50,7 @@ user-invocable: true
 | 위 플래그 없음 | **Build** (기본) | Phase 1 → 12 |
 
 - `--resume`이면 명시된 상태의 `## Run` MODE로 모드를 판별하고 경로 검증을 수행한다. 명시 모드 플래그와 충돌하면 `BLOCKED:RUN_MISMATCH`. `--analyze`와 `--verify`는 상호 배타적이다. 동시 지정 시 유저에게 하나를 선택하도록 안내한다.
-- Build 모드 전용 플래그 (Analyze/Verify 모드에서는 무시 — 구현 Phase를 경유하지 않음): `$ARGUMENTS`에 `--hard`/`-h`가 있으면 `$HARD_MODE = true` · `--no-tdd`면 `$TDD = false` (기본값 `true`) · `--reflect`면 `$REFLECT = true` (기본값 `false` — Phase 11 실행 여부) · `--tier standard`면 `$TIER_FORCE = true` (기본값 `false` — Phase 2 게이트에서 standard 강제).
+- Build 모드 전용 플래그 (Analyze/Verify 모드에서는 무시 — 구현 Phase를 경유하지 않음): `$HARD_MODE`와 `$PUBLISH_POLICY`는 진입 gate의 `hard`/`publish_policy` 값을 사용한다 · `--no-tdd`면 `$TDD = false` (기본값 `true`) · `--reflect`면 `$REFLECT = true` (기본값 `false` — Phase 11 실행 여부) · `--tier standard`면 `$TIER_FORCE = true` (기본값 `false` — Phase 2 게이트에서 standard 강제).
 - **범위 지정**: 플래그 뒤 경로가 있으면 분석/검증 범위로 사용한다. 없으면 전체 코드베이스 (profile의 `sourceDirs` 기준).
   예: `--analyze src/book`, `--verify src/book/handler.go`
 
@@ -233,7 +236,7 @@ B축 근거는 Spec `참조 구현` 경로로 `assets/risk_facts.py`를 실행�
 
 | 감지 | 행동 | 고지 문구 |
 |------|------|----------|
-| `/common:start-workflow` 가 세션에 존재 | Skill tool로 `--fs` 와 함께 호출 후 현재 워크플로우 종료 | "FE+BE 동시 변경이 필요합니다. `/common:start-workflow --fs`로 전환합니다." |
+| `/common:start-workflow` 가 세션에 존재 | `entry-contract.md`대로 원래 MODE/PUBLISH_POLICY를 인계해 `--fs` gate를 다시 통과한 뒤 위임하고 현재 워크플로우 종료 | "FE+BE 동시 변경이 필요합니다. `/common:start-workflow --fs`로 전환합니다." |
 | common 미설치 | 선택지 제시 후 대기 | "FE+BE 동시 변경이 필요하지만 풀스택 오케스트레이션을 제공하는 `common` 이 설치되어 있지 않습니다.<br>1. `common` 설치 후 재시작 (권장) — `/plugin install common@harness-plugins`<br>2. 백엔드만 진행 — 프론트엔드 변경은 별도 작업으로 분리<br>3. 중단" |
 
 ## Phase 4: Plan 작성 + 리뷰
@@ -427,9 +430,9 @@ Phase 8.1 결과는 `assets/test_failures.py --baseline {STATE_FILE}`로 `## Tes
 ### Phase 10: PR / Push
 
 진입 직전 light면 승격 ⑦ 재평가(`references/verification-tier.md` §4) — 발화 시 Phase 8을 standard로 1회 재진입한 뒤 돌아온다.
-- `$HARD_MODE = false`: `be-harness:workflow-pr` 에이전트로 PR 생성 (`references/agent-prompts.md`의 "Phase 10" 섹션). PR URL 보고 필수.
-- `$HARD_MODE = true`: PR 생략, push 전에 Assumption Gate 스캔(base와의 diff 추가 라인 + 미push 커밋 메시지에서 `[Assumption]` 검색)을 수행한다. 0건이면 `git push origin $(git branch --show-current)` 후
-  "Phase 10 완료: `{브랜치명}`에 push 완료 (--hard 모드, PR 생략)" 출력. 발견 시 push를 보류하고 아래 BLOCKED 절차를 따른다.
+- `PUBLISH_POLICY=local`: 검증한 소유 변경을 common:commit 절차로 로컬 커밋만 수행한다. 도메인 전환의 local 정책을 hard push로 확대하지 않는다.
+- `PUBLISH_POLICY=pr`: workflow-pr 에이전트의 common:commit-pr 정본 절차를 실행하고 실제 PR URL/HEAD를 확인한다.
+- `PUBLISH_POLICY=push` (BE/FE --hard): **common:commit-hard-push**의 소유 dirty 변경 commit → Git 오류를 구분한 Gate → push 순서를 수행한다. 이미 커밋한 구현과 품질 루프의 미커밋 수정도 포함해 검사한다. common 미설치면 해당 반영 단계는 BLOCKED이며 raw push로 우회하지 않는다.
 - **Assumption Gate BLOCKED 처리**: workflow-pr이 `BLOCKED:ASSUMPTION_UNRESOLVED`를 보고하면(또는 --hard 스캔에서 발견되면) push/PR 없이 Phase 11로 진행하고, Phase 12 보고서에 태그 목록을 포함해 항목별 유저 확인을 받는다. 승인(태그 제거)·수정으로 태그가 모두 제거된 뒤 `references/finalization.md`의 관련 검증 후 **Phase 10의 미완료 push/PR을 실행**한다. 태그가 남아 있는 동안 push/PR은 금지.
 
 ### Phase 11: 성찰 (조건부 — `--reflect` 시)

@@ -25,6 +25,8 @@ Write tool로 `{STATE_FILE}`을 생성한다:
 ## Flags
 - MODE: fe
 - HARD_MODE: {true|false}
+- PUBLISH_POLICY: {pr|push|local|none} — entry-contract.md의 유효값
+- ROUTE_TARGET: {be|fe|mm|hd|fs} — entry-contract.md의 확정 경로
 - TDD: {true|false}
 - REFLECT: {true|false}
 - TIER: {light|standard}
@@ -61,7 +63,7 @@ Write tool로 `{STATE_FILE}`을 생성한다:
 
 | 호출 ID | 사용 종류 | 범위 | S0 | 핸들 |
 |---------|----------|------|----|------|
-[§5 쓰기 안전 `pending` 표 — Codex 쓰기 호출 dispatch 전에 행 기록, `VERIFIED`/종료 조건 도달 시 삭제. 재개 시 행이 남아 있으면 마지막 호출 사망으로 판정]
+[§5 쓰기 안전 `pending` 표 — Codex 쓰기 호출 dispatch 전에 행 기록, writer-safety.md의 실제 종료·결과 검증 후 해소. 재개 시 소유 job/PID 조회; 핸들 소실은 사망 증거가 아니며 불명 상태는 보존]
 
 ## Current Phase
 Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effort: 현재 세션)
@@ -200,16 +202,16 @@ light 티어: `Phase Results`에 7.2·7.7 행을 `SKIPPED:TIER_LIGHT`로 미리 
 `{WORK_REPORT}`(슬림 보고서)에 실행 요약·상태 파일 전문·Implementation Notes를 부록으로 붙여 `{REPORT_DIR}`에 md 1개로 영구 저장한다. Claude 토큰을 쓰지 않는 결정적 단계이므로 스크립트가 수행한다.
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py report \
-  --src {WORK_REPORT} --state {STATE_FILE} --run-id {RUN_ID} --impl-notes {IMPL_NOTES} \
-  --report-dir {REPORT_DIR} --task {task-name-kebab} --start-sha {START_SHA} \
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py" report \
+  --src "{WORK_REPORT}" --state "{STATE_FILE}" --run-id "{RUN_ID}" --results "{RESULTS_FILE}" --impl-notes "{IMPL_NOTES}" \
+  --report-dir "{REPORT_DIR}" --task "{task-name-kebab}" --start-sha "{START_SHA}" \
   --require-headings "1. 작업 요약,2. 구현 내역,3. 엣지 케이스 대응,4. 품질 루프 결과,5. 컴포넌트/접근성 리뷰,6. 성찰,7. 보완점,8. Read-back Diff"
 ```
 
 - `task-name-kebab`: Phase 4 브랜치명 또는 Spec 제목을 kebab-case로 (스크립트가 다시 슬러그화한다). `START_SHA`가 `없음`이면 `--start-sha`를 생략한다.
 - 출력 파일: `{REPORT_DIR}/{YYYYMMDD}-{task}-{RUN_ID}-workflow-report.md` — frontmatter(`title / type: report / tags / status: active / created / updated` + 파싱 가능 시 `run_id / tier / escalated / regression_count / touched_paths`) + 보고서 본문 + `## 부록 A: 실행 요약` + `## 부록 B: 상태 파일 전문`(헤딩 1단계 강등) + `## 부록 C: Implementation Notes`(원문 verbatim). 같은 `RUN_ID`의 파일이 이미 있으면(재시도) 재생성하지 않고 그 경로를 출력한다.
 - stdout 두 줄 `경로: …` / `상태: OK|DEGRADED({사유})`. `경로`를 `## Artifacts`의 `workflow-report`에 기록하고 채팅에 출력한다. `DEGRADED`면 파일은 생성된 것이므로 `Phase Results` 11행 진단에 `script_fallback(workflow_archive:{사유})`만 기록한다.
-- **폴백** (exit ≠ 0 — python3 부재·인자 오류·쓰기 실패): 감지 = exit code → `{WORK_REPORT}`·`{STATE_FILE}`·`{IMPL_NOTES}`를 `cat`으로 이어붙여 `{REPORT_DIR}/{YYYYMMDD}-{task}-{RUN_ID}-workflow-report.md`로 직접 저장(frontmatter는 `title/type/tags/status/created/updated`만) → 고지: "md 아카이브 스크립트 실패({사유}) — 원문 3개를 수동 결합해 저장했습니다." 진단 `script_fallback(workflow_archive:exit {code})`.
+- 스크립트 실패 시 원문·RESULTS_FILE을 실행 디렉터리에 그대로 보관하고 경로와 실패 이유를 보고한다. 영구 보고서 경로로 수동 결합/덮어쓰기 폴백을 하지 않는다. 진단 `script_fallback(workflow_archive:exit {code})`.
 
 ## Phase 11: Workflow Report 템플릿
 
@@ -303,7 +305,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py r
 
 1. 로컬 오버라이드 append 먼저.
 2. PR 후보 정리 후 `Skill tool`로 `/common:submit-feedback` 호출.
-3. `SKIPPED:*` 반환 시 로컬 저장만 완료 상태로 종료, fallback 사유 보고.
+3. submit-feedback의 `LOCAL_ONLY`/`UNKNOWN`/`NO_CHANGES`/`ALREADY_SUBMITTED`/`SUBMITTED` 상태와 artifact 경로/hash, 중복·제외 개수, 원격 readback 필요 여부를 그대로 최종 보고에 반영한다. 이미 승인해 적용한 로컬 override와 제출 보존 artifact를 구별하며, artifact 재저장·자동 재전송은 하지 않는다.
 4. 성공 시 PR URL을 최종 보고서에 포함.
 
 ### append 규칙

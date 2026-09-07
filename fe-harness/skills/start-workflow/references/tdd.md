@@ -38,9 +38,11 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --ru
 | 필드 | 의미 |
 |------|------|
 | `러너 완주` | 러너가 전체 스위트를 발견·실행 완료했는지. `N`이면 실패 목록을 신뢰할 수 없다. 판정 매트릭스: 종료 마커(jest `Tests:`, vitest `Test Files`) 있음 → `Y` (exit ≠ 0은 "실패 있음"으로만 해석) / 마커 없음 → `N` / 마커 있음 ∧ 실패 0 ∧ exit ≠ 0 → `Y` + `unparsed` 1건 / 테스트 0건 → `Y` + `unparsed`(테스트 0건) |
-| `실패 목록` | 항목 = `` `{식별자}` :: `{정규화 시그니처}` ``, 항목 구분은 닫는 백틱과 여는 백틱 사이의 ` / `만. 식별자는 러너 네이티브 전체 ID(`describe › it` / `describe > it`), 키 = suite + 식별자. 내부 백틱은 `'`로, `\|`는 escape |
-| `정규화 시그니처` | 실패 메시지 **첫 줄**에서 경로·라인 번호·타임스탬프·메모리 주소·스냅샷 해시를 제거하고 공백을 축약한 문자열. **비교 키는 정규화된 첫 줄 전체**, 표시만 120자 + 해시 8자 |
+| `실패 목록` | 항목 = `` `{식별자}` :: `{정규화 시그니처}` ``, 항목 구분은 닫는 백틱과 여는 백틱 사이의 ` / `만. 식별자는 러너·파일을 포함한 전체 ID(`{runner}::{file}::{describe › it}`), 키 = suite + 식별자. 내부 백틱은 `'`로, `\|`는 escape |
+| `정규화 시그니처` | Go는 기존 첫 오류 정규화 규칙을 따른다. JS는 JSON `failureMessages` 또는 텍스트 오류 본문의 matcher·Expected/Received·diff 전체에서 stack/source frame만 제거한다. 실제 오류 값의 경로·숫자는 보존한다. 비교는 전체 문자열, 표시만 120자 + 해시 8자 |
 | `unparsed` | 지원 러너(jest · vitest · go) 밖이거나 파싱이 불확실한 항목. 대조 불가 데이터 — 잔존 시 테스트 판정 `PASS` 불가 |
+
+JS는 가능하면 `--json` reporter 결과 파일을 baseline·현재·재실행에 동일하게 사용한다. `--runner`를 명시하고 동일 저장소 루트 cwd에서 파싱한다. 텍스트는 Jest `--verbose`, Vitest `--reporter=verbose`를 사용한다. 파일 없는 구 baseline은 다시 수집하며 Test Map도 정확한 전체 ID를 기록한다. leaf/suffix 매칭, 다른 파일의 동명 PASS 추정은 금지한다.
 
 **시그니처가 이 설계의 핵심이다.** 식별자만 기록하면 "원래 깨져 있던 테스트가 이번 변경으로 **다른 이유로** 깨진 것"을 놓친다.
 

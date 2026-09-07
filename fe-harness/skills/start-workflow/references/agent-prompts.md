@@ -1,3 +1,5 @@
+> **읽기 전용 agent 입력 계약**: code-analyzer/code-verifier/edge-case-analyzer/scope-reviewer/component-reviewer/a11y-reviewer/workflow-reflection 호출 시 오케스트레이터가 검증한 `PROJECT_ROOT`, 현재 실행 범위의 Git diff/log/stat, 이미 실행한 검사 결과를 전달한다. 리뷰어는 Read/Glob/Grep으로 확인한 근거와 누락 자료를 반환하며, 명령 실행·질문·상태 파일 기록은 오케스트레이터가 처리한다.
+
 > 이 문서는 `start-workflow` 스킬의 Phase 5.2(구현), 6(빌드/타입 체크), 7(품질 루프), 8(리뷰), 9(PR), 10(성찰)에서 로드된다. 단독 실행 금지.
 > Phase 5.1(Red)의 프롬프트는 `references/tdd.md`에 있다.
 > `{STATE_FILE}`, `{buildCommand}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
@@ -177,9 +179,11 @@ Agent tool:
 
 ### 입력 소스 선정
 
+부모가 scope-contract.md의 START_SHA 범위를 수집해 명시 파일 목록만 자식에 전달한다. 자식의 Git base 재계산은 금지하며 --hard도 같은 시작점을 유지한다.
+
 | 순위 | 소스 | 조건 |
 |------|------|------|
-| 1 | 이번 브랜치가 추가·변경한 테스트 파일 (`*.test.tsx`, `*.spec.ts`) | `git diff --name-only main...HEAD` 결과에 있을 때 |
+| 1 | START_SHA부터 추가·변경한 테스트 파일(선택 언어의 .ts/.tsx/.js/.jsx 및 Vue 테스트) | scope-contract의 `paths`에 있을 때 |
 | 2 | Phase 7.4 test-loop / e2e 결과 리포트 | 1이 없고 리포트가 있을 때 |
 | 3 | 변경된 컴포넌트의 공개 인터페이스 (Props 타입 + 렌더 분기) | 1·2 모두 없을 때 |
 
@@ -259,34 +263,7 @@ Phase 7.7은 **판정만 하고 코드를 수정하지 않는다.** Diff 항목�
 
 ## Phase 8: 컴포넌트/접근성 리뷰 (병렬 2개)
 
-두 리뷰어에게 동일한 변경 목록을 전달한다. 상태 파일 `## Flags`의 `{START_SHA}`부터 현재 작업 트리까지 비교하여 Phase 5.2·7에서 이미 커밋한 변경, staged·unstaged 변경을 모두 포함한다. 이번 실행의 Plan·구현/수정 에이전트 결과에서 확인한 소유 파일 목록을 `{RUN_DIR}/review-owned-files.json`에 JSON 문자열 배열로 저장한다 (없으면 `[]`). 기존 사용자 untracked 파일을 이 목록에 넣지 않는다.
-
-프로젝트 루트에서 아래를 실행한다. 결과 `read`는 현재 파일을 읽을 목록, `deleted`는 삭제 diff만 리뷰할 목록이다. 리뷰어가 Read로 확인할 수 있도록 tracked 변경 diff도 저장해 `diff` 경로로 전달한다. rename은 이전 경로 삭제 + 새 경로 추가로 포함한다. NUL 구분으로 공백·개행이 있는 경로도 보존한다.
-
-```bash
-python3 - "{START_SHA}" "{RUN_DIR}/review-owned-files.json" <<'PY'
-import json
-from pathlib import Path
-import subprocess
-import sys
-
-def git(*args):
-    return subprocess.check_output(["git", *args])
-
-start = git("rev-parse", "--verify", sys.argv[1] + "^{commit}").decode().strip()
-subprocess.run(["git", "merge-base", "--is-ancestor", start, "HEAD"], check=True)
-tracked = set(git("diff", "--no-renames", "--name-only", "-z", start, "--", "*.tsx").decode().split("\0")) - {""}
-untracked = set(git("ls-files", "--others", "--exclude-standard", "-z", "--", "*.tsx").decode().split("\0")) - {""}
-owned = set(json.loads(Path(sys.argv[2]).read_text()))
-files = sorted(tracked | (untracked & owned))
-diff = Path(sys.argv[2]).with_name("component-review.diff")
-diff.write_bytes(git("diff", "--no-renames", start, "--", "*.tsx"))
-print(json.dumps({"diff": str(diff.resolve()), "read": [p for p in files if Path(p).is_file()],
-                  "deleted": [p for p in files if not Path(p).is_file()]}, ensure_ascii=False))
-PY
-```
-
-`START_SHA` 유실·검증 실패 또는 명령 실패는 `BLOCKED:REVIEW_SCOPE`로 기록하고 범위를 복구한다. 빈 목록으로 PASS 처리하거나 일반 `git diff`로 대체하지 않는다. 워크플로우 밖에서 리뷰어를 단독 호출할 때만 호출자가 명시한 파일/기준 SHA를 사용하고 그 범위를 보고한다.
+`scope-contract.md`를 읽고 workflow_scope.py를 실행한다. START_SHA→현재 작업 트리+index와 소유 untracked 전체에서 선택 framework·언어의 컴포넌트(.tsx/.jsx/.vue)를 필터링한다. 두 리뷰어에게 같은 read/deleted/symlinks와 patch/index_patch artifact를 전달한다. 모든 writer가 종료된 후에 수집한다. 범위 실패는 BLOCKED:REVIEW_SCOPE이며 옛 artifact를 재사용하지 않는다.
 
 ```
 Agent tool (병렬 1):
@@ -296,9 +273,9 @@ Agent tool (병렬 1):
   prompt: |
     변경된 파일: [위 결과의 read 목록, START_SHA부터 현재 작업 트리까지]
     삭제 diff 리뷰: [위 결과의 deleted 목록 — 현재 파일 Read 제외]
-    변경 diff 파일: [위 결과의 diff 경로 — Read로 읽고 삭제 영향까지 검토]
+    변경 diff 파일: [scope.json 경로 — patch/index_patch로 삭제·staged 영향까지 검토]
     프로젝트 루트: {CWD}
-    상태 파일 `{STATE_FILE}`을 읽고 Phase 8 component review 상태를 갱신하세요.
+    상태 파일 `{STATE_FILE}`을 읽고 Phase 8 component review 결과를 반환하세요. 상태 파일은 쓰지 않습니다.
     배정 model/effort: {model}/{effort}
 
 Agent tool (병렬 2):
@@ -308,13 +285,20 @@ Agent tool (병렬 2):
   prompt: |
     변경된 파일: [위 결과의 read 목록, START_SHA부터 현재 작업 트리까지]
     삭제 diff 리뷰: [위 결과의 deleted 목록 — 현재 파일 Read 제외]
-    변경 diff 파일: [위 결과의 diff 경로 — Read로 읽고 삭제 영향까지 검토]
+    변경 diff 파일: [scope.json 경로 — patch/index_patch로 삭제·staged 영향까지 검토]
     프로젝트 루트: {CWD}
-    상태 파일 `{STATE_FILE}`을 읽고 Phase 8 a11y review 상태를 갱신하세요.
+    상태 파일 `{STATE_FILE}`을 읽고 Phase 8 a11y review 결과를 반환하세요. 상태 파일은 쓰지 않습니다.
     배정 model/effort: {model}/{effort}
 ```
 
 Critical 이슈가 있으면 general-purpose 에이전트로 수정을 위임한다.
+
+**상태 기록 주체**: 오케스트레이터가 두 리뷰 결과를 수집한 뒤 Phase 8 상태를 기록한다. 읽기 전용 리뷰어에게 Bash·Write·Edit 또는 상태 기록을 위임하지 않는다.
+
+**Phase 8 수정 후 재검증(티어·변경 파일 수와 무관)**: 수정이 한 파일이라도 발생하면 Phase 6의 관련 build/type와 Phase 7의 lint/unit/E2E를 다시 실행한다. 의미·인터페이스가 바뀌면 Read-back도 새 파일 목록으로 다시 수행한다. standard도 동일하며 light→standard 승격 여부로 이 단계를 생략하지 않는다. 결과 JSON에 새 iteration·phase·tested_tree를 기록하고 과거 결과는 유지한다. 영향 없는 검증도 현재 tree로 재실행하거나 명시 근거를 가진 SKIP 결과를 새로 기록하며 과거 PASS의 tree만 바꿔 쓰지 않는다.
+
+PR 전 `workflow_results.py check-current "{RESULTS_FILE}" --run-id "{RUN_ID}" --cwd "{CWD}"`를 실행한다. 이번 변경에 필요한 검증 kind는 `--require`로 각각 전달한다(unit/build/lint/typecheck, 활성 E2E, 필요한 readback). fresh 검사는 성공 verdict를 대신하지 않으며 기존 FAIL/BLOCKED 정책도 적용한다. stale·미완료·필수 결과 누락이면 Phase 9로 이동하지 말고 필요한 검증으로 돌아간다. 워크트리와 index의 내용이 다르면 검증한 내용만 commit되도록 먼저 정합성을 맞춘다.
+
 
 **light**: 병렬 2가 아니라 `a11y-reviewer`만 단독 호출한다. component-reviewer는 `Phase Results`에 `SKIPPED:TIER_LIGHT`로 기록한다 (승격으로 standard가 됐다면 둘 다 실행).
 

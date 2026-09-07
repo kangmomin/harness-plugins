@@ -31,14 +31,12 @@ user-invocable: true
 
 ## Phase 1: 범위 판별 (Bash로 직접 수행)
 
-1. `git status --porcelain`이 비어있지 않으면(dirty) → `{DIFF_CMD}` = `git diff HEAD`
-2. clean이면 기본 브랜치를 `origin/main` → `main` 순으로 탐색해 `{DIFF_CMD}` = `git diff $(git merge-base {기본브랜치} HEAD)` — **base 대비 작업 트리 diff다. `base..HEAD` 커밋 범위를 쓰지 않는다** (루프가 적용한 변경이 이후 스캔에 반영되어야 다회 패스가 성립).
-3. 기본 브랜치 탐색 실패(detached HEAD, shallow clone 등):
-   - 대화형: 번호 선택지 제시 — (1) 비교 기준 ref 직접 지정 → 지정 diff로 진행 (2) 중단 → `SKIPPED:BASE_REF_UNRESOLVED` 보고 후 종료
-   - 비대화형(서브에이전트): 질문 없이 즉시 `SKIPPED:BASE_REF_UNRESOLVED` 반환 (사유를 상위에 전달)
-4. `{DIFF_CMD}` 결과가 비어있으면 → `SKIPPED:NO_CHANGES` 즉시 종료 (Workflow 미호출). 단 dry-run 모드에서는 SKIPPED여도 `후보: 0건` 라인을 병기한다.
+1. `../start-workflow/references/scope-contract.md`를 읽고 실행의 고정 START_SHA·OWNED_FILES를 사용한다. 단독 호출이면 명시 base를 먼저 결정한다. clean/dirty로 기준을 바꾸지 않는다.
+2. `{DIFF_CMD}`는 같은 설치의 `workflow_scope.py` 명령이다. `--cwd`, `--start-sha`(단독이면 `--base-ref`), `--owned-files`를 인자로 전달한다. 모든 경로/값은 shell quote한다. stdout JSON을 사용하는 경우 `--out`은 생략한다.
+3. helper 실패는 `BLOCKED:REVIEW_SCOPE`로 종료한다. 명령 실패를 변경 0건으로 처리하지 않는다.
+4. JSON `paths`가 비어 있을 때만 `SKIPPED:NO_CHANGES`다. `read`·`deleted`·`symlinks`와 `patch`·`index_patch`를 함께 리뷰한다. unowned untracked는 대상에서 제외한다. current 스니펫은 현재 일반 파일에서 읽는다.
 
-`{DIFF_CMD}`는 **범위 식별 전용**이다 — 후보의 current 스니펫은 스캔 에이전트가 작업 트리의 실제 파일을 Read해 추출한다.
+각 스캔에서 같은 helper를 다시 실행해 루프의 수정까지 포함한다. 구현을 이미 커밋했어도 START_SHA는 바꾸지 않는다.
 
 ## Phase 2: 모드 분기 (dry-run)
 
@@ -110,7 +108,7 @@ Workflow **호출 자체**가 오류/중단으로 끝난 경우(스크립트 런
 | 승인 후보가 2회 연속 전부 적용 실패 (STALE 제외) | BLOCKED:NO_PROGRESS — (1) 실패 목록 수동 검토 후 재실행 (2) 실패 항목 제외하고 종료 |
 | 적용 0건 + 보류 전원이 인프라 실패 사유(REVIEWER/ARBITER_FAILURE, MISSING_VERDICT) | BLOCKED:REVIEW_INCOMPLETE — (1) 재실행 (2) 레거시/직접 수행 폴백 (3) 종료 |
 | Phase 1에서 diff 비어있음 | SKIPPED:NO_CHANGES |
-| 기준 ref 미해결 | SKIPPED:BASE_REF_UNRESOLVED |
+| 기준 ref·범위 복구 실패 | BLOCKED:REVIEW_SCOPE |
 | Scan agent 재시도 후에도 null, 또는 화해 agent null | FAIL — "적용 내역 미확인" note 시 git diff 수동 검토 안내 |
 
 ## 출력 형식
@@ -147,7 +145,7 @@ dry-run 모드의 출력은 Phase 2의 `후보: {N}건` 형식을 따른다.
 | `BLOCKED:NO_PROGRESS` | 승인 후보 2회 연속 전부 적용 실패 |
 | `BLOCKED:REVIEW_INCOMPLETE` | 인프라 실패로 리뷰 미완결 (적용 0건) |
 | `SKIPPED:NO_CHANGES` | 변경 코드 없음 |
-| `SKIPPED:BASE_REF_UNRESOLVED` | 비교 기준 ref 미해결 |
+| `BLOCKED:REVIEW_SCOPE` | 비교 기준·범위 수집 실패 |
 | `FAIL` | 스캔/화해 에이전트 실패 |
 
 ## References

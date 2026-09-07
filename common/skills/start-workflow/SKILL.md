@@ -20,14 +20,14 @@ argument-hint: "[--be|--fe|--fs] <작업 설명> | --analyze [경로] | --verify
 
 | 플래그 | 효과 |
 |--------|------|
-| `--be` | 도메인 판정을 건너뛰고 백엔드로 확정 |
-| `--fe` | 도메인 판정을 건너뛰고 프론트엔드로 확정 |
+| `--be` | 백엔드 **base 스킬을 직접 선택** (자동 오버레이 선택 생략) |
+| `--fe` | 프론트엔드 **base 스킬을 직접 선택** (자동 오버레이 선택 생략) |
 | `--fs` | 도메인 판정을 건너뛰고 풀스택으로 확정 |
 | `--mm` | 백엔드 + `minmos-harness` 오버레이로 확정 |
 | `--hd` | 프론트엔드 + `hyeondongs-harness` 오버레이로 확정 |
 
 - 대상 플래그는 **인자 어느 위치에나** 올 수 있다. 플래그를 제거한 나머지 인자는 그대로 대상에 전달한다.
-- 대상 스킬 고유 플래그(`--resume`, `--hard`, `--no-tdd`, `--reflect`, `--tier standard`, `--codex`, `--codex-models`, `--analyze`, `--verify` 등)는 **해석하지 않고 그대로 넘긴다.**
+- `references/entry-contract.md`를 먼저 Read하고 domain×mode, 재개, 유효 원격 정책을 `assets/workflow_policy.py route`로 검사한다. 나머지 스킬 플래그는 보존해 전달한다. 미지원 조합은 위임·상태 생성·profile 저장 전에 종료한다.
 - 두 개 이상의 대상 플래그가 오면 오류로 처리한다: "대상 플래그는 하나만 지정하세요: {입력된 목록}".
 
 ### 통과 플래그 (단일 도메인 vs 풀스택)
@@ -37,7 +37,9 @@ argument-hint: "[--be|--fe|--fs] <작업 설명> | --analyze [경로] | --verify
 | `--resume {STATE_FILE}` | 그대로 전달 | `run-lifecycle.md`로 절대 상태 경로·저장소·모드·미완료 여부 검증 |
 | `--reflect` | 그대로 전달 — 해당 하네스의 성찰 Phase 활성화 (기본 off) | **이 스킬이 소비** — 풀스택 Phase 10 회고를 1회만 실행하고 하위 도메인 에이전트에 전달하지 않는다 |
 | `--tier standard` | 그대로 전달 — 검증 티어 상향 강제 | 무시 (풀스택은 항상 standard) |
-| `--hard` / `--no-tdd` | 그대로 전달 | `references/fullstack.md` Flags 참조 |
+| `--hard` / `-h` | 현재 브랜치 commit → Gate → **push**, PR 생략 | 현재 브랜치 **로컬 commit만**. push/PR 생략 (재개·최종 수정도 동일) |
+| `--no-tdd` | 그대로 전달 | 계약 Red/baseline 생략, 품질/통합 검증은 유지 |
+| `--analyze`/`-a`, `--verify`/`-v` | **BE만 지원**. FE는 진입 BLOCKED | 진입 BLOCKED — Build로 재해석 금지 |
 | `--codex {none\|mix\|max}` | 그대로 전달 — 해당 하네스가 profile `codexMode`에 저장 | **이 스킬이 소비** — `references/fullstack.md` Pre-flight에서 해석하고 be·fe profile 양쪽에 기록 (`references/codex-mode.md`) |
 | `--codex-models {슬롯}={provider}/{model}[@{effort}],…` | 그대로 전달 — 해당 하네스가 profile `codexModels`에 저장 | **이 스킬이 소비** — Pre-flight에서 `codexMode` 확정 직후 슬롯 resolve(`codexModels` 블록 단위 be → fe → 기본값, 플래그는 슬롯 단위 덮어쓰기), 기록은 writable be·fe 모두 (`references/codex-mode.md` §2.1) |
 
@@ -48,6 +50,8 @@ argument-hint: "[--be|--fe|--fs] <작업 설명> | --analyze [경로] | --verify
 ---
 
 ## Step 1: 대상 플래그 파싱
+
+`references/entry-contract.md`가 모드·원격 정책의 정본이다. 대상 확정 후 helper의 READY 전에는 Step 4를 실행하지 않는다.
 
 `$ARGUMENTS`에서 위 표의 플래그를 찾는다. `--resume`이 있으면 명시된 상태의 `## Run` MODE로 도메인을 결정하고 Step 2를 생략한다 (`be`/`analyze`/`verify` → backend, `fe` → frontend, `fs` → fullstack). analyze/verify는 해당 모드 플래그도 전달한다. 대상/모드 플래그와 충돌하거나 Run이 없으면 `BLOCKED:RUN_MISMATCH`; 실제 재개는 대상 하네스의 경로 검증 성공 후에만 한다.
 
@@ -98,7 +102,11 @@ argument-hint: "[--be|--fe|--fs] <작업 설명> | --analyze [경로] | --verify
 
 ## Step 3: 위임 대상 결정
 
-### 3.1 오버레이 감지
+### 3.1 명시 대상 우선순위
+
+`--be/--fe` → 해당 base 호출명 고정; `--mm/--hd` → 해당 overlay 호출명 고정; 명시 대상이 없는 자동 판정만 아래 overlay 우선 표를 적용한다. entry-contract의 READY 결과를 사용한다.
+
+### 오버레이 감지
 
 세션 스킬 목록에서 특화 하네스의 위임 스킬 존재를 확인한다.
 
@@ -140,7 +148,7 @@ Skill tool로 Step 3에서 정한 스킬을 호출하고, **대상 플래그를 
 
 위임한 단일 도메인 워크플로우가 실행 중 반대 도메인 변경이 필요하다고 판정하면, **그 하네스가 직접 `/common:start-workflow --fs` 를 호출해 전환**한다 (be-harness Phase 3의 `fullstack` 판정, fe-harness Phase 1의 풀스택 판정). 이 스킬은 그 판정에 개입하지 않는다.
 
-`--fs` 로 재진입하면 Step 1에서 플래그를 감지해 Step 2(도메인 판정)를 건너뛰고 곧바로 Step 4.2로 간다 — 재귀는 발생하지 않는다.
+`--fs` 재진입도 Step 1 → 진입 gate → Step 3을 거친다. 원래 MODE와 PUBLISH_POLICY를 전달한다 (`entry-contract.md`). 미지원 Analyze/Verify는 여기서 종료한다. READY이면 Step 4.2로 진행하며 중첩 실행하지 않는다.
 이미 진행된 커밋은 그대로 두고, 풀스택 Phase 1(기능 정의)부터 다시 시작한다.
 
 ## 상태 코드

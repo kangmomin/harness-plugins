@@ -20,6 +20,8 @@ def run_paths(directory, record):
         "RUN_DIR": str(directory), "STATE_FILE": str(directory / "workflow-state.md"),
         "IMPL_NOTES": str(directory / "implementation-notes.md"),
         "WORK_REPORT": str(directory / "workflow-report.md"),
+        "RESULTS_FILE": str(directory / "verification-results.json"),
+        "OWNED_FILES": str(directory / "owned-files.json"),
     }
 
 
@@ -27,6 +29,7 @@ def create(cwd, mode):
     directory = Path(tempfile.mkdtemp(prefix="harness-workflow-")).resolve()
     record = {"cwd": str(cwd), "mode": mode, "run_id": uuid.uuid4().hex}
     (directory / "run.json").write_text(json.dumps(record, ensure_ascii=False) + "\n", encoding="utf-8")
+    (directory / "owned-files.json").write_text("[]\n", encoding="utf-8")
     return run_paths(directory, record)
 
 

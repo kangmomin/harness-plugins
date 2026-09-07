@@ -1,7 +1,7 @@
 ---
 name: convention-check
 description: "프로젝트 컨벤션 위배 사항을 검사하고 보고한다 (보고 전용 — 코드를 수정하지 않음). 커밋/PR 전 점검, '컨벤션 검사해줘' 요청 시 사용. --init으로 적용 컨벤션 선택, --doctor로 설정 진단."
-allowed-tools: Read, Write, Edit, Glob, Grep, AskUserQuestion
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 ---
 
@@ -64,6 +64,10 @@ user-invocable: true
 
 ---
 
+## 공통 변경 범위
+
+`../start-workflow/references/scope-contract.md`를 먼저 읽고 workflow_scope.py의 START_SHA→현재 tree+index 및 소유 untracked 결과를 사용한다. 아래 변경 파일/추가 라인 분석의 입력은 이 `paths`·`patch`·`index_patch`다. dirty 여부로 HEAD 기준을 선택하거나 일반 git diff로 재계산하지 않는다. 범위 오류는 BLOCKED이고, 파일이 없다고 전체 프로젝트로 자동 확대하지 않는다. 명시 custom 검증 명령은 원래 범위를 유지하되 그 명령의 출처를 보고한다.
+
 ## Execution
 
 ### 설정 파일 로드
@@ -95,7 +99,7 @@ user-invocable: true
 
 Spec(Technical Spec 또는 유저 지시)에 명시되지 않은 동작 변경이 코드에 존재하는지 검사한다:
 
-1. `git diff`에서 새로 추가/변경된 비즈니스 로직을 추출한다.
+1. 공통 범위의 `patch`·`index_patch`에서 새로 추가/변경된 비즈니스 로직을 추출한다.
 2. 해당 변경이 Spec의 요구사항에 직접 대응하는지 확인한다.
 3. 대응하지 않는 변경(e.g. 추가 필터, 정렬 변경, 상태 체크 추가 등)에 `[Assumption]` 주석 또는 커밋 메시지 태그가 없으면 위반으로 보고한다.
 4. **예외**: 해당 변경이 PR 본문 또는 워크플로우 보고서의 "확정된 결정" 섹션에 기록되어 있으면 통과다 — Assumption Gate(`/common:commit-push` Step 3)에서 사용자 확인을 거쳐 태그가 제거된 정상 상태다.
@@ -104,7 +108,7 @@ Spec(Technical Spec 또는 유저 지시)에 명시되지 않은 동작 변경�
 
 변경된 파일에 새로운 외부 패키지 import가 추가된 경우, 프로젝트 내 기존 사용 패턴과 일치하는지 자동 검사한다:
 
-1. `git diff`에서 새로 추가된 import 라인을 추출한다.
+1. 공통 범위의 `patch`·`index_patch`에서 새로 추가된 import 라인을 추출한다.
 2. 표준 라이브러리(`fmt`, `net/http` 등)와 프로젝트 내부 패키지는 제외한다.
 3. 남은 외부 패키지에 대해 `Grep`으로 프로젝트 내 기존 사용 여부를 확인한다:
    - **기존에 사용 중**: 기존 import 방식(alias 등)과 일치하는지 확인

@@ -72,11 +72,11 @@ BE·FE **각각** 수집해 `{STATE_FILE}`에 도메인별로 기록한다 (템�
 ## 실행 순서
 
 ```
-① BE·FE 에이전트 병렬 — 각자 담당 테스트 + 스텁만 작성
+① writer-safety.md의 별도 checkout/WRITER_CWD에서 BE·FE 에이전트 병렬 — 각자 담당 테스트 + 스텁만 작성
    금지: 상대 도메인 파일 수정 / 공용 계약 테스트 수정 / git index 변경(add/reset/restore --staged)·커밋 / 공유 상태·노트 쓰기
    반환: { CT-nn·F-nn ID, 테스트명, 파일, 진단 분류 } 또는 `N/A(영향 없음)` 증거
 
-② [배리어] 오케스트레이터가 확인:
+② [배리어] 실제 writer 종료 → writer_guard scope PASS → 부모에 소유 patch 순차 반영 후 오케스트레이터가 확인:
    - 계약이 영향을 주는 **모든 도메인**이 유효 Red 또는 명시적 N/A를 반환했는가?
    - 한쪽이라도 미반환/불완전이면 Phase 6.2로 넘어가지 않는다.
 

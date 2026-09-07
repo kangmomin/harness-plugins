@@ -18,20 +18,20 @@
 - **be-harness와 fe-harness가 모두 설치**되어 있어야 한다 (request, workflow-implementer, scope-reviewer, component-reviewer, a11y-reviewer, workflow-reflection 사용).
 - 한쪽 하네스가 없으면 이 경로로 억지로 진행하지 않는다. 설치된 쪽의 단일 도메인 워크플로우로 안내 후 종료한다:
   > "풀스택 작업이지만 `{누락 플러그인}` 이 설치되어 있지 않습니다. `/plugin install {누락 플러그인}@harness-plugins` 로 설치하거나, `{설치된 하네스}` 단일 도메인으로 진행하세요."
-- 특화 하네스가 설치되어 있으면 각 도메인 호출을 그쪽 위임 스킬로 대체한다 (§호출 방식 규칙).
+- 특화 하네스가 설치되어 있거나 프로젝트 복사본이 있으면 `fullstack-overlays.md`의 hook handoff를 적용한다. 전체 위임 워크플로우를 호출하지 않는다.
 
 ## Flags
 
 | 플래그 | 단축 | 효과 |
 |--------|------|------|
 | `--resume {STATE_FILE}` | | 절대 상태 경로를 검증하고 미완료 실행을 재개 (`run-lifecycle.md`). |
-| `--hard` | `-h` | feature 브랜치 생성과 PR 생성을 건너뛰고 현재 브랜치에서 마무리한다. |
+| `--hard` | `-h` | feature 브랜치·push·PR 생략. 현재 브랜치의 로컬 commit만 수행한다. PUBLISH_POLICY=local은 재개·최종 수정·단일 도메인 전환에서도 유지한다. |
 | `--no-tdd` | | Phase 6.1(계약 테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. |
 | `--reflect` | | Phase 10(회고)을 실행한다. 미지정 시 Phase 10은 `SKIPPED:REFLECT_NOT_REQUESTED` (기본 off). |
 | `--codex {none\|mix\|max}` | | Codex 사용 모드. 이 오케스트레이터가 소비해 be·fe profile `codexMode` 양쪽에 저장한다 (Pre-flight). 정의·호출 계약·실패 정책: `codex-mode.md` |
 | `--codex-models {슬롯}={provider}/{model}[@{effort}] \| default[,…]` | | Codex 위임 모델 슬롯(`review`·`explore`·`judge`·`write`). `codexMode` 확정 직후 이 오케스트레이터가 소비해 존재하는 writable be·fe profile `codexModels`에 병합 저장한다 (`none`이면 N/A). 문법·병합·검증: `codex-mode.md` §2.1 |
 
-`$ARGUMENTS`에 `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`), `--reflect`가 있으면 `$REFLECT = true` (기본값 `false`).
+`HARD_MODE`와 `PUBLISH_POLICY`는 진입 gate의 유효값을 사용한다. `$ARGUMENTS`에 `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`), `--reflect`가 있으면 `$REFLECT = true` (기본값 `false`).
 `--reflect`는 이 오케스트레이터가 **소비**한다 — 하위 도메인 에이전트에 전달하지 않는다 (풀스택은 하위 워크플로우를 중첩 실행하지 않으므로 회고는 Phase 10 한 곳뿐). `--tier standard`는 무시한다 — 풀스택은 계약 변경 자체가 리스크 높음이므로 검증 티어가 항상 `standard`(축소 없음)다.
 
 **재개 규칙**: `run-lifecycle.md`의 명시적 재개 검증 성공 후에만 적용한다. 컨텍스트 요약·세션 재개 등으로 CLI 인자를 잃은 뒤 이어갈 때는 `{STATE_FILE}`의 `## Flags`가 **유일한 기준**이다 (`MODE: fs`면 이 문서의 절차를 이어간다). CLI 인자와 충돌하면 기록값이 우선하며 한 줄로 고지한다.
@@ -49,7 +49,7 @@
 | be/fe의 품질 스킬 (Phase 7) | **Agent tool**(general-purpose)을 만들고 그 안에서 Skill tool로 해당 스킬 호출 |
 | 리뷰어 (Phase 3, 8) | **Agent tool**로 읽기 전용 호출 |
 
-**특화 하네스 오버레이**: 세션에 `/minmos-harness:start-workflow` 또는 `/hyeondongs-harness:start-workflow` 가 존재하면, 해당 도메인의 **Phase 1 request 호출**과 **Phase 7 품질 루프**를 그 하네스의 오버레이가 적용된 경로로 실행한다. 구체적으로는 해당 위임 스킬을 호출하는 대신, 그 플러그인의 오버레이 요약을 해당 도메인 에이전트 프롬프트에 전달한다 (전체 워크플로우를 중첩 실행하지 않는다 — 오케스트레이션 주체는 이 문서다).
+**특화 하네스 오버레이**: `fullstack-overlays.md`와 `assets/fullstack_overlays.json`을 먼저 Read해 hook별 실제 파일·실행 point·조건·capability·owner를 확정한다. 해당 point 직전에 자료를 도메인 owner에게 전달하고 결과를 기록한다. 요약 문장만 넘기거나 단일 도메인 Phase 번호로 실행하지 않는다.
 
 ## Advisor / Executor 원칙
 
@@ -117,7 +117,7 @@ Spec 또는 계약에 없는 변경이 필요하면: ① 코드를 먼저 바꾸
 
 ## Pre-flight: Codex 모드 resolve
 
-먼저 `run-lifecycle.md`를 Read하고 경로 생성 또는 명시적 재개 검증을 완료한다. 이후 Phase 1(`EnterPlanMode`) 직전에 1회 수행한다 (`codex-mode.md` §2·플러그인 매핑):
+먼저 `entry-contract.md`의 FS 모드/원격 정책 gate를 통과한다. 미지원 모드는 여기서 종료한다. 다음 `run-lifecycle.md`의 경로 생성 또는 명시적 재개 검증을 완료하고, `fullstack-overlays.md`로 Pre-flight hook을 실행한다. 이후 Phase 1(`EnterPlanMode`) 직전에 1회 수행한다 (`codex-mode.md` §2·플러그인 매핑):
 - 재개(run-lifecycle 검증 성공)면 `## Flags`의 `CODEX`가 기준 — `--codex`는 무시 + 고지.
 - 신규면 `--codex` > be profile `codexMode` > fe profile `codexMode` > (대화형) 3지선다 질문 / (비대화형) `mix` ephemeral. 명시 입력(`--codex`·질문 응답)은 존재하는 writable `.claude/be-harness.local.md`·`.claude/fe-harness.local.md` **모두**에 동일 값으로 기록한다 (부재·기록 실패 대상은 ephemeral 경고 1줄). 양쪽 값이 다르고 명시 입력이 없으면 be 값을 **이번 실행만** 사용 + 고지. 값은 exact `none|mix|max`로 검증한다. 확정 직후 `--codex-models`도 동형으로 resolve한다 (`codex-mode.md` §2.1 풀스택 — 읽기 = `codexModels` 블록 단위 be → fe → 기본값, 플래그는 슬롯 단위 덮어쓰기, 기록 = writable be·fe 모두; 재개면 `CODEX_MODELS` 기준·플래그 무시, `none`이면 `N/A`; 결과는 `$CODEX_MODELS`).
 - `none`이 아니면 도구 목록에 `mcp__codex__codex` 존재를 확인한다 — 없으면 `$CODEX_RUNTIME = fallback(global:mcp_missing)` + 고지(profile 불변). `max`이고 세션 모델이 opus/fable 계열이 아니면 1줄 고지한다.
@@ -132,7 +132,7 @@ Spec 또는 계약에 없는 변경이 필요하면: ① 코드를 먼저 바꾸
 
 > Phase 1 진입 시 MUST: `contract-templates.md`를 Read하고 "Feature Matrix 템플릿"대로 표를 작성한다.
 
-이 결과가 한쪽 도메인만 필요하면 풀스택 경로를 중단하고 단일 도메인 스킬로 전환한다.
+Spec 정리 직후 `mm.e2e-flow` 등 Phase 1 hook을 적용한다(request를 생략했어도 동일). 이 결과가 한쪽 도메인만 필요하면 `entry-contract.md`대로 원래 MODE/PUBLISH_POLICY를 인계해 gate를 다시 통과한 후 단일 도메인 스킬로 전환한다. FS local 정책을 BE/FE push로 확대하지 않는다.
 
 ## Phase 2: 통신 계약 정의
 
@@ -167,6 +167,8 @@ Plan 규칙:
 
 ### Phase 4.4: Plan Verification Loop (최대 5회)
 
+설치 overlay의 `phase4.review` hook을 적용하고 폴백 기록/상한을 동일 iteration에 반영한다.
+
 통신 계약 + BE/FE/공용 Plan에 대해 검증 루프를 통과해야 확정된다. **리뷰어 = `codexMode`** (`codex-mode.md` §1·§6 — `mix`/`max`: Codex `review` 슬롯(`$CODEX_MODELS` — 기본 effort 티어링: Simple·Standard → xhigh / Complex·Critical → max), `none`: Claude 3관점 패널).
 
 ```
@@ -198,7 +200,7 @@ for iteration in 1..5:
 
 ## Phase 5: 브랜치 + 상태 파일
 
-`--hard`가 아니면 feature 브랜치를 만든다: `git checkout -b feat/{작업-요약-kebab-case}`
+`PUBLISH_POLICY=pr`일 때만 feature 브랜치를 만든다: `git checkout -b feat/{작업-요약-kebab-case}`
 
 > Phase 5 진입 시 MUST: `contract-templates.md`의 "상태 파일 템플릿"대로 `{STATE_FILE}`을 작성하고,
 > `fullstack-tdd.md`의 "TDD 적용 판정"과 "Phase 5: 도메인별 회귀 Baseline 수집"을 수행한다.
@@ -233,12 +235,14 @@ TDD 판정은 **도메인별로 따로** 한다. BE만 SKIP되고 FE는 활성�
 
 > BE/FE 구현 에이전트를 `fullstack-agent-prompts.md`대로 **같은 메시지에서 병렬 호출**한다. `codexMode: max`면 두 호출 모두 Codex `write` 슬롯(`workspace-write`, 역할 파일 = 해당 프롬프트 절)으로 치환하고 §5 쓰기 안전(병렬 = 항상 이어서)을 적용한다.
 
-병렬 모드에서는 구현 에이전트의 git index·커밋·공유 상태/노트 쓰기를 금지한다. 양쪽 완료 배리어 후 오케스트레이터만 결과를 기록하고 검증한 변경을 순차 stage/commit한다.
+병렬 모드에서는 `writer-safety.md`의 별도 checkout/allow_files/종료·scope 배리어를 적용한다. 구현 에이전트의 git index·커밋·공유 상태/노트 쓰기를 금지한다. 양쪽 완료 배리어 후 오케스트레이터만 결과를 기록하고 검증한 변경을 순차 stage/commit한다.
 TDD 활성 시 **테스트 파일 수정 금지**와 `[TestConflict]` 보고 규칙을 프롬프트에 추가한다.
 구현 중 계약 변경이 필요하면 즉시 Phase 2로 돌아간다 (No Silent Contract Drift).
 `[TestConflict]`가 계약 조항과 연결되어 있으면 오케스트레이터가 임의 판정하지 않고 **Phase 2로 복귀**한다.
 
 ## Phase 7: 도메인별 품질 루프 (최대 3회)
+
+`fullstack-overlays.md`의 convention/E2E/품질 리뷰/doc-sync hook을 각 BE 단계에 적용한다. minmos 선택 시 문서 동기화는 apiDocsPath 조건 없이 Apidog hook으로 치환한다. 리뷰어 수정 제안은 domain owner가 반영하고 오케스트레이터가 결과/tree를 갱신한다.
 
 Phase 7 시작 전 `{STATE_FILE}`의 상태를 갱신한다. 각 도메인 루프의 서브 에이전트는 도메인별 실패 심각도에 맞는 model/effort를 명시한다.
 
@@ -256,7 +260,7 @@ Phase 7 시작 전 `{STATE_FILE}`의 상태를 갱신한다. 각 도메인 루�
 | 독립 반복 | 각 도메인은 자기 루프만 다시 돈다 |
 | 계약 위협 | 한쪽 루프 결과가 계약을 흔들면 둘 다 멈추고 Phase 2로 복귀 |
 | 탈출 | 해당 도메인 수정 0건 **AND** 테스트 판정 `PASS` (TDD SKIP 도메인은 수정 0건만) |
-| 상한 | 최대 3회. 도달 시 `BLOCKED:TEST_NOT_GREEN` 기록 후 Phase 8로 강제 진행 (자율 실행은 유지) |
+| 상한 | 최대 3회. 실패하면 `BLOCKED:TEST_NOT_GREEN` 보존 → 가능한 Phase 8 진단 → Phase 9 BLOCKED → Phase 10/11 결정·보고. green/DONE으로 바꾸지 않음 |
 
 ## Phase 8: 통합 검증
 
@@ -276,7 +280,9 @@ Phase 8.2는 frozen contract를 **보면서** 코드를 검증하므로 "대충 
 |----|------|
 | **BE ↔ contract** | 백엔드가 계약에서 이탈했는가 |
 | **FE ↔ contract** | 프론트엔드가 계약에서 이탈했는가 |
-| **BE ↔ FE** | 계약과 무관하게 양쪽이 서로 어긋났는가 (양쪽이 같은 방향으로 이탈하면 위 두 축은 통과하지만 이 축이 잡는다) |
+| **BE ↔ FE** | 양쪽의 관측 사실이 서로 다른가. 양쪽이 명시 계약에서 같은 방향으로 이탈하면 이 축은 일치할 수 있고 위 두 축이 모두 FAIL |
+
+정규화한 관측 사실을 `workflow_policy.py compare`에 `{contract:{사실ID:값},be:{…},fe:{…}}`로 전달해 3축 차이를 기록한다. 필드 존재/타입, method/path/status 등을 같은 키로 맞추고 원본 코드 위치를 별도 보존한다. 이는 수집한 사실의 정확한 비교이며 코드 전체·OpenAPI 동치 검증을 대신하지 않는다. 빈/미수집 사실은 PASS로 만들지 않는다.
 
 불일치 항목은 Phase 8.2의 검증 대상 목록에 **우선 항목으로 추가**한다. Phase 8.1 자체는 코드를 수정하지 않는다.
 
@@ -291,15 +297,20 @@ Phase 8.1이 보고한 불일치를 먼저 확인한 뒤 위 항목을 점검한
 권장 리뷰 조합: 백엔드 `scope-reviewer` + 프론트엔드 `scope-reviewer` (+UI 변경 시 `component-reviewer`, 접근성 영향 시 `a11y-reviewer`).
 계약 불일치 가능성이 있으면 `Complex` 이상 model/effort로 생성한다.
 
-**해결되지 않은 contract diff가 하나라도 남아 있으면 Phase 9로 가지 않는다** (수정 → Phase 8.2 재검증).
+해결 가능한 diff는 domain owner 수정 → 관련 Phase 7 검증/overlay hook → Phase 8 재검증으로 처리한다. 계약 변경 결정이 필요하거나 상한에 도달하면 `BLOCKED:CONTRACT_DIFF`를 보존한다. 이 경우 Phase 9의 원격 작업은 금지하되 Phase 10/11의 결정·보고는 실행한다.
 
 ## Phase 9: 커밋/PR
 
-둘 다 green이면 단일 PR로 묶는다.
+Phase 8 완료 후 `assets/workflow_policy.py fullstack`에 최신 `be/fe/contract/hooks` 판정, `fresh`(results check-current 통과), 유효 `publish_policy`, `reflect`를 전달한다. TDD 생략은 검증 PASS의 대체 근거가 아니다. 필수 hook의 미지원/실패도 hooks=PASS로 요약하지 않는다.
 
-- 커밋은 프론트/백엔드 단위를 분리한다.
-- PR 본문은 `contract-templates.md`의 "PR 본문 순서"를 따른다.
-- `--hard`면 push/PR 단계를 생략하고 현재 브랜치에서 종료한다.
+| 현재 근거 | Phase 9 | 다음 경로 |
+|-----------|---------|-----------|
+| 테스트/계약/필수 hook 실패 또는 stale | `BLOCKED:PREREQUISITES`, commit/push/PR 생략 | Phase 10(조건부) → **Phase 11 결정·보고**; 이전 실패와 미완료 보존 |
+| 최신 검증 모두 PASS + PUBLISH_POLICY=pr | 소유 변경의 BE/FE 논리 커밋 → common:commit-pr의 base/VERSION/commit/Gate/push/기존 PR 절차 | Phase 10 → 11 |
+| 최신 검증 모두 PASS + PUBLISH_POLICY=local | common:commit 절차로 **로컬 커밋만** | Phase 10 → 11; 원격 SHA 일치 요구 없음 |
+| Assumption Gate 실패 | `BLOCKED:ASSUMPTION_UNRESOLVED`, push/PR 생략 | Phase 10 → 11 항목별 결정 |
+
+명령 실행은 helper 출력의 계획을 보고 오케스트레이터가 수행한다. READY는 완료가 아니다. commit/검증·원격 반영 결과를 확인한 뒤에만 Phase를 DONE으로 기록한다. PR 본문은 `contract-templates.md`를 따르고 기존 완료 branch/VERSION/PR은 중복 실행하지 않는다.
 
 ## Phase 10: 회고 (조건부 — `--reflect` 시)
 
@@ -318,18 +329,18 @@ Phase 8.1이 보고한 불일치를 먼저 확인한 뒤 위 항목을 점검한
 `{REPORT_DIR}` = be profile(`.claude/be-harness.local.md`)의 `reportDir` → 없으면 fe profile(`.claude/fe-harness.local.md`)의 `reportDir` → 없으면 `.claude/harness-reports`.
 
 1. **보고서 초안 Write**: `contract-templates.md`의 "최종 보고 형식"(📋 Task Report 머리글 1~6)대로 `{WORK_REPORT}`를 작성한다. `### 6. 회고`는 Phase 10이 `DONE`이면 보완점 항목(도메인 분류 · 반영 방식 결정 · submit-feedback PR URL / SKIP 사유, 없으면 `없음`)을, 그 외에는 `SKIPPED:REFLECT_NOT_REQUESTED` 한 줄을 적는다. 상태 파일의 표를 복제하지 않는다 — 상세는 아카이브 부록(상태 파일 전문)이 담는다.
-2. **TDD 미해결 결정** (4.1 항목이 있을 때만): 결정을 받는 즉시 `{STATE_FILE}`의 `## Final Decisions`에 한 줄 append (항목 | 결정 | 시각). 재개 시 기록된 항목은 다시 묻지 않는다.
-3. **재검증·반영 후 상태 마감**: `finalization.md`를 Read하고 승인 수정 → Phase 7~8 관련 검증 → 기존 브랜치 commit/push → 보고서 갱신을 완료한다. 미해결 항목이 없을 때만 최종 Phase를 `DONE`, `Remaining Phases`를 `없음`으로 마감한다. 실패 시 상태·보고서를 미완료로 보존하고 4의 영구 아카이브는 실행하지 않는다.
+2. **미해결 결정** (4.1 항목이 있을 때만, TDD 여부 무관): 결정을 받는 즉시 `{STATE_FILE}`의 `## Final Decisions`에 한 줄 append (항목 | 결정 | 시각). 재개 시 기록된 항목은 다시 묻지 않는다.
+3. **재검증·반영 후 상태 마감**: `finalization.md`를 Read하고 승인 수정 → Phase 7~8 관련 검증·영향 overlay hook → PUBLISH_POLICY에 따른 기존 브랜치 반영 → 보고서 갱신을 완료한다. 미해결 항목이 없을 때만 최종 Phase를 `DONE`, `Remaining Phases`를 `없음`으로 마감한다. 실패 시 상태·보고서를 미완료로 보존하고 4의 영구 아카이브는 실행하지 않는다.
 4. **md 아카이브** — 마감 **후**에만 실행한다 (결정 내용이 부록에 반영되도록):
 
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py report \
-     --src {WORK_REPORT} --state {STATE_FILE} --run-id {RUN_ID} \
-     --report-dir {REPORT_DIR} --task {작업-요약-kebab-case} --start-sha {START_SHA} \
+   python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py" report \
+     --src "{WORK_REPORT}" --state "{STATE_FILE}" --run-id "{RUN_ID}" --results "{RESULTS_FILE}" \
+     --report-dir "{REPORT_DIR}" --task {작업-요약-kebab-case} --start-sha "{START_SHA}" \
      --require-headings "1. Pre-Review (Plan),2. Implementation Details,3. Final Convention Review,4. 테스트 / 회귀,5. Status,6. 회고"
    ```
 
-   `START_SHA`가 `없음`이면 `--start-sha`를 생략한다 (부록 A 커밋 목록·`touched_paths`가 생략된다). stdout의 `경로:` 값을 `## Artifacts`의 `workflow-report`에 기록하고, `상태: DEGRADED({사유})`면 `Phase Results`에 `script_fallback(workflow_archive:{사유})`를 기록한다. exit ≠ 0이면 폴백: `cat {WORK_REPORT} {STATE_FILE} > {REPORT_DIR}/{YYYYMMDD}-{task}-{RUN_ID}-workflow-report.md`로 수동 저장하고 `script_fallback(workflow_archive:exit {code})`를 기록한다.
+   `START_SHA`가 `없음`이면 `--start-sha`를 생략한다 (부록 A 커밋 목록·`touched_paths`가 생략된다). stdout의 `경로:` 값을 `## Artifacts`의 `workflow-report`에 기록하고, `상태: DEGRADED({사유})`면 `Phase Results`에 `script_fallback(workflow_archive:{사유})`를 기록한다. exit ≠ 0이면 WORK_REPORT·STATE_FILE·RESULTS_FILE을 기존 실행 디렉터리에 보관하고 경로·실패 이유를 보고한다. 수동 영구 파일 생성은 하지 않는다.
 5. 채팅 출력은 **아카이브 경로 + §1 요약 + 유저 결정이 필요한 항목(4.1, `[Assumption]`)만**. 상태 파일은 기본 보관, 사용자 요청 시에만 `rm -f {STATE_FILE}`.
 
 ## 상태 코드
@@ -348,6 +359,8 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 | 파일 | 로드 시점 |
 |------|----------|
 | `contract-templates.md` | Phase 1, 2, 3, 5, 9, 11 (템플릿·리뷰 기준) |
+| `entry-contract.md` | 모든 진입·재개·도메인 전환 전 |
+| `fullstack-overlays.md` | Pre-flight 및 hook 실행 지점 |
 | `fullstack-tdd.md` | Phase 5 (TDD 판정·baseline), Phase 6 진입 시 |
 | `fullstack-agent-prompts.md` | Phase 6.1·6.2·8.1 진입 시 |
 | `codex-mode.md` | 첫 리뷰어/위임 dispatch 직전 1회 (재개 포함) — Codex 모드 정의·호출 계약·쓰기 안전·Claude 패널·실패 정책 |

@@ -9,7 +9,7 @@ Workflow tool 호출 시 아래 script 전문을 `script` 파라미터로, args�
 
 | 키 | 타입 | 의미 |
 |----|------|------|
-| `diffCommand` | string | 스킬 Phase 1이 확정한 diff 명령 (범위 식별 전용 — 스니펫은 작업 트리 Read로 추출) |
+| `diffCommand` | string | 스킬 Phase 1이 확정한 scope helper 명령(JSON 출력) (범위 식별 전용 — 스니펫은 작업 트리 Read로 추출) |
 | `maxIterations` | number | `{MAX_ITER}` 값 |
 | `candidateCap` | number | `{CANDIDATE_CAP}` 값 |
 | `retryLimit` | number | `{RETRY_LIMIT}` 값 |
@@ -19,7 +19,7 @@ Workflow tool 호출 시 아래 script 전문을 `script` 파라미터로, args�
 ```
 Workflow tool:
   script: <아래 코드 블록 전문>
-  args: { "diffCommand": "git diff HEAD", "maxIterations": 10, "candidateCap": 8, "retryLimit": 1 }
+  args: { "diffCommand": "{scope helper command from Phase 1}", "maxIterations": 10, "candidateCap": 8, "retryLimit": 1 }
 ```
 
 ## 반환 형식
@@ -65,7 +65,7 @@ const proposedKeyOf = c => c.file + '#' + hash(norm(c.proposed))
 const SCAN_PROMPT = (seenSummary) => `당신은 코드 단순화 후보를 스캔하는 에이전트입니다.
 
 ## 범위 식별
-\`${DIFF_CMD}\`를 실행해 변경된 파일/영역을 식별하세요. **이 명령은 범위 식별 전용입니다** —
+\`${DIFF_CMD}\`를 실행해 JSON의 paths/read/deleted/symlinks와 patch/index_patch로 변경된 파일/영역을 식별하세요. 명령 실패는 스캔 실패이며 빈 변경으로 반환하지 마세요. **이 명령은 범위 식별 전용입니다** —
 후보의 current 스니펫은 반드시 작업 트리의 실제 파일을 Read해서 추출하세요 (diff 텍스트에서 복사 금지).
 
 ## 후보 기준 (동작 보존이 대전제)
@@ -83,7 +83,7 @@ ${seenSummary || '(없음)'}
 
 ## 출력
 - 발견한 후보 전체 수를 totalFound에 기록하고, 중요도 순 상위 ${CAP}건만 candidates에 담으세요
-- 변경된 코드가 전혀 없으면 diffEmpty=true, candidates=[]
+- helper의 paths가 비었을 때만 diffEmpty=true, candidates=[]; 후보가 없지만 범위가 있으면 diffEmpty=false
 - 각 후보: file(저장소 루트 기준 상대경로), line(현재 작업 트리 기준), summary(한 줄),
   current(작업 트리의 실제 코드 스니펫, 정확히), proposed(제안 코드), rationale(근거)`
 

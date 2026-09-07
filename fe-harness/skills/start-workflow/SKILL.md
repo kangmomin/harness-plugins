@@ -25,6 +25,10 @@ user-invocable: true
 - `{CWD}` = 현재 작업 디렉토리 (프로젝트 루트)
 - `{buildCommand}` 등 profile 변수 = `.claude/fe-harness.local.md`에서 로드
 
+## 진입 검사 (모든 모드)
+
+먼저 `references/entry-contract.md`를 Read하고 동봉 `assets/workflow_policy.py route`를 `entry: "fe"`로 실행한다. init/Plan/profile 저장/RUN 생성보다 앞서며 미지원·상충 조합은 종료한다. 직접 호출·오버레이 위임·재개도 동일하다. 유효 `PUBLISH_POLICY`를 상태에 보존한다.
+
 ## Flags
 
 | 플래그 | 단축 | 효과 |
@@ -37,7 +41,7 @@ user-invocable: true
 | `--codex {none\|mix\|max}` | | Codex 사용 모드를 지정하고 profile `codexMode`에 저장한다. 미지정 시 profile → 질문(권장 `mix`). 정의·호출 계약·실패 정책: `references/codex-mode.md` |
 | `--codex-models {슬롯}={provider}/{model}[@{effort}] \| default[,…]` | | Codex 위임 모델 슬롯(`review`·`explore`·`judge`·`write`)을 지정하고 profile `codexModels`에 저장한다 (`--codex none`이면 N/A). 문법·병합·검증: `references/codex-mode.md` §2.1 |
 
-`$ARGUMENTS`에 `--hard`/`-h`가 있으면 `$HARD_MODE = true`, `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`), `--reflect`가 있으면 `$REFLECT = true` (기본값 `false`), `--tier standard`가 있으면 `$TIER_FORCE = true` (기본값 `false`).
+`$HARD_MODE`와 `$PUBLISH_POLICY`는 진입 gate의 `hard`/`publish_policy` 값을 사용한다, `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`), `--reflect`가 있으면 `$REFLECT = true` (기본값 `false`), `--tier standard`가 있으면 `$TIER_FORCE = true` (기본값 `false`).
 
 | Phase | 일반 모드 | --hard 모드 |
 |-------|----------|------------|
@@ -143,7 +147,7 @@ Spec 확정 시 **백엔드 변경이 함께 필요한지** 판정한다. 아래
 
 | 감지 | 행동 | 고지 문구 |
 |------|------|----------|
-| `/common:start-workflow` 가 세션에 존재 | Skill tool로 `--fs` 와 함께 호출 후 현재 워크플로우 종료 | "FE+BE 동시 변경이 필요합니다. `/common:start-workflow --fs`로 전환합니다." |
+| `/common:start-workflow` 가 세션에 존재 | `entry-contract.md`대로 원래 MODE/PUBLISH_POLICY를 인계해 `--fs` gate를 다시 통과한 뒤 위임하고 현재 워크플로우 종료 | "FE+BE 동시 변경이 필요합니다. `/common:start-workflow --fs`로 전환합니다." |
 | common 미설치 | 선택지 제시 후 대기 | "FE+BE 동시 변경이 필요하지만 풀스택 오케스트레이션을 제공하는 `common` 이 설치되어 있지 않습니다.<br>1. `common` 설치 후 재시작 (권장) — `/plugin install common@harness-plugins`<br>2. 프론트엔드만 진행 — 백엔드 변경은 별도 작업으로 분리<br>3. 중단" |
 
 > **기존 API로 해결 가능하면 `fullstack`이 아니다.** 판단이 애매하면 유저에게 확인한다 — 풀스택 전환은 계약 확정부터 다시 시작하므로 비용이 크다.
@@ -401,13 +405,15 @@ for iteration in 1..{QL_MAX}:
 `component-reviewer` + `a11y-reviewer` 두 에이전트를 **병렬 실행**. Critical 이슈가 있으면 general-purpose 에이전트로 수정 위임 (`codexMode: max`: 리뷰어 = Codex `judge` 슬롯, 수정 = `write` 슬롯).
 light: `a11y-reviewer`만 단독 실행, component-reviewer는 `SKIPPED:TIER_LIGHT`.
 
-### Phase 9: PR / Push
+Phase 8에서 코드가 수정됐으면 agent-prompts.md의 수정 후 재검증을 완료하고 results check-current를 통과해야 Phase 9에 진입한다. standard/단일 파일 수정도 예외가 아니다.
+
+## Phase 9: PR / Push
 
 진입 직전 light면 승격 ⑦ 재평가(Phase 2 승격 표) — 발화 시 Phase 7을 standard로 1회 재진입한 뒤 돌아온다.
 
-- `$HARD_MODE = false`: `fe-harness:workflow-pr` 에이전트로 PR 생성. PR URL 보고 필수.
-- `$HARD_MODE = true`: PR 생략, push 전에 Assumption Gate 스캔(base와의 diff 추가 라인 + 미push 커밋 메시지에서 `[Assumption]` 검색)을 수행한다. 0건이면 `git push origin $(git branch --show-current)` 후
-  "Phase 9 완료: `{브랜치명}`에 push 완료 (--hard 모드, PR 생략)" 출력. 발견 시 push를 보류하고 아래 BLOCKED 절차를 따른다.
+- `PUBLISH_POLICY=local`: 검증한 소유 변경을 common:commit 절차로 로컬 커밋만 수행한다. 도메인 전환의 local 정책을 hard push로 확대하지 않는다.
+- `PUBLISH_POLICY=pr`: workflow-pr 에이전트의 common:commit-pr 정본 절차를 실행하고 실제 PR URL/HEAD를 확인한다.
+- `PUBLISH_POLICY=push` (BE/FE --hard): **common:commit-hard-push**의 소유 dirty 변경 commit → Git 오류를 구분한 Gate → push 순서를 수행한다. 이미 커밋한 구현과 품질 루프의 미커밋 수정도 포함해 검사한다. common 미설치면 해당 반영 단계는 BLOCKED이며 raw push로 우회하지 않는다.
 - **Assumption Gate BLOCKED 처리**: workflow-pr이 `BLOCKED:ASSUMPTION_UNRESOLVED`를 보고하면(또는 --hard 스캔에서 발견되면) push/PR 없이 다음 Phase로 진행하고, 최종 보고서에 태그 목록을 포함해 항목별 유저 확인을 받는다. 승인(태그 제거)·수정으로 태그가 모두 제거된 뒤 `references/finalization.md`의 관련 검증 후 **Phase 9의 미완료 push/PR을 실행**한다. 태그가 남아 있는 동안 push/PR은 금지.
 
 ### Phase 10: 성찰 (조건부 — `--reflect` 시)

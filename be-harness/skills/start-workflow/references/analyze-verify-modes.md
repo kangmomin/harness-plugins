@@ -1,3 +1,5 @@
+> **모든 모드의 읽기 전용 agent 입력 계약**: A3/V3 위임 전에 오케스트레이터가 `git rev-parse --show-toplevel`의 검증된 `PROJECT_ROOT`, 확정 범위의 파일 목록·정확한 파일/줄 수 통계, 현재 실행 범위 Git diff/log/stat, 실제 정적 검사 결과를 수집해 전달한다. read-only agent는 명령 실행·상태 기록을 하지 않는다. 결과의 `MISSING_EVIDENCE`는 오케스트레이터가 수집 가능한 근거를 보충해 재위임하고, 수집 불가한 항목은 최종 보고에서 미검증과 사유로 남긴다. 누락된 수치를 추정해 확정 통계로 출력하지 않는다.
+
 > 이 문서는 `start-workflow` 스킬의 Analyze 모드(`--analyze`)와 Verify 모드(`--verify`)에서 로드된다. 단독 실행 금지. 본문 진입 전에 `run-lifecycle.md`로 경로를 확정한다. 아래 상태 생성은 신규 실행만 수행하며, 검증된 재개에서는 기존 상태를 보존한다.
 > `{STATE_FILE}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
 > `codexMode: max`면 A3 `code-analyzer` · V3 `code-verifier`는 Codex `judge` 슬롯(읽기 전용 판정)으로, V4 러너에는 §8 포인터를 추가한다 (`references/codex-mode.md` 매핑). 실행 경로 확정 후 BE Pre-flight의 profile·Codex resolve를 수행한다. 상태는 Build와 같은 `## Flags`·`## Codex Runtime` 계약을 사용한다 (난이도 없음 → `review` = `xhigh`).

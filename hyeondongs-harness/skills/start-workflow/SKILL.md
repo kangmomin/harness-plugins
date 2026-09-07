@@ -10,13 +10,14 @@ argument-hint: "<작업 설명 또는 빈 값>"
 
 `fe-harness:start-workflow` 에 hyeondongs 오버레이를 얹어 실행한다. **이 문서에 절차는 없다** — 워크플로우 절차의 canonical은 fe-harness다.
 
+> 진입 시 먼저 동봉 `references/entry-contract.md`를 Read하고 동봉 `workflow_policy.py route`를 entry=`hd`로 실행한다. 실제 설치 호출명으로 검사하며 미지원/충돌은 오버레이 Pre-flight·profile 저장 전에 종료한다. 원래 MODE와 PUBLISH_POLICY는 위임/도메인 전환에서도 보존한다.
+
+
 > 실행 시 MUST:
-> ① `.claude/fe-harness/skills/start-workflow.md` 를 Read 시도한다.
->    - 존재하고 `<!-- overlay-source: hyeondongs-harness@... -->` 마커가 있으면 → **경로 B(프로젝트 복사)가 이미 설치됨.** ②를 생략하고 ③으로 간다 (중복 적용 방지).
->    - 없거나 마커가 없으면 → ②로 간다.
-> ② `${CLAUDE_PLUGIN_ROOT}/overlay/common.md` 와 `${CLAUDE_PLUGIN_ROOT}/overlay/start-workflow.md` 를 Read하고, 그 내용을 "베이스 절차에 적용할 델타"로 보유한다.
->    오버레이 문서의 앵커 표는 **베이스 SKILL.md의 Phase 제목으로 매칭**한다. 절대 번호로 매칭하지 않는다.
-> ③ Skill tool로 `/fe-harness:start-workflow` 를 호출하고, `$ARGUMENTS` 를 **해석하지 않고 그대로** 전달한다.
+> ① common 델타와 start-workflow 델타를 **파일별로** 결정한다. `.claude/fe-harness/common.md`와 `.claude/fe-harness/skills/start-workflow.md`를 각각 Read한다.
+> ② 동봉 `workflow_policy.py sources`에 확인한 `plugin`, 절대 `plugin_root`/`cwd`, `files:["overlay/common.md","overlay/start-workflow.md"]`를 전달해 실제 소스를 결정한다. 같은 overlay-source 마커의 프로젝트 파일이 있으면 **그 파일에 한해** 설치본 로드를 생략한다. 없으면 `${CLAUDE_PLUGIN_ROOT}/overlay/common.md` 또는 `overlay/start-workflow.md` 중 해당 파일을 읽는다. 마커 없는 사용자 규칙은 보존한다. 다른 request/e2e 델타도 파일별로 적용한다.
+> ③ READY의 **실제 `dispatch` 호출명**으로 Skill tool을 호출하고 gate의 인자·MODE·PUBLISH_POLICY·ROUTE_TARGET을 인계한다. 고정 별칭을 다시 만들지 않는다. base는 inherited_route_target을 보존하며 이 wrapper를 재호출하지 않는다.
+> 오버레이 앵커는 베이스 Phase 제목으로 매칭한다. FS 전환은 common의 fullstack-overlays hook 매핑을 따르며 단일 도메인 Phase 번호를 FS에 복사하지 않는다.
 
 오버레이 규약의 canonical: `docs/overlay.md`.
 

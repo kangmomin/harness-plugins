@@ -31,18 +31,21 @@ user-invocable: true
 
 ## Prerequisites
 
+먼저 현재 설치된 FE `skills/config/assets/profile.py resolve --domain fe --cwd "{CWD}"`로 실효 설정을 읽는다. primary가 없고 유효 legacy만 있으면 정상 진행하며 JSON에는 쓰지 않는다. 둘 다 없는 경우에만 init으로 설정 생성을 안내한다. 아래의 profile 표/설정 조회는 모두 이 실효 결과를 뜻한다.
+
+
 ### 필요 환경
 - **테스트 러너**: Vitest 또는 Jest (`.claude/fe-harness.local.md`의 `testRunner` 참조)
-- **Testing Library**: `@testing-library/react`, `@testing-library/jest-dom`
+- **Testing Library**: React는 `@testing-library/react`, Vue는 `@testing-library/vue`. matcher 확장은 실제 테스트가 쓸 때만 필요하다. framework/언어/runner 지원 표는 component SKILL.md Step 1을 따른다.
 
 ### `--init` (초기 세팅)
 
 `$ARGUMENTS`가 `--init`이면 아래 절차를 실행하고 종료한다:
 
-1. `.claude/fe-harness.local.md`의 `testRunner` 확인
+1. 실효 profile의 `testRunner` 확인
 2. 설정 파일 존재 확인 (`vitest.config.*` / `jest.config.*`)
 3. 없으면 기본 설정 파일 생성 안내
-4. `@testing-library/react` 설치 여부 확인
+4. 선택 framework에 맞는 Testing Library 설치 여부 확인. JS면 .js/.jsx, Vue면 .vue를 포함한다.
 
 ### `--doctor` (상태 진단)
 
@@ -53,14 +56,18 @@ user-invocable: true
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| .claude/fe-harness.local.md | OK / MISSING | testRunner 설정 확인 |
+| 실효 profile | OK / LEGACY / MISSING | primary 또는 레거시 출처와 testRunner |
 | 테스트 러너 설정 | OK / MISSING | vitest.config / jest.config |
-| @testing-library/react | OK / MISSING | package.json 확인 |
-| @testing-library/jest-dom | OK / MISSING | package.json 확인 |
+| 선택 Testing Library | OK / MISSING | React/Vue에 맞는 로컬 패키지 |
+| matcher 확장 | OK / SKIP | 실제 사용한 경우에만 필요 |
 | 기존 테스트 파일 | [N]개 발견 | *.test.tsx, *.spec.tsx |
 ```
 
 ---
+
+## 공통 변경 범위
+
+`../start-workflow/references/scope-contract.md`를 먼저 읽고 workflow_scope.py의 START_SHA→현재 tree+index 및 소유 untracked 결과를 사용한다. 아래 변경 파일/추가 라인 분석의 입력은 이 `paths`·`patch`·`index_patch`다. dirty 여부로 HEAD 기준을 선택하거나 일반 git diff로 재계산하지 않는다. 범위 오류는 BLOCKED이고, 파일이 없다고 전체 프로젝트로 자동 확대하지 않는다. 명시 custom 검증 명령은 원래 범위를 유지하되 그 명령의 출처를 보고한다.
 
 ## Execution
 
@@ -72,16 +79,16 @@ user-invocable: true
 |------|------|------|
 | **Spec 기반** | 추적 ID(`AC-nn`·`EC-nn`)가 있는 Spec이 주어짐 | 그 ID 집합 |
 | **Spec 기반 (약식)** | Spec은 있으나 표·ID가 없음 | 본문의 **관측 가능한 조항**에만 ID를 임시 부여, `추적 기준: 본문 조항 기반` 표기 |
-| **변경 기반** | Spec이 제공되지 않음 (단독 호출) | `git diff --name-only` 의 변경 파일 |
+| **변경 기반** | Spec이 제공되지 않음 (단독 호출) | 공통 범위의 `paths` |
 
 > 2번째 모드에서 **동작을 추가하지 않는다.** Spec에 없는 기대값을 테스트가 정의하면 그것은 Spec 변경이다.
 > Spec에 관측 가능한 조항이 하나도 없으면 `SKIPPED:NO_TEST_BASIS`로 보고하고 종료한다.
 
 **변경 기반 모드**에서는 변경 파일을 아래로 분류한다:
 
-- **컴포넌트** (`.tsx` + JSX 반환): 렌더링 + 인터랙션 테스트
-- **Hook** (`use*.ts`): renderHook 테스트
-- **유틸리티** (`.ts` 순수 함수): 입출력 테스트
+- **컴포넌트** (`.tsx`/`.jsx` JSX 또는 `.vue` SFC): 렌더링 + 인터랙션 테스트
+- **Hook/Composable** (`use*.ts`/`use*.js`): renderHook 테스트
+- **유틸리티** (`.ts`/`.js` 순수 함수): 입출력 테스트
 - **API 호출** (fetch/axios): 모킹 테스트
 
 이미 테스트 파일이 존재하면 기존 패턴을 따른다.
@@ -105,6 +112,8 @@ user-invocable: true
 **단위 테스트로 재현 불가한 케이스**는 `deferred_e2e`로 분류해 E2E에 넘긴다. 범주가 아니라 재현 가능성으로 판단한다 — 타이머·네트워크도 fake로 대체 가능하면 단위 테스트 대상이다.
 
 ### Step 3: 테스트 작성
+
+framework·typescript·testRunner를 먼저 적용한다. 아래 React TS 예시는 그 조합에만 적용한다. JS에 interface/type/import type을 넣지 않고, Vue 컴포넌트는 .vue import와 @testing-library/vue render/slot 방식을 사용한다. Vitest는 describe/it/expect/vi/afterEach를 vitest에서, Jest는 해당 API를 @jest/globals에서 명시 import한다. helper의 프레임워크별 예시를 참조하되 기존 프로젝트의 테스트를 무관하게 재작성하지 않는다.
 
 각 대상에 맞는 테스트를 작성한다. Spec 기반 모드에서는 각 테스트에 대응 ID를 주석으로 남긴다 (예: `// AC-01`).
 
@@ -174,8 +183,8 @@ Spec이 명시적으로 고정한 시그니처에만 만들고, 스텁이 무관
 
 `.claude/fe-harness.local.md`의 `testRunner`에 따라 실행:
 
-- **vitest**: `npx vitest run --reporter=verbose {테스트 파일들}`
-- **jest**: `npx jest --verbose {테스트 파일들}`
+- **vitest**: 설치된 로컬 `node_modules/.bin/vitest run --reporter=verbose`에 테스트 경로를 별도 인자로 전달
+- **jest**: 설치된 로컬 `node_modules/.bin/jest --verbose`에 테스트 경로를 별도 인자로 전달
 
 #### `--red` 모드 — 유효 Red 검증
 

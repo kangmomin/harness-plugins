@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 import re
-import shlex
 import subprocess
 import tempfile
 import unittest
@@ -38,15 +37,19 @@ class FEReviewScopeTests(unittest.TestCase):
                 (root / name).write_text('new component')
             (root / 'review-owned-files.json').write_text(json.dumps(['Owned\nComponent.tsx']))
             doc = (ROOT / 'fe-harness/skills/start-workflow/references/agent-prompts.md').read_text()
-            blocks = re.findall(r'```bash\n(.*?)```', doc, re.S)
-            command = next(b for b in blocks if 'review-owned-files.json' in b)
-            command = command.replace('"{START_SHA}"', shlex.quote(start)).replace('"{RUN_DIR}/review-owned-files.json"', shlex.quote(str(root / 'review-owned-files.json')))
+            self.assertIn('scope-contract.md', doc)
+            contract = (ROOT / 'fe-harness/skills/start-workflow/references/scope-contract.md').read_text()
+            command = next(b for b in re.findall(r'```bash\n(.*?)```', contract, re.S) if 'workflow_scope.py' in b)
+            values = {'PLUGIN_ROOT': ROOT / 'fe-harness', 'CWD': root, 'START_SHA': start,
+                      'OWNED_FILES': root / 'review-owned-files.json', 'RUN_DIR': root}
+            for key, value in values.items():
+                command = command.replace('{' + key + '}', str(value))
             result = subprocess.run(['bash', '-c', command], cwd=root, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            scope = json.loads(result.stdout)
+            scope = json.loads((root / 'scope.json').read_text())
             self.assertEqual(set(scope['read']), {'Committed.tsx', 'Staged.tsx', 'Unstaged.tsx', 'New Name.tsx', 'Owned\nComponent.tsx'})
             self.assertEqual(set(scope['deleted']), {'Deleted.tsx', 'Old Name.tsx'})
-            diff = Path(scope['diff']).read_text()
+            diff = scope['patch']
             self.assertIn('--- a/Deleted.tsx', diff)
             self.assertIn('-Deleted.tsx', diff)
             self.assertIn('+committed change', diff)

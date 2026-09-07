@@ -1,6 +1,7 @@
 > 이 문서는 `/common:start-workflow` 의 **풀스택 경로**(`references/fullstack.md`)에서 Phase 6.1(Red)·6.2(병렬 구현)과 Phase 8.1(계약 격리 Read-back)에 로드된다. 단독 실행 금지.
 > Red 단계의 소유권·배리어 규칙은 `fullstack-tdd.md` 가 canonical이다.
 > `{STATE_FILE}` 등 플레이스홀더 정의는 `fullstack.md` 를 따른다.
+> 병렬 writer는 writer-safety.md의 별도 checkout을 쓴다. 각 프롬프트의 구현 CWD는 `{WRITER_CWD}`이며 부모 CWD/상태는 읽기 전용 입력이다. 종료 확인 + writer_guard scope PASS 뒤 오케스트레이터만 부모에 patch를 순차 반영한다.
 > 각 `model:`/`effort:`는 Claude 경로 기본값이다. `## Flags`의 `CODEX: max`면 `codex-mode.md`의 플러그인 매핑대로 해당 Agent 호출을 Codex 슬롯(`explore`/`judge` 읽기 · `write` 쓰기) 호출로 치환한다 — 역할 파일은 이 문서의 해당 절 경로, 쓰기 호출은 §5 쓰기 안전 규칙.
 
 # Red 에이전트 프롬프트 (Phase 6.1)
@@ -14,9 +15,9 @@ Agent tool:  (× 2 — 백엔드 / 프론트엔드)
   effort: [동일 기준]
   prompt: |
     상태 파일 `{STATE_FILE}`을 읽고, **{Backend|Frontend} 담당 범위**의 계약 기반 테스트를 작성하세요.
-    프로젝트 루트: {CWD}
+    프로젝트 루트: {WRITER_CWD}
     현재 Phase: Phase 6.1 (Red) — {Backend|Frontend}
-    남은 Phase: Phase 6.2, 7, 8, 9, 10
+    남은 Phase: Phase 6.2, 7, 8, 9, 10(조건부), 11
     배정 model/effort: {model}/{effort}
 
     ## 근거 (이것만 사용)
@@ -41,7 +42,7 @@ Agent tool:  (× 2 — 백엔드 / 프론트엔드)
 ```
 
 **배리어**: 두 에이전트가 모두 유효 Red 또는 근거 있는 `N/A`를 반환해야 Phase 6.2로 진행한다.
-Red 에이전트도 git index·공유 상태/노트를 수정하지 않는다. 그 뒤 오케스트레이터가 공용 계약 테스트를 작성하고, 도메인별 TDD Test Map을 기록하고, 단일 Red 커밋을 만든다.
+Red 에이전트도 git index·공유 상태/노트를 수정하지 않는다. writer 종료+scope PASS 후 소유 patch를 부모에 순차 반영한다. 그 뒤 오케스트레이터가 공용 계약 테스트를 작성하고, 도메인별 TDD Test Map을 기록하고, 단일 Red 커밋을 만든다.
 
 ---
 
@@ -73,11 +74,11 @@ Agent tool:
     상태 파일 `{STATE_FILE}`을 읽고, **Backend Plan** 섹션만 구현하세요.
     병렬 모드: git index 변경·커밋·공유 상태/노트 쓰기 금지. 구현 결과와 노트만 반환하세요.
     전체 빌드·검증·순차 커밋은 양쪽 구현 완료 후 오케스트레이터가 수행합니다.
-    프로젝트 루트: {CWD}
+    프로젝트 루트: {WRITER_CWD}
     현재 Phase: Phase 6.2 Backend
-    남은 Phase: Phase 7, 8, 9, 10
+    남은 Phase: Phase 7, 8, 9, 10(조건부), 11
     배정 model/effort: {model}/{effort}
-    profile: .claude/be-harness.local.md 를 읽어 프로젝트 컨벤션을 따르세요.
+    profile: {CWD}/.claude/be-harness.local.md 를 읽어 프로젝트 컨벤션을 따르세요.
     금지: Frontend Plan 파일 수정, 계약 외 필드 추가.
     보고: 변경 파일, 계약 차이점, [Assumption] 목록, 막힌 계약 항목.
 ```
@@ -93,11 +94,11 @@ Agent tool:
     상태 파일 `{STATE_FILE}`을 읽고, **Frontend Plan** 섹션만 구현하세요.
     병렬 모드: git index 변경·커밋·공유 상태/노트 쓰기 금지. 구현 결과와 노트만 반환하세요.
     전체 빌드·검증·순차 커밋은 양쪽 구현 완료 후 오케스트레이터가 수행합니다.
-    프로젝트 루트: {CWD}
+    프로젝트 루트: {WRITER_CWD}
     현재 Phase: Phase 6.2 Frontend
-    남은 Phase: Phase 7, 8, 9, 10
+    남은 Phase: Phase 7, 8, 9, 10(조건부), 11
     배정 model/effort: {model}/{effort}
-    profile: .claude/fe-harness.local.md 를 읽어 프로젝트 컨벤션을 따르세요.
+    profile: {CWD}/.claude/fe-harness.local.md 를 읽어 프로젝트 컨벤션을 따르세요.
     금지: Backend Plan 파일 수정, 계약 외 필드 가정.
     보고: 변경 파일, 계약 차이점, [Assumption] 목록, 막힌 계약 항목.
 ```
@@ -135,7 +136,7 @@ Agent tool:
 
     ## 읽을 범위
     이번 브랜치에서 변경된 handler / route / DTO / 에러 매핑 코드
-    (`git diff --name-only main...HEAD` 로 확인)
+    (부모가 scope-contract.md의 START_SHA 범위에서 선정한 명시 파일 목록: {READBACK_FILES}; Git base를 다시 계산하지 않음)
 
     ## 규칙
     - 프론트엔드 코드는 읽지 마세요.
@@ -167,7 +168,7 @@ Agent tool:
 
     ## 읽을 범위
     이번 브랜치에서 변경된 API 클라이언트 / 쿼리 훅 / 응답 타입 / 에러 처리 코드
-    (`git diff --name-only main...HEAD` 로 확인)
+    (부모가 scope-contract.md의 START_SHA 범위에서 선정한 명시 파일 목록: {READBACK_FILES}; Git base를 다시 계산하지 않음)
 
     ## 규칙
     - 백엔드 코드는 읽지 마세요.
@@ -197,6 +198,6 @@ Agent tool:
 | FE ↔ contract | 클라이언트가 계약에서 이탈 | 계약에 없는 응답 필드 참조, 에러 코드 미처리 |
 | **BE ↔ FE** | 양쪽이 서로 어긋남 | 필드명 camelCase/snake_case 불일치, 한쪽만 nullable 가정 |
 
-**BE ↔ FE 축이 이 단계의 고유 가치다.** 양쪽이 계약에서 같은 방향으로 이탈하면 위 두 축은 통과하지만, 서로 다른 방향으로 이탈하면 런타임에서만 드러난다. 병렬 구현에서 가장 흔한 실패 모드다.
+명시된 계약을 양쪽이 같은 방향으로 위반하면 **BE↔contract와 FE↔contract가 모두 FAIL**이고 BE↔FE만 일치할 수 있다. BE↔FE는 계약에 빠진 세부사항이나 서로 다른 가정을 비교하는 추가 축이다. 계약 미명시는 양쪽 contract PASS의 근거가 아니며 미검증 항목으로 남긴다. 정규화한 관측 사실을 `workflow_policy.py compare`로 3축 대조하고, 결과와 원본 코드 위치를 함께 기록한다 (`fullstack.md` Phase 8.1).
 
 불일치 항목을 Phase 8.2 검증 대상 목록의 **우선 항목**으로 넘긴다. Phase 8.1은 코드를 수정하지 않는다.

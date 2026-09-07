@@ -1,4 +1,4 @@
-> 이 문서는 `/common:start-workflow` 의 **풀스택 경로**(`references/fullstack.md`)에서 Phase 1(Feature Matrix), 2(계약), 3(계약 리뷰), 5(상태 파일), 10(최종 보고)에 로드된다. 단독 실행 금지.
+> 이 문서는 `/common:start-workflow` 의 **풀스택 경로**(`references/fullstack.md`)에서 Phase 1(Feature Matrix), 2(계약), 3(계약 리뷰), 5(상태 파일), 9(PR), 11(최종 보고)에 로드된다. 단독 실행 금지.
 > `{STATE_FILE}` 등 플레이스홀더 정의는 `fullstack.md` 를 따른다.
 
 # 계약·템플릿 모음
@@ -110,6 +110,8 @@ Write tool로 `{STATE_FILE}`을 작성한다:
 ## Flags
 - MODE: fs
 - HARD_MODE: {true|false}
+- PUBLISH_POLICY: {pr|local} — entry-contract.md의 유효값
+- ROUTE_TARGET: {be|fe|mm|hd|fs} — entry-contract.md의 확정 경로
 - TDD: {true|false}
 - REFLECT: {true|false}
 - TIER: standard(고정)
@@ -132,7 +134,7 @@ Write tool로 `{STATE_FILE}`을 작성한다:
 
 | 호출 ID | 사용 종류 | 범위 | S0 | 핸들 |
 |---------|----------|------|----|------|
-[§5 쓰기 안전 `pending` 표 — Codex 쓰기 호출 dispatch 전에 행 기록, `VERIFIED`/종료 조건 도달 시 삭제. 재개 시 행이 남아 있으면 마지막 호출 사망으로 판정]
+[§5 쓰기 안전 `pending` 표 — Codex 쓰기 호출 dispatch 전에 행 기록, writer-safety.md의 실제 종료·결과 검증 후 해소. 재개 시 소유 job/PID 조회; 핸들 소실은 사망 증거가 아니며 불명 상태는 보존]
 
 ## Current Phase
 Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effort: 현재 세션)
@@ -182,6 +184,9 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | CT-01 | FE | 생성 성공 시 목록 갱신 | useCreate.test.ts:14 | red_assertion | PASS |
 | CT-02 | 공용 | 응답 스키마 일치 | contract.test.ts:8 | red_assertion | PASS |
 | F-02 | BE | — | — | N/A(영향 없음) | - |
+
+## Overlay Handoff
+[fullstack-overlays.md의 hook별 실제 소스 경로·capability·owner·결과·tested_tree. 미설치면 없음]
 
 ## Backend Plan
 [Phase 4.1]
@@ -248,12 +253,15 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 - **FE 테스트 판정**: [PASS/WARN/FAIL] — 동일 형식
 - **계약 커버리지**: `CT-nn` 중 테스트로 고정된 비율 [n/m] (`N/A(영향 없음)` 제외)
 
-### 4.1 TDD 미해결 항목 (유저 결정 필요)
-> TDD가 SKIP이거나 미해결 항목이 없으면 "없음"으로 적고 이 섹션을 비운다.
+### 4.1 미해결 항목 (유저 결정 필요)
+> TDD 여부와 독립적으로 테스트·통합 계약·overlay hook·Assumption/PR 차단을 모두 포함한다. 항목이 하나도 없을 때만 "없음"으로 적는다.
 
 | 유형 | 도메인 | 항목 | 필요한 결정 |
 |------|--------|------|------------|
 | `BLOCKED:TEST_NOT_GREEN` | BE/FE | [실패 목록] | 추가 수정 / 범위 제외 |
+| `BLOCKED:CONTRACT_DIFF` | BE/FE | [3축 불일치] | 구현 수정 / Phase 2 계약 재정의 |
+| `BLOCKED:OVERLAY_HOOKS` | BE/FE | [필수 hook·누락 capability·리뷰 실패] | 복구·재검증 / 명시 범위 제외 |
+| `BLOCKED:ASSUMPTION_UNRESOLVED` | 공통 | [태그 목록] | 항목별 해소 후 PR 재개 |
 | `BLOCKED:NO_VALID_RED` | BE/FE | [사유] | 테스트 재작성 / TDD 없이 유지 |
 | `[TestConflict]` (계약) | — | [테스트 ↔ `CT-nn`] | **계약 재정의 (Phase 2 복귀)** |
 | `[Breaking]` | BE/FE | [테스트명, 변경 내용] | 호환성 검토 |

@@ -1,3 +1,5 @@
+> **읽기 전용 agent 입력 계약**: code-analyzer/code-verifier/edge-case-analyzer/scope-reviewer/component-reviewer/a11y-reviewer/workflow-reflection 호출 시 오케스트레이터가 검증한 `PROJECT_ROOT`, 현재 실행 범위의 Git diff/log/stat, 이미 실행한 검사 결과를 전달한다. 리뷰어는 Read/Glob/Grep으로 확인한 근거와 누락 자료를 반환하며, 명령 실행·질문·상태 파일 기록은 오케스트레이터가 처리한다.
+
 > 이 문서는 `start-workflow` 스킬의 Phase 6.2(구현), 7(빌드 체크), 9(문서 동기화), 10(PR), 11(성찰)에서 로드된다.
 > "공통 규약: 에이전트 사망 처리"는 전 Phase 공통이다 — 사망 발생 시 미로드 상태면 이 문서를 Read한다. 단독 실행 금지.
 > Phase 6.1(Red)의 프롬프트는 `references/tdd.md`, Phase 8(품질 루프)의 프롬프트는 `references/quality-loop.md`에 있다.
@@ -99,7 +101,7 @@ Agent tool:
 ### parallel-slices 모드
 
 상태 파일의 Slices에 정의된 2~3개 슬라이스를 **동시에 병렬 구현**한다.
-같은 브랜치에서 파일 소유권을 분리하여 충돌을 방지한다.
+writer-safety.md대로 같은 시작 snapshot의 별도 checkout을 배정한다. 실제 cwd/writable root를 worker에 지정할 수 없으면 종료 확인 뒤 순차 실행한다.
 
 **중요**: 병렬 에이전트는 **커밋하지 않는다**. 구현만 수행하고, 커밋은 모든 에이전트 완료 후 오케스트레이터가 일괄 처리한다.
 
@@ -116,7 +118,7 @@ Agent tool:  (× 슬라이스 수)
   effort: [슬라이스 난이도 기준 선택]
   prompt: |
     상태 파일 `{STATE_FILE}`을 읽고, 아래 슬라이스만 구현하세요.
-    프로젝트 루트: {현재 작업 디렉토리}
+    프로젝트 루트: {WRITER_CWD}
     현재 Phase: Phase 6.2 parallel-slices
     남은 Phase: Phase 7, 8, 9, 10, 11, 12
     배정 model/effort: {model}/{effort}
@@ -138,12 +140,7 @@ Agent tool:  (× 슬라이스 수)
     구현 완료 후 변경 파일 목록, Plan 대비 차이점, [Assumption] 목록을 보고하세요.
 ```
 
-모든 슬라이스 에이전트 완료 후, 오케스트레이터가 일괄 커밋:
-
-```bash
-git add [전체 변경 파일]
-git commit -m "Add: [작업 요약] (병렬 슬라이스 구현)"
-```
+모든 writer의 실제 종료와 writer_guard scope PASS를 확인한 뒤 오케스트레이터가 소유 patch를 부모에 순차 반영·검증한다. 범위 밖 수정은 다른 writer의 파일을 되돌리지 않고 해당 checkout에 보존한다. 검증된 부모의 소유 변경만 common:commit 정본의 명시 파일/논리 단위 절차로 커밋한다.
 
 (profile의 `{commitCoAuthor}`가 비어있지 않으면 `Co-Authored-By` 라인을 본문에 추가한다)
 

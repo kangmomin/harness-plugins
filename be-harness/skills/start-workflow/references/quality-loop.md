@@ -191,9 +191,11 @@ profile의 `{makeTestCommand}`가 비어있지 않으면 Bash로 직접 실행:
 
 ## 입력 소스 선정
 
+부모가 scope-contract.md의 START_SHA 범위를 수집해 아래 소스를 고르고 명시 파일 목록을 전달한다. 자식은 Git base를 재추론하지 않는다. --hard에서도 동일하며 sourceDirs/testDirs는 repository root 기준이다.
+
 | 순위 | 소스 | 조건 |
 |------|------|------|
-| 1 | `{testDirs}` 중 이번 브랜치가 추가·변경한 테스트 파일 | `git diff --name-only {mainBranch}...HEAD` 결과에 테스트 파일이 있을 때 |
+| 1 | `{testDirs}` 중 이번 브랜치가 추가·변경한 테스트 파일 | scope-contract의 `paths`에 해당 테스트 파일이 있을 때 |
 | 2 | Phase 8.6 E2E Test Report | 1이 없고, 8.6이 `SKIPPED:*`가 아닐 때 |
 | 3 | 변경된 handler/route의 공개 인터페이스 | 1·2 모두 없을 때 |
 
