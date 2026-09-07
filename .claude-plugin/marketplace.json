@@ -31,7 +31,7 @@
     },
     {
       "name": "work-log",
-      "description": "작업 기록 폴더를 LLM wiki 로 관리한다. 전역 vault 또는 프로젝트별(<repo>/work-log/) 스코프 선택, 조회/동기화/수정 스킬과 의존성 0 의 MCP 서버 제공. 인덱스를 vault 밖에 두어 기존 문서를 건드리지 않는다.",
+      "description": "작업 기록 폴더를 LLM wiki 로 관리한다. 전역 vault 또는 프로젝트별(<repo>/work-log/) 스코프 선택, 조회/동기화/수정 스킬과 npm 패키지 의존성 없이 Node.js·Python 3·POSIX 환경에서 동작하는 MCP 서버 제공. 인덱스를 vault 밖에 두어 기존 문서를 건드리지 않는다.",
       "source": "./work-log"
     }
   ]

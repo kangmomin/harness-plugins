@@ -1,6 +1,6 @@
 {
   "name": "hyeondongs-harness",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "hyeondongs 프로젝트용 fe-harness 오버레이 플러그인. 프론트엔드 워크플로우 절차는 fe-harness 가 정의하고, 여기서는 .hyeondong-config.json profile 폴백과 풀스택 전환 시 minmos 백엔드 연계를 오버레이로 얹는다. 환경 세팅/진단 포함. fe-harness 선행 설치 필수.",
   "keywords": [
     "overlay",
