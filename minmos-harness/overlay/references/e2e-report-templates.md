@@ -3,6 +3,8 @@
 
 # 결과 보고 양식
 
+하위 결과를 BE `result-contract.md` v1의 targets/cases/events/fixes로 먼저 기록한다. 아래 Markdown은 그 값의 표시이며 RPC 미호출·client_error·server_contact·deadline·streaming을 생략해 성공으로 바꾸지 않는다. MIXED의 전체 targets에 REST와 GRPC를 모두 포함한다.
+
 ## REST 결과 보고
 
 ```markdown
@@ -115,7 +117,7 @@
 #### Streaming RPC (미실행)
 | # | RPC | 유형 | 사유 |
 |---|-----|------|------|
-| 1 | {ServiceName}/{MethodName} | Client Streaming / Bidirectional | SKIP:STREAMING grpcurl 미지원 |
+| 1 | {ServiceName}/{MethodName} | Client Streaming / Bidirectional | SKIP:STREAMING 하네스 기본 시나리오 미지원 |
 
 - 실행 수준: smoke | full | full(smoke 미적용: {사유})   ← `$PROTOCOL`이 `GRPC` 단독일 때만
 

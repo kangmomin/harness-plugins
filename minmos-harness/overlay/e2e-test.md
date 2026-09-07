@@ -14,6 +14,8 @@
 | PostgreSQL MCP 연결 | `SELECT 1` 실행 성공 | `SKIPPED:POSTGRES_MCP_UNAVAILABLE` |
 | DB 호스트가 로컬 | 연결 문자열 호스트 검사 | `SKIPPED:REMOTE_DB_BLOCKED` (화이트리스트 승인 없을 때) |
 
+`--skip-doctor`는 위 선택 probe만 생략한다. 서버 시작 전/첫 쓰기 전의 DB identity·소유권 게이트는 모든 모드에서 필수다.
+
 베이스의 profile 기반 SKIP 조건(`NO_PROFILE`·`DISABLED`·`NO_SERVER_URL`·`NO_SERVER`·`NO_AUTH`)은 그대로 유지한다.
 
 **`NO_CHANGED_API` 치환**: HTTP 엔드포인트가 0개여도 Step 1에서 종료하지 않는다. Step 1+ 프로토콜 분류에서 변경된 RPC service/method까지 수집한 뒤 REST+gRPC 대상의 합집합이 0개일 때만 `SKIPPED:NO_CHANGED_API`를 반환한다. gRPC-only 변경은 `GRPC`로 Step 2 이후를 계속한다.
@@ -25,14 +27,17 @@
 | `Step 1 (대상 API 수집)` | 직후 | **프로토콜 분류** — 변경 범위를 `REST` / `GRPC` / `MIXED` 로 분류 | `references/e2e-test-postmath.md` 의 "Step 2.1: 프로토콜 분류" |
 | `Step 2 (시나리오 구성)` | 직후 | **Status Code 의미적 정합성 검증** | `references/status-code-validation.md` |
 | `Step 2 (시나리오 구성)` | 직후 | **Edge Case Analyzer 호출** — `be-harness:edge-case-analyzer` 에이전트로 엣지 케이스 보강. Step 2가 확정한 실효 수준이 `smoke`면 **생략** (§smoke 분기) | `references/e2e-test-postmath.md` 의 "Step 6" |
+| `Step 4 (서버 기동)` | 직전 | **시작 시 쓰기 차단·대상 확인** | `references/db-safety.md` Step 7.1 |
 | `Step 4 (서버 기동)` | 직후 | **gRPC 환경 준비** (분류가 `GRPC`/`MIXED`일 때만) | `references/grpc-testing.md` |
+
+| `Step 4 (서버 기동)` | gRPC 준비 뒤, Step 5 전 | **실제 앱/MCP identity 일치 → 소유 ledger 초기화 → 시드**. 통과 전 REST/gRPC/PubSub 쓰기 금지 | `references/db-safety.md` Step 7.4–7.5 |
 
 ## Phase 치환
 
 | 앵커 | 대체 절차 |
 |------|----------|
-| `Step 5 (요청 실행)` | 분류가 `GRPC`/`MIXED` 면 gRPC 호출 절차를 함께 사용한다 (`references/grpc-testing.md`). REST 부분은 베이스 그대로. |
-| `Step 6 (서버 종료)` | 서버 종료에 더해 **테스트 데이터 정리**를 수행한다 (`references/db-safety.md` 의 격리·정리 규칙) |
+| `Step 5 (요청 실행)` | 분류가 `GRPC`/`MIXED` 면 gRPC 호출 절차를 함께 사용한다 (`references/grpc-testing.md`). REST 부분은 베이스 그대로. 모든 신규 생성은 소유 ledger에 기록하고 UPDATE/DELETE는 확인된 소유 ID만 사용한다. |
+| `Step 6 (서버 종료)` | **소유 ID 정리**를 같은 DB transaction으로 수행한다 (`references/db-safety.md` Step 10). 실패/UNKNOWN은 ledger와 함께 보고하며 이번 실행 서버/세션 종료는 별도로 수행한다 |
 | `Step 7 (리포트)` | 리포트 템플릿을 `references/e2e-report-templates.md` 로 치환. 판정 기준(`PASS`/`WARN`/`FAIL`)과 `UNCOVERED:{사유}`·`SMOKE_OMITTED` 표기, 의무 줄 `- 실행 수준:`과 마지막 줄 요약 형식은 베이스와 동일하게 유지한다 |
 
 ## smoke 분기 (`--smoke`, 검증 티어 light)
@@ -44,6 +49,7 @@
 | Step 1+ 프로토콜 분류 | 유지 | 유지 |
 | Step 2+ Status Code 정합성 검증 | 유지 | 유지 |
 | Step 2+ Edge Case Analyzer | **생략** — 추가 케이스로 축소가 무효화되지 않도록. 리포트의 SELF-* 행 대신 `자체 도출 케이스: 생략(smoke)` 한 줄 | 유지 |
+| Step 4 전후 DB identity·소유 ledger 게이트 | 유지 | 유지 |
 | Step 4+ gRPC 환경 준비 | 유지 (분류 조건 동일) | 유지 |
 | Step 6 테스트 데이터 정리 | 유지 | 유지 |
 | Step 7 리포트 치환 | `- 실행 수준: smoke` 의무 + SELF-* `생략(smoke)` | `- 실행 수준:` 의무 |
@@ -52,8 +58,8 @@ smoke에서도 `BASE-01` + Spec `EC-*` 전수, Status Code 정합성, 로컬 DB 
 
 ## 추가 규칙
 
-- **로컬 DB 전용 실행 (절대 원칙)**: 원격 DB 호스트 대상 실행 금지. 상세·화이트리스트 절차는 `references/db-safety.md`.
-- **테스트 데이터 격리**: 생성한 데이터는 실행 종료 시 반드시 정리한다. 정리 실패는 리포트에 명시한다.
+- **로컬 DB 전용 실행 (절대 원칙)**: 검증된 격리 테스트 DB만 사용. 호스트 별칭/기존 승인만으로 실제 대상 검증을 대체하지 않는다. 상세는 `references/db-safety.md`.
+- **테스트 데이터 격리**: 신규 생성 증거가 있는 ID만 정리한다. 비소유 FK/불명확한 생성/정리 실패는 리포트에 명시한다.
 - gRPC 응답 status는 HTTP status가 아니라 **gRPC code**로 표기한다.
 
 > 전체 Post-Math E2E 절차의 원문은 `references/e2e-test-postmath.md` 다. 위 앵커 표와 원문이 충돌하면 **앵커 표가 우선**한다 (원문은 베이스 통합 전 작성된 독립 절차라, 베이스와 겹치는 부분이 있다).
@@ -63,7 +69,7 @@ smoke에서도 `BASE-01` + Spec `EC-*` 전수, Status Code 정합성, 로컬 DB 
 | 파일 | 로드 시점 |
 |------|----------|
 | `references/e2e-test-postmath.md` | 오버레이 적용 시 항상 |
-| `references/db-safety.md` | Pre-flight, Step 6+ (정리) |
+| `references/db-safety.md` | Pre-flight, Step 4 전후(필수 게이트·ledger·시드), Step 6(정리) |
 | `references/grpc-testing.md` | 분류가 `GRPC`/`MIXED` 일 때 |
 | `references/status-code-validation.md` | Step 2+ (정합성 검증) |
 | `references/e2e-report-templates.md` | Step 7 (리포트) |

@@ -10,7 +10,7 @@
 ### 필요 환경
 
 - **Apidog MCP 서버**: Apidog 스펙 참조/비교용 (REST)
-- **PostgreSQL MCP 서버** (읽기/쓰기): 테스트 데이터 생성, BASELINE_ID 기록, soft-delete 정리용
+- **PostgreSQL MCP 서버** (읽기/쓰기): 소유 ID ledger, 실제 DB identity 및 같은 transaction의 soft-delete 정리용
 - **grpcurl** (선택): gRPC 엔드포인트 테스트가 필요한 경우에만 필수
 - **Dev PubSub CLI** (선택): PubSub 연동 테스트가 필요한 경우에만 필수. `dev-pubsub-cli` 또는 로컬 clone의 `uv run dev-pubsub-cli`
 
@@ -22,7 +22,7 @@
 |--------|------|------|
 | `--init` | | 초기 세팅 후 종료 |
 | `--doctor` | | 상태 진단 후 종료 |
-| `--skip-doctor` | `-sd` | 실행 전 자동 probe 점검을 건너뜀 (사용자 책임) |
+| `--skip-doctor` | `-sd` | 선택 probe만 생략; 필수 DB identity·소유권 게이트 유지 |
 | `--grpc` | | gRPC 프로토콜 강제 지정 |
 | `--rest` | | REST 프로토콜 강제 지정 |
 
@@ -149,16 +149,13 @@
 
 - `--grpc` / `--rest` 플래그가 있으면 해당 프로토콜을 강제 지정한다.
 - 감지 결과를 `$PROTOCOL`에 저장: `REST` / `GRPC` / `MIXED`.
-- **gRPC 엔드포인트 도출** (GRPC/MIXED): 변경/역추적된 grpc_repository 메서드명에서 `{service}.v1.{ServiceName}/{MethodName}` RPC 경로를 도출한다. proto 소스 위치는 `go-grpc-tools` 플러그인의 find-proto.sh 사용:
-  ```bash
-  bash ${go-grpc-tools plugin root}/skills/proto-gen/scripts/find-proto.sh {service}
-  ```
+- **gRPC 엔드포인트 도출** (GRPC/MIXED): 변경/역추적된 RPC 경로를 도출한다. proto helper는 세션의 실제 `go-codegen` 제공 skill metadata에서 SKILL.md를 읽고 그 계약의 `scripts/find-proto.sh`로 resolve한다. `${MINMOS_PLUGIN_ROOT}/skills/apidog-schema-gen/assets/apidog_contract.py proto`의 입력은 `{skills:[{name,path,contract_read:true,script_relative:"scripts/find-proto.sh"}]}`다. path는 실제 제공 SKILL.md 경로이며 버전/설치 루트를 고정하지 않는다. 반환 script를 인수 배열 `bash, script, service`로 호출한다. helper 누락은 `BLOCKED:PROTO_HELPER_UNAVAILABLE`; exit 0이라도 source=github/not_found는 로컬 proto 확보 성공이 아니다. 실제 proto 경로를 확인한 뒤 grpcurl에 전달한다.
 
 ## Step 3: 스펙 참조
 
 **REST** (`REST`/`MIXED`): Apidog 문서 참조.
-- `mcp__apidog__read_project_oas_*` 패턴 도구로 OAS 전체 경로를 확인한다 (기본: `mcp__apidog__read_project_oas_n7eawf`).
-- `mcp__apidog__read_project_oas_ref_resources_*`로 각 엔드포인트의 상세 스펙(request/response schema)을 읽는다 (기본: `..._n7eawf`).
+- `${MINMOS_PLUGIN_ROOT}/skills/apidog-schema-gen/references/import-contract.md`의 discovery로 같은 project/branch의 실제 callable을 확정하고 `{APIDOG_CALLABLES.read}`로 OAS를 읽는다.
+- 같은 discovery 결과의 `{APIDOG_CALLABLES.refs}`로 상세 스펙을 읽는다. suffix를 재조립하지 않는다.
 - 코드의 실제 request/response 구조체와 Apidog 스펙을 비교하여 차이점을 보고한다.
 
 **gRPC** (`GRPC`/`MIXED`):
@@ -256,7 +253,7 @@ Agent tool:
 ## Step 7: 테스트 환경 준비
 
 > Step 7 진입 시 MUST: 같은 폴더의 `references/db-safety.md`를 Read하고
-> ① Step 7.1 DB 호스트 안전 검증(Gate)을 먼저 통과 ② Step 7.4 BASELINE 기록 ③ Step 7.5 시드 데이터 준비를 따른다.
+> ① 서버 시작 전 Step 7.1 검증 ② 쓰기 없는 서버 시작 뒤 실제 connection으로 Step 7.4 identity·소유 ledger 초기화 ③ Step 7.5 시드 준비를 따른다. 이 순서는 `--skip-doctor`도 생략하지 않는다.
 
 ### Step 7.2: 환경 파일 및 서버 준비
 
@@ -297,7 +294,7 @@ Agent tool:
 
 각 엔드포인트에 대해 실제 요청을 수행한다.
 
-**데이터 격리 규칙**: 수정/삭제 테스트는 **반드시 이번 테스트에서 생성한 데이터만** 대상으로 한다 (생성 → ID 캡처 → 수정/삭제 → 검증).
+**데이터 격리 규칙**: `references/db-safety.md`의 필수 게이트 통과 후 생성 → 신규 INSERT 증거와 ID를 ledger에 기록 → 소유 ID만 수정/삭제 → 검증한다. upsert/기존 idempotency 결과는 소유권이 아니다.
 
 **필터/검색 API 테스트 원칙** — 임의 값으로는 "0건 = 필터 작동"인지 "0건 = 깨짐"인지 구분 불가:
 
@@ -321,21 +318,11 @@ Agent tool:
 
 ## Step 9: 결과 보고
 
-> MUST: 같은 폴더의 `references/report-templates.md`의 양식대로 보고한다 (REST / gRPC 섹션 분리, 섹션 머리글 변경 금지).
+> MUST: 같은 폴더의 `references/e2e-report-templates.md`의 양식대로 보고한다 (REST / gRPC 섹션 분리, 섹션 머리글 변경 금지).
 
 ## Step 10: 정리
 
-**테스트 데이터 정리** (우선순위):
-1. **삭제 API 호출**: DELETE API가 있으면 테스트에서 생성한 ID로 삭제 요청
-2. **DB soft-delete**: 없으면 `UPDATE {table} SET status = 'removed' WHERE id > {BASELINE_ID};`
-3. **연관 데이터 정리**: FK 하위 테이블도 함께:
-   ```sql
-   UPDATE {child_table} SET status = 'removed' WHERE {parent_fk} IN (
-     SELECT id FROM {parent_table} WHERE id > {BASELINE_ID}
-   );
-   ```
-
-정리 확인: `SELECT COUNT(*) FROM {table} WHERE id > {BASELINE_ID} AND status != 'removed'` → 0건 확인 후 보고에 포함.
+**테스트 데이터 정리**: `references/db-safety.md` Step 10을 그대로 따른다. 실행 소유 ID·실제 앱/정리 DB identity·incoming FK·trigger를 대조하고 단일 connection의 transaction에서 정확한 ID만 정리한다. 기능 테스트의 DELETE API를 범용 cleanup으로 대체하지 않는다. 비소유 child/불명확한 생성/정리 실패는 BLOCKED 또는 UNKNOWN과 미정리 ID로 보고한다.
 
 **서버 정리**:
 - 이번 실행이 시작한 `{E2E_SERVER_PID}`/세션만 종료하고 `"{E2E_RUN_DIR}/pms-test-server"`를 삭제한다.
@@ -360,4 +347,4 @@ Agent tool:
 | `references/db-safety.md` | Step 7 진입 시 (DB 게이트·시드 준비 canonical) |
 | `references/status-code-validation.md` | Step 5 진입 시 |
 | `references/grpc-testing.md` | `$PROTOCOL`이 GRPC/MIXED일 때 (Step 3/4/7/8) |
-| `references/report-templates.md` | Step 9 진입 시 |
+| `references/e2e-report-templates.md` | Step 9 진입 시 |

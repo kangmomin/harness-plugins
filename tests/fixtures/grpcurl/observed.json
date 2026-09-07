@@ -1,0 +1,49 @@
+{
+  "grpcurl_module": "v1.9.3",
+  "grpc_module": "v1.71.0",
+  "transport": "loopback",
+  "offline": true,
+  "observations": [
+    {
+      "case_id": "valid",
+      "server_contact": true,
+      "handler_arrivals": 1,
+      "exit_code": 0,
+      "stdout": "{\n  \"value\": \"ok\"\n}\n",
+      "stderr": ""
+    },
+    {
+      "case_id": "unknown-field",
+      "server_contact": false,
+      "handler_arrivals": 0,
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "Error invoking method \"fixture.Audit/Read\": error getting request data: message type fixture.Request has no known field named unknown\n"
+    },
+    {
+      "case_id": "oneof-conflict",
+      "server_contact": true,
+      "handler_arrivals": 1,
+      "exit_code": 0,
+      "stdout": "{}\n",
+      "stderr": ""
+    },
+    {
+      "case_id": "server-validation",
+      "server_contact": true,
+      "handler_arrivals": 1,
+      "exit_code": 67,
+      "stdout": "",
+      "stderr": "ERROR:\n  Code: InvalidArgument\n  Message: server validation\n"
+    },
+    {
+      "case_id": "deadline",
+      "server_contact": true,
+      "handler_arrivals": 1,
+      "exit_code": 68,
+      "stdout": "",
+      "stderr": "ERROR:\n  Code: DeadlineExceeded\n  Message: context deadline exceeded\n"
+    }
+  ],
+  "provenance": "Executed 2026-09-06 with tests/fixtures/grpcurl/verify.py; installed grpcurl build metadata v1.9.3, CLI version unset; Go server grpc v1.71.0, protobuf v1.36.5; GOPROXY=off."
+}

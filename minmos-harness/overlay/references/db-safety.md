@@ -1,178 +1,81 @@
-> 이 문서는 `e2e-test` 스킬의 Step 7(테스트 환경 준비)에서 로드된다. 단독 실행 금지.
-> 로컬 DB 전용 원칙의 요약은 SKILL.md 본문에 있으며, 이 문서가 검증 절차의 canonical이다.
+> `overlay/e2e-test.md`가 서버 시작 전, 첫 쓰기 요청 전, 정리 전에 로드하는 canonical 절차다. 단독 실행 금지.
 
-# DB 안전 검증 + 테스트 데이터 준비 상세
+# DB 대상 검증과 실행 소유 데이터 정리
 
-## Step 7.1: DB 호스트 안전 검증 (Gate — 통과 필수)
+## Step 7.1: 시작 전 게이트 — 생략 불가
 
-테스트 환경을 준비하기 **전에** 반드시 DB 호스트가 로컬인지 검증한다. 이 게이트를 통과하지 못하면 이후 모든 단계를 실행하지 않는다.
+`--skip-doctor`/`-sd`, smoke, REST/gRPC/PubSub 모두 이 게이트를 유지한다. 선택 환경 probe를 생략해도 데이터 변경 권한은 생기지 않는다.
 
-```bash
-# 1. secret/.env에서 DB_HOST 추출
-DB_HOST=$(grep -E '^DB_HOST=' secret/.env | head -1 | cut -d'=' -f2 | tr -d '[:space:]"'"'"'')
+1. 실제 앱의 설정 로딩·DB connection factory, migration, 시작 시 seed, background worker를 읽는다. 환경 파일을 `source`하거나 비밀 값을 출력하지 않는다. env에 적힌 호스트만으로 실제 연결을 확인했다고 하지 않는다.
+2. 로컬/격리 테스트 DB라는 기존 근거와 호스트 허용 정책을 확인한다. `localhost`, loopback, Unix socket도 tunnel/proxy일 수 있다. `0.0.0.0`은 서버 listen 주소이므로 접속 대상 증거가 아니다. `host.docker.internal` 같은 별칭은 실제 연결 identity로 확인한다. 값 부재/조회 NULL은 자동 허용이 아니다.
+3. `secret/.e2e-allowed-hosts`는 이미 승인된 대상의 호스트 정책만 보완한다. 앱/MCP identity 일치, 전용 테스트 대상, 소유권 검증을 대체하지 않는다. 미승인 대상은 `BLOCKED:DB_TARGET_UNAPPROVED`; 승인 근거가 없으면 임의 등록하지 않는다.
+4. 시작 시 쓰기가 있으면 기존에 지원되는 설정으로 migration·seed·worker를 비활성화하고, 실제 connection factory의 읽기 전용 probe로 대상을 먼저 확인한다. 존재하지 않는 플래그를 만들지 않는다. 쓰기 없이 확인할 수 없으면 `BLOCKED:DB_STARTUP_UNVERIFIED`로 서버 시작을 보류한다.
+5. `secret/.env`, 키 파일, 허용 호스트 파일은 실제 대상 경로에서 `git ls-files --error-unmatch -- <path>`가 실패하고 `git check-ignore --quiet -- <path>`가 성공하는지 확인한다. 이미 ignore됐다고 가정하지 않는다. 복사는 init의 worktree hook 계약에 따라 기존 파일·권한을 보존한다.
 
-# 2. PostgreSQL MCP 실제 연결에서도 호스트 확인 (이중 검증)
-# PostgreSQL MCP tool로 실행:
-# SELECT inet_server_addr()::text AS host, inet_server_port() AS port;
-# 결과 host를 MCP_DB_HOST로 기록한다. Unix socket/로컬 연결로 NULL이면 빈 값으로 둔다.
-MCP_DB_HOST="<postgresql-mcp-inet-server-addr-result>"
+## Step 7.4: 실제 연결 확인과 소유 ID ledger 초기화
 
-# 3. 사용자 승인 화이트리스트 로드
-ALLOWED_HOSTS="localhost 127.0.0.1 0.0.0.0 host.docker.internal"
-if [ -f secret/.e2e-allowed-hosts ]; then
-  EXTRA_HOSTS=$(grep -v '^\s*#' secret/.e2e-allowed-hosts | grep -v '^\s*$' | tr '\n' ' ')
-  ALLOWED_HOSTS="$ALLOWED_HOSTS $EXTRA_HOSTS"
-fi
+서버를 쓰기 없는 상태로 시작한 뒤 **첫 시드/REST/gRPC/PubSub 쓰기 전에** 실행한다. gRPC가 별도 pool을 쓰거나 앱이 여러 DB로 쓰면 모든 실제 write connection을 확인한다. 이 절차는 한 ledger당 한 DB를 지원한다. 여러 DB/미확인 외부 writer는 `BLOCKED:DB_SCOPE_UNSUPPORTED`다.
 
-echo "DB_HOST from .env: ${DB_HOST}"
-echo "DB_HOST from MCP:  ${MCP_DB_HOST}"
-echo "Allowed hosts:     ${ALLOWED_HOSTS}"
-```
-
-**검증 조건 (두 값 모두 통과해야 함):**
-
-| 값 | 허용 | 차단 |
-|----|------|------|
-| `DB_HOST` | 기본 허용 목록 + `secret/.e2e-allowed-hosts` + 빈 값(기본=localhost) | 그 외 모든 값 |
-| `MCP_DB_HOST` | 위와 동일 + 빈 값(Unix socket/로컬 연결) | 그 외 모든 값 |
-
-- 하나라도 허용 목록에 없으면 **즉시 중단**하고 아래 "위반 시 처리" 절차를 실행한다.
-- PostgreSQL MCP에 연결할 수 없으면 테스트 데이터 생성/정리를 할 수 없으므로 `SKIPPED:POSTGRES_MCP_UNAVAILABLE`로 종료한다.
-- MCP host 쿼리가 지원되지 않아 호스트를 확인할 수 없으면 `UNKNOWN`으로 보고하고, 사용자 승인을 받아 `secret/.e2e-allowed-hosts`에 기록하기 전까지 쓰기 SQL을 실행하지 않는다.
-- **이 게이트를 우회하는 어떤 논리("읽기만 하겠다", "테스트 데이터만 건드리겠다" 등)도 허용하지 않는다.**
-
-## 위반 시 처리 (차단 → 승인 요청 → 화이트리스트 등록)
-
-DB 호스트가 허용 목록(기본 + 화이트리스트)에 없으면:
-
-1. **즉시 테스트를 중단**한다.
-2. 사용자에게 경고와 함께 **승인 여부를 질문**한다:
-   > ⚠️ **E2E 테스트 차단**: DB 호스트 `{호스트}`는 허용 목록에 없습니다.
-   > 이 DB에서 E2E 테스트를 실행하면 테스트 데이터가 생성/수정/삭제됩니다.
-   >
-   > 이 DB를 E2E 테스트 대상으로 허용하시겠습니까?
-   > 1. 허용 — `secret/.e2e-allowed-hosts`에 등록하고 게이트 재검증 후 진행
-   > 2. 거부 — 어떤 SQL도 실행하지 않고 `SKIPPED:REMOTE_DB_BLOCKED`로 종료
-3. Claude가 사용자 승인 없이 화이트리스트에 호스트를 추가하는 것은 금지다.
-
-## 화이트리스트 파일 형식
-
-프로젝트 루트의 `secret/.e2e-allowed-hosts`에 호스트를 한 줄에 하나씩 등록한다 (주석·빈 줄 무시):
-
-```
-# secret/.e2e-allowed-hosts 예시
-dev-db.internal.example.com
-10.0.1.50
-```
-
-`secret/` 디렉토리는 이미 gitignore 처리되어 있으므로 별도 등록은 불필요하다.
-
-## Step 7.4: 테스트 데이터 추적 준비
-
-테스트 시작 전, 관련 테이블의 현재 최대 ID를 기록한다:
+앱의 **실제 연결/pool**과 정리에 사용할 **실제 DB connection** 각각에서 다음 값을 수집한다. `.env`로 별도 접속한 클라이언트를 앱 연결 증거로 바꾸어 부르지 않는다. 앱 진단 기능/connection factory를 통한 실제 관측이 없으면 `BLOCKED:DB_IDENTITY_UNVERIFIED`다.
 
 ```sql
-SELECT COALESCE(MAX(id), 0) FROM {table_name};
+SELECT current_database() AS database,
+       (SELECT oid::bigint FROM pg_database WHERE datname = current_database()) AS database_oid,
+       (SELECT system_identifier::text FROM pg_control_system()) AS cluster_id,
+       pg_postmaster_start_time() AS server_started_at,
+       inet_server_addr()::text AS server_address, inet_server_port() AS server_port,
+       current_user, current_schemas(false) AS search_path_schemas;
 ```
 
-이 ID를 `BASELINE_ID`로 저장하여, 테스트 종료 시 이후 생성된 데이터를 식별한다.
+명시적 대상 schema 목록을 추가로 `pg_namespace`에서 확인한다. cluster ID + DB명/OID + 서버 시작 시각 + 대상 schema 이름/OID가 일치해야 한다. 연결 문자열의 host/port와 관측된 서버 address/port를 비밀 없이 함께 기록한다. 터널의 로컬 port와 서버 port가 달라도 위 실제 identity가 같다는 근거가 필요하다. `pg_control_system()` 권한 부족이나 metadata 조회 실패는 UNKNOWN/BLOCKED이며 호스트 문자열로 대신하지 않는다. 서버 재시작·failover·DB 대상 변화 시 이전 ledger로 정리하지 않는다.
 
-## Step 7.5: 테스트 전제 데이터 준비 (시드)
+`overlay/assets/db_ownership.py`는 **읽기 전용 검증/SQL 계획 helper**다. DB 연결이나 transaction을 생성하지 않으며 JSON의 `verified`는 실제 관측 receipt가 있을 때만 true로 설정한다.
 
-테스트 실행 **전에**, 모든 테스트 시나리오에 필요한 전제 데이터가 DB에 존재하는지 분석하고, 부족하면 PostgreSQL MCP를 통해 자동 생성한다.
+- `init INPUT.json`: `{run_id, schemas, observations, tables, reviewed_triggers}` → ledger.
+- `observations.app.source=app_runtime_connection`, `observations.cleanup.source=cleanup_transaction_connection`. 각 관측은 위 identity, 명시적 `schemas`, `verified:true`, `host_allowed:true`를 포함한다. 근거와 connection/session 식별은 별도 실행 evidence에 저장한다.
+- `tables`: `{schema, table, schema_oid, relation_oid, pk, status_column, id_type, visibility_verified, trigger_fingerprint}` 목록. `schema_oid`/`relation_oid`는 초기화 시 실제 `pg_namespace.oid`/`pg_class.oid`를 고정하고 이후 매번 비교한다. 같은 이름/컬럼으로 DROP+CREATE된 테이블의 재사용 PK는 다른 소유권이다. 식별자는 실제 catalog allowlist에 있는 ASCII SQL identifier만, PK는 단일 int4/int8/uuid만 지원한다. partition/inheritance, 복합 키, RLS/권한으로 숨겨진 행, 미지원 status 의미는 BLOCKED다. `visibility_verified`는 모든 행 조회 권한과 RLS 비적용을 실제 확인한 결과다.
+- `trigger_fingerprint`: 모든 관련 trigger 정의·활성 상태·함수 본문·호출 함수 의존성의 정렬된 snapshot SHA-256. 실행자는 소스와 부작용을 검토해 안전한 fingerprint만 `reviewed_triggers[schema.table]`로 제공한다. 방금 조회한 hash를 자동 승인하지 않는다. 기존 비소유 행을 변경할 수 있거나 외부 I/O를 수행하는 trigger/rule은 지원하지 않는다. trigger가 없어도 빈 snapshot hash를 명시한다.
+- 출력 ledger는 `{E2E_RUN_DIR}`의 실행 전용 0600 파일로 저장한다. 원자적으로 교체하고 단일 오케스트레이터가 갱신한다. 다른 실행 ledger를 합치지 않는다. 미완료/UNKNOWN이면 ledger와 receipt를 보존한다.
 
-### 분석 대상 (Step 4 엣지 케이스 분석 결과 기반)
+## Step 7.5: 시드와 API 생성 소유권 기록
 
-| 테스트 시나리오 | 필요한 전제 데이터 | 예시 |
-|----------------|------------------|------|
-| 생성(Create) 테스트 | FK로 참조할 부모 데이터 | grade_id, publisher_id 등 FK 필드에 넣을 유효한 ID |
-| 수정(Update) 테스트 | 수정 대상 데이터 | 테스트 중 Create API로 직접 생성 (시드 불필요) |
-| 삭제(Delete) 테스트 | 삭제 대상 데이터 | 테스트 중 Create API로 직접 생성 (시드 불필요) |
-| 필터/검색 테스트 | 필터 값별 대조 데이터 | 서로 다른 grade_id를 가진 데이터 2건 이상 |
-| 상태 전이 테스트 | 특정 상태의 데이터 | status='active'인 데이터 (전이 출발점) |
-| FK 참조 에러 테스트 | (불필요) | 존재하지 않는 ID 999999 사용 |
-| 권한 테스트 | 다른 사용자의 데이터 | company_id가 다른 데이터 |
+필요한 최소 데이터만 만든다. 기존 FK 부모는 **읽기 전용 참조**로 사용하며 ledger 소유 ID에 넣지 않는다. UPDATE/DELETE 테스트 대상은 이번 실행의 신규 데이터여야 한다.
 
-> 수정/삭제 대상 데이터는 Step 8에서 **Create API를 호출하여 직접 생성**한다 (시드가 아닌 API 생성 → ID 캡처 → 수정/삭제 흐름). 여기서는 그 Create API가 성공하기 위한 **전제 조건**만 준비한다.
+1. schema와 table을 함께 지정하여 컬럼, NOT NULL/CHECK, FK, trigger를 확인한다. catalog의 OID로 관계를 연결하고 FK 부모부터 생성한다. identifier는 catalog allowlist에서만, 값은 driver bind parameter로 전달한다.
+2. 시드는 **INSERT-only** SQL의 `RETURNING`으로 실제 신규 PK를 캡처한다. 예: `INSERT INTO "public"."publishers" ("name", "status") VALUES (%s, %s) RETURNING "id"`, parameters `["[E2E:<run_id>] Publisher", "active"]`. 여러 행 INSERT도 반환된 모든 ID를 기록한다.
+3. API는 실제 create 경로가 새 행 INSERT임을 확인하고 반환 ID와 run/case 요청 receipt를 연결한다. `201`, `RETURNING`, POST라는 이름만으로 소유권을 인정하지 않는다. `ON CONFLICT DO UPDATE`, upsert, 이미 완료된 idempotency 응답, 기존 ID 재사용은 신규 소유권이 아니다.
+4. `record`에 `{ledger, run_id, row:{schema,table,id,case_id,proof}}`를 전달한다. `proof={kind,created_new:true,run_id,evidence_ref}`; kind는 `insert_only_returning`, `api_insert_only`, `attributed_trigger_insert`만 허용한다. 증거를 꾸며 kind를 바꾸지 않는다. child도 실제 INSERT/검토된 trigger 생성과 해당 run token의 상관관계로 각각 증명한다. 부모 FK를 공유한다는 이유만으로 소유하지 않는다.
+5. timeout/비동기 응답 유실은 run token/correlation 및 실제 신규 생성 경로로만 복구한다. 복구 불가 ID는 ledger `unresolved`와 `UNKNOWN:CREATION`으로 남긴다. MAX, ID 대소/범위, 최신 timestamp, `[E2E]` 접두사만으로 추정하지 않는다. 미확인 상태에서 쓰기 요청을 자동 재시도하지 않는다.
 
-### 판단 절차
+### 물리 DELETE 기능 테스트의 ledger lifecycle
 
-1. **테스트 대상 API의 request 스키마에서 FK 필드를 추출**한다.
-   - handler의 request DTO에서 `*_id`, `*_ids` 패턴의 필드를 찾는다.
-   - 해당 필드가 참조하는 테이블을 DB FK constraint 또는 코드 로직에서 확인한다.
-2. **각 FK 참조 테이블에 유효한 데이터가 존재하는지 확인**한다.
+검토된 DELETE가 소유 행을 물리 삭제했으면 실제 삭제 receipt와 같은 DB/table identity의 read-back(absent)을 기록한다. `deleted` 입력은 `{ledger,run_id,row:{schema,table,id},observations,tables,proof:{kind:verified_physical_delete,readback_absent:true,run_id,evidence_ref}}`다. 이 action은 해당 row를 `lifecycle:deleted`로 표시하고 정리 UPDATE에서 제외한다. 같은 PK가 나중에 재사용되어도 새 행을 소유하지 않는다. soft-delete는 active 소유 목록을 유지한다. 정체 불명의 absent/timeout을 삭제 완료로 바꾸지 않는다.
+
+## Step 10: 같은 transaction 안에서 정리
+
+HTTP DELETE는 기능 테스트로 별도 검증한다. 일반 정리의 우선 경로로 쓰지 않는다. 여러 HTTP/MCP 요청을 하나의 SQL transaction이라고 취급할 수 없다. 서비스가 같은 소유권/원자성 계약을 직접 구현한 경우에만 그 cleanup API를 별도로 사용할 수 있다.
+
+정리는 검증된 단일 physical DB connection의 한 transaction에서 아래 전부를 실행한다. MCP가 호출마다 autocommit/connection을 바꾸거나 bind parameter/transaction 보장을 제공하지 않으면 `BLOCKED:CLEANUP_TRANSACTION_UNAVAILABLE`이다. `BEGIN` 호출 후 다른 MCP 호출들이 같은 session이라고 가정하지 않는다. 검증된 session executor 또는 기존 로컬 DB driver를 사용하며 비밀은 SQL/로그/argv에 넣지 않는다.
+
+1. 앱/worker의 이 실행 작업 완료를 확인한다. unresolved 생성이 있으면 정리 범위를 추정하지 않는다. transaction을 시작하고 lock/statement timeout을 설정한다. 앱과 cleanup identity를 다시 확인한다.
+2. 소유 테이블과 incoming FK child를 schema-qualified catalog OID로 전부 찾는다. **테스트 대상 목록 밖/schema 밖의 incoming FK도 포함**한다. 예시 catalog 조회:
    ```sql
-   SELECT COUNT(*) FROM {referenced_table} WHERE status != 'removed';
+   SELECT c.oid, pn.nspname AS parent_schema, p.relname AS parent_table,
+          cn.nspname AS child_schema, ch.relname AS child_table,
+          c.confkey AS parent_attnums, c.conkey AS child_attnums
+   FROM pg_constraint c
+   JOIN pg_class p ON p.oid = c.confrelid
+   JOIN pg_namespace pn ON pn.oid = p.relnamespace
+   JOIN pg_class ch ON ch.oid = c.conrelid
+   JOIN pg_namespace cn ON cn.oid = ch.relnamespace
+   WHERE c.contype = 'f';
    ```
-   - 0건이면 → 해당 테이블에 시드 데이터 필요
-   - 1건 이상이면 → 기존 데이터의 ID를 **읽기 전용으로 참조** (수정/삭제하지 않음)
-3. **필터/검색 테스트용 데이터 존재 여부 확인**한다.
-   ```sql
-   SELECT DISTINCT {filter_column} FROM {table_name} WHERE status != 'removed' LIMIT 5;
-   ```
-   - 필터 값이 1종류 이하면 → 대조 테스트를 위해 2종 이상의 값을 가진 시드 데이터 필요
-4. **상태 전이 테스트용 특정 상태 데이터 확인**한다. 없으면 시드로 생성하거나 Step 8에서 Create API로 생성 후 진행.
+   각 attnum은 해당 relation의 `pg_attribute`에 연결한다. 같은 constraint/table 이름을 schema 없이 join하지 않는다. 단일 PK를 참조하는 단일 FK만 지원하며 복합/self/cycle, 조회 권한/RLS 미확인, 범위 밖 child는 BLOCKED다.
+3. 대상과 모든 child 테이블을 이름 순으로 `SHARE ROW EXCLUSIVE` 잠근 뒤 metadata/FK를 재조회한다. 범위 변화는 rollback 후 재검토한다. 소유 행도 `SELECT ... WHERE pk IN (...) FOR UPDATE`로 잠근다. 삭제 완료 lifecycle을 제외한 모든 소유 ID의 존재/상태와 원래 생성 correlation·불변 식별 증거를 대조한다. 같은 PK의 다른 생성 행인지 배제할 수 없으면 `BLOCKED:ROW_IDENTITY_UNVERIFIED`다. FK 추가 및 동시 일반 INSERT/UPDATE와 충돌하는 잠금을 정리 완료까지 유지한다. migration/함수 교체도 정리 동안 중지되어야 한다. 테이블 잠금만으로 `CREATE OR REPLACE FUNCTION`까지 배제했다고 하지 않는다.
+4. 모든 incoming FK에서 소유 부모를 참조하는 **실제 child ID**를 조회한다. removed 행도 생략하지 않는다. 각각 소유 ledger ID와 대조한다. 하나라도 비소유이면 `BLOCKED:UNOWNED_DEPENDENTS`; 그 child를 정리 범위에 추가하지 않는다. trigger/rule과 함수 snapshot도 재검증한다. 미검토 또는 변화 시 rollback한다.
+5. `plan` 입력: `{ledger,run_id,observations,tables,transaction_verified:true,incoming_checked:true,foreign_keys,dependents}`. `foreign_keys` 원소는 `{parent:{schema,table},child:{schema,table},parent_columns:[pk],child_columns:[fk]}`, `dependents` 원소는 `{parent:{schema,table,id},child:{schema,table,id}}`. 완전한 catalog/실제 row 조회 receipt가 있어야 checked=true다.
+6. helper가 READY를 반환하면 child→parent 순서의 `statements`를 **같은 connection에서** 실행한다. `sql`과 `params`를 driver에 별도로 전달한다. 이 SQL은 psycopg `%s` parameter 문법이며 문자열 치환/다른 MCP 문법으로 그대로 실행하지 않는다. 각 UPDATE의 `RETURNING` ID 집합이 `expected_ids`와 정확히 같아야 한다. PK 전체 범위/부모 FK 기반 일괄 변경은 금지다.
+7. 같은 transaction에서 소유 ID의 status와 검토된 trigger 부작용을 확인한다. RETURNING/count만으로 trigger가 다른 행을 건드리지 않았다고 단정하지 않는다. 검증 실패는 전부 rollback; 통과 후에만 commit한다. commit 응답 유실은 `UNKNOWN:CLEANUP_COMMIT`으로 보고하고 같은 identity에서 read-back한다. 새 transaction에서 무조건 재실행하지 않는다.
+8. 실행별 DB identity, 테이블별 소유 ID/정리 반환 ID, 참조 전용 ID, 미정리 ID와 사유를 최종 리포트에 기록한다. 새 audit 행처럼 보존이 필요한 trigger 결과는 별도 명시한다. BLOCKED/UNKNOWN을 정리 완료로 표시하지 않는다. DB 정리에 실패해도 이번 실행의 서버/세션 정리는 수행한다.
 
-### 생성 절차
-
-1. **스키마 분석**: 대상 테이블의 컬럼, 타입, NOT NULL, FK, CHECK constraint를 확인한다.
-   ```sql
-   SELECT column_name, data_type, is_nullable, column_default
-   FROM information_schema.columns
-   WHERE table_name = '{table_name}' ORDER BY ordinal_position;
-   ```
-   ```sql
-   SELECT conname, pg_get_constraintdef(oid)
-   FROM pg_constraint
-   WHERE conrelid = '{table_name}'::regclass AND contype = 'c';
-   ```
-2. **FK 의존 순서 해결 (위상 정렬)**: FK가 참조하는 부모 테이블부터 순서대로 생성한다.
-   ```sql
-   SELECT
-     tc.table_name AS child_table,
-     ccu.table_name AS parent_table,
-     kcu.column_name AS fk_column
-   FROM information_schema.table_constraints tc
-   JOIN information_schema.key_column_usage kcu ON tc.constraint_name = kcu.constraint_name
-   JOIN information_schema.constraint_column_usage ccu ON tc.constraint_name = ccu.constraint_name
-   WHERE tc.constraint_type = 'FOREIGN KEY'
-     AND tc.table_name IN ({테스트 관련 테이블 목록});
-   ```
-   예: textbooks가 publishers, grades를 FK 참조 → 생성 순서: publishers → grades → textbooks
-3. **시드 INSERT**: PostgreSQL MCP로 필요한 최소한의 테스트 데이터를 삽입한다.
-   - **FK 참조용 부모 데이터** (Create/Update API 성공을 위한 최소 1건):
-     ```sql
-     INSERT INTO publishers (name, status) VALUES ('[E2E] Publisher A', 'active') RETURNING id;
-     INSERT INTO grades (name, status) VALUES ('[E2E] Grade A', 'active') RETURNING id;
-     ```
-   - **필터/검색 대조 데이터** (필터별로 최소 2종 이상의 다른 값):
-     ```sql
-     INSERT INTO grades (name, status) VALUES ('[E2E] Grade A', 'active'), ('[E2E] Grade B', 'active');
-     INSERT INTO textbooks (title, grade_id, status) VALUES
-       ('[E2E] Book 1', {grade_a_id}, 'active'),
-       ('[E2E] Book 2', {grade_b_id}, 'active');
-     ```
-   - **상태 전이 테스트용 데이터** (출발 상태로 직접 INSERT):
-     ```sql
-     INSERT INTO tasks (title, status) VALUES ('[E2E] Task for transition', 'active') RETURNING id;
-     ```
-   - **권한 테스트용 데이터** (테스트 토큰과 다른 company_id/member_id):
-     ```sql
-     INSERT INTO resources (title, company_id, status) VALUES ('[E2E] Other company resource', 999, 'active') RETURNING id;
-     ```
-4. **시드 BASELINE 기록**: 시드로 생성한 데이터도 `BASELINE_ID` 이후이므로, 테스트 종료 시 함께 정리된다.
-5. **시드 결과 요약**: 생성된 시드 데이터를 기록하여 Step 8에서 참조할 수 있도록 한다.
-   ```
-   시드 데이터 요약:
-   - publishers: id={id} ('[E2E] Publisher A')
-   - grades: id={id_a} ('[E2E] Grade A'), id={id_b} ('[E2E] Grade B')
-   - textbooks: id={id_1} (grade_id={id_a}), id={id_2} (grade_id={id_b})
-   ```
-
-### 원칙
-
-- 시드 데이터는 **테스트에 필요한 최소 수량**만 생성한다.
-- 유니크 제약이 있는 컬럼은 `[E2E]` 접두사 등으로 기존 데이터와 구분한다.
-- `RETURNING id`로 생성된 ID를 즉시 캡처한다.
-- 시드 생성 실패 시 (권한 부족, constraint 위반 등) 에러를 보고하고 해당 테스트를 **SKIP** 처리한다.
-- **기존 데이터는 읽기 전용 참조만 허용** (FK 참조용 ID 조회). 수정/삭제하지 않는다.
+PostgreSQL의 [잠금 규칙](https://www.postgresql.org/docs/17/explicit-locking.html), [FK catalog](https://www.postgresql.org/docs/17/catalog-pg-constraint.html), [trigger catalog](https://www.postgresql.org/docs/17/catalog-pg-trigger.html)를 기준으로 한다. helper는 receipt를 검증하는 계획 도구이며 DB 권한 통제나 임의 trigger의 안전성을 자동 증명하지 않는다.

@@ -4,11 +4,11 @@
 
 `be-harness:e2e-test-loop`
 
-베이스가 이미 정직한 자기 점검 md 리포트를 생성한다 (`assets/render_e2e_report.py`). 오버레이는 **Post-Math 환경 probe**만 보강한다.
+베이스가 이미 정직한 자기 점검 md 리포트를 생성한다 ([베이스 renderer](../../be-harness/skills/e2e-test-loop/assets/render_e2e_report.py)). 오버레이는 **Post-Math 환경 probe**만 보강한다.
 
 ## Pre-flight 추가
 
-베이스 Step 1(Pre-flight Probe)의 점검 표에 아래 행을 추가한다. `--skip-doctor` / `-sd` 지정 시 함께 건너뛴다.
+베이스 Step 1(Pre-flight Probe)의 점검 표에 아래 행을 추가한다. `--skip-doctor` / `-sd` 지정 시 아래 선택 probe만 건너뛴다. 하위 E2E의 시작 전/첫 쓰기 전 DB identity·소유 ledger 게이트(`references/db-safety.md`)는 생략하지 않는다.
 
 | 점검 항목 | 확인 방법 | 실패 시 |
 |----------|----------|--------|
