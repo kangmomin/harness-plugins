@@ -15,6 +15,7 @@ argument-hint: "[--skip-doctor] [--smoke]"
 
 **플레이스홀더 정의** (본문·assets 공통, 값 변경은 여기 한 곳만 수정):
 
+- `{E2E_RESULTS}` = `{E2E_RUN_DIR}/e2e-results.json` (result-contract.md v1 정본)
 - `{RUN_REPORT}` = `{E2E_RUN_DIR}/e2e-run-report.md` (루프 중 누적하는 원시 기록)
 - `{REPORT_DIR}` = profile의 `reportDir` (없으면 `.claude/harness-reports`)
 - `{EXECUTED_ITERATIONS}` = 실제 케이스를 실행하고 기록한 회차 수 (신규 실행은 0, 재개 시 기존 기록에서 복원). 하위 호출 횟수와 구분한다.
@@ -63,7 +64,7 @@ profile(`.claude/be-harness.local.md`)을 읽고 아래를 확인한다:
 
 > Probe를 통과해 **실제 루프에 진입하는 경우에만** 수행한다. Step 1 SKIP 종료 경로에서는 리포트 파일을 만들지 않는다.
 
-루프 동안 수행하는 모든 테스트 케이스의 요청 데이터·기대·실제·판정과 실패→수정 내역을 `{RUN_REPORT}`에 누적한다. 루프 종료 후 이 파일이 Step 4 md 렌더링(스크립트)의 유일한 입력이 된다 — 여기에 적히지 않은 것은 리포트에 없다.
+루프 동안 수행하는 모든 테스트 케이스의 요청 데이터·기대·실제·판정과 실패→수정 내역을 `{RUN_REPORT}`에 누적한다. 같은 플러그인의 `skills/start-workflow/references/result-contract.md`를 읽고 E2E_RESULTS에도 구조화해 기록한다. Step 4의 입력은 E2E_RESULTS이며 RUN_REPORT는 사람이 읽는 원시 이력이다. 미지원/미호출 RPC도 targets/cases에서 제외하지 않는다.
 
 먼저 `${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/references/run-context.md`를 Read하고 이번 루프의 `{E2E_RUN_DIR}`·`{E2E_LOCK_TOKEN}`을 확정한다. 각 iteration의 하위 `e2e-test`에 두 값을 그대로 전달한다.
 Write tool로 `{RUN_REPORT}`를 새로 생성한다. 같은 미완료 루프를 계속하는 경우에는 기존 기록에 append하며 덮어쓰지 않는다:
@@ -84,12 +85,13 @@ Write tool로 `{RUN_REPORT}`를 새로 생성한다. 같은 미완료 루프를 
 
 **E2E 메인 플로우 출처 (단일 출처 원칙)**: 호출 컨텍스트(상위 워크플로우 상태 파일의 `## E2E 메인 플로우` 섹션, 또는 사용자 대화)에 메인 플로우가 제공되면 그 텍스트를 **그대로** 헤더에 옮겨 적는다 — 재해석·재가공·요약하지 않는다. 제공되지 않았으면 `자동 도출 (git diff 기반)`으로 기록한다.
 
-**케이스 블록 형식** — Step 3에서 매 테스트 케이스를 `## Iteration 기록` 아래에 이 형식으로 append 한다:
+**케이스 블록 형식** — Step 3에서 매 테스트 케이스를 `## Iteration 기록` 아래에 이 형식으로 append 하고 같은 값을 JSON events에 기록한다:
 
 ```markdown
 ### Iteration {N}
 
 #### {분류} — {케이스명}
+- case_id: {안정적인 케이스 ID}
 - 요청: `{METHOD} {PATH}` · body: `{request body 전문, 없으면 "(없음)"}`
 - 기대: {기대 status / 응답}
 - 실제: {실제 status / 응답 요약}
@@ -101,19 +103,21 @@ Write tool로 `{RUN_REPORT}`를 새로 생성한다. 같은 미완료 루프를 
 **정직성 규칙 (append 시점에 판정한다 — 렌더러는 기록된 마커만 믿는다)**:
 - 응답이 본 변경 유무와 무관하게 같다면 ✅ 대신 `⚠️ INCONCLUSIVE(응답이 본 변경과 무관)`. 입력의 일부만 커버했다면 `⚠️ PARTIAL({커버한 범위})`.
 - `- 요청:` `- 기대:` `- 실제:` `- 판정:` 네 줄은 **필수** — 하나라도 빠진 케이스는 렌더러가 `INCONCLUSIVE(필수 필드 결여)`로 집계한다.
-- **케이스명은 iteration 간 동일하게 유지**한다 — TC 식별 키는 `{분류} + {케이스명}`이다. 이름을 바꾸면 다른 케이스로 집계된다.
+- **케이스명은 iteration 간 동일하게 유지**한다 — TC 식별 키는 `case_id`이며 표시 이름은 ID를 대체하지 않는다. 표시 이름을 바꿔도 같은 case_id의 이력은 유지한다.
 
-**실패→수정 블록 형식** — Step 3의 수정 단계에서 실패한 케이스마다 해당 케이스 블록 끝에 이 형식으로 append 한다:
+**실패→수정 블록 형식** — Step 3의 수정 단계에서 실패한 케이스마다 모든 케이스 기록 뒤에 iteration+case_id를 포함해 append 한다:
 
 ```markdown
 **실패 → 수정 ({케이스명})**
+- iteration: {실패한 회차}
+- case_id: {실패한 케이스 ID}
 - 실패 원인: {root cause}
 - 수정: {file:line — 변경 요약}
 - 귀속: 본 변경 코드 | 검증 인프라 | 혼합
 - 재빌드/재시작: 다음 회차의 하위 e2e-test가 락 획득 후 수행 예정
 ```
 
-> `- 귀속:` 줄은 선택 — 생략하면 렌더러가 `- 수정:` 줄의 경로로 추정한다(테스트·mock·fixture·env·docker·헬퍼·scripts → 검증 인프라, 그 외 → 본 변경 코드). 수정 블록은 반드시 **해당 케이스 블록 직후**에 둔다.
+> JSON fix의 attribution은 필수다. legacy Markdown의 `- 귀속:` 줄을 생략하면 렌더러가 `- 수정:` 줄의 경로로 추정한다(테스트·mock·fixture·env·docker·헬퍼·scripts → 검증 인프라, 그 외 → 본 변경 코드). 수정 블록의 iteration/case_id로 귀속한다. 현재 마지막 케이스나 표시 이름으로 추정하지 않는다.
 
 **최종 요약 블록 형식** — Step 4에서 리포트 하단에 1회 append 한다:
 
@@ -180,24 +184,24 @@ Write tool로 `{RUN_REPORT}`를 새로 생성한다. 같은 미완료 루프를 
 
 ## Step 4: 리포트 md 렌더링 (정직한 자기 점검 형식)
 
-루프가 종료되면(전체 통과로 탈출 / 상한 도달 무관) `{RUN_REPORT}`를 **스크립트로** 정직한 자기 점검(self-check) md로 렌더링한다. Claude가 리포트를 직접 쓰지 않는다 — verdict 5종·시도별 raw 기록·"본 변경 코드 vs 검증 인프라" 귀속·GAP·"아무 의심 없이 성공인가?" 직답은 모두 `{RUN_REPORT}`의 기록에서 결정적으로 계산된다. 정직성은 Step 2의 append 시점 규칙(마커·귀속 줄·케이스명 불변·필수 4줄)이 담보한다.
+루프가 종료되면(전체 통과로 탈출 / 상한 도달 무관) `{E2E_RESULTS}`를 **스크립트로** 정직한 자기 점검(self-check) md로 렌더링한다. Claude가 리포트를 직접 쓰지 않는다 — verdict 5종·시도별 raw 기록·"본 변경 코드 vs 검증 인프라" 귀속·GAP·"아무 의심 없이 성공인가?" 직답은 모두 `{E2E_RESULTS}`의 검증된 기록에서 결정적으로 계산된다. 정직성은 Step 2의 append 시점 규칙(마커·귀속 줄·케이스명 불변·필수 4줄)이 담보한다.
 
 > **건너뛰는 경우**: Step 1 Probe SKIP, 또는 Step 3에서 `e2e-test`가 `SKIPPED:*`나 `BLOCKED:*`를 반환해 **테스트가 한 번도 실행되지 않은 경우**. e2e-test가 1회 이상 정상 실행됐다면 통과/실패와 무관하게 항상 렌더링한다.
 
-1. 리포트 하단에 Step 2의 "최종 요약 블록 형식"으로 `## 최종 요약`을 append 한다 (`- 커버리지:` 줄 포함).
+1. E2E_RESULTS의 e2e 요약·terminal_state·tested_tree를 실제 결과로 갱신하고 result-contract 검사를 통과시킨다. 리포트 하단에 Step 2의 "최종 요약 블록 형식"으로 `## 최종 요약`을 append 한다 (`- 커버리지:` 줄 포함).
 2. 렌더러를 실행한다:
    ```bash
-   python3 {RENDERER} {RUN_REPORT} --out-dir {REPORT_DIR} --branch "$(git branch --show-current)" \
+   python3 "{RENDERER}" "{E2E_RESULTS}" --run-id "{RUN_ID}" --out-dir "{REPORT_DIR}" --branch "$(git branch --show-current)" \
      --level {smoke|full} [--level-note "{사유}"] --status {DONE|BLOCKED:MAX_ITERATIONS|BLOCKED:NO_PROGRESS|BLOCKED:INTERRUPTED}
    ```
    - `--level`: 헤더 `> 수준:` 매핑 — `smoke` → `--level smoke`, `full` → `--level full`, `full(smoke 미적용: X)` → `--level full --level-note "X"`. `--level`·`--status`는 필수 인자다.
    - `--status`: 종료 표의 결과 — 판정 `PASS`/`WARN` 탈출 = `DONE`. 실행 후 중단 = `BLOCKED:INTERRUPTED` (원인은 `## 실행 중단`에 필수 기록).
    - 출력 파일: `{REPORT_DIR}/{YYYYMMDD-HHMMSS}-{branch}-e2e-report.md` (스크립트가 결정, 덮어쓰지 않음). **파일명 컨벤션은 고정**: 상위 워크플로우가 `*-e2e-report.md` 패턴에 의존한다.
    - stdout 두 줄 `경로: …` / `상태: OK|DEGRADED({사유})`. `DEGRADED`(필수 필드 결여·파싱 실패·케이스 연속성 위반 의심 등)여도 파일은 생성된다 — 사유를 종료 출력에 병기한다.
-3. **폴백** (exit ≠ 0 — python3 부재·인자 오류·쓰기 실패): 감지 = exit code → `mkdir -p {REPORT_DIR} && cp {RUN_REPORT} {REPORT_DIR}/{YYYYMMDD-HHMMSS}-{branch}-e2e-report.md` 로 원시 기록을 그대로 저장 → 고지: "E2E 리포트 렌더링 스크립트 실패({사유}) — 원시 실행 기록을 그대로 저장했습니다." 종료 출력의 `E2E 리포트:` 줄에 `(원시 기록, 렌더링 실패: {사유})`를 병기한다.
+3. 스크립트 실패 시 RUN_REPORT와 E2E_RESULTS를 기존 실행 디렉터리에 보관하고 두 경로와 실패 이유를 보고한다. `cp`로 예상 영구 경로에 덮어쓰지 않는다. 종료 출력은 `(원시 기록 보관, 렌더링 실패: {사유})`로 표시한다.
 4. 생성된 md 절대 경로를 "종료 시 출력"의 `E2E 리포트:` 줄에 기록한다.
 
-렌더러가 계산하는 것(참고 — 규칙은 스크립트 상단 주석이 canonical): TC = `{분류} + {케이스명}` 동일성으로 iteration 순 통합(`TC-01`, `TC-02`…) · verdict = `CLEAN PASS` / `PASS (after N fixes)` / `FAIL` / `INCONCLUSIVE({사유})` / `PARTIAL({사유})` (마커 우선, 수정 없이 재시도 통과·수정 후 재검증 기록 없음은 INCONCLUSIVE) · 귀속 = `- 귀속:` 줄 우선, 없으면 `- 수정:` 경로 추정 · GAP = 미해결 이슈 + FAIL TC + 미호출 엔드포인트 + `UNCOVERED`/`SMOKE_OMITTED` (없으면 "기록 없음 — 리포트는 실행된 케이스만 증명한다") · 직답 = 경성 결함 0건 ∧ 수정 후 통과 0건 ∧ `SMOKE_OMITTED` 0건 ∧ `DONE`일 때만 `예`, smoke는 최대 `조건부 예 (smoke 범위)`.
+렌더러가 계산하는 것(참고 — 규칙은 스크립트 상단 주석이 canonical): TC = `case_id` 동일성으로 iteration 순 통합(`TC-01`, `TC-02`…) · verdict = `CLEAN PASS` / `PASS (after N fixes)` / `FAIL` / `INCONCLUSIVE({사유})` / `PARTIAL({사유})` (마커 우선, 수정 없이 재시도 통과·수정 후 재검증 기록 없음은 INCONCLUSIVE) · 귀속 = `- 귀속:` 줄 우선, 없으면 `- 수정:` 경로 추정 · GAP = 미해결 이슈 + FAIL TC + 미호출 엔드포인트 + `UNCOVERED`/`SMOKE_OMITTED` (없으면 "기록 없음 — 리포트는 실행된 케이스만 증명한다") · 직답 = 경성 결함 0건 ∧ 수정 후 통과 0건 ∧ `SMOKE_OMITTED` 0건 ∧ `DONE`일 때만 `예`, smoke는 최대 `조건부 예 (smoke 범위)`.
 
 ## 종료 시 출력
 

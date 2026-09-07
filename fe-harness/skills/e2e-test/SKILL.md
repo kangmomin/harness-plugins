@@ -144,8 +144,8 @@ test('API 에러 시 에러 메시지를 표시한다', async ({ page }) => {
 여러 에이전트가 동시에 E2E를 돌리면 같은 dev 서버 포트를 두고 충돌한다. 테스트를 실행하기 전에 **실행 락**을 잡고, 잡을 때까지 기다린다. `--no-lock`이어도 위 실행 컨텍스트는 확정하고, 아래 락 획득만 건너뛴다.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh \
-  acquire "{serverUrl}" --token "{E2E_LOCK_TOKEN}" --label "e2e-test {브랜치명 또는 대상 요약}"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" \
+  acquire "{E2E_BIND_ENDPOINT}" --token "{E2E_LOCK_TOKEN}" --label "e2e-test {브랜치명 또는 대상 요약}"
 ```
 
 profile의 `e2eLockDir`은 `run-context.md`대로 acquire·beat·release·status **모든 호출에 동일하게 적용**한다.
@@ -160,7 +160,7 @@ profile의 `e2eLockDir`은 `run-context.md`대로 acquire·beat·release·status
 
 대기 중이면 사용자에게 한 줄로 알린다: "다른 에이전트가 `{serverUrl}` E2E 실행 중 — 순번을 기다립니다."
 
-락 키는 `serverUrl` 의 host:port 라, 다른 포트를 쓰는 에이전트끼리는 서로 기다리지 않는다.
+run-context.md에 따라 실제 bind endpoint를 확인하고, 획득 출력의 E2E_RESOURCE_KEY를 보관한다. 같은 namespace/주소/port가 겹치는 경우만 대기한다. 별도 REST/gRPC 포트는 각각 예약한다.
 보유자가 heartbeat 없이 15분을 넘기면(에이전트가 죽은 경우) 락은 자동 회수된다.
 
 ### Step 3: 테스트 실행
@@ -170,7 +170,7 @@ npx playwright test {테스트 파일들} --reporter=list
 ```
 
 테스트가 오래 걸리면 중간에 heartbeat 를 보낸다 —
-`bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh beat "{serverUrl}" --token "{E2E_LOCK_TOKEN}"`.
+`bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" beat "{E2E_RESOURCE_KEY}" --token "{E2E_LOCK_TOKEN}"`.
 
 개발 서버가 필요한 경우, `playwright.config.ts`의 `webServer` 설정을 확인한다.
 설정이 없으면 유저에게 개발 서버 실행을 안내한다:
@@ -223,7 +223,7 @@ Step 2.5에서 락을 잡았다면 반드시 해제한다. **정상 종료·SKIP
 TTL(15분) 자동 회수는 안전망이지 해제 수단이 아니며, 그동안 다른 에이전트가 대기한다.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh release "{serverUrl}" --token "{E2E_LOCK_TOKEN}"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" release "{E2E_RESOURCE_KEY}" --token "{E2E_LOCK_TOKEN}"
 ```
 
 `RELEASE_DENIED` 가 나오면 이미 TTL 회수 후 다른 에이전트가 락을 가져간 것이다 (해당 실행 결과는 오염 가능성이 있으므로 리포트에 경고로 남긴다).

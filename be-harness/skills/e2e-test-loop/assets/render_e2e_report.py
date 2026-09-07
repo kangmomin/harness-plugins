@@ -7,11 +7,12 @@
   종료:   파일을 썼으면 exit 0 + stdout `경로: …` / `상태: OK|DEGRADED({사유})`. 파일을 못 쓰면(인자 오류·입력 파일 부재·쓰기 실패) exit 2.
   출력:   {DIR}/{YYYYMMDD-HHMMSS}-{slug(branch)}-e2e-report.md — 배타적 생성(존재 시 -2, -3 접미), 덮어쓰지 않음.
 
-입력 계약 ({RUN_REPORT} 고정 구조만 사용 — 여기에 적히지 않은 것은 리포트에 없다):
+우선 입력: workflow_results.py schema_version=1 JSON. run_id/phase/iteration/case_id/protocol/tested_tree를 검증한다.
+legacy Markdown 입력 계약 ({RUN_REPORT} 고정 구조만 사용 — 여기에 적히지 않은 것은 리포트에 없다):
   헤더 `# E2E 테스트 실행 리포트 — {대상}` / `> E2E 메인 플로우:` / `> 수준:` (정보용)
   `## 테스트 대상 엔드포인트` — 백틱 `METHOD PATH` 항목 = 대상
   `## Iteration 기록` — `### Iteration N` 아래 `#### {분류} — {케이스명}` 케이스 블록(- 요청/- 기대/- 실제/- 판정 필수)
-      + `**실패 → 수정 (…)**` 블록(- 실패 원인/- 수정/- 귀속(선택)/- 재빌드) — 직전 케이스(시도)에 귀속
+      + `**실패 → 수정 (…)**` 블록(- 실패 원인/- 수정/- 귀속(선택)/- 재빌드) — iteration+case_id로 귀속; legacy 이름은 DEGRADED 호환만 지원
   `## 최종 요약` — `- 미해결 이슈:` / `- 커버리지:` (UNCOVERED {ID}({사유}) … / SMOKE_OMITTED {IDs} / 없음)
   `## 실행 중단` — `- 중단 원인:` (BLOCKED:INTERRUPTED에서는 필수). 실행된 iteration과 수정 기록을 보존한다.
   fail-closed: 필수 섹션·줄·필드가 없으면 `필수 입력 결여`로 집계(직답은 `아니오`) + DEGRADED. 결여를 0으로 간주하지 않는다.
@@ -29,10 +30,16 @@
 import argparse
 import datetime as _dt
 import os
+import json
+from pathlib import Path
 import re
 import sys
 
-METHODS = "GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS"
+sys.dont_write_bytecode = True
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "start-workflow/assets"))
+from workflow_results import validate, publish_text
+
+METHODS = "[A-Z][A-Z0-9_-]*"
 REQ_RE = re.compile(r"`?\b(%s)\s+([^\s`·]+)" % METHODS)
 UUID_RE = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 INFRA_HINTS = ("test", "spec", "mock", "fixture", "env", "docker", "helper", "scripts/", "testdata", "seed", "compose", "stub", "fake")
@@ -120,6 +127,7 @@ def parse_iterations(lines, diags):
     cur_iter = None
     cur = None
     in_fix = None
+    fixes = []
     for ln in lines:
         m_it = re.match(r"^###\s+Iteration\s+(\d+)", ln)
         if m_it:
@@ -141,13 +149,10 @@ def parse_iterations(lines, diags):
             attempts.append(cur)
             in_fix = None
             continue
-        if re.match(r"^\*\*실패\s*→\s*수정", ln):
-            in_fix = {"lines": []}
-            if cur is None:
-                diags.append("귀속 불가 수정 블록(선행 케이스 없음)")
-                in_fix = None
-                continue
-            cur["fixes"].append(in_fix)
+        m_fix = re.match(r"^\*\*실패\s*→\s*수정\s*\((.*?)\)", ln)
+        if m_fix:
+            in_fix = {"lines": [], "label": m_fix.group(1), "iter": cur_iter}
+            fixes.append(in_fix)
             continue
         if in_fix is not None:
             if ln.strip() == "" and in_fix["lines"]:
@@ -161,6 +166,7 @@ def parse_iterations(lines, diags):
             cur["lines"].append(ln)
     for a in attempts:
         L = a["lines"]
+        a["case_id"] = bullet(L, "case_id")
         a["req"] = bullet(L, "요청")
         a["exp"] = bullet(L, "기대")
         a["act"] = bullet(L, "실제")
@@ -171,17 +177,40 @@ def parse_iterations(lines, diags):
             kind, reason = "INCONCLUSIVE", "필수 필드 결여: " + ", ".join(a["missing"])
         elif kind == "MISSING":
             kind, reason = "INCONCLUSIVE", "판정 표기 해석 불가: " + (v or "")
+        request = REQ_RE.search(a["req"] or "")
+        method = request.group(1) if request else None
+        a["server_contact"] = None
+        if method not in (None, "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"):
+            a["server_contact"] = bullet(L, "서버 도달") == "true" and bullet(L, "클라이언트 오류") == "false"
+            if method != "GRPC" or not a["server_contact"]:
+                kind, reason = "INCONCLUSIVE", "미지원 프로토콜 또는 서버 도달 증거 없음"
         a["verdict"], a["reason"] = kind, reason
-        for f in a["fixes"]:
-            FL = f["lines"]
-            f["cause"] = bullet(FL, "실패 원인") or "(미기재)"
-            f["fix"] = bullet(FL, "수정")
-            f["rebuild"] = bullet(FL, "재빌드/재시작") or "(미기재)"
-            attr = bullet(FL, "귀속")
-            if attr:
-                f["attr"], f["attr_basis"] = attr, "기록된 귀속 줄"
-            else:
-                f["attr"], f["attr_basis"] = attribution_from_fix(f["fix"])
+    keys = [(a["iter"], a["case_id"]) for a in attempts if a["case_id"]]
+    if len(keys) != len(set(keys)):
+        raise ValueError("duplicate iteration/case_id")
+    for f in fixes:
+        case_id = bullet(f["lines"], "case_id")
+        iteration = bullet(f["lines"], "iteration")
+        if case_id:
+            if not iteration or not iteration.isdigit():
+                raise ValueError("fix iteration required")
+            matches = [a for a in attempts if a["case_id"] == case_id and a["iter"] == int(iteration)]
+        else:
+            matches = [a for a in attempts if a["name"] == f["label"] and a["iter"] == f["iter"]]
+            diags.append("귀속 불가 legacy 계약: 수정에 iteration/case_id 없음")
+        if len(matches) != 1 or matches[0]["fixes"]:
+            raise ValueError("unknown or duplicate fix iteration/case_id")
+        matches[0]["fixes"].append(f)
+    for f in fixes:
+        FL = f["lines"]
+        f["cause"] = bullet(FL, "실패 원인") or "(미기재)"
+        f["fix"] = bullet(FL, "수정")
+        f["rebuild"] = bullet(FL, "재빌드/재시작") or "(미기재)"
+        attr = bullet(FL, "귀속")
+        if attr:
+            f["attr"], f["attr_basis"] = attr, "기록된 귀속 줄"
+        else:
+            f["attr"], f["attr_basis"] = attribution_from_fix(f["fix"])
     return attempts
 
 
@@ -216,11 +245,45 @@ def verdict_class(v):
     return "FAIL"
 
 
-def main():
+def case_key(attempt):
+    return attempt.get("case_id") or (attempt["cat"], attempt["name"])
+
+
+def structured_inputs(data):
+    summary = data.get("e2e")
+    if not isinstance(summary, dict) or summary.get("level") not in ("smoke", "full"):
+        raise ValueError("e2e summary/level required")
+    for name in ("unresolved", "uncovered", "smoke_omitted"):
+        if not isinstance(summary.get(name), list) or not all(isinstance(v, str) for v in summary[name]):
+            raise ValueError("e2e." + name + " string array required")
+    targets = {t["target_id"]: t for t in data["targets"]}
+    operations = {key: tuple(t["operation"].split(" ", 1)) if t["protocol"] == "HTTP" else (t["protocol"], t["operation"]) for key, t in targets.items()}
+    cases = {c["case_id"]: c for c in data["cases"]}
+    fixes = {(f["domain"], f["case_id"], f["iteration"]): f for f in data["fixes"]}
+    attempts, called = [], set()
+    for event in sorted(data["events"], key=lambda e: e["iteration"]):
+        if event["kind"] != "e2e":
+            continue
+        case = cases[event["case_id"]]
+        verdict = event["verdict"] if event["verdict"] in ("PASS", "FAIL", "INCONCLUSIVE", "PARTIAL") else "PARTIAL"
+        attempt = dict(iter=event["iteration"], case_id=case["case_id"], cat=case["category"], name=case["name"],
+            req=event["request"], exp=event["expected"], act=event["actual"], verdict=verdict,
+            reason=event.get("reason", ""), fixes=[], missing=[])
+        fix = fixes.get((event["domain"], case["case_id"], event["iteration"]))
+        if fix:
+            attempt["fixes"].append(dict(cause=fix["cause"], fix=fix["change"], rebuild=fix["rebuild"], attr=fix["attribution"], attr_basis="iteration/case_id 결과 계약"))
+        if event["server_contact"] and not event["client_error"]:
+            called.add(operations[case["target_id"]])
+        attempts.append(attempt)
+    return summary, list(operations.values()), attempts, called
+
+
+def render_main():
     ap = argparse.ArgumentParser()
     ap.add_argument("run_report")
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--branch", default="")
+    ap.add_argument("--run-id")
     ap.add_argument("--level", required=True, choices=["smoke", "full"])
     ap.add_argument("--level-note", default="")
     ap.add_argument("--status", required=True, choices=["DONE", "BLOCKED:MAX_ITERATIONS", "BLOCKED:NO_PROGRESS", "BLOCKED:INTERRUPTED"])
@@ -229,8 +292,13 @@ def main():
     if not os.path.isfile(args.run_report):
         print("오류: 입력 파일 없음: %s" % args.run_report, file=sys.stderr)
         return 2
-    raw = open(args.run_report, "rb").read()
+    raw = Path(args.run_report).read_bytes()
     text = raw.decode("utf-8", errors="replace")
+    data = validate(json.loads(text), args.run_id) if text.lstrip().startswith("{") else None
+    if data is not None:
+        if data["terminal_state"] != args.status:
+            raise ValueError("CLI/result terminal state mismatch")
+        text = ""
     diags = []
     missing = []  # 필수 입력 결여 항목
     if "�" in text and b"\xef\xbf\xbd" not in raw:
@@ -310,17 +378,33 @@ def main():
     elif text.strip():
         missing.append("## 최종 요약")
 
+    structured_called = None
+    if data is not None:
+        summary, targets, attempts, structured_called = structured_inputs(data)
+        if summary["level"] != args.level:
+            raise ValueError("CLI/result E2E level mismatch")
+        missing, diags = [], []
+        title, main_flow, header_level = data.get("title", "E2E"), summary.get("main_flow", ""), summary["level"]
+        stop_reason = summary.get("stop_reason")
+        if args.status == "BLOCKED:INTERRUPTED" and not stop_reason:
+            missing.append("e2e.stop_reason required")
+        unresolved, smoke_omitted = summary["unresolved"], summary["smoke_omitted"]
+        uncovered = [(item, "") for item in summary["uncovered"]]
+        total_iter, total_tests = str(len({a["iter"] for a in attempts})), str(len(attempts))
+        if not targets:
+            missing.append("테스트 대상 엔드포인트 항목(0건)")
+
     # TC 그룹핑
     tcs = []
     index = {}
     for a in attempts:
-        key = (a["cat"], a["name"])
+        key = case_key(a)
         if key not in index:
             index[key] = len(tcs)
             tcs.append({"cat": a["cat"], "name": a["name"], "atts": []})
         tcs[index[key]]["atts"].append(a)
     for i, tc in enumerate(tcs, 1):
-        tc["id"] = "TC-%02d" % i
+        tc["id"] = tc["atts"][0].get("case_id") or "TC-%02d" % i
         tc["verdict"] = tc_verdict(tc["atts"])
         tc["class"] = verdict_class(tc["verdict"])
         fixes = [f for a in tc["atts"] for f in a["fixes"]]
@@ -337,16 +421,16 @@ def main():
     by_iter = {}
     first_iter = {}
     for a in attempts:
-        by_iter.setdefault(a["iter"], set()).add((a["cat"], a["name"]))
-        first_iter.setdefault((a["cat"], a["name"]), a["iter"])
+        by_iter.setdefault(a["iter"], set()).add(case_key(a))
+        first_iter.setdefault(case_key(a), a["iter"])
     for k_idx, k in enumerate(iters[:-1]):
         nxt = iters[k_idx + 1]
         for a in attempts:
-            if a["iter"] == k and a["verdict"] == "FAIL" and a["fixes"] and (a["cat"], a["name"]) not in by_iter.get(nxt, set()):
+            if a["iter"] == k and a["verdict"] == "FAIL" and a["fixes"] and case_key(a) not in by_iter.get(nxt, set()):
                 newcomers = [key for key in by_iter.get(nxt, set()) if first_iter.get(key) == nxt]
                 if newcomers:
                     nm = newcomers[0]
-                    diags.append("케이스 연속성 위반 의심: %s — %s → %s — %s?" % (a["cat"], a["name"], nm[0], nm[1]))
+                    diags.append("케이스 연속성 위반 의심: %s — %s → %s — %s?" % (a["cat"], a["name"], str(nm), ""))
                     break
 
     if text.strip() and "Iteration 기록" in secs and not attempts:
@@ -355,17 +439,19 @@ def main():
     # 호출·미호출
     called = set()
     for a in attempts:
-        if a["req"]:
+        if a["req"] and a.get("server_contact") is not False:
             m = REQ_RE.search(a["req"])
             if m:
                 called.add((m.group(1), norm_path(m.group(2))))
+    if structured_called is not None:
+        called = {(method, norm_path(operation)) for method, operation in structured_called}
     uncalled = [t for t in targets if (t[0], norm_path(t[1])) not in called]
 
     # 집계
     counts = {"CLEAN PASS": 0, "PASS (after fixes)": 0, "FAIL": 0, "INCONCLUSIVE": 0, "PARTIAL": 0}
     for tc in tcs:
         counts[tc["class"]] += 1
-    hard = []
+    hard = list(diags)
     if counts["FAIL"]:
         hard.append("FAIL TC %d건" % counts["FAIL"])
     if counts["INCONCLUSIVE"]:
@@ -400,7 +486,7 @@ def main():
     elif args.level == "smoke" and answer == "조건부 예":
         answer = "조건부 예 (smoke 범위)"
 
-    status_reasons = []
+    status_reasons = (["미호출 엔드포인트 %d건" % len(uncalled)] if uncalled else [])
     if missing:
         status_reasons.append("필수 입력 결여: " + "; ".join(missing))
     status_reasons.extend(d for d in diags if d.startswith("파싱 실패") or d.startswith("케이스 연속성") or d.startswith("귀속 불가"))
@@ -419,6 +505,9 @@ def main():
     out.append("updated: %s" % today)
     out.append("level: %s" % args.level)
     out.append("loop_status: %s" % args.status)
+    if data is not None:
+        out.append("run_id: " + json.dumps(data["run_id"]))
+        out.append("tested_tree: " + json.dumps(data["tested_tree"], sort_keys=True))
     out.append('verdict: "%s"' % answer)
     out.append("---")
     out.append("")
@@ -523,26 +612,19 @@ def main():
         out.append("```")
     out.append("")
 
-    os.makedirs(args.out_dir, exist_ok=True)
     stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-    base = os.path.join(args.out_dir, "%s-%s-e2e-report" % (stamp, slug(branch)))
-    path = base + ".md"
-    n = 1
-    while True:
-        try:
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
-            break
-        except FileExistsError:
-            n += 1
-            path = "%s-%d.md" % (base, n)
-        except OSError as e:
-            print("오류: 파일 생성 실패: %s" % e, file=sys.stderr)
-            return 2
-    with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        fh.write("\n".join(out))
+    path = publish_text(args.out_dir, "%s-%s-e2e-report" % (stamp, slug(branch)), "\n".join(out))
     print("경로: %s" % os.path.abspath(path))
     print("상태: %s" % status)
     return 0
+
+
+def main():
+    try:
+        return render_main()
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        print("오류: 리포트 생성 실패: %s" % error, file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

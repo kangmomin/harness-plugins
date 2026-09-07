@@ -1,6 +1,6 @@
 ---
 name: e2e-test
-description: "기능 추가/수정 후 연관 HTTP API를 실제 요청으로 E2E 테스트한다. 'API 실제로 테스트해줘', 구현 검증이 필요할 때 사용. profile의 runServerCommand/serverUrl 기반, Bash+curl만 사용."
+description: "기능 추가/수정 후 연관 HTTP API를 실제 요청으로 E2E 테스트한다. 'API 실제로 테스트해줘', 구현 검증이 필요할 때 사용. profile의 runServerCommand/serverUrl 기반, Bash+curl로 요청하고 Python/POSIX 실행 잠금을 사용."
 allowed-tools: Read, Write, Glob, Grep, Bash, AskUserQuestion
 argument-hint: "<대상 API 설명 또는 엣지 케이스 ID> [--smoke]"
 user-invocable: true
@@ -44,7 +44,7 @@ user-invocable: true
 1. profile 읽고 `e2eEnabled`, `serverUrl`, `runServerCommand` 유효성 확인
 2. `curl --version` 확인
 3. 포트 충돌 여부 (`ss -tlnp` 또는 `lsof -i :PORT`) 확인
-4. 실행 락 현황 확인 — `bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh status`
+4. 실행 락 현황 확인 — `bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" status`
 5. 결과 표 출력 후 종료
 
 ---
@@ -120,8 +120,8 @@ Spec에 엣지 케이스 표가 없거나 ID가 없으면(구버전 Spec) `EC-*`
 **`--skip-server` 여도 이 Step은 수행한다** — 이미 떠 있는 공유 서버를 여러 에이전트가 두드리는 상황이야말로 락이 가장 필요하다.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh \
-  acquire "{serverUrl}" --token "{E2E_LOCK_TOKEN}" --label "e2e-test {브랜치명 또는 대상 요약}"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" \
+  acquire "{E2E_BIND_ENDPOINT}" --token "{E2E_LOCK_TOKEN}" --label "e2e-test {브랜치명 또는 대상 요약}"
 ```
 
 profile의 `e2eLockDir`은 `run-context.md`대로 acquire·beat·release·status **모든 호출에 동일하게 적용**한다.
@@ -136,7 +136,7 @@ profile의 `e2eLockDir`은 `run-context.md`대로 acquire·beat·release·status
 
 대기 중이면 사용자에게 한 줄로 알린다: "다른 에이전트가 `{serverUrl}` E2E 실행 중 — 순번을 기다립니다."
 
-락 키는 `serverUrl` 의 host:port 라, 다른 서비스를 테스트하는 에이전트끼리는 서로 기다리지 않는다.
+run-context.md에 따라 실제 bind endpoint를 확인하고, 획득 출력의 E2E_RESOURCE_KEY를 보관한다. 같은 namespace/주소/port가 겹치는 경우만 대기한다. 별도 REST/gRPC 포트는 각각 예약한다.
 보유자가 heartbeat 없이 15분을 넘기면(에이전트가 죽은 경우) 락은 자동 회수된다.
 
 ## Step 4: 서버 기동
@@ -161,7 +161,7 @@ run_in_background:
 ## Step 5: 요청 실행
 
 > 락을 잡았다면(`--no-lock` 아님) 시나리오를 몇 개 처리할 때마다 heartbeat 를 보낸다 —
-> `bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh beat "{serverUrl}" --token "{E2E_LOCK_TOKEN}"`.
+> `bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" beat "{E2E_RESOURCE_KEY}" --token "{E2E_LOCK_TOKEN}"`.
 > heartbeat 가 15분 끊기면 다른 에이전트가 죽은 락으로 보고 회수한다.
 
 각 시나리오에 대해:
@@ -200,7 +200,7 @@ Step 3.5에서 락을 잡았다면 반드시 해제한다. **정상 종료·SKIP
 TTL(15분) 자동 회수는 안전망이지 해제 수단이 아니며, 그동안 다른 에이전트가 대기한다.
 
 ```bash
-bash ${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh release "{serverUrl}" --token "{E2E_LOCK_TOKEN}"
+bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" release "{E2E_RESOURCE_KEY}" --token "{E2E_LOCK_TOKEN}"
 ```
 
 `RELEASE_DENIED` 가 나오면 이미 TTL 회수 후 다른 에이전트가 락을 가져간 것이다 (해당 실행 결과는 오염 가능성이 있으므로 리포트에 경고로 남긴다).
