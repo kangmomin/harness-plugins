@@ -3,14 +3,14 @@ r"""workflow_archive.py — Phase 12(fe 11 / 풀스택 11): 슬림 Workflow Repo
 
 계약 (canonical — templates.md는 호출법만 둔다):
   사용법: workflow_archive.py report --src WORK_REPORT --state STATE_FILE --run-id ID --report-dir DIR --task NAME
-          [--impl-notes IMPL_NOTES] [--start-sha SHA] [--require-headings "h1,h2,…"]
+          [--results RESULTS_JSON] [--impl-notes IMPL_NOTES] [--start-sha SHA] [--require-headings "h1,h2,…"]
   종료:   파일을 썼으면(또는 같은 run_id 파일을 재사용하면) exit 0 + stdout `경로: …` / `상태: OK|DEGRADED({사유})`.
           입력 파일 부재·인자 오류·쓰기 실패 → exit 2.
   출력:   {DIR}/{YYYYMMDD}-{slug(task)}-{run_id}-workflow-report.md
           = frontmatter(title/type/tags/status/created/updated/run_id + 파싱 가능 시 tier/escalated/regression_count/touched_paths)
           + 보고서 본문(sentinel 이하 제거 후) + `## 부록 A: 실행 요약` + `## 부록 B: 상태 파일 전문`(헤딩 1단계 강등) + `## 부록 C: Implementation Notes`.
-  재사용: 같은 경로의 기존 파일 frontmatter `run_id`가 인자와 같으면 재생성하지 않고 그 경로를 출력(동일 실행 재시도). 다르면 `-2`, `-3` 접미로 새로 생성.
-  쓰기:   임시 파일 작성 → 배타적 링크/이름 변경 (덮어쓰기 없음, 생성 후 수정 없음).
+  재사용: report-dir의 같은 run_id 파일을 날짜/task와 무관하게 찾고 저장된 archive_status를 보존한다. 기존 파일 frontmatter `run_id`가 인자와 같으면 재생성하지 않고 그 경로를 출력(동일 실행 재시도). 다르면 `-2`, `-3` 접미로 새로 생성.
+  쓰기:   임시 파일 작성 → 배타적 링크; 미지원 시 exit2, replace 폴백 없음 (덮어쓰기 없음, 생성 후 수정 없음).
   검증:   --require-headings 의 각 항목이 본문 헤딩(#… 텍스트가 항목으로 시작)에 없으면 `### {항목} (INCOMPLETE)` 삽입 + DEGRADED(머리글 누락).
           impl-notes 4 머리글(설계 결정/편차/트레이드오프/미결 질문) 누락 → 플레이스홀더 + DEGRADED.
   touched_paths: --start-sha(없으면 상태 파일 `시작 커밋`/`START_SHA`) 기준 `git diff --name-only SHA` ∪ untracked, 제외 패턴은 verification-tier.md ②와 동일.
@@ -18,10 +18,16 @@ r"""workflow_archive.py — Phase 12(fe 11 / 풀스택 11): 슬림 Workflow Repo
 import argparse
 import datetime as _dt
 import fnmatch
+import fcntl
+import json
+from pathlib import Path
 import os
 import re
 import subprocess
 import sys
+
+sys.dont_write_bytecode = True
+from workflow_results import load as load_results, latest, publish_text
 
 SENTINEL = "<!-- workflow-archive: appendix -->"
 IMPL_HEADINGS = ["설계 결정", "편차", "트레이드오프", "미결 질문"]
@@ -35,19 +41,20 @@ def slug(s):
 
 
 def read(path):
-    return open(path, "rb").read().decode("utf-8", errors="replace")
+    return Path(path).read_bytes().decode("utf-8", errors="replace")
 
 
-def git(args):
+def git(args, raw=False):
     try:
-        r = subprocess.run(["git"] + args, capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.TimeoutExpired):
+        root = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, check=True, timeout=30).stdout.rstrip(b"\n")
+        r = subprocess.run(["git", "-C", os.fsdecode(root)] + args, capture_output=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
         return None
-    return r.stdout if r.returncode == 0 else None
+    return (r.stdout if raw else r.stdout.decode("utf-8", errors="surrogateescape")) if r.returncode == 0 else None
 
 
 def split_frontmatter(text):
-    m = re.match(r"^---\n(.*?)\n---\n?", text, re.S)
+    m = re.match(r"^---\r?\n(.*?)\r?\n---(?:\r?\n)?", text, re.S)
     if not m:
         return [], text
     return m.group(1).splitlines(), text[m.end():]
@@ -57,7 +64,12 @@ def fm_get(lines, key):
     for ln in lines:
         m = re.match(r"^%s:\s*(.*)$" % re.escape(key), ln)
         if m:
-            return m.group(1).strip().strip('"')
+            value = m.group(1).strip()
+            if value.startswith('"'):
+                return json.loads(value)
+            if value.startswith("'") and value.endswith("'"):
+                return value[1:-1].replace("''", "'")
+            return value
     return None
 
 
@@ -96,15 +108,65 @@ def excluded(path):
 def touched_paths(sha):
     if not sha or git(["cat-file", "-e", sha]) is None:
         return None
-    diff = git(["diff", "--name-only", sha])
-    untracked = git(["ls-files", "--others", "--exclude-standard"])
+    diff = git(["diff", "--no-relative", "--name-only", "-z", sha, "--"], raw=True)
+    untracked = git(["ls-files", "--others", "--exclude-standard", "-z"], raw=True)
     if diff is None or untracked is None:
         return None
-    paths = set(l.strip() for l in (diff + "\n" + untracked).splitlines() if l.strip())
+    paths = {os.fsdecode(name) for name in (diff + untracked).split(b"\0") if name}
     return sorted(p for p in paths if not excluded(p))
 
 
-def main():
+def update_frontmatter(lines, values):
+    blocks, seen = [], set()
+    for line in lines:
+        match = re.match(r'^("(?:\\.|[^"\\])*"|\w[\w-]*):', line)
+        if match:
+            key = json.loads(match[1]) if match[1].startswith('"') else match[1]
+            if key in seen:
+                raise ValueError("duplicate frontmatter key: " + key)
+            seen.add(key)
+            blocks.append([key, [line]])
+        elif not line.strip() or line.startswith((" ", "\t", "#")):
+            if not blocks:
+                blocks.append([None, []])
+            blocks[-1][1].append(line)
+        else:
+            raise ValueError("unsupported frontmatter layout")
+    out = [line for key, block in blocks if key not in values for line in block]
+    out.extend(key + ": " + json.dumps(value, ensure_ascii=True) for key, value in values.items())
+    return out
+
+
+def final_results(data, rows, mode):
+    if data is not None:
+        selected = list(latest(data).values())
+        return {kind: [event for event in selected if event["kind"] == kind] for kind in ("unit", "e2e", "readback")}
+    # Legacy migration view only: paired values come from the SAME last row.
+    phases = {"be": {"unit": "8.1", "e2e": "8.6"},
+              "fe": {"unit": "7.1", "e2e": "7.4"},
+              "fs": {"unit": "7", "e2e": "8.2", "readback": "8.1"}}.get(mode, {})
+    out = {kind: [] for kind in ("unit", "e2e", "readback")}
+    for kind, phase in phases.items():
+        matches = [row for row in rows if len(row) >= 3 and row[0] == phase]
+        if not matches:
+            continue
+        row = matches[-1]
+        verdicts = re.findall(r"\b(PASS|WARN|FAIL)\b", row[2])
+        verdict = next((v for v in ("FAIL", "WARN", "PASS") if v in verdicts), "INCONCLUSIVE")
+        event = dict(domain=mode, kind=kind, phase=phase, verdict=verdict, terminal_state=row[1])
+        count = re.search(r"regression\s*\[?(\d+)\]?\s*건", row[2])
+        if count:
+            event["regression_count"] = int(count[1])
+        out[kind].append(event)
+    return out
+
+
+def describe_results(events):
+    return "; ".join("%s Phase %s %s%s" % (e["domain"], e["phase"], e["verdict"],
+        " · regression: %s" % e.get("regression_count", "기록 없음") if e["kind"] == "unit" else "") for e in events) or "기록 없음"
+
+
+def archive_main():
     ap = argparse.ArgumentParser()
     ap.add_argument("mode", choices=["report"])
     ap.add_argument("--src", required=True)
@@ -113,6 +175,7 @@ def main():
     ap.add_argument("--report-dir", required=True)
     ap.add_argument("--task", required=True)
     ap.add_argument("--impl-notes", default=None)
+    ap.add_argument("--results")
     ap.add_argument("--start-sha", default=None)
     ap.add_argument("--require-headings", default=None)
     args = ap.parse_args()
@@ -121,13 +184,20 @@ def main():
         if not os.path.isfile(p):
             print("오류: 입력 파일 없음: %s" % p, file=sys.stderr)
             return 2
-    degraded = []
+    if not re.fullmatch(r"[A-Za-z0-9._-]{1,100}", args.run_id):
+        raise ValueError("invalid run_id")
+    evidence = load_results(args.results, args.run_id) if args.results else None
+    degraded = [] if evidence is not None else ["구조화된 결과 없음 — legacy 요약은 검증 증거가 아님"]
     today = _dt.date.today().isoformat()
     src = read(args.src)
     state = read(args.state)
     impl = read(args.impl_notes) if args.impl_notes else None
 
     fm_lines, body = split_frontmatter(src)
+    source_run = fm_get(fm_lines, "run_id")
+    state_run = kv(section(state, "Run"), "RUN_ID")
+    if source_run not in (None, args.run_id) or state_run not in (None, args.run_id):
+        raise ValueError("source/state/CLI run_id mismatch")
     if SENTINEL in body:
         body = body[:body.index(SENTINEL)]
     body = body.rstrip() + "\n"
@@ -146,6 +216,13 @@ def main():
     vt = section(state, "Verification Tier")
     tier = kv(flags, "TIER") or (kv(vt, "최종 티어") or "").split(" ")[0] or None
     mode = kv(flags, "MODE")
+    if evidence is not None:
+        if mode in ("be", "fe", "fs") and mode != evidence["domain"]:
+            raise ValueError("state/result domain mismatch")
+        if mode in ("analyze", "verify") and mode != evidence["mode"]:
+            raise ValueError("state/result mode mismatch")
+        if evidence["terminal_state"] != "DONE":
+            raise ValueError("unfinished run must retain live results before permanent archive")
     start_sha = args.start_sha or kv(flags, "START_SHA") or kv(vt, "시작 커밋")
     if start_sha in ("없음", "{START_SHA}"):
         start_sha = None
@@ -155,19 +232,9 @@ def main():
         escalated = bool(esc_rows) or "tier_escalated" in state
     pr = section(state, "Phase Results")
     pr_rows = table_rows(pr) if pr else []
-    regression_count = None
-    m = re.search(r"regression\s*\[?(\d+)\]?\s*건", state)
-    if m:
-        regression_count = int(m.group(1))
-    test_verdict = None
-    e2e_row = None
-    for r in pr_rows:
-        if len(r) >= 3 and r[0].startswith("8.1"):
-            mv = re.search(r"\b(PASS|WARN|FAIL)\b", r[2])
-            if mv:
-                test_verdict = mv.group(1)
-        if len(r) >= 3 and r[0].startswith("8.6"):
-            e2e_row = "%s — %s" % (r[1], r[2])
+    final = final_results(evidence, pr_rows, mode)
+    counts = [event.get("regression_count") for event in final["unit"]]
+    regression_count = sum(counts) if counts and all(isinstance(c, int) for c in counts) else None
     artifacts = section(state, "Artifacts")
     open_q = None
     impl_missing = []
@@ -184,29 +251,23 @@ def main():
     commits = git(["log", "--format=- %h %s", "%s..HEAD" % start_sha]) if start_sha and git(["cat-file", "-e", start_sha]) is not None else None
     head = (git(["rev-parse", "HEAD"]) or "").strip() or None
 
-    # frontmatter
-    if fm_lines:
-        fm = list(fm_lines)
-        for k, v in (("run_id", args.run_id), ("type", "report"), ("status", "active"), ("created", today), ("updated", today)):
-            if fm_get(fm, k) is None:
-                fm.append("%s: %s" % (k, v))
-        if fm_get(fm, "title") is None:
-            fm.append('title: "%s 워크플로우 리포트"' % args.task.replace('"', "'"))
-        if fm_get(fm, "tags") is None:
-            fm.append("tags: [workflow-report, harness, %s]" % slug(args.task))
-    else:
-        fm = ['title: "%s 워크플로우 리포트"' % args.task.replace('"', "'"), "type: report",
-              "tags: [workflow-report, harness, %s]" % slug(args.task), "status: active",
-              "created: %s" % today, "updated: %s" % today, "run_id: %s" % args.run_id]
+    # Owned metadata is replaced once; unknown blocks remain untouched.
+    owned = dict(run_id=args.run_id, type="report", status="active", updated=today,
+                 archive_status="DEGRADED" if degraded else "OK", archive_diagnostics=degraded,
+                 result_summary=final)
+    for key, value in (("created", today), ("title", args.task + " 워크플로우 리포트"),
+                       ("tags", ["workflow-report", "harness", slug(args.task)])):
+        if fm_get(fm_lines, key) is None:
+            owned[key] = value
+    if evidence is not None:
+        owned.update(result_schema_version=evidence["schema_version"], tested_tree=evidence["tested_tree"], terminal_state=evidence["terminal_state"])
     if tier:
-        fm.append("tier: %s" % tier)
+        owned["tier"] = tier
     if escalated is not None:
-        fm.append("escalated: %s" % ("true" if escalated else "false"))
-    if regression_count is not None:
-        fm.append("regression_count: %d" % regression_count)
-    if tp is not None:
-        fm.append("touched_paths:")
-        fm.extend("  - %s" % p for p in tp)
+        owned["escalated"] = escalated
+    owned["regression_count"] = regression_count
+    owned["touched_paths"] = tp
+    fm = update_frontmatter(fm_lines, owned)
 
     # 부록 A
     a = ["## 부록 A: 실행 요약", ""]
@@ -215,8 +276,9 @@ def main():
     a.append("- Flags: %s" % (" / ".join(l.strip().lstrip("- ") for l in (flags or "").splitlines() if l.strip().startswith("-")) or "기록 없음"))
     a.append("- 검증 티어: %s" % (tier or "기록 없음"))
     a.append("- 승격 이력: %s" % ("; ".join(" | ".join(r) for r in esc_rows) if esc_rows else ("없음" if vt is not None else "기록 없음")))
-    a.append("- 최종 테스트 판정(8.1): %s · regression: %s" % (test_verdict or "기록 없음", regression_count if regression_count is not None else "기록 없음"))
-    a.append("- E2E(8.6): %s" % (e2e_row or "기록 없음"))
+    a.append("- 최종 테스트 판정: " + describe_results(final["unit"]))
+    a.append("- E2E: " + describe_results(final["e2e"]))
+    a.append("- Read-back: " + describe_results(final["readback"]))
     a.append("- 산출물: %s" % (" / ".join(l.strip().lstrip("- ") for l in (artifacts or "").splitlines() if l.strip().startswith("-")) or "기록 없음"))
     a.append("- 미결 질문: %s" % ("%d건" % open_q if open_q is not None else "기록 없음(impl-notes 미전달)"))
     a.append("- touched_paths: %s" % ("%d개 (frontmatter)" % len(tp) if tp is not None else "생략(시작 SHA 없음·도달 불가)"))
@@ -230,41 +292,36 @@ def main():
 
     doc = "---\n" + "\n".join(fm) + "\n---\n" + body + "\n" + SENTINEL + "\n\n" + "\n".join(a + b + c)
 
-    # 경로 결정 + 재사용 검사
-    os.makedirs(args.report_dir, exist_ok=True)
-    base = os.path.join(args.report_dir, "%s-%s-%s-workflow-report" % (_dt.datetime.now().strftime("%Y%m%d"), slug(args.task), args.run_id))
-    path = base + ".md"
-    n = 1
-    while os.path.exists(path):
-        ex_fm, _ = split_frontmatter(read(path))
-        if fm_get(ex_fm, "run_id") == args.run_id:
-            print("경로: %s" % os.path.abspath(path))
-            print("상태: OK(재사용 — 같은 run_id 파일 존재)")
-            return 0
-        n += 1
-        path = "%s-%d.md" % (base, n)
-    tmp = path + ".tmp-%d" % os.getpid()
+    # Run identity survives date/task changes. Reused completeness is never upgraded.
+    directory = Path(args.report_dir)
+    directory.mkdir(parents=True, exist_ok=True)
+    lock_fd = os.open(directory / ".workflow-archive.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(lock_fd, "a+b") as owner:
+        fcntl.flock(owner, fcntl.LOCK_EX)
+        if directory.exists():
+            for candidate in sorted(directory.glob("*-workflow-report*.md")):
+                if candidate.is_symlink():
+                    continue
+                existing, _ = split_frontmatter(read(candidate))
+                if fm_get(existing, "run_id") == args.run_id:
+                    saved = fm_get(existing, "archive_status") or "DEGRADED"
+                    reasons = fm_get(existing, "archive_diagnostics") or "legacy archive completeness unknown"
+                    print("경로: %s" % candidate.resolve())
+                    print("상태: %s(재사용%s)" % (saved, " — " + str(reasons) if saved != "OK" else ""))
+                    return 0
+        base = "%s-%s-%s-workflow-report" % (_dt.datetime.now().strftime("%Y%m%d"), slug(args.task), args.run_id)
+        path = publish_text(directory, base, doc)
+        print("경로: %s" % path)
+        print("상태: %s" % ("OK" if not degraded else "DEGRADED(%s)" % " | ".join(degraded)))
+        return 0
+
+
+def main():
     try:
-        with open(tmp, "w", encoding="utf-8") as fh:
-            fh.write(doc)
-        try:
-            os.link(tmp, path)
-            os.unlink(tmp)
-        except OSError:
-            if os.path.exists(path):
-                os.unlink(tmp)
-                raise FileExistsError(path)
-            os.replace(tmp, path)
-    except OSError as e:
-        print("오류: 파일 생성 실패: %s" % e, file=sys.stderr)
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
+        return archive_main()
+    except (OSError, ValueError, TypeError, KeyError) as error:
+        print("오류: 아카이브 생성 실패: %s" % error, file=sys.stderr)
         return 2
-    print("경로: %s" % os.path.abspath(path))
-    print("상태: %s" % ("OK" if not degraded else "DEGRADED(%s)" % " | ".join(degraded)))
-    return 0
 
 
 if __name__ == "__main__":
