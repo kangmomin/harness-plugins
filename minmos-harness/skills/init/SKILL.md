@@ -43,7 +43,7 @@ user-invocable: true
 - db-tools 플러그인 설치 여부
 - `.convention-check.json` 존재 여부
 - `dev-pubsub-cli` 설치 여부 → `which dev-pubsub-cli` 또는 `uv tool list` 확인
-- Worktree 자동 복사 hook 설치 여부 → `~/.claude/hooks/worktree-init.sh` 존재 + `~/.claude/settings.json`의 `hooks.SessionStart`에 등록되었는지 (Claude Code 전용)
+- Worktree 자동 복사 hook 설치 여부 → `assets/worktree_init.py inspect --settings "$HOME/.claude/settings.json"`의 실제 등록 command/bundle 검증 + `~/.claude/settings.json`의 `hooks.SessionStart`에 등록되었는지 (Claude Code 전용)
 
 > **MCP 판정**: 실제 MCP tool 호출 성공 = 연결 OK. `.mcp.json` 존재 여부는 단독 기준으로 쓰지 않는다 (상세: `/minmos-harness:doctor`).
 
@@ -240,59 +240,17 @@ Apidog MCP는 두 가지 형식 모두 지원한다. **새 형식(`env` 인라�
     > ```
 - 건너뛰기: PubSub 테스트 없이 REST/gRPC E2E 테스트만 사용 가능하다고 안내.
 
-#### 3.8 Worktree 자동 복사 hook (Claude Code 전용, MISSING인 경우, 선택)
+#### 3.8 Worktree 자동 복사 hook (Claude Code 전용, 선택)
 
-> "git worktree를 사용한다면 워크트리 생성 시 메인의 `.mcp.json`/`.env`를 자동 복사하는 SessionStart hook을 설치할 수 있습니다. 설치할까요? (Y/건너뛰기)"
+설치가 요청된 경우에만 수행한다. Claude Code가 아닌 호스트에서는 이 SessionStart 등록을 적용하지 않는다. 설치 전 기존 설정과 실제 복사 경로를 보여준다: `.mcp.json`, `.env`, `secret/.env`, `secret/gcp-sa-key.json`. 각 파일은 main/worktree 양쪽에서 untracked + ignored일 때만 복사하며 폴더 전체를 복사하지 않는다.
 
-**Claude Code가 아닌 클라이언트 환경에서는 안내만 하고 건너뛴다.**
+`references/worktree-hook.md`를 읽고 다음 helper를 실행한다. `${CLAUDE_PLUGIN_ROOT}`는 실제 설치 metadata의 minmos root다.
 
-Y 선택 시 다음을 실행한다 (스크립트 본문은 항상 덮어써서 최신 내용으로 갱신, settings 등록은 idempotent).
+```bash
+python3 -B "${CLAUDE_PLUGIN_ROOT}/skills/init/assets/worktree_init.py" install --settings "$HOME/.claude/settings.json"
+```
 
-1. `~/.claude/hooks/worktree-init.sh` 작성 (존재해도 덮어쓰기):
-   ```bash
-   mkdir -p ~/.claude/hooks
-   cat > ~/.claude/hooks/worktree-init.sh <<'EOF'
-   #!/usr/bin/env bash
-   # SessionStart hook: 보조 worktree에 진입 시 메인 worktree의
-   # .mcp.json / .env 중 현재에 없는 파일을 자동 복사한다.
-   set -u
-   input=$(cat 2>/dev/null || true)
-   cwd=$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null || true)
-   [ -z "${cwd:-}" ] && cwd="$PWD"
-   cd "$cwd" 2>/dev/null || exit 0
-   git rev-parse --git-dir >/dev/null 2>&1 || exit 0
-   main_worktree=$(git worktree list --porcelain 2>/dev/null | awk '/^worktree / {print $2; exit}')
-   [ -z "${main_worktree:-}" ] && exit 0
-   [ ! -d "$main_worktree" ] && exit 0
-   main_abs=$(realpath "$main_worktree" 2>/dev/null) || exit 0
-   cur_worktree=$(git rev-parse --show-toplevel 2>/dev/null)
-   [ -z "${cur_worktree:-}" ] && exit 0
-   cur_abs=$(realpath "$cur_worktree" 2>/dev/null) || exit 0
-   [ "$cur_abs" = "$main_abs" ] && exit 0
-   copied=()
-   for file in .mcp.json .env; do
-     src="$main_worktree/$file"
-     dst="$cur_worktree/$file"
-     [ -e "$dst" ] && continue
-     [ ! -f "$src" ] && continue
-     cp -p "$src" "$dst" 2>/dev/null && copied+=("$file")
-   done
-   [ ${#copied[@]} -gt 0 ] && echo "[worktree-init] Copied from $main_worktree -> $cur_worktree: ${copied[*]}" >&2
-   exit 0
-   EOF
-   chmod +x ~/.claude/hooks/worktree-init.sh
-   ```
-
-2. `~/.claude/settings.json`의 `hooks.SessionStart`에 등록 (이미 있으면 skip):
-   ```bash
-   if ! jq -e '.hooks.SessionStart[]?.hooks[]?.command // empty | select(test("worktree-init.sh"))' ~/.claude/settings.json >/dev/null 2>&1; then
-     jq '.hooks.SessionStart = ((.hooks.SessionStart // []) + [{"matcher":"","hooks":[{"type":"command","command":"~/.claude/hooks/worktree-init.sh"}]}])' \
-       ~/.claude/settings.json > ~/.claude/settings.json.tmp \
-       && mv ~/.claude/settings.json.tmp ~/.claude/settings.json
-   fi
-   ```
-
-설치 후: 다음 워크트리에서 SessionStart 시 자동으로 `.mcp.json`/`.env`가 메인에서 복사된다. 이미 존재하는 파일은 절대 덮어쓰지 않는다.
+settings 부재는 빈 객체로 시작하고 기존 사용자 hook/설정/권한을 보존한다. 기존 `worktree-init.sh`는 덮어쓰지 않는다. legacy hook이 여전히 등록되어 있으면 `BLOCKED:LEGACY_HOOK_MIGRATION_REQUIRED`; 구 hook의 자동 복사까지 안전해졌다고 보고하지 않는다. 기존 등록의 정확한 diff를 준비하여 요청된 migration 범위로 처리한 뒤 설치한다. 설치 결과와 SessionStart 복사는 각각 확인하고 `INSTALLED`만으로 파일 복사 성공을 주장하지 않는다.
 
 #### 3.5 컨벤션 선택 (DEFAULT인 경우)
 
