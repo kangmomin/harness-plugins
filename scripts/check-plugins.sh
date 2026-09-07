@@ -15,7 +15,7 @@ bad() { fail=1; say "FAIL: $*"; }
 while IFS= read -r f; do
   n=$(wc -l < "$f")
   if [ "$n" -gt 500 ]; then bad "$f: ${n}줄 (> 500)"; fi
-done < <(find . -path ./work-log -prune -o -path ./node_modules -prune -o -name SKILL.md -print)
+done < <(find be-harness fe-harness common minmos-harness hyeondongs-harness work-log -type d \( -name node_modules -o -name __pycache__ \) -prune -o -name SKILL.md -print)
 
 # 2) 앵커 (docs/overlay.md — 제목 매칭)
 check_anchor() { # file, pattern
@@ -48,15 +48,18 @@ for s in run-lifecycle.md finalization.md; do
   pair "be-harness/skills/start-workflow/references/$s" "common/skills/start-workflow/references/$s"
 done
 
-# 4) py_compile
+# 4) py_compile — 이 실행이 만든 bytecode만 저장·정리한다.
+CHECK_PY_CACHE=$(mktemp -d "${TMPDIR:-/tmp}/harness-check-py.XXXXXXXX") || exit 1
+trap 'rm -rf -- "$CHECK_PY_CACHE"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 while IFS= read -r f; do
-  if ! python3 -W error -m py_compile "$f" 2>/dev/null; then bad "py_compile 실패: $f"; fi
-done < <(find . -path ./work-log -prune -o -path '*/skills/*/assets/*.py' -print)
-find . -path ./work-log -prune -o -name __pycache__ -type d -print 2>/dev/null | xargs -r rm -rf
+  if ! PYTHONPYCACHEPREFIX="$CHECK_PY_CACHE" python3 -W error -m py_compile "$f" 2>/dev/null; then bad "py_compile 실패: $f"; fi
+done < <(find be-harness fe-harness common minmos-harness hyeondongs-harness work-log scripts -type d \( -name node_modules -o -name __pycache__ \) -prune -o -name '*.py' -print)
 
 # 5) HTML 리포트 문구 잔재 (스킬·오버레이·README·PROFILE·plugin.json)
 res=$(grep -rn -E 'e2e-report\.html|impl-notes\.html|리포트 HTML|HTML 렌더링|HTML 리포트|api-test-cases-prompt' \
-  --include='*.md' --include='*.json' be-harness fe-harness common minmos-harness hyeondongs-harness README.md docs/overlay.md docs/skill-authoring.md 2>/dev/null \
+  --exclude-dir=node_modules --include='*.md' --include='*.json' be-harness fe-harness common minmos-harness hyeondongs-harness README.md docs/overlay.md docs/skill-authoring.md 2>/dev/null \
   | grep -v 'community-feedback/' || true)
 if [ -n "$res" ]; then bad "HTML 리포트 문구 잔재:"; say "$res"; fi
 
@@ -81,7 +84,7 @@ for f in $CM_FILES; do
   n=$(wc -l < "$f")
   if [ "$n" -gt 180 ]; then bad "$f: ${n}줄 (> 180)"; fi
 done
-res=$(grep -rn -E 'gpt-5\.[0-9]+-' --include='*.md' be-harness fe-harness common minmos-harness README.md 2>/dev/null | grep -v 'community-feedback/' | grep -v 'references/codex-mode.md' || true)
+res=$(grep -rn -E 'gpt-5\.[0-9]+-' --exclude-dir=node_modules --include='*.md' be-harness fe-harness common minmos-harness README.md 2>/dev/null | grep -v 'community-feedback/' | grep -v 'references/codex-mode.md' || true)
 if [ -n "$res" ]; then bad "codex-mode.md defaults 표 밖 OpenAI 모델 리터럴 (슬롯 기본값 표만 허용):"; say "$res"; fi
 for f in be-harness/PROFILE.md fe-harness/PROFILE.md be-harness/skills/init/SKILL.md fe-harness/skills/init/SKILL.md be-harness/skills/doctor/SKILL.md fe-harness/skills/doctor/SKILL.md minmos-harness/skills/doctor/SKILL.md be-harness/skills/config/SKILL.md fe-harness/skills/config/SKILL.md; do
   for k in codexMode codexModels; do if ! grep -q "$k" "$f"; then bad "$f: $k 없음"; fi; done
@@ -99,7 +102,7 @@ for p in 'Model provider' 'Missing environment variable'; do
   if ! grep -q "$p" be-harness/skills/start-workflow/references/codex-mode.md; then bad "codex-mode.md 정본: §7 감지 문구 '$p' 없음"; fi
 done
 res=$(grep -rn -E 'Codex 계열|Plan 검증 루프 상시|재실패 시 quota 차단과 동일 취급|command not found, 도구 미존재|Codex sol\b|Codex luna\b|Codex `sol`|Codex `luna`|luna/sol|luna\(읽기\)/sol\(쓰기\)|sol/high/workspace-write|luna/xhigh/read-only|Codex\(gpt-5\.6-sol\)|Codex\(luna|fallback\((mcp_missing|quota_exhausted|auth_failed|model_unavailable)\)' \
-  --include='*.md' be-harness fe-harness common minmos-harness README.md 2>/dev/null | grep -v 'community-feedback/' || true)
+  --exclude-dir=node_modules --include='*.md' be-harness fe-harness common minmos-harness README.md 2>/dev/null | grep -v 'community-feedback/' || true)
 if [ -n "$res" ]; then bad "codex-mode 구 문구 잔재:"; say "$res"; fi
 
 # 7) config 스킬: PROFILE.md(문서 canonical) 프론트매터 키 ↔ config SKILL.md `config:keys` 마커 안 백틱 토큰 — 양방향 parity (개수 하드코딩 없음)
@@ -120,6 +123,9 @@ for p in be-harness fe-harness; do
   if [ -n "$miss" ]; then bad "$cf: PROFILE.md 키가 마커 안에 없음: $miss"; fi
   if [ -n "$extra" ]; then bad "$cf: 마커 안 토큰이 PROFILE.md 프론트매터에 없음: $extra"; fi
 done
+
+# Active links/calls, host frontmatter, product manifests, phases/overrides and new helper parity.
+if ! python3 -B scripts/check_contracts.py; then bad "active contract validation failed"; fi
 
 if [ "$fail" -eq 0 ]; then say "check-plugins: OK"; fi
 exit "$fail"
