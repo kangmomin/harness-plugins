@@ -28,6 +28,7 @@ jobs:
       - name: Install pinned test dependencies
         run: |
           python3 -m pip install -r tests/requirements.txt
+          npm install --global npm@11.6.2 --no-audit --no-fund
           npm ci --prefix tests/fixtures/fe-components --no-audit --no-fund
           npm ci --prefix common/skills/doc-gen/assets --no-audit --no-fund
           sudo apt-get update
