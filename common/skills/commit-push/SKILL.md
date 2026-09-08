@@ -94,7 +94,7 @@ git branch --show-current
 
 ## Step 3: Assumption Gate (push 전 필수)
 
-**추론/추측의 원격 유출 차단이 목적** — `[Assumption]` 태그는 로컬 개발 단계의 기록이며, 원격에 올라가는 시점에는 모두 사용자 확인을 거쳐 제거되어야 한다. **태그가 남아 있으면 push하지 않는다.**
+**추론/추측의 원격 유출 차단이 목적** — `[Assumption]` 태그는 로컬 개발 단계의 기록이며, 원격에 올라가는 시점에는 모두 사용자 확인을 거쳐 제거되어야 한다. **미해결 추론 태그가 남아 있으면 push하지 않는다.**
 **Assumption Gate의 canonical은 본 섹션이다** (commit-hard-push, commit-pr, 각 하네스의 workflow-pr이 이 절차를 따른다).
 
 ### Step 3.1: 스캔
@@ -115,6 +115,12 @@ python3 -I -B "{COMMON_ROOT}/skills/commit/assets/git_checks.py" assumptions \
 - helper exit 0 + status PASS일 때만 통과한다. exit 1은 태그 발견, exit 2는 Git/파싱 실패다. 파이프라인 마지막 grep의 종료 코드로 판정하지 않는다.
 - 실제 diff hunk의 추가 내용만 검사하므로 파일명/header의 `[Assumption]`은 태그가 아니다. 코드와 미push 메시지 범위를 구분하고 결과의 head SHA를 저장한다.
 - 브랜치가 만들지 않은 레거시 라인은 대상이 아니다. 이미 push된 메시지는 WARN이며 재작성하지 않는다.
+
+### 태그 리터럴의 좁은 제외
+
+태그의 정의·사용법·테스트 문자열만 나타내며 미해결 요구를 포함하지 않는 줄은 오케스트레이터가 문맥을 검토한 뒤 리터럴로 분류할 수 있다. 모호한 항목은 기존 미해결 태그로 유지한다. 저장소 밖 실행 디렉터리에 JSON 배열을 만들고 worktree/assumptions 검사에 `--literal-tags "{LITERAL_TAGS_FILE}"`을 전달한다. 각 항목은 정확한 `path`(저장소 상대 경로), `line`(1부터), `sha256`(LF 구분자만 제외한 원래 줄 바이트의 SHA-256), `reason`(리터럴임을 확인한 근거) 네 필드다.
+
+경로 glob·파일 전체·Markdown/fence 일괄 제외와 commit message 예외는 없다. 경로·줄 번호·원래 바이트 해시가 모두 같을 때만 제외하며, 바뀐 예시는 재검토 전까지 차단된다. 잘못된 기록은 검사 오류다. helper의 `literal_tags`를 검토 기록으로 보존하고, 사용자 결정이 필요한 목록은 남은 `code_tags`/`message_tags`다. 단순히 Gate를 통과시키려고 미해결 항목을 리터럴로 분류하지 않는다.
 
 ### Step 3.2: 항목별 사용자 확인
 

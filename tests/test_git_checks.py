@@ -1,4 +1,6 @@
 import importlib.util
+import hashlib
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -64,6 +66,47 @@ class GitChecksTests(unittest.TestCase):
         self.assertEqual(2, result.returncode)
         self.assertEqual('', result.stdout)
         self.assertIn('BLOCKED:GIT_CHECK', result.stderr)
+
+    def test_reviewed_literal_is_exact_and_actual_assumptions_remain_blocked(self):
+        literal = b'`[Assumption]` names a tag.\xff'
+        path = self.root / 'SKILL.md'
+        path.write_bytes(literal + b'\n[Assumption] unresolved requirement\n')
+        rules_path = self.root / 'literal-tags.json'
+        rules_path.write_text(json.dumps([{'path':'SKILL.md', 'line':1,
+                                           'sha256':hashlib.sha256(literal).hexdigest(), 'reason':'Reviewed tag definition'}]))
+        rules = checks.load_literals(rules_path)
+        result = checks.worktree_tags(self.root, ['SKILL.md'], rules)
+        self.assertEqual([2], [tag['line'] for tag in result['tags']])
+        self.assertEqual([1], [tag['line'] for tag in result['literal_tags']])
+        path.write_bytes(literal + b'\n')
+        self.git('add', 'SKILL.md')
+        self.git('commit', '-m', 'document tag syntax')
+        result = checks.assumption_gate(self.root, 'trunk', self.start, rules)
+        self.assertEqual('PASS', result['status'])
+        self.assertEqual(1, len(result['literal_tags']))
+        # Both invalid bytes render as U+FFFD, but only the reviewed raw bytes match.
+        path.write_bytes(literal.replace(b'\xff', b'\xfe') + b'\n')
+        self.git('add', 'SKILL.md')
+        self.git('commit', '-m', 'changed example')
+        self.assertEqual('BLOCKED:ASSUMPTION_UNRESOLVED', checks.assumption_gate(self.root, 'trunk', self.start, rules)['status'])
+        path.write_bytes(literal + b'\n')
+        self.git('add', 'SKILL.md')
+        self.git('commit', '-m', '[Assumption] unresolved message')
+        result = checks.assumption_gate(self.root, 'trunk', self.start, rules)
+        self.assertEqual([], result['code_tags'])
+        self.assertEqual(1, len(result['message_tags']))
+
+    def test_invalid_literal_review_is_an_error(self):
+        path = self.root / 'literal-tags.json'
+        for value in ({}, [{'path':'../escape', 'line':1, 'sha256':'a'*64, 'reason':'x'}],
+                      [{'path':'file', 'line':True, 'sha256':'a'*64, 'reason':'x'}],
+                      [{'path':'file', 'line':1, 'sha256':'bad', 'reason':'x'}]):
+            path.write_text(json.dumps(value))
+            with self.assertRaises(ValueError):
+                checks.load_literals(path)
+        path.write_text('[{"path":"a","path":"b"}]')
+        with self.assertRaisesRegex(ValueError, 'duplicate'):
+            checks.load_literals(path)
 
     def test_worktree_path_filter_applies_to_tracked_and_untracked(self):
         (self.root / 'nested/selected.txt').write_text('[Assumption] selected new file\n')

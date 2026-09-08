@@ -41,6 +41,8 @@ argument-hint: "[경로|--worktree|--branch|--commits]"
 python3 -I -B "{COMMON_ROOT}/skills/commit/assets/git_checks.py" worktree --cwd "{CWD}" --path "{ROOT_RELATIVE_PATH_OR_GLOB}"
 ```
 
+명백한 태그 정의·예시는 commit-push Step 3.1의 리터럴 검토 기록으로 분류하고 같은 `--literal-tags`를 스캔/재검사에 전달한다. 제외 항목도 보존하며 실제 미해결 항목만 기존 사용자 결정 절차로 처리한다.
+
 브랜치·미push 메시지는 commit-push Step 3.1의 helper를 사용한다. --branch면 code_tags만, --commits면 message_tags만 사용한다. 경로 지정 모드는 메시지를 생략하고 code_tags도 동일 경로/glob 필터로 제한한 뒤 표시한다. 원본 파일·라인·현재 텍스트가 일치하는 항목만 수정한다. `source:index`와 작업 트리가 다르면 둘을 동일 내용으로 간주하지 않는다.
 
 helper/명령 오류는 0건이 아니며 재검증 전 종료한다. symlink 대상은 자동으로 읽거나 수정하지 않는다. root-relative 파일 목록과 NUL 구분을 유지한다.
