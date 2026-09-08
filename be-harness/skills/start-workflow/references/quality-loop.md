@@ -1,9 +1,13 @@
+> 최종 수정으로 검증 트리가 바뀌면 [최종 트리와 검증 재사용](finalization.md#최종-트리와-검증-재사용)의 재검증 예외를 적용한다. Read-back 격리와 기존 반복 상한은 유지한다.
+
 > 이 문서는 `start-workflow` 스킬의 Phase 8(품질 루프)에서 로드된다. 단독 실행 금지.
 > `{STATE_FILE}`, `{buildCommand}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
 > 각 프롬프트의 "남은 Phase" 목록은 예시다 — 실제 값은 상태 파일 `Remaining Phases` 기준으로 치환한다 (예: `--reflect` 미지정 시 Phase 11 제외).
 > `## Flags`의 `CODEX: max`면 읽기 전용 단계(8.2+8.3 스캐너 · 8.4)는 Codex `judge` 슬롯, 8.8 Read-back 복원은 `explore` 슬롯, 수정 단계(8.5 · 8.7)는 `write` 슬롯으로 위임하고 러너(8.6)에는 §8 포인터 1줄을 추가한다 — 매핑·호출 계약: `references/codex-mode.md`.
 
 # Phase 8: 품질 루프 상세 (병렬 스캔 → 통합 수정 → 순차 실행 → Read-back)
+
+일반 위임에는 [작업 계약과 실행 원칙](execution-policy.md)의 인계 항목·정책 경로를 포함한다. Phase 8.8에는 기존 소스 전용 입력만 준다. 필수 검증 완료 후 추가 반복은 새 근거·미검증 가설·수정 영향이 있을 때만 수행하고, 미해결 실패·티어 승격·수정 후 재검증은 기존 종료 규칙대로 처리한다.
 
 루프 구조·상한·판정은 SKILL.md 본문이 canonical이다. 이 문서는 각 단계의 실행 상세와 에이전트 프롬프트를 정의한다.
 티어별 축소·승격 규칙은 `references/verification-tier.md`가 canonical이다 — light에서 달라지는 단계는 각 절에 **light:** 로 표기한다.

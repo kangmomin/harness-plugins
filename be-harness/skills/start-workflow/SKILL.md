@@ -9,6 +9,8 @@ user-invocable: true
 > **Project Overrides**: 실행 전 `.claude/be-harness/common.md`와 `.claude/be-harness/skills/start-workflow.md`를 Read.
 > 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
+실행 전에 [작업 계약과 실행 원칙](references/execution-policy.md)을 읽는다.
+
 # Start Workflow — Orchestrator
 
 전체 개발 라이프사이클의 자율 Phase를 전용 서브 에이전트에 위임해 오케스트레이션한다.
@@ -116,12 +118,8 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 
 ### 연속 실행 필수 규칙 (CRITICAL)
 
-**서브 에이전트가 완료되면 즉시 다음 단계를 실행한다. 절대 멈추지 않는다.**
-
-- 에이전트 결과를 받으면 한 줄 요약만 출력하고, **같은 응답 안에서** 바로 다음 Agent tool을 호출한다.
-- Phase 6 완료 → 즉시 Phase 7 (같은 턴). Phase 8 내 각 단계도 완료 즉시 다음 단계. Phase 9~11 동일.
-- **유저 응답 대기, 진행 여부 질문, 중간 보고 후 멈춤은 금지.**
-- 유일한 정지 지점은 **Phase 12 (최종 보고)** 뿐이다.
+서브에이전트 결과를 한 줄로 요약하고 같은 응답에서 다음 허용 단계를 실행한다. 정상 완료 사이에 진행 여부를 다시 묻지 않는다.
+실제 BLOCKED·미승인 범위·호스트 권한 문제는 해당 종료 계약을 따르고, 그 결정에 의존하지 않는 승인된 작업은 계속한다.
 
 ### 탐색 위임 규칙 (오케스트레이터 컨텍스트 규율)
 
@@ -190,14 +188,16 @@ profile 값을 근거로 누락 항목이 있으면 어떤 Phase가 SKIP될 것�
 > **Plan 모드 활성화**: Phase 1 시작 시 `EnterPlanMode`를 활성화한다.
 > Spec과 Plan은 같은 Plan 모드 컨텍스트에서 통합 산출물로 발전하며, `ExitPlanMode`는 Phase 4.4에서 단 한 번만 호출한다.
 
-**분기 — 이미 상세 Spec이 제공된 경우**: `$ARGUMENTS` 또는 대화 컨텍스트가 아래를 **모두** 충족하면 `/request` 호출을 생략하고, 제공된 내용을 Technical Spec으로 직접 정리해 유저 확인을 받는다:
+**분기 — 이미 상세 Spec이 제공된 경우**: `$ARGUMENTS` 또는 대화 컨텍스트가 아래를 **모두** 충족하면 `/request` 호출을 생략하고, 제공된 내용을 Technical Spec으로 직접 정리한다:
 - 작업 유형이 명확 (생성/수정/검토/디버깅)
 - 대상 API/기능이 특정됨
 - 핵심 요구사항이 구체적으로 기술됨
 
 **기본**: `/be-harness:request`를 호출하여 Technical Spec을 생성한다 (`$ARGUMENTS` 전달). 완료 후 Spec 전문과 엣지 케이스 목록을 보관하고, 작업 유형을 확인한다.
 
-> 어느 경우든 Spec을 유저에게 보여주고 확인을 받는다.
+내부 request 호출은 Spec 수집만 지시한다. 검토·디버깅 실행은 이 워크플로우의 후속 단계가 맡으며 Plan 안에서 먼저 실행하지 않는다.
+
+> 어느 경우든 작업 계약(대상·기준·범위·완료·승인·미결)을 Spec에 포함해 공유한다. 이미 확정된 요구는 다시 확인받지 않으며 결과를 바꾸는 미결 결정만 묻는다. request를 생략해도 권한·소유권 조건의 AC/EC를 빠뜨리지 않는다.
 
 ## Phase 2: 난이도 산정 + 검증 티어 판정
 
@@ -306,7 +306,7 @@ for iteration in 1..{PLAN_MAX}:
 
 ### Phase 4.4: Plan 확정
 
-Plan의 파일 목록으로 금지 조건을 재점검한다(발견 시 즉시 standard). 티어 판정을 Plan과 함께 승인받는다. 루프 종료 후 `ExitPlanMode` 실행. 상태 파일 하단에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
+Plan의 파일 목록으로 금지 조건을 재점검한다(발견 시 즉시 standard). 작업 계약의 완료 조건·티어·원격 효과를 Plan과 함께 공유하고 같은 Spec·Plan·대상·효과의 기존 승인을 확인한다. 일치하면 추가 확인 질문 없이 재사용하고, 미승인 변경만 구체적으로 승인받는다. 루프 종료 후 `ExitPlanMode`를 실행하며 호스트가 요구하는 승인은 따른다. 상태 파일 하단에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
 
 ## Phase 5: 브랜치 + 상태 파일 + Baseline + 자율 실행 시작
 
@@ -477,7 +477,7 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 
 ```
 [유저 대화] — Phase 1~4 전체가 단일 EnterPlanMode 컨텍스트
-Phase 1: EnterPlanMode → /request로 Technical Spec (유저 확인)
+Phase 1: EnterPlanMode → /request 또는 직접 Technical Spec + 작업 계약 (미결 결정만 확인)
 Phase 2: 난이도 산정 (1-10) + 검증 티어 판정 (light / standard)
 Phase 3: 실행 전략 판정 (sequential / parallel-slices / fullstack → /common:start-workflow --fs 로 전환)
 Phase 4: Plan 작성 → 다관점 1회 보강 → 검증 루프 (리뷰어 = codexMode: Codex `review` 슬롯 | Claude 패널, 최대 {PLAN_MAX}회) → ExitPlanMode

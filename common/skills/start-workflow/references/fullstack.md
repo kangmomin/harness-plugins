@@ -127,8 +127,8 @@ Spec 또는 계약에 없는 변경이 필요하면: ① 코드를 먼저 바꾸
 > **Plan 모드 활성화**: Phase 1 시작 시 `EnterPlanMode`를 활성화한다.
 > Spec(Feature Matrix), 통신 계약, BE/FE/공용 Plan은 모두 같은 Plan 모드 컨텍스트에서 발전하는 단일 산출물이며, `ExitPlanMode`는 Phase 4.4 검증 루프 종료 시 단 한 번만 호출한다.
 
-상세 명세가 이미 충분하면 그 내용을 정리해서 시작한다.
-부족하면 `/be-harness:request`로 백엔드 관점 질문을, `/fe-harness:request`로 프론트엔드 관점 질문을 각각 수행한다.
+상세 명세가 이미 충분하면 그 내용을 정리해서 시작한다. 어느 경로든 [작업 계약과 실행 원칙](execution-policy.md)의 대상·기준·범위·완료·승인·미결을 통합 Spec에 기록한다. 이미 확정된 요구는 재질문하지 않는다.
+부족하면 `/be-harness:request`로 백엔드 관점 질문을, `/fe-harness:request`로 프론트엔드 관점 질문을 각각 수행한다. 내부 호출은 Spec 수집만 지시하며 검토·디버깅을 먼저 실행하지 않는다.
 
 > Phase 1 진입 시 MUST: `contract-templates.md`를 Read하고 "Feature Matrix 템플릿"대로 표를 작성한다.
 
@@ -196,7 +196,7 @@ for iteration in 1..5:
 
 안전장치: 동일 이슈 3회 반복 지적 → 사용자 판단 위임 / 변경 0건 iteration → 즉시 중단·보고.
 
-루프 종료 후 `ExitPlanMode`로 Plan을 확정하고, 상태 파일에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
+루프 종료 후 완료 조건·티어·원격 효과를 포함한 Plan을 공유한다. 같은 Spec·Plan·대상·효과의 기존 승인을 재사용하고 미승인 변경만 구체적으로 승인받는다. `ExitPlanMode`로 Plan을 확정하며 호스트 필수 승인은 따른다. 상태 파일에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
 
 ## Phase 5: 브랜치 + 상태 파일
 

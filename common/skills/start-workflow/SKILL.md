@@ -9,6 +9,8 @@ argument-hint: "[--be|--fe|--fs] <작업 설명> | --analyze [경로] | --verify
 > **Project Overrides**: 실행 전 `.claude/common/common.md`와 `.claude/common/skills/start-workflow.md`를 Read.
 > 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
+실행 전에 [작업 계약과 실행 원칙](references/execution-policy.md)을 읽는다.
+
 # Start Workflow — 단일 진입점
 
 개발 워크플로우의 **유일한 공용 진입점**이다. 어느 하네스를 쓸지 기억하지 않아도 된다.
@@ -84,9 +86,9 @@ argument-hint: "[--be|--fe|--fs] <작업 설명> | --analyze [경로] | --verify
 | "화면에서 ~를 호출", "API 만들고 화면도", 신규 기능 전체 | fullstack |
 | 판단 불가 | 신호 스캔 결과를 권장으로 제시 |
 
-### 2.3 유저 확인 (MUST)
+### 2.3 도메인 확정
 
-**판정만으로 조용히 실행하지 않는다.** 워크플로우는 장시간 자율 실행되므로 반드시 확인을 거친다.
+요청·기존 대화와 프로젝트 신호가 일치하면 판정 근거를 한 줄로 알리고 진행한다. 이미 지정한 도메인을 다시 묻지 않는다. 서로 충돌하거나 선택에 따라 작업 범위가 달라질 때만 아래 질문을 한다.
 
 `AskUserQuestion`으로 backend / frontend / fullstack 선택지를 제시하고, 판정 결과 라벨 끝에 `(권장)`을 붙이며 근거를 한 줄로 적는다.
 
@@ -133,6 +135,8 @@ argument-hint: "[--be|--fe|--fs] <작업 설명> | --analyze [경로] | --verify
 ### 4.1 단일 도메인 — 위임
 
 Skill tool로 Step 3에서 정한 스킬을 호출하고, **대상 플래그를 제거한 나머지 인자를 그대로 전달**한다.
+
+현재 대상·정확한 식별자·기준 문서·완료 조건·승인 근거·미결 결정도 함께 인계한다. 실행 정책·원격 효과는 entry-contract의 확정값을 유지한다.
 
 - 대상 스킬의 출력을 **가공하지 않고 그대로** 전달한다. 요약·재구성 금지.
 - `SKIPPED:*` / `BLOCKED:*` 를 반환하면 그대로 상위에 올린다.

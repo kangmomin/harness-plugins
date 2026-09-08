@@ -8,6 +8,8 @@ user-invocable: true
 
 > **Project Overrides**: 실행 전 `.claude/fe-harness/common.md`와 `.claude/fe-harness/skills/start-workflow.md`를 Read.
 > 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+실행 전에 [작업 계약과 실행 원칙](references/execution-policy.md)을 읽는다.
 > **Profile**: `.claude/fe-harness.local.md` 가 없으면 `.hyeondong-config.json` 을 profile로 사용한다 (레거시 호환, 읽기 전용). 탐색 순서·필드 매핑: 플러그인 루트 `PROFILE.md`.
 
 # Start Workflow — Orchestrator
@@ -96,11 +98,8 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 
 ### 연속 실행 필수 규칙 (CRITICAL)
 
-**서브 에이전트가 완료되면 즉시 다음 단계를 실행한다. 절대 멈추지 않는다.**
-
-- 에이전트 결과를 받으면 한 줄 요약만 출력하고, **같은 응답 안에서** 바로 다음 Agent tool을 호출한다.
-- **유저 응답 대기, 진행 여부 질문, 중간 보고 후 멈춤은 금지.**
-- 유일한 정지 지점은 **Phase 11 (최종 보고)** 뿐이다.
+서브에이전트 결과를 한 줄로 요약하고 같은 응답에서 다음 허용 단계를 실행한다. 정상 완료 사이에 진행 여부를 다시 묻지 않는다.
+실제 BLOCKED·미승인 범위·호스트 권한 문제는 해당 종료 계약을 따르고, 그 결정에 의존하지 않는 승인된 작업은 계속한다.
 
 ### Implementation Notes (라이브 판단 기록)
 
@@ -128,14 +127,16 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 > **Plan 모드 활성화**: Phase 1 시작 시 `EnterPlanMode`를 활성화한다.
 > Spec과 Plan은 같은 Plan 모드 컨텍스트에서 통합 산출물로 발전하며, `ExitPlanMode`는 Phase 3.4에서 단 한 번만 호출한다.
 
-**분기 — 이미 상세 Spec이 제공된 경우**: `$ARGUMENTS` 또는 대화 컨텍스트가 아래를 **모두** 충족하면 `/request` 호출을 생략하고, 제공된 내용을 Technical Spec으로 직접 정리해 유저 확인을 받는다:
+**분기 — 이미 상세 Spec이 제공된 경우**: `$ARGUMENTS` 또는 대화 컨텍스트가 아래를 **모두** 충족하면 `/request` 호출을 생략하고, 제공된 내용을 Technical Spec으로 직접 정리한다:
 - 작업 유형이 명확 (화면 생성/화면 수정/컴포넌트 생성/컴포넌트 수정/API 연동/API 연동 수정)
 - 대상 컴포넌트/페이지/API가 특정됨
 - 핵심 요구사항이 구체적으로 기술됨
 
 **기본**: `/fe-harness:request`를 호출하여 Technical Spec을 생성한다. 완료 후 Spec 전문과 엣지 케이스 목록을 보관한다.
 
-> 어느 경우든 Spec을 유저에게 보여주고 확인을 받는다.
+내부 request 호출은 Spec 수집만 지시한다. 검토·디버깅 실행은 이 워크플로우의 후속 단계가 맡으며 Plan 안에서 먼저 실행하지 않는다.
+
+> 어느 경우든 작업 계약(대상·기준·범위·완료·승인·미결)을 Spec에 포함해 공유한다. 이미 확정된 요구는 다시 확인받지 않으며 결과를 바꾸는 미결 결정만 묻는다. request를 생략해도 권한·소유권 조건의 AC/EC를 빠뜨리지 않는다.
 
 ### 풀스택 판정
 
@@ -291,7 +292,7 @@ for iteration in 1..{PLAN_MAX}:
 
 ### Phase 3.4: Plan 확정
 
-Plan의 파일 목록으로 금지 조건을 재점검한다(발견 시 즉시 standard). 티어 판정을 Plan과 함께 승인받는다. 루프 종료 후 `ExitPlanMode` 실행. 상태 파일 하단에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
+Plan의 파일 목록으로 금지 조건을 재점검한다(발견 시 즉시 standard). 작업 계약의 완료 조건·티어·원격 효과를 Plan과 함께 공유하고 같은 Spec·Plan·대상·효과의 기존 승인을 확인한다. 일치하면 추가 확인 질문 없이 재사용하고, 미승인 변경만 구체적으로 승인받는다. 루프 종료 후 `ExitPlanMode`를 실행하며 호스트가 요구하는 승인은 따른다. 상태 파일 하단에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
 
 ## Phase 4: 브랜치 + 상태 파일 + Baseline + 자율 실행 시작
 
@@ -395,7 +396,7 @@ for iteration in 1..{QL_MAX}:
 수정이 0건이어도 테스트가 깨져 있으면 탈출하지 않는다 — 얼어붙은 테스트가 실패하는데 소스 수정이 없으면 루프가 "성공"으로 오종료되기 때문이다.
 `BLOCKED:TEST_NOT_GREEN`이어도 **자율 실행은 중단하지 않고** 이후 Phase를 계속 진행하며, 선택지는 Phase 11에서 제시한다.
 
-**Phase 7.7은 루프 밖에서 1회만 실행한다** (light: `SKIPPED:TIER_LIGHT`). Spec을 모르는 격리된 에이전트가 테스트·구현 산출물에서 보장 동작을 복원하고, 오케스트레이터가 그것을 Spec·기존 코드와 대조해 이탈을 판정한다. 코드는 수정하지 않으며 결과는 Phase 11에서 유저에게 보고한다. 판정이 `FAIL`이어도 자율 실행은 멈추지 않는다.
+**Phase 7.7은 루프 밖에서 1회만 실행한다** (최종 트리 변경 후 재검증은 `references/finalization.md`의 예외 적용) (light: `SKIPPED:TIER_LIGHT`). Spec을 모르는 격리된 에이전트가 테스트·구현 산출물에서 보장 동작을 복원하고, 오케스트레이터가 그것을 Spec·기존 코드와 대조해 이탈을 판정한다. 코드는 수정하지 않으며 결과는 Phase 11에서 유저에게 보고한다. 판정이 `FAIL`이어도 자율 실행은 멈추지 않는다.
 프롬프트·Diff 분류·판정 기준: `references/agent-prompts.md`의 "Phase 7.7" 섹션.
 
 ### Phase 8: 컴포넌트/접근성 리뷰 (조건부)
@@ -454,7 +455,7 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 
 ```
 [유저 대화] — Phase 1~3 전체가 단일 EnterPlanMode 컨텍스트
-Phase 1: EnterPlanMode → /request로 Technical Spec (유저 확인) + 풀스택 판정
+Phase 1: EnterPlanMode → /request 또는 직접 Technical Spec + 작업 계약 (미결 결정만 확인) + 풀스택 판정
 Phase 2: 난이도 산정 (1-10, A 코드 복잡도 + B 회귀 리스크) + 검증 티어 판정 (light / standard)
 Phase 3: Plan 작성 → 다관점 1회 보강 → 검증 루프 (리뷰어 = codexMode: Codex `review` 슬롯 | Claude 패널, 최대 {PLAN_MAX}회) → ExitPlanMode
 Phase 4: feature 브랜치 + 상태 파일 + implementation-notes.md + 회귀 baseline → "자율 실행 시작"

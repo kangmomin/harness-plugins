@@ -1,3 +1,5 @@
+> 일반 위임 프롬프트에는 [작업 계약과 실행 원칙](execution-policy.md)의 인계 항목과 정책 경로를 포함한다. 격리 Read-back에는 적용하지 않는다.
+
 > **읽기 전용 agent 입력 계약**: code-analyzer/code-verifier/edge-case-analyzer/scope-reviewer/component-reviewer/a11y-reviewer/workflow-reflection 호출 시 오케스트레이터가 검증한 `PROJECT_ROOT`, 현재 실행 범위의 Git diff/log/stat, 이미 실행한 검사 결과를 전달한다. 리뷰어는 Read/Glob/Grep으로 확인한 근거와 누락 자료를 반환하며, 명령 실행·질문·상태 파일 기록은 오케스트레이터가 처리한다.
 
 > 이 문서는 `start-workflow` 스킬의 Phase 6.2(구현), 7(빌드 체크), 9(문서 동기화), 10(PR), 11(성찰)에서 로드된다.

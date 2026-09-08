@@ -7,6 +7,8 @@ user-invocable: true
 > **Project Overrides**: 실행 전 `.claude/be-harness/common.md`와 `.claude/be-harness/skills/simplify-loop.md`를 Read.
 > 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
+실행 전에 [작업 계약과 실행 원칙](../start-workflow/references/execution-policy.md)을 읽는다.
+
 # Simplify Loop (Workflow 기반)
 
 변경된 코드에서 동작 보존 단순화 후보를 찾아, 4관점(Correctness/Readability/Performance/Stability) 리뷰 → 만장일치 시 Devil's Advocate → Arbiter 판정 → 적용을 **수렴할 때까지 반복**한다. 루프 제어(반복·수렴·상한·분기)는 Workflow tool의 결정적 script 코드가 수행한다.

@@ -36,7 +36,7 @@ Write tool로 `{STATE_FILE}`을 생성한다:
 - START_SHA: {START_SHA}
 
 ## Spec
-[Technical Spec 전문 그대로 복사]
+[작업 계약을 포함한 Technical Spec 전문 그대로 복사. 대상·기준·완료·승인 근거·미결 결정을 보존]
 
 ## Task Type
 [화면 생성/화면 수정/컴포넌트 생성/컴포넌트 수정/API 연동/API 연동 수정]

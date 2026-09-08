@@ -5,6 +5,8 @@
 
 ## Phase 1: Feature Matrix 템플릿
 
+Feature Matrix 앞에 [작업 계약과 실행 원칙](execution-policy.md)의 `### 작업 계약`을 작성한다. Phase 5 상태의 Spec에도 함께 보존한다. 권한·소유권에 영향이 있으면 일반 사용자 성공·미인증·권한 없음·다른 소유자의 거부 조건을 도메인 AC/EC와 통신 계약에 반영한다.
+
 ```markdown
 ## Feature Matrix
 | ID | 사용자 흐름 | 프론트 책임 | 백엔드 책임 | 완료 조건 |

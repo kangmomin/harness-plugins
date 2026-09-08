@@ -8,6 +8,8 @@ argument-hint: "[--smoke] [--no-lock]"
 
 > **Project Overrides**: 실행 전 `.claude/fe-harness/common.md`와 `.claude/fe-harness/skills/test-loop.md`를 Read.
 > 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+실행 전에 [작업 계약과 실행 원칙](../start-workflow/references/execution-policy.md)을 읽는다.
 > **Profile**: `.claude/fe-harness.local.md` 가 없으면 `.hyeondong-config.json` 을 profile로 사용한다 (레거시 호환, 읽기 전용). 탐색 순서·필드 매핑: 플러그인 루트 `PROFILE.md`.
 
 
@@ -57,6 +59,8 @@ argument-hint: "[--smoke] [--no-lock]"
 ---
 
 ## 실행 흐름
+
+실패마다 요구·기준 문서에서 기대 동작을 확인하고 구현 오류 / 테스트 오류 / 환경 문제를 구분한다. 테스트 오류는 기존 `[TestConflict]`·수정 권한 계약을 따르며, 현재 응답에 맞추어 기대값을 완화하거나 테스트를 삭제하지 않는다. 필수 검증 완료 후 추가 반복에는 새 근거·미검증 가설·수정 영향이 필요하다.
 
 ```
 for iteration in 1..5:

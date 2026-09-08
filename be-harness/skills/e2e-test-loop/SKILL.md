@@ -9,6 +9,8 @@ argument-hint: "[--skip-doctor] [--smoke]"
 > **Project Overrides**: 실행 전 `.claude/be-harness/common.md`와 `.claude/be-harness/skills/e2e-test-loop.md`를 Read.
 > 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
+실행 전에 [작업 계약과 실행 원칙](../start-workflow/references/execution-policy.md)을 읽는다.
+
 # E2E Test Loop
 
 `/be-harness:e2e-test` 를 실행하고, 실패가 있으면 수정한 뒤 다시 실행한다. 최대 `{MAX_ITER}`회 반복하고, 종료 시 실행 전체를 **정직한 자기 점검 md 리포트**로 남긴다 (렌더링은 스크립트 — Claude 토큰 0).
@@ -162,7 +164,7 @@ Write tool로 `{RUN_REPORT}`를 새로 생성한다. 같은 미완료 루프를 
    ```
    아래 E2E 실패를 수정하세요. 프로젝트 루트: {CWD}.
    failures: {실패 목록 전체}
-   - 원인 추적: 서버 로그 / 코드 흐름 / Spec 차이 중 무엇인지 먼저 특정하고 수정.
+   - 원인 추적: 요구·기준 문서의 기대 동작과 서버 로그·코드 흐름을 대조해 구현 오류 / 테스트 오류 / 환경 문제를 구분한다. 가설을 지지·반박하는 근거와 수정 대상을 보고한다. 통과시키기 위한 기대값 완화·테스트 삭제는 금지하며 테스트 오류는 기존 수정 권한·TestConflict 계약을 따른다.
    - 소스만 수정하세요. 서버 실행 바이너리를 재빌드하거나 서버를 기동·종료·재시작하지 마세요.
    - 수정 파일과 필요한 빌드 명령을 보고하세요. 다음 하위 e2e-test가 자기 락 획득 후 빌드·기동합니다.
    - 수정 후 "수정: N건, 파일: [목록]" 형식으로 보고.

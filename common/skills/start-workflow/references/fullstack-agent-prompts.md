@@ -4,6 +4,8 @@
 > 병렬 writer는 writer-safety.md의 별도 checkout을 쓴다. 각 프롬프트의 구현 CWD는 `{WRITER_CWD}`이며 부모 CWD/상태는 읽기 전용 입력이다. 종료 확인 + writer_guard scope PASS 뒤 오케스트레이터만 부모에 patch를 순차 반영한다.
 > 각 `model:`/`effort:`는 Claude 경로 기본값이다. `## Flags`의 `CODEX: max`면 `codex-mode.md`의 플러그인 매핑대로 해당 Agent 호출을 Codex 슬롯(`explore`/`judge` 읽기 · `write` 쓰기) 호출로 치환한다 — 역할 파일은 이 문서의 해당 절 경로, 쓰기 호출은 §5 쓰기 안전 규칙.
 
+일반 위임 프롬프트에는 [작업 계약과 실행 원칙](execution-policy.md)의 인계 항목과 정책 경로를 포함한다. 계약 격리 Read-back에는 기존 소스 전용 입력만 주고 작업 계약·정책·기준 문서를 전달하지 않는다.
+
 # Red 에이전트 프롬프트 (Phase 6.1)
 
 TDD 활성 시에만 실행한다. 두 에이전트를 **같은 메시지 내에서 병렬 호출**하고, 검증·기록·커밋은 오케스트레이터가 배리어에서 단독 수행한다.

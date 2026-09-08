@@ -7,6 +7,8 @@ user-invocable: true
 
 > **Project Overrides**: 실행 전 `.claude/fe-harness/common.md`와 `.claude/fe-harness/skills/e2e-test.md`를 Read.
 > 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+실행 전에 [작업 계약과 실행 원칙](../start-workflow/references/execution-policy.md)을 읽는다.
 > **Profile**: `.claude/fe-harness.local.md` 가 없으면 `.hyeondong-config.json` 을 profile로 사용한다 (레거시 호환, 읽기 전용). 탐색 순서·필드 매핑: 플러그인 루트 `PROFILE.md`.
 
 
@@ -95,6 +97,8 @@ E2E 테스트 실행 전, Playwright와 Vitest 간 충돌 가능성을 점검한
    - Spec에 엣지 케이스 표가 없거나 ID가 없으면 승계를 건너뛰고 리포트에 `대조 기준 없음`으로 표기한다.
 
 ### Step 2: 테스트 작성
+
+기대 동작은 요구·기준 문서에서 정하고 실제 응답에 맞추어 완화하지 않는다. 권한·소유권에 영향이 있으면 Spec의 일반 사용자 성공·미인증·권한 없음·다른 소유자 조건을 각각 검증한다. 역할 세션이나 자원이 부족한 케이스는 `UNCOVERED:{사유}`로 남기고 관리자 성공으로 대체하지 않는다.
 
 **Spec에서 승계한 시나리오는 테스트 title 앞에 ID를 붙인다** — `test('[EC-03] 재고가 0이면 품절 배지가 보인다', ...)`.
 Step 4 리포트와 `start-workflow` Phase 7.7 read-back이 이 ID로 커버리지를 대조하므로, ID를 바꾸거나 생략하지 않는다. 자체 도출 시나리오는 접두 없이 둔다.

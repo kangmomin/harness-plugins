@@ -1,3 +1,5 @@
+> 일반 위임 프롬프트에는 [작업 계약과 실행 원칙](execution-policy.md)의 인계 항목과 정책 경로를 포함한다. 격리 Read-back에는 적용하지 않는다.
+
 > 이 문서는 `start-workflow` 스킬의 Phase 5(baseline 수집), Phase 6.1(Red), Phase 6.2(Green), Phase 8(회귀 대조)에서 로드된다. 단독 실행 금지.
 > `{STATE_FILE}`, `{testCommand}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
 > **테스트 작성 규칙 자체의 canonical은 `/be-harness:unit-test` 스킬이다.** 이 문서는 워크플로우 통합(baseline·배리어·Test Map·충돌 판정)만 정의한다.

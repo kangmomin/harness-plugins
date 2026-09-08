@@ -8,6 +8,8 @@ user-invocable: true
 
 > **Project Overrides**: 실행 전 `.claude/fe-harness/common.md`와 `.claude/fe-harness/skills/unit-test.md`를 Read.
 > 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
+
+실행 전에 [작업 계약과 실행 원칙](../start-workflow/references/execution-policy.md)을 읽는다.
 > **Profile**: `.claude/fe-harness.local.md` 가 없으면 `.hyeondong-config.json` 을 profile로 사용한다 (레거시 호환, 읽기 전용). 탐색 순서·필드 매핑: 플러그인 루트 `PROFILE.md`.
 
 
@@ -107,7 +109,7 @@ user-invocable: true
 
 **작성 금지**: 커버리지 수치용 테스트, 프레임워크·라이브러리 자체 동작(React가 리렌더하는지 등), 스타일·className 단언, Spec에 없는 방어 로직, props 조합 전수.
 
-**기존 테스트 수정 상한**: 이번 Spec으로 기대 동작이 실제로 바뀐 테스트만 수정한다. 수정 시 `[Breaking]` 태그로 보고한다.
+**기존 테스트 수정 상한**: 이번 Spec으로 기대 동작이 실제로 바뀐 테스트만 수정한다. 수정 시 `[Breaking]` 태그로 보고한다. 실패는 요구·기준 문서와 대조해 구현 오류 / 테스트 오류 / 환경 문제로 구분한다. 통과 목적의 기대값 완화·테스트 삭제는 금지하며, 테스트 오류 근거는 호출자에게 반환해 기존 `[TestConflict]`·수정 권한 계약으로 처리한다.
 
 **단위 테스트로 재현 불가한 케이스**는 `deferred_e2e`로 분류해 E2E에 넘긴다. 범주가 아니라 재현 가능성으로 판단한다 — 타이머·네트워크도 fake로 대체 가능하면 단위 테스트 대상이다.
 

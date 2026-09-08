@@ -8,6 +8,8 @@ user-invocable: true
 > **Project Overrides**: 실행 전 `.claude/be-harness/common.md`와 `.claude/be-harness/skills/convention-check.md`를 Read.
 > 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
+실행 전에 [작업 계약과 실행 원칙](../start-workflow/references/execution-policy.md)을 읽는다.
+
 
 ## Prerequisites
 
