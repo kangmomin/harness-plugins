@@ -140,12 +140,12 @@ def update_frontmatter(lines, values):
 def final_results(data, rows, mode):
     if data is not None:
         selected = list(latest(data).values())
-        return {kind: [event for event in selected if event["kind"] == kind] for kind in ("unit", "e2e", "readback")}
+        return {kind: [event for event in selected if event["kind"] == kind] for kind in ("unit", "integration", "e2e", "readback")}
     # Legacy migration view only: paired values come from the SAME last row.
-    phases = {"be": {"unit": "8.1", "e2e": "8.6"},
+    phases = {"be": {"unit": "8.1", "integration": "8.7", "e2e": "8.6"},
               "fe": {"unit": "7.1", "e2e": "7.4"},
               "fs": {"unit": "7", "e2e": "8.2", "readback": "8.1"}}.get(mode, {})
-    out = {kind: [] for kind in ("unit", "e2e", "readback")}
+    out = {kind: [] for kind in ("unit", "integration", "e2e", "readback")}
     for kind, phase in phases.items():
         matches = [row for row in rows if len(row) >= 3 and row[0] == phase]
         if not matches:
@@ -163,7 +163,7 @@ def final_results(data, rows, mode):
 
 def describe_results(events):
     return "; ".join("%s Phase %s %s%s" % (e["domain"], e["phase"], e["verdict"],
-        " · regression: %s" % e.get("regression_count", "기록 없음") if e["kind"] == "unit" else "") for e in events) or "기록 없음"
+        " · regression: %s" % e.get("regression_count", "기록 없음") if e["kind"] in ("unit", "integration") else "") for e in events) or "기록 없음"
 
 
 def archive_main():
@@ -233,7 +233,7 @@ def archive_main():
     pr = section(state, "Phase Results")
     pr_rows = table_rows(pr) if pr else []
     final = final_results(evidence, pr_rows, mode)
-    counts = [event.get("regression_count") for event in final["unit"]]
+    counts = [event.get("regression_count") for event in final["unit"] + final["integration"]]
     regression_count = sum(counts) if counts and all(isinstance(c, int) for c in counts) else None
     artifacts = section(state, "Artifacts")
     open_q = None
@@ -276,7 +276,7 @@ def archive_main():
     a.append("- Flags: %s" % (" / ".join(l.strip().lstrip("- ") for l in (flags or "").splitlines() if l.strip().startswith("-")) or "기록 없음"))
     a.append("- 검증 티어: %s" % (tier or "기록 없음"))
     a.append("- 승격 이력: %s" % ("; ".join(" | ".join(r) for r in esc_rows) if esc_rows else ("없음" if vt is not None else "기록 없음")))
-    a.append("- 최종 테스트 판정: " + describe_results(final["unit"]))
+    a.append("- 최종 테스트 판정: " + describe_results(final["unit"] + final["integration"]))
     a.append("- E2E: " + describe_results(final["e2e"]))
     a.append("- Read-back: " + describe_results(final["readback"]))
     a.append("- 산출물: %s" % (" / ".join(l.strip().lstrip("- ") for l in (artifacts or "").splitlines() if l.strip().startswith("-")) or "기록 없음"))

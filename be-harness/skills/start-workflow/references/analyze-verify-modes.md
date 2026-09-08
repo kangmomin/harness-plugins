@@ -172,7 +172,7 @@ verify
 {선택된 초점 목록}
 ```
 
-profile 값을 사용해 정적 분석을 순차 실행한다 (비어있는 명령은 SKIP):
+첫 명령 전에 [Verify 명령 스냅샷](run-lifecycle.md#verify-명령-스냅샷)을 저장한다. 신규·재개 모두 저장된 commands 값으로 정적 분석을 순차 실행한다(빈 명령은 SKIP). 재개 시 profile로 명령을 다시 결정하지 않는다:
 
 ```bash
 {lintCommand}      # 비어있으면 SKIP

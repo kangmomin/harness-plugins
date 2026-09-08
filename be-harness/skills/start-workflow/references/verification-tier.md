@@ -13,8 +13,10 @@ Spec 직후 **코드 복잡도(A)** 와 **영향 범위·회귀 리스크(B)** �
 - 판정 근거가 없는 요소는 `UNKNOWN` = **높음 밴드**로 취급한다(fail-safe).
 - 근거 자료: Spec `참조 구현` 열의 경로로 아래를 실행해 출력(존재·최근 변경 커밋 수·동반 테스트·과거 워크플로우 이력)을 B축 `변경 영역 기존 테스트`·`기존 동작 변경 범위`의 근거로 쓴다. 경로가 없거나 스크립트가 exit ≠ 0이면 해당 행은 `UNKNOWN`.
   ```bash
-  python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/risk_facts.py --paths {참조 구현 경로들} --report-dir {REPORT_DIR}
+  python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/risk_facts.py --paths {참조 구현 경로들} --report-dir {REPORT_DIR} [--test-dir {설정된 testDir} …]
   ```
+
+`candidate`는 같은 Go 패키지/testDirs의 탐색 후보다. 실제 단언·실행 범위로 관련성을 확인한 뒤 B축을 판정하고, 미확인은 UNKNOWN으로 유지한다. `Y`도 파일 존재 근거이며 커버리지/light 자격의 단독 증거가 아니다.
 
 ### A. 코드 복잡도
 
@@ -89,7 +91,7 @@ Spec 직후 **코드 복잡도(A)** 와 **영향 범위·회귀 리스크(B)** �
 |---|------|--------|------|
 | ① | Phase 4.3 | 리뷰어 CONCERN/REJECT로 light 상한 2회 소진 (상한 평가 전에 판정) | `{PLAN_MAX}` = 5 복원, iteration·동일 이슈 카운터 승계(3회차부터). 4.2는 재실행하지 않음 |
 | ② | Phase 6.2 완료 직후, Phase 7 진입 전 | 변경 소스 파일 > 3 **또는** 구현 결과에서 금지 조건이 새로 드러남 (집계 규칙: 아래) | 이후 Phase 7·8 전부 standard |
-| ③ | Phase 8.1 회귀 대조 | `regression` ≥ 1, 또는 회귀 판정 불가(러너 완주 N / `UNPARSED` 잔존을 오케스트레이터도 분류 못 함) | `{QL_MAX}` = 3 복원. 승격 이후 **시작되는** 단계부터 standard — 같은 iteration의 8.6부터 full E2E. 회귀·판정 불가 = 테스트 판정 FAIL이므로 다음 iteration이 보장되며, 복원된 상한에서도 미PASS면 기존대로 `BLOCKED:TEST_NOT_GREEN`. 루프 후 8.8 Read-back 실행 |
+| ③ | Phase 8.1 또는 8.7 회귀 대조 | `regression` ≥ 1, 또는 회귀 판정 불가(러너 완주 N / `UNPARSED` 잔존을 오케스트레이터도 분류 못 함) | `{QL_MAX}` = 3 복원. 승격 이후 **시작되는** 단계부터 standard — 8.1 승격은 같은 iteration의 8.6부터, 8.7 승격은 다음 iteration부터 full E2E. 회귀·판정 불가 = 테스트 판정 FAIL이므로 다음 iteration이 보장되며, 복원된 상한에서도 미PASS면 기존대로 `BLOCKED:TEST_NOT_GREEN`. 루프 후 8.8 Read-back 실행 |
 | ④ | Phase 5 baseline 수집 | 수집 실패 (`수집 실패 — regression 판정 불가` 선택) | 회귀 안전망 부재 → standard |
 | ⑤ | Phase 4.3 | `CODEX-UNAVAILABLE` = Claude 패널 실패 (유효 verdict 3개 미달 — `references/codex-mode.md` §6) | standard 기록 후 기존 규칙대로 진행. Codex 호출 실패의 패널 폴백(§7)은 리뷰 수행으로 간주(승격 아님) |
 | ⑥ | Phase 8.6 E2E | (a) `BLOCKED:MAX_ITERATIONS` · `BLOCKED:NO_PROGRESS` 종료 (b) e2e-test가 `실행 수준: full(smoke 미적용: …)` 보고 (실행 가능 smoke 케이스 0건 · EC 표 없음 = 검증 근거 부족) | standard (`{QL_MAX}` = 3) + **현재 iteration 종료 후 standard iteration을 최소 1회 추가** (탈출 조건 평가는 그 뒤부터 — simplify·full E2E가 반드시 1회 실행됨) |
@@ -108,7 +110,7 @@ Spec 직후 **코드 복잡도(A)** 와 **영향 범위·회귀 리스크(B)** �
 **기록**
 - `Phase Results` 진단 셀: `tier_escalated({①..⑦})`. `## Verification Tier` 승격 이력 행: 시점 / 트리거 / 근거 목록 / 조치. `## Flags`의 `TIER`를 `standard`로 갱신.
 - Workflow Report §1: `검증 티어: light → standard (②, 4.2 light 실행)`. 승격 시 재실행하지 않는 유일한 항목은 4.2 — 이력에 `미재실행: 4.2`로 남긴다.
-- 승격 후 보장: ②·④·⑤는 Phase 8 진입 전이라 자동, ③은 FAIL로 다음 iteration 보장(같은 iteration 8.6부터 full), ⑥·⑦은 standard iteration 1회 강제 추가. 어떤 경로든 승격 후 simplify·full E2E·Read-back이 최소 1회 실행된다.
+- 승격 후 보장: ②·④·⑤는 Phase 8 진입 전이라 자동, ③은 FAIL로 다음 iteration 보장(8.1 승격은 같은 iteration 8.6부터, 8.7 승격은 다음 iteration부터 full), ⑥·⑦은 standard iteration 1회 강제 추가. 어떤 경로든 승격 후 simplify·full E2E·Read-back이 최소 1회 실행된다.
 
 ## 5. smoke E2E (light)
 

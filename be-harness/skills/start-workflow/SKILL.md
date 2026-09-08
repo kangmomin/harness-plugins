@@ -147,14 +147,14 @@ Codex 호출 실패는 이 규약 대상이 아니다 — `references/codex-mode
 
 ### 1. Project Profile 로드
 
-`.claude/be-harness.local.md`를 Read하여 아래 값을 변수로 추출한다:
+신규 실행은 `.claude/be-harness.local.md`를 Read하여 아래 값을 추출한다. Verify 재개는 live profile 조회 전에 run-lifecycle의 resume으로 VERIFY_COMMANDS를 검증·복원하고 명령 4종을 다시 해석하지 않는다:
 
 `{buildCommand}`, `{testCommand}`, `{lintCommand}`, `{typeCheckCommand}`, `{makeTestCommand}`,
 `{runServerCommand}`, `{serverUrl}`, `{e2eEnabled}`, `{apiDocsPath}`,
 `{sourceDirs}`, `{testDirs}`, `{mainBranch}`, `{featureBranchPrefix}`, `{hotfixBranchPrefix}`,
 `{commitPrefixes}`, `{commitCoAuthor}`, `{projectConventions}`, `{language}`
 
-profile이 없으면 안내 후 종료한다:
+신규 실행에서 profile이 없으면 안내 후 종료한다:
 > "`.claude/be-harness.local.md` 가 없습니다. 먼저 `/be-harness:init`을 실행하세요."
 
 **Codex 모드 resolve** (`references/codex-mode.md` §2): 재개면 상태 파일 `## Flags`의 `CODEX`가 기준(`--codex` 무시). 신규면 `--codex` > profile `codexMode` > (대화형) 3지선다 질문 / (비대화형) `mix` ephemeral — 명시 입력만 profile에 기록하고, 값은 exact `none|mix|max`로 검증한다. 확정 직후 `--codex-models`도 동형으로 resolve한다 (§2.1 — 재개면 `CODEX_MODELS` 기준·플래그 무시, `none`이면 `N/A`, 명시 입력만 profile `codexModels`에 기록, 슬롯 단위 병합 `플래그 > profile > 기본값`; 결과는 `$CODEX_MODELS`).
@@ -399,14 +399,14 @@ for iteration in 1..{QL_MAX}:
 
 **light**: 8.2 = `SKIPPED:TIER_LIGHT`(통합 스캐너를 convention 전용으로 호출), 8.6 = `e2e-test-loop --smoke`, 8.8 = `SKIPPED:TIER_LIGHT`. 승격 ③·⑥·⑦(회귀 · E2E BLOCKED/smoke 미적용 · 변경 파일 재집계)은 `references/verification-tier.md` §4 — 티어 전환은 아래 종료 조건 평가보다 먼저 적용하고, ⑥·⑦은 standard iteration을 최소 1회 추가한다.
 
-Phase 8.1 결과는 `assets/test_failures.py --baseline {STATE_FILE}`로 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (절차·폴백: `references/tdd.md`의 "Phase 8: 회귀 대조").
+Phase 8.1(unit)·8.7(integration) 결과를 각각 `assets/test_failures.py --suite {suite} --baseline {STATE_FILE}`로 대조한다. 분류·폴백은 `references/tdd.md`의 "Phase 8: 회귀 대조", 기록·합산은 `references/result-contract.md`의 test-summary를 따른다.
 
-**테스트 판정**: `PASS` = `regression` 0건 + `new_red` 0건 / `WARN` = `flaky`만 / `FAIL` = 그 외
+**테스트 판정**: suite별 `PASS` = `regression` 0건 + `new_red` 0건 / `WARN` = `flaky`만 / `FAIL` = 그 외. 루프 종료에는 unit+integration 최신 결과의 `test-summary` JSON verdict를 사용한다.
 
 | 종료 조건 | 결과 |
 |----------|------|
 | `modified == false` **AND** 테스트 판정 `PASS` | 루프 탈출 → Phase 8.8 |
-| `modified == false` (TDD SKIP 시) | 루프 탈출 → Phase 8.8 |
+| `modified == false` AND 합산 테스트 `PASS`/정당한 `SKIPPED` (TDD SKIP 시) | 루프 탈출 → Phase 8.8 |
 | 그 외 | 커밋 후 다음 iteration |
 | `{QL_MAX}`회 도달 & 미PASS | `BLOCKED:TEST_NOT_GREEN` 기록 → 강제 탈출 → Phase 8.8 |
 

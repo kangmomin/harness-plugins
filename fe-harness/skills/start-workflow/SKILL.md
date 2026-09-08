@@ -184,7 +184,7 @@ Technical Spec을 분석하여 1~10 난이도를 산정한다. **종합 난이�
 
 B축 근거(기본 실행): Spec `참조 구현` 열의 경로로 아래를 실행해 출력(존재·최근 변경 커밋 수·동반 테스트·과거 워크플로우 이력)을 `변경 영역 기존 테스트`·`기존 동작 변경 범위`의 근거로 쓴다. 경로가 없거나 exit ≠ 0이면 해당 행은 `UNKNOWN`.
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/risk_facts.py --paths {참조 구현 경로들} --report-dir {REPORT_DIR}
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/risk_facts.py --paths {참조 구현 경로들} --report-dir {REPORT_DIR} [--test-dir {설정된 testDir} …]
 ```
 
 출력: `난이도: 코드 [A]/10 + 리스크 [B]/10 — [근거]`

@@ -33,9 +33,37 @@ JSON 출력의 `CWD`, `RUN_ID`, `RUN_DIR`, `STATE_FILE`, `IMPL_NOTES`, `WORK_REP
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_run.py" resume --cwd "{CWD}" --mode "{RUN_MODE}" --state "{STATE_FILE}"
 ```
 
+Verify 재개는 live profile을 읽기 전에 위 helper를 실행하고 반환된 VERIFY_COMMANDS.commands의 명령 4종을 사용한다.
 검증 성공 뒤에만 상태의 Flags·Codex Runtime을 재사용하고 기록된 미완료 Phase부터 계속한다. 상태/노트를 새 템플릿으로 덮어쓰지 않는다.
 검증은 실제 작업 디렉토리(서로 다른 worktree 구별), 모드, RUN_ID, RUN_DIR, 상태 파일명, 미완료 여부를 대조한다.
 상태 생성 전 중단·경로 분실·구 전역 상태·불일치는 `BLOCKED:RUN_MISMATCH`로 고지하고 해당 상태를 실행하지 않는다. 새 작업은 create로 시작한다. 스크립트 실패 시 전역 경로로 폴백하지 않는다.
+
+## Verify 명령 스냅샷
+
+신규 Verify는 Pre-flight에서 확정한 값을 다음 JSON으로 `{RUN_DIR}/resolved-verify-commands.json`에 준비하고, Phase V2의 첫 명령 실행 전에 helper로 한 번 저장한다. profile_path는 실제 출처의 절대 경로, profile_sha256은 당시 읽은 파일 바이트의 SHA-256이다. 비어 있는 명령도 빈 문자열로 보존한다.
+
+```json
+{
+  "schema_version": 1,
+  "run_id": "{RUN_ID}",
+  "cwd": "{CWD}",
+  "profile_path": "{PROFILE_PATH}",
+  "profile_sha256": "{PROFILE_SHA256}",
+  "commands": {
+    "lintCommand": "{lintCommand}",
+    "buildCommand": "{buildCommand}",
+    "typeCheckCommand": "{typeCheckCommand}",
+    "testCommand": "{testCommand}"
+  }
+}
+```
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_run.py" save-verify-commands --cwd "{CWD}" --mode verify \
+  --state "{STATE_FILE}" --commands "{RUN_DIR}/resolved-verify-commands.json"
+```
+
+정본은 helper가 배타 생성한 `{VERIFY_COMMANDS_FILE}={RUN_DIR}/verify-commands.json`이다. 저장 성공 뒤 임시 입력 JSON은 정리한다. 같은 RUN의 명령·출처를 덮어쓰지 않는다. Verify resume은 정본의 버전·RUN_ID·CWD·명령 4종·출처 형식과 중복 키를 검증하고 `VERIFY_COMMANDS` 객체를 반환한다. live profile 해시와 비교하거나 profile 변경으로 명령을 다시 정하지 않는다. 누락·손상·다른 실행의 snapshot은 원래 상태를 보존하고 차단하며 자동 복구하지 않는다. 명령을 바꾸려면 새 실행을 만든다. Build 전체 Profile Snapshot이나 Analyze 명령 스냅샷을 요구하는 계약은 아니다.
 
 ## 마감
 

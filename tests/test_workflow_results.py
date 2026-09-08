@@ -35,6 +35,39 @@ def target(data, identifier, protocol='HTTP', called=True, supported=True):
 
 
 class ResultsTest(unittest.TestCase):
+    def test_unit_rerun_preserves_integration_failure_and_required_evidence(self):
+        data = fixture()
+        data['events'] = [dict(domain='be', kind=kind, phase=phase, iteration=1, verdict=verdict,
+                               terminal_state='DONE', tested_tree=TREE.copy(), regression_count=count)
+                          for kind, phase, verdict, count in [('unit', '8.1', 'PASS', 0), ('integration', '8.7', 'FAIL', 1)]]
+        data['events'].append({**data['events'][0], 'iteration': 2})
+        final = results.latest(results.validate(data))
+        self.assertEqual(final[('be', 'integration', None)]['verdict'], 'FAIL')
+        self.assertEqual(final[('be', 'integration', None)]['regression_count'], 1)
+        self.assertEqual(results.test_summary(data, ['unit', 'integration'])['verdict'], 'FAIL')
+        self.assertTrue(results.check_current(data, TREE, ['unit', 'integration'])['current'])
+        invalid = copy.deepcopy(data)
+        invalid['events'][1]['verdict'] = 'PASS'
+        with self.assertRaisesRegex(ValueError, 'PASS conflicts with regressions'):
+            results.validate(invalid)
+        del invalid['events'][1]
+        with self.assertRaisesRegex(ValueError, 'missing required verification: integration'):
+            results.check_current(invalid, TREE, ['unit', 'integration'])
+        with self.assertRaisesRegex(ValueError, 'missing required verification: integration'):
+            results.test_summary(invalid, ['unit', 'integration'])
+
+    def test_skipped_unit_cannot_hide_failed_or_unfinished_integration(self):
+        data = fixture()
+        data['events'] = [dict(domain='be', kind=kind, phase='8', iteration=1, verdict=verdict,
+                               terminal_state=terminal, tested_tree=TREE.copy(), regression_count=0)
+                          for kind, verdict, terminal in [('unit', 'SKIPPED', 'SKIPPED:USER_OPT_OUT'),
+                                                          ('integration', 'FAIL', 'DONE')]]
+        self.assertEqual(results.test_summary(data)['verdict'], 'FAIL')
+        data['events'][1].update(verdict='SKIPPED', terminal_state='RUNNING')
+        self.assertEqual(results.test_summary(data)['verdict'], 'FAIL')
+        data['events'][1].update(terminal_state='SKIPPED:PROFILE_EMPTY')
+        self.assertEqual(results.test_summary(data)['verdict'], 'SKIPPED')
+
     def test_single_file_review_fix_requires_new_verification_even_while_running(self):
         data = fixture()
         data['domain'] = 'fe'

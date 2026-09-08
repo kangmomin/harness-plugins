@@ -11,11 +11,12 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 import tempfile
 
-KINDS = {'unit', 'e2e', 'readback', 'lint', 'typecheck', 'build', 'pr'}
+KINDS = {'unit', 'integration', 'e2e', 'readback', 'lint', 'typecheck', 'build', 'pr'}
 VERDICTS = {'PASS', 'WARN', 'FAIL', 'INCONCLUSIVE', 'PARTIAL', 'SKIPPED'}
 DOMAINS = {'be', 'fe', 'fs'}
 
@@ -34,10 +35,25 @@ def terminal(value):
 
 
 def tree_valid(value):
-    return isinstance(value, dict) and bool(re.fullmatch(r'[0-9a-f]{40,64}', value.get('head', ''))) and bool(re.fullmatch(r'[0-9a-f]{64}', value.get('content_sha256', '')))
+    if not isinstance(value, dict) or not all(isinstance(value.get(key), str) for key in ('head', 'content_sha256')):
+        return False
+    if not re.fullmatch(r'[0-9a-f]{40,64}', value['head']) or not re.fullmatch(r'[0-9a-f]{64}', value['content_sha256']):
+        return False
+    if 'fingerprint_version' not in value:
+        return 'head_sensitive' not in value
+    return type(value['fingerprint_version']) is int and value['fingerprint_version'] == 2 and type(value.get('head_sensitive')) is bool
 
 
-def tested_tree(cwd):
+def same_tree(recorded, current):
+    if not tree_valid(recorded) or not tree_valid(current):
+        return False
+    if recorded.get('fingerprint_version') != 2 or current.get('fingerprint_version') != 2:
+        return recorded == current
+    return recorded['content_sha256'] == current['content_sha256'] and (
+        not (recorded['head_sensitive'] or current['head_sensitive']) or recorded['head'] == current['head'])
+
+
+def tested_tree(cwd, include_head=False):
     location = cwd
     def git(*args):
         result = subprocess.run(['git', '-C', str(location), *args], capture_output=True, check=True, timeout=30)
@@ -45,15 +61,48 @@ def tested_tree(cwd):
     root = Path(os.fsdecode(git('rev-parse', '--show-toplevel').rstrip(b'\n')))
     location = root
     head = git('rev-parse', 'HEAD').decode().strip()
-    digest = hashlib.sha256()
-    digest.update(git('diff', '--binary', '--no-ext-diff', 'HEAD', '--'))
-    for name in sorted(git('ls-files', '--others', '--exclude-standard', '-z').split(b'\0')):
-        if not name:
-            continue
+    names = set(git('ls-files', '--cached', '--others', '--exclude-standard', '-z').split(b'\0'))
+    gitlinks = set()
+    for entry in git('ls-tree', '-r', '-z', 'HEAD').split(b'\0'):
+        if entry:
+            metadata, name = entry.split(b'\t', 1)
+            names.add(name)
+            if metadata.startswith(b'160000 '):
+                gitlinks.add(name)
+    for entry in git('ls-files', '--stage', '-z').split(b'\0'):
+        if entry:
+            metadata, name = entry.split(b'\t', 1)
+            require(metadata.split()[2] == b'0', 'unmerged index entry')
+            if metadata.startswith(b'160000 '):
+                gitlinks.add(name)
+    digest = hashlib.sha256(b'harness-worktree-v2\0')
+    for name in sorted(names - {b''}):
         target = root / os.fsdecode(name)
-        content = os.fsencode(os.readlink(target)) if target.is_symlink() else target.read_bytes()
-        digest.update(len(name).to_bytes(8, 'big') + name + len(content).to_bytes(8, 'big') + content)
-    return {'head': head, 'content_sha256': digest.hexdigest()}
+        require(not any(parent.is_symlink() for parent in target.parents if parent != root and root in parent.parents),
+                'symlink parent in tracked path: ' + os.fsdecode(name))
+        try:
+            mode = target.lstat().st_mode
+        except (FileNotFoundError, NotADirectoryError):
+            continue
+        if stat.S_ISLNK(mode):
+            kind, content = b'120000', os.fsencode(os.readlink(target))
+        elif stat.S_ISREG(mode):
+            kind = b'100755' if mode & 0o111 else b'100644'
+            content = target.read_bytes()
+        elif stat.S_ISDIR(mode) and name in gitlinks:
+            require((target / '.git').exists(), 'uninitialized submodule: ' + os.fsdecode(name))
+            child_root = Path(os.fsdecode(git('-C', str(target), 'rev-parse', '--show-toplevel').rstrip(b'\n')))
+            require(child_root.resolve() == target.resolve(), 'invalid submodule worktree: ' + os.fsdecode(name))
+            child = tested_tree(target, include_head=True)
+            kind, content = b'160000', (child['head'] + ':' + child['content_sha256']).encode('ascii')
+        elif stat.S_ISDIR(mode):
+            continue  # A tracked file replaced by a directory is represented by its actual child files.
+        else:
+            raise ValueError('unsupported file type: ' + os.fsdecode(name))
+        for field in (name, kind, content):
+            digest.update(len(field).to_bytes(8, 'big') + field)
+    require(git('rev-parse', 'HEAD').decode().strip() == head, 'HEAD changed during fingerprint')
+    return {'head': head, 'content_sha256': digest.hexdigest(), 'fingerprint_version': 2, 'head_sensitive': include_head}
 
 
 def event_key(event):
@@ -92,8 +141,8 @@ def validate(data, run_id=None):
         require(tree_valid(event.get('tested_tree')), 'event tested_tree required')
         key = event_key(event)
         require(key not in events, 'conflicting duplicate event key')
-        if event['kind'] == 'unit':
-            require(type(event.get('regression_count')) is int and event['regression_count'] >= 0, 'unit regression_count required')
+        if event['kind'] in ('unit', 'integration'):
+            require(type(event.get('regression_count')) is int and event['regression_count'] >= 0, event['kind'] + ' regression_count required')
             require(event['verdict'] != 'PASS' or event['regression_count'] == 0, 'PASS conflicts with regressions')
         if event['kind'] == 'e2e':
             require(event.get('case_id') in cases, 'unknown e2e case_id')
@@ -125,7 +174,7 @@ def validate(data, run_id=None):
     # Final passing evidence must describe the final tested tree, never a prior build.
     for event in latest(data).values():
         if event['verdict'] == 'PASS' and data['terminal_state'] == 'DONE':
-            require(event['tested_tree'] == data['tested_tree'], 'final PASS describes a different tested tree')
+            require(same_tree(event['tested_tree'], data['tested_tree']), 'final PASS describes a different tested tree')
     return data
 
 
@@ -162,6 +211,27 @@ def latest(data):
     return result
 
 
+def test_summary(data, required=()):
+    validate(data)
+    require(set(required) <= {'unit', 'integration'}, 'unknown required test suite')
+    events = [event for event in latest(data).values() if event['kind'] in ('unit', 'integration')]
+    for kind in required:
+        require(any(event['kind'] == kind for event in events), 'missing required verification: ' + kind)
+    if not events:
+        verdict = 'INCONCLUSIVE'
+    elif any(event['verdict'] in ('FAIL', 'INCONCLUSIVE', 'PARTIAL') or event['regression_count'] > 0 or
+             event['terminal_state'] == 'RUNNING' or event['terminal_state'].startswith('BLOCKED:') or
+             event['verdict'] == 'SKIPPED' and not event['terminal_state'].startswith('SKIPPED:') for event in events):
+        verdict = 'FAIL'
+    elif any(event['verdict'] == 'WARN' for event in events):
+        verdict = 'WARN'
+    elif all(event['verdict'] == 'SKIPPED' for event in events):
+        verdict = 'SKIPPED'
+    else:
+        verdict = 'PASS'
+    return {'verdict': verdict, 'regression_count': sum(event['regression_count'] for event in events), 'suites': events}
+
+
 def load(filename, run_id=None):
     with open(filename, encoding='utf-8') as stream:
         return validate(json.load(stream), run_id)
@@ -177,9 +247,9 @@ def check_current(data, current, required):
         require(any(e['kind'] == kind for e in events), 'missing required verification: ' + kind)
     for event in events:
         label = event['domain'] + ':' + event['kind'] + ':' + str(event.get('case_id'))
-        require(event['tested_tree'] == current, 'stale verification: ' + label)
+        require(same_tree(event['tested_tree'], current), 'stale verification: ' + label)
         require(event['terminal_state'] != 'RUNNING', 'unfinished verification: ' + label)
-    require(data['tested_tree'] == current, 'result tree is not the current tree')
+    require(same_tree(data['tested_tree'], current), 'result tree is not the current tree')
     return {'current': True, 'run_id': data['run_id'], 'checks': len(events),
             'note': 'freshness only; FAIL/BLOCKED and required-case coverage still govern publication'}
 
@@ -189,29 +259,38 @@ def main():
     sub = parser.add_subparsers(dest='command', required=True)
     tree = sub.add_parser('tree')
     tree.add_argument('--cwd', required=True)
+    tree.add_argument('--include-head', action='store_true', help='Keep commit identity as a verification input')
     check = sub.add_parser('validate')
     check.add_argument('file')
     check.add_argument('--run-id')
+    summary = sub.add_parser('test-summary')
+    summary.add_argument('file')
+    summary.add_argument('--run-id', required=True)
+    summary.add_argument('--require', action='append', default=[])
     fresh = sub.add_parser('check-current')
     fresh.add_argument('file')
     fresh.add_argument('--run-id', required=True)
     fresh.add_argument('--cwd', required=True)
     fresh.add_argument('--require', action='append', default=[])
+    fresh.add_argument('--include-head', action='store_true')
     init = sub.add_parser('init')
     for key in ('out', 'run-id', 'domain', 'mode', 'cwd'):
         init.add_argument('--' + key, required=True)
+    init.add_argument('--include-head', action='store_true')
     args = parser.parse_args()
     try:
         if args.command == 'tree':
-            result = tested_tree(args.cwd)
+            result = tested_tree(args.cwd, args.include_head)
         elif args.command == 'validate':
             data = load(args.file, args.run_id)
             result = {'valid': True, 'run_id': data['run_id'], 'events': len(data['events'])}
         elif args.command == 'check-current':
-            result = check_current(load(args.file, args.run_id), tested_tree(args.cwd), args.require)
+            result = check_current(load(args.file, args.run_id), tested_tree(args.cwd, args.include_head), args.require)
+        elif args.command == 'test-summary':
+            result = test_summary(load(args.file, args.run_id), args.require)
         else:
             result = validate({'schema_version': 1, 'run_id': args.run_id, 'domain': args.domain, 'mode': args.mode,
-                'terminal_state': 'RUNNING', 'tested_tree': tested_tree(args.cwd), 'targets': [], 'cases': [], 'events': [], 'fixes': []})
+                'terminal_state': 'RUNNING', 'tested_tree': tested_tree(args.cwd, args.include_head), 'targets': [], 'cases': [], 'events': [], 'fixes': []})
             with open(args.out, 'x', encoding='utf-8') as stream:
                 json.dump(result, stream, ensure_ascii=False, indent=2)
                 stream.write('\n')

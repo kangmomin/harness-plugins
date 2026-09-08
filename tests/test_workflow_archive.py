@@ -66,6 +66,17 @@ class ArchiveTest(unittest.TestCase):
                 self.assertIn('- Read-back: %s Phase ' % event_domain, report)
                 self.assertNotIn('최종 테스트 판정: WARN', report)
 
+    def test_integration_failure_survives_unit_rerun_in_archive_summary(self):
+        self.data['events'] = [dict(domain='be', kind=kind, phase=phase, iteration=iteration,
+                                  verdict=verdict, regression_count=count, terminal_state='DONE', tested_tree=TREE)
+                              for kind, phase, iteration, verdict, count in [
+                                  ('unit', '8.1', 1, 'FAIL', 2), ('integration', '8.7', 1, 'FAIL', 1),
+                                  ('unit', '8.1', 2, 'PASS', 0)]]
+        _, _, report = self.run_archive()
+        self.assertIn('regression_count: 1', report)
+        self.assertIn('Phase 8.7 FAIL · regression: 1', report)
+        self.assertIn('Phase 8.1 PASS · regression: 0', report)
+
     def test_degraded_reuse_retains_status_across_task_change(self):
         first, path, original = self.run_archive('--require-headings', 'Missing')
         second, reused, _ = self.run_archive('--task', 'renamed')

@@ -2,7 +2,7 @@
 """risk_facts.py — Phase 2 B축(회귀 리스크) 근거 사실 수집 (stdlib only, 판단 없음).
 
 계약 (canonical — verification-tier.md §1은 호출법만 둔다):
-  사용법: risk_facts.py --paths p1 [p2 …] [--since 90d] [--report-dir DIR]
+  사용법: risk_facts.py --paths p1 [p2 …] [--test-dir DIR …] [--since 90d] [--report-dir DIR]
   종료:   결과(unknown 포함)를 출력하면 exit 0. 인자 오류만 exit 2.
   출력:   경로별 — 존재 / 최근 변경 커밋 수({since}) / 동반 테스트 존재 / 과거 워크플로우 리포트 일치(escalated·regression_count 집계).
           git 미설치·저장소 아님·조회 실패 → 해당 셀 `unknown` (게이트는 unknown을 높음으로 취급).
@@ -48,7 +48,7 @@ def is_test_file(name):
     return any(p in name for p in TEST_PATTERNS)
 
 
-def sibling_tests(path):
+def sibling_tests(path, test_dirs=()):
     if os.path.isdir(path):
         for root, _dirs, files in os.walk(path):
             if "node_modules" in root or "/vendor" in root:
@@ -67,7 +67,13 @@ def sibling_tests(path):
         for e in (".test", ".spec"):
             cands.extend(glob.glob(os.path.join(d, stem + e + ".*")))
         cands.extend(glob.glob(os.path.join(d, "__tests__", stem + ".*")))
-    return "Y" if any(os.path.exists(c) for c in cands) else "N"
+    if any(os.path.isfile(c) for c in cands):
+        return "Y"
+    if ext == '.go' and any(os.path.isfile(p) for p in glob.glob(os.path.join(d, '*_test.go'))):
+        return 'candidate'
+    if any(sibling_tests(directory) == 'Y' for directory in test_dirs if os.path.isdir(directory)):
+        return 'candidate'
+    return 'N'
 
 
 def frontmatter(path):
@@ -125,6 +131,7 @@ def main():
     ap.add_argument("--paths", nargs="+", required=True)
     ap.add_argument("--since", default="90d")
     ap.add_argument("--report-dir", default=None)
+    ap.add_argument('--test-dir', action='append', default=[], help='Configured testDirs to search for candidates; existence is not coverage')
     args = ap.parse_args()
     in_repo = git(["rev-parse", "--is-inside-work-tree"]) is not None
     print("## risk_facts (since %s%s)" % (args.since, "" if in_repo else ", git 저장소 아님 — 커밋 수 unknown"))
@@ -136,10 +143,11 @@ def main():
         cc = commit_count(p, args.since) if in_repo and exists == "Y" else ("unknown" if in_repo else "unknown")
         if exists == "N":
             cc = "unknown(경로 없음)"
-        tests = sibling_tests(p) if exists == "Y" else "unknown"
+        tests = sibling_tests(p, args.test_dir) if exists == "Y" else "unknown"
         print("| `%s` | %s | %s | %s | %s |" % (p, exists, cc, tests, history(p, args.report_dir)))
     print("")
     print("- 해석 규칙: `unknown`·동반 테스트 `N`은 B축 `변경 영역 기존 테스트` 높음, 최근 변경이 잦거나 과거 승격/regression 이력이 있으면 `기존 동작 변경 범위` 근거로 상향 검토. 판단은 오케스트레이터가 한다.")
+    print('- `candidate`는 같은 Go 패키지 또는 testDirs에 테스트 후보가 있다는 뜻이다. 후보의 실제 단언·실행 범위를 확인한 뒤 B축을 판정하고, 관련성을 확인하지 못하면 unknown으로 처리한다. `Y`도 파일 존재 근거이며 관련 커버리지나 light 자격을 보장하지 않는다.')
     return 0
 
 

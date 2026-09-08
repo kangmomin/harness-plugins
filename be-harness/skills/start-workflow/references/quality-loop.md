@@ -172,11 +172,13 @@ Agent tool:
 profile의 `{makeTestCommand}`가 비어있지 않으면 Bash로 직접 실행:
 
 ```bash
-{makeTestCommand}
+{makeTestCommand} > "{RUN_DIR}/integration-{iteration}.log" 2>&1; EXIT=$?
 ```
 
 비어있으면 `SKIPPED:PROFILE_EMPTY`로 기록하고 넘어간다.
-실패 시 `general-purpose` 에이전트로 수정 위임 (Phase 8.5 프롬프트 형식 재사용, 이슈 목록 = 통합 테스트 실패 로그). 수정 발생 시 `modified = true`.
+TDD 활성일 때 `test_failures.py --runner auto --exit-code {EXIT} --suite integration --baseline "{STATE_FILE}" "{RUN_DIR}/integration-{iteration}.log"`로 baseline을 비교한다. TDD SKIP이면 분류 없이 실제 exit/완주 상태로 판정하며 실패는 유지한다. regression/new_red/판정 불가 실패 시 `general-purpose` 에이전트로 수정 위임(Phase 8.5 형식), 수정 뒤 명령을 재실행한다. 수정 발생 시 `modified = true`. 결과와 regression_count를 `kind:integration`의 새 iteration에 기록한다. 프로필 명령 부재 SKIP도 해당 kind로 기록한다.
+
+iteration 종료 전 `workflow_results.py test-summary "{RESULTS_FILE}" --run-id "{RUN_ID}" --require unit`을 실행한다. makeTestCommand가 설정되어 있으면 `--require integration`도 전달한다. JSON verdict가 unit+integration의 테스트 판정이며, exit 0은 요약 성공이다. FAIL/미완료/누락은 TDD SKIP이어도 루프 종료 성공 조건을 만족하지 않는다. integration의 regression/판정 불가도 light 승격 ③의 기존 근거다.
 
 ### iteration 종료 시 (light만): 승격 ⑦ 재평가
 

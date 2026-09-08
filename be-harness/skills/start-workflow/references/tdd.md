@@ -180,6 +180,8 @@ Phase 6의 기존 구현 프롬프트(`references/agent-prompts.md`)를 사용�
 
 Phase 8.1에서 `{testCommand}` 실행 결과를 `## Test Baseline`과 대조해 실패를 분류한다. 대조는 `assets/test_failures.py --baseline {STATE_FILE}`이 수행한다 (호출: `references/quality-loop.md` Phase 8.1). 스크립트가 exit ≠ 0이면 오케스트레이터가 아래 규칙으로 직접 대조하고 진단 `script_fallback(test_failures:{사유})`를 남긴다.
 
+Phase 8.7의 makeTestCommand도 같은 baseline에 `--suite integration`으로 대조한다. 결과는 `kind:integration`으로 기록하고, 두 suite의 최신 결과를 test-summary로 합산한다. 단위 테스트 재실행은 통합 테스트 판정·회귀 수를 대체하지 않는다.
+
 ## 분류 우선순위 (위에서부터 먼저 적용)
 
 Tombstone 매핑(`## Test Baseline`)은 분류 **전에** 식별자에 적용한다. 셀 파싱 실패·항목 수 불일치·패키지 없는 Go baseline·중복 ID·Tombstone 중복 매핑이면 해당 suite 행 전체를 `unparsed`로 취급한다.
