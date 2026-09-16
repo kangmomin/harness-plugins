@@ -138,7 +138,14 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | 항목 | 결정 | 시각 |
 |------|------|------|
 
+## Review Findings
+[review-evidence.md 기준. 첫/보완 결과와 처분을 append하며 무응답은 unknown, 미반영을 오탐으로 세지 않는다]
+
+| finding ID | review ID / 첫·보완 | 지적·file:line | 처분 | 근거·수정 commit·후속 issue | 확인 시점 |
+|---|---|---|---|---|---|
+
 ## Artifacts
+- scope-reviews: {시도별 scope.json·두 diff·검사 로그 경로 | 미수집}
 - workflow-report: {아카이브 경로 | 미생성}
 - e2e-report: {경로 | 없음 (SKIPPED:{사유}) | 미생성}
 
@@ -256,6 +263,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py"
 - `Read-back` 열: Phase 8.8 Diff 유형(A~E) 또는 `일치`. Phase 8.8이 SKIP이면 `-`
 
 ### 4. 품질 루프 결과
+- **Scope**: 최초 판정 [값/미판정] / 보완 [N]회 / 최종 [값] / evidence_complete [true/false] / 부족 [항목/없음]. finding 처분은 부록 Review Findings에 기록하며 최초 작업·재검토·미확인 분모를 구분한다.
 - **루프**: [N]회 (상한 `{QL_MAX}`) / 수정 [M]건 — 단계별 건수·상태는 부록 B `Phase Results`
 - **E2E**: 실행 수준 [smoke | full | full(smoke 미적용: {사유})] / 종료 [DONE | BLOCKED:* | SKIPPED:*] / 리포트 [경로 | 없음]
 

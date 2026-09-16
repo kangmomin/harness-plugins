@@ -47,6 +47,26 @@ class ArchiveTest(unittest.TestCase):
         path = Path(result.stdout.splitlines()[0].removeprefix('경로: '))
         return result.stdout, path, path.read_text()
 
+
+    def test_scope_completeness_and_finding_dispositions_survive_archive(self):
+        from test_workflow_results import scope_event
+        event, _ = scope_event(self.root)
+        event['missing_evidence'] = ['unavailable diff']
+        event['evidence_complete'] = False
+        event['verdict'] = 'INCONCLUSIVE'
+        event['terminal_state'] = 'BLOCKED:REVIEW_SCOPE'
+        final = {**event, 'iteration': 2, 'review_id': 'scope-2', 'review_stage': 'followup',
+                 'verdict': 'PASS', 'evidence_complete': True, 'missing_evidence': [], 'terminal_state': 'DONE'}
+        self.data['events'] = [event, final]
+        self.state.write_text(self.state.read_text() + '\n## Review Findings\n| finding-1 | deferred | follow-up #285 |\n')
+        _, _, report = self.run_archive()
+        self.assertIn('- Scope: be Phase 8.4 PASS', report)
+        self.assertIn('evidence_complete: True', report)
+        self.assertIn('scope_review_history:', report)
+        self.assertIn('scope-1', report)
+        self.assertIn('unavailable diff', report)
+        self.assertIn('| finding-1 | deferred | follow-up #285 |', report)
+
     def test_latest_paired_counts_and_domain_phases_are_preserved(self):
         for domain, phase in (('be', '8.1'), ('fe', '7.1'), ('fs', '7')):
             with self.subTest(domain=domain):

@@ -1,3 +1,4 @@
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -37,6 +38,67 @@ class ScopeTests(unittest.TestCase):
 
     def collect(self, owned=(), cwd=None):
         return scope.scope(cwd or self.root, self.start, list(owned))
+
+
+    def test_readable_patch_bundle_is_complete_and_cannot_overwrite_prior_attempt(self):
+        with tempfile.TemporaryDirectory(prefix='review evidence ') as outside:
+            directory = Path(outside)
+            owned = directory / 'owned.json'
+            owned.write_text(json.dumps(['src/new file.py', 'src/link']))
+            (self.root / 'src/new file.py').write_text('new owned code\n')
+            (self.root / 'src/link').symlink_to('/outside/not-read')
+            self.git('rm', 'src/committed.py')
+            (self.root / 'src/staged.py').write_text('index only\n')
+            self.git('add', 'src/staged.py')
+            (self.root / 'src/staged.py').write_text('before\n')
+            bundle = directory / 'attempt-1'
+            artifact = bundle / 'scope.json'
+            command = [sys.executable, '-B', str(SCRIPT), '--cwd', str(self.root / 'src'),
+                       '--start-sha', self.start, '--owned-files', str(owned),
+                       '--patch-dir', str(bundle), '--out', str(artifact)]
+            run = subprocess.run(command, capture_output=True, text=True)
+            self.assertEqual(0, run.returncode, run.stderr)
+            data = json.loads(artifact.read_text())
+            self.assertNotIn('patch', data)
+            self.assertEqual(['src/committed.py'], data['deleted'])
+            self.assertIn('src/new file.py', data['owned_untracked'])
+            self.assertEqual([{'path': 'src/link', 'target': '/outside/not-read'}], data['symlinks'])
+            self.assertIn('-before', Path(data['patch_file']).read_text())
+            self.assertIn('+index only', Path(data['index_patch_file']).read_text())
+            for key in ('patch', 'index_patch'):
+                self.assertEqual(data[key + '_sha256'], hashlib.sha256(Path(data[key + '_file']).read_bytes()).hexdigest())
+            original = artifact.read_bytes()
+            repeat = subprocess.run(command, capture_output=True, text=True)
+            self.assertEqual(2, repeat.returncode)
+            self.assertEqual(original, artifact.read_bytes())
+
+    def test_review_gate_detects_index_only_change_ignored_by_worktree_fingerprint(self):
+        with tempfile.TemporaryDirectory(prefix='scope review ') as outside:
+            directory = Path(outside)
+            owned = directory / 'owned.json'
+            owned.write_text('[]')
+            bundle = directory / 'attempt-1'
+            artifact = bundle / 'scope.json'
+            subprocess.run([sys.executable, '-B', str(SCRIPT), '--cwd', str(self.root),
+                            '--start-sha', self.start, '--owned-files', str(owned),
+                            '--patch-dir', str(bundle), '--out', str(artifact)], check=True, capture_output=True)
+            collected = json.loads(artifact.read_text())
+            tree = results.tested_tree(self.root)
+            identity = {key: collected[key] for key in ('root', 'start_sha', 'content_sha256')}
+            identity.update(artifact=str(artifact), artifact_sha256=hashlib.sha256(artifact.read_bytes()).hexdigest())
+            event = dict(domain='be', kind='scope', phase='8.4', iteration=1, ql_iteration=1,
+                         review_id='scope-1', review_stage='initial', verdict='PASS', terminal_state='DONE',
+                         tested_tree=tree, evidence_complete=True, missing_evidence=[], scope=identity)
+            data = dict(schema_version=1, run_id='scope-run', domain='be', mode='build', terminal_state='RUNNING',
+                        tested_tree=tree, targets=[], cases=[], events=[event], fixes=[])
+            self.assertTrue(results.check_scope(data, collected)['ready'])
+            (self.root / 'src/staged.py').write_text('changed index only\n')
+            self.git('add', 'src/staged.py')
+            (self.root / 'src/staged.py').write_text('before\n')
+            self.assertTrue(results.same_tree(tree, results.tested_tree(self.root)))
+            self.assertTrue(results.check_current(data, results.tested_tree(self.root), ['scope'])['current'])
+            with self.assertRaisesRegex(ValueError, 'stale scope evidence'):
+                results.check_scope(data, self.collect())
 
     def test_committed_implementation_survives_unrelated_untracked_dirty_tree(self):
         (self.root / 'src/committed.py').write_text('implementation\n')

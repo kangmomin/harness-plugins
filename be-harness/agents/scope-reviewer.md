@@ -19,6 +19,8 @@ model: sonnet
 
 ## 입력
 
+[리뷰 근거 계약](../skills/start-workflow/references/review-evidence.md)을 따른다. PROJECT_ROOT, START_SHA/HEAD, scope artifact·해시·두 diff, 검사 명령·exit·로그·tested_tree를 읽고 부족한 입력을 보고한다. diff를 파일명/stat으로 대체하지 않는다.
+
 프롬프트에 아래 정보가 제공됩니다:
 - **Technical Spec**: request 스킬에서 생성된 작업 명세
 - **검증 요청**: 어떤 파일/기능을 검증할지
@@ -62,8 +64,15 @@ model: sonnet
 ### 미발견 엣지 케이스 (Spec 외)
 - [코드 분석에서 추가 발견된 케이스]
 
+### 검토 근거
+- review_id / review_stage / QL 회차: {값}
+- scope artifact / artifact SHA-256 / root / start_sha / content_sha256: {전달값}
+- evidence_complete: {true|false}
+- missing_evidence: {구체 항목 배열; pending_8.1과 수집 불가를 구분}
+
 ### 판정
-- **PASS**: 모든 Spec 항목 구현 완료
+- **PARTIAL/INCONCLUSIVE**: 근거 부족. 코드에서 결함을 못 찾았어도 PASS로 올리지 않는다.
+- **PASS**: 모든 Spec 항목 구현 완료 AND evidence_complete:true
 - **FAIL**: 누락 항목 있음 → [목록]
 ```
 

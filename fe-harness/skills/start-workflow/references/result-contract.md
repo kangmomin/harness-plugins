@@ -20,7 +20,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_results.py"
 | target | `target_id`, `protocol:HTTP/GRPC/기타`, `operation`, `supported:boolean`; false면 `reason` |
 | case | `case_id`, `target_id`, `category`, `name` — 실행 중 ID 불변; FS는 BE/FE 접두사로 충돌 방지 |
 | event 공통 | `domain`, `kind`, `phase`, `iteration`(1부터), `verdict`, `terminal_state`, `tested_tree` |
-| event kind | `unit`, `integration`, `e2e`, `readback`, `lint`, `typecheck`, `build`, `pr` |
+| event kind | `unit`, `integration`, `e2e`, `readback`, `scope`, `lint`, `typecheck`, `build`, `pr` |
 | event verdict | `PASS`, `WARN`, `FAIL`, `INCONCLUSIVE`, `PARTIAL`, `SKIPPED` |
 | unit/integration event | `regression_count` 필수. `case_id`는 없음/null |
 | e2e event | `case_id`, `protocol`, `request`, `expected`, `actual`, `server_contact:boolean`, `client_error:boolean` |
@@ -53,3 +53,13 @@ E2E renderer의 입력은 E2E 결과 JSON이며 `--run-id`, `--level`, `--status
 `check-current`와 완료 PASS 검사는 같은 `same_tree` 규칙을 쓴다. v2끼리 내용이 같고 양쪽 모두 head_sensitive:false면 HEAD가 바뀌어도 원래 이벤트를 보존해 재사용한다. Git HEAD를 읽는 명령이나 의존 여부가 미확인인 검증은 기록 전 `tree --include-head`로 head_sensitive:true를 남긴다. 기록된 true는 현재 호출의 기본 false로 약화되지 않는다. 구 지문은 v2와 동등하게 해석하지 않으며 새로 검증한다. 현재 실행 트리의 루트 tested_tree는 실제 `tree` 출력으로 갱신하되 과거 event의 지문을 덮지 않는다.
 
 `test-summary FILE --run-id ID [--require unit] [--require integration]`의 JSON `verdict`와 `regression_count`가 품질 루프의 테스트 합산 결과다. 명령 exit 0은 요약 성공이며 테스트 PASS를 뜻하지 않는다. integration 명령이 설정된 실행은 integration을 필수로 요구한다. 누락·미완료·판정 불가·어느 suite의 실패도 unit 재실행이나 TDD SKIP으로 지우지 않는다. 명령이 없는 suite만 기존 근거로 SKIPPED를 기록하고, SKIPPED의 regression_count:0은 미실행 표기이며 통과 증거가 아니다.
+
+## Scope 이벤트와 독립 근거
+
+`kind:scope`는 [review-evidence.md](review-evidence.md)의 BE 8.4 결과다. schema_version:1의 선택적 확장이며 구 이벤트 읽기는 유지한다. 새 Build의 마감에는 scope가 필수다. `iteration`은 리뷰 시도 번호, `ql_iteration`은 QL 회차이며 `review_id`, `review_stage:initial/followup`, `evidence_complete:boolean`, `missing_evidence:문자열 배열`, `scope`를 기록한다.
+
+`scope`는 artifact(절대 경로), artifact_sha256(scope.json 파일 SHA-256), root, start_sha, content_sha256이며 수집 실패는 null로 기록한다. evidence_complete는 누락 배열이 비었을 때만 true이고, true에는 유효 scope가 필요하다. PASS+누락은 validator가 거부한다. 실패한 테스트 로그가 있다는 이유로 근거를 false로 만들지 않으며 코드 판정/테스트 실패를 유지한다.
+
+`check-scope FILE --run-id ID --scope CURRENT_SCOPE_JSON --domain be`는 최신 scope의 근거 완료·PASS/WARN·DONE, 보존 manifest/diff 바이트 해시와 현재 root/start_sha/content_sha256를 검사한다. 수집 명령의 exit 0을 확인한 새 artifact만 넘긴다. index-only 변경은 tested_tree와 독립적으로 stale이다. 실패 exit 2는 BLOCKED:REVIEW_SCOPE이며 원격 반영하지 않는다. check-current는 기존 freshness 정책 그대로이고 --require scope 및 다른 필수 kind를 함께 확인한다.
+
+첫 결과를 덮지 않고 후속 시도를 append한다. finding 처분은 기존 상태의 Review Findings 표에 남기며 E2E 전용 fixes에 넣지 않는다. 아카이브는 최신 scope 근거 완료·누락을 출력하고 상태 전문에서 첫/보완·처분 이력을 보존한다.

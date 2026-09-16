@@ -16,7 +16,7 @@ Phase 8.1~8.7은 **루프 안**에서 최대 `{QL_MAX}`회(standard 3 / light 2)
 
 ## Batch A: 병렬 스캔 (Phase 8.1 ~ 8.4)
 
-세 실행 단위(8.1 Bash 직접 / 8.2·8.3 통합 스캐너 / 8.4 scope-reviewer)를 **하나의 메시지에서 동시에 호출**한다. 모든 서브 에이전트는 **이슈 목록만 반환하며 파일을 수정하지 않는다**.
+[review-evidence.md](review-evidence.md)의 회차별 scope artifact를 준비한 뒤 세 실행 단위(8.1 Bash 직접 / 8.2·8.3 통합 스캐너 / 8.4 scope-reviewer)를 **하나의 메시지에서 동시에 호출**한다. 모든 서브 에이전트는 **이슈 목록만 반환하며 파일을 수정하지 않는다**.
 파일 수정은 Phase 8.5(통합 수정)에서 일괄 처리하여 에이전트 간 파일 편집 경합을 제거한다.
 
 > **CRITICAL**: Batch A의 에이전트는 모두 읽기/분석만 수행한다. 같은 메시지에서 병렬 실행해도 편집 충돌이 발생하지 않는다.
@@ -24,17 +24,20 @@ Phase 8.1~8.7은 **루프 안**에서 최대 `{QL_MAX}`회(standard 3 / light 2)
 
 ### Phase 8.1: 빌드 + 테스트 — Bash로 직접 실행 (에이전트 아님)
 
+BUILD_LOG와 UNIT_LOG는 Batch A에서 새로 만든 `{RUN_DIR}/scope-{REVIEW_ATTEMPT}` 안의 `build.log`·`unit.log` 절대 경로다. REVIEW_ATTEMPT는 RUN 전체에서 증가하므로 QL 재진입의 iteration 초기화로 이전 로그를 덮지 않는다. 같은 명령을 재실행할 때도 새 미사용 로그 경로를 배정한다.
+
 ```bash
-{buildCommand} && {testCommand} 2>&1
+{buildCommand} > "{BUILD_LOG}" 2>&1; BUILD_EXIT=$?
+{testCommand} > "{UNIT_LOG}" 2>&1; TEST_EXIT=$?
 ```
 
-둘 중 하나라도 비어있으면 해당 단계 SKIP. 에러 로그를 Batch A 결과에 수집한다. 파일 수정 없음.
+명령별로 설정된 것만 실행하고 비어 있는 명령은 해당 검사의 SKIPPED:PROFILE_EMPTY로 기록한다. 각 exit·완주·로그·tested_tree를 Batch A 결과에 수집한다. 자동 errexit에 의해 실패 로그 수집이 생략되지 않게 실행하며 파일 수정은 없다.
 
 **회귀 대조 (TDD 활성 시)**: 테스트 출력을 `assets/test_failures.py`로 파싱해 `{STATE_FILE}`의 `## Test Baseline`과 대조한다. 상세 절차·폴백은 `references/tdd.md`의 "Phase 8: 회귀 대조".
 
 ```bash
-{testCommand} > "{RUN_DIR}/test-output.log" 2>&1; EXIT=$?
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --runner auto --exit-code $EXIT --suite unit --baseline {STATE_FILE} "{RUN_DIR}/test-output.log"
+# 위에서 실행한 unit 로그를 파싱한다. 테스트를 다시 실행하지 않는다.
+python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --runner auto --exit-code "$TEST_EXIT" --suite unit --baseline {STATE_FILE} "{UNIT_LOG}"
 ```
 
 | # | 조건 | 분류 |
@@ -84,6 +87,8 @@ Agent tool:
 
 ### Phase 8.4: Scope Review
 
+[review-evidence.md](review-evidence.md)를 먼저 읽고 실제 scope.json·두 diff·검사 로그를 전달한다. Batch A 전 writer 종료 후 수집하며, 병렬 8.1 대기는 PARTIAL로 보존하고 합류 뒤 같은 독립 리뷰어가 보완한다. 근거 미완료는 PASS나 부모 대체 검토로 닫지 않는다.
+
 ```
 Agent tool:
   subagent_type: be-harness:scope-reviewer
@@ -91,11 +96,18 @@ Agent tool:
   effort: [리뷰 범위 기준 선택]
   prompt: |
     상태 파일 `{STATE_FILE}`의 Technical Spec을 기준으로
-    현재 구현된 코드를 검증하세요. 프로젝트 루트: {CWD}.
+    현재 구현된 코드를 검증하세요. PROJECT_ROOT: {CWD}.
+    START_SHA: {START_SHA}, 수집 HEAD: {SCOPE_HEAD}, scope content_sha256: {SCOPE_HASH}.
+    scope artifact: {SCOPE_FILE}, artifact SHA-256: {SCOPE_FILE_SHA256}.
+    변경 목록과 두 diff: {SCOPE_PATHS}, {PATCH_FILE}, {INDEX_PATCH_FILE}.
+    검사 근거: {명령·exit·완주·회차별 로그·tested_tree | pending_8.1 | 정당한 SKIPPED 사유}.
+    review ID/시도: {REVIEW_ATTEMPT}, QL 회차: {iteration}, 첫/보완: {REVIEW_STAGE}.
+    이전 finding ID와 처분: {REVIEW_FINDINGS}.
+    누락 자료와 evidence_complete를 코드 판정과 별도로 반환하세요.
     현재 Phase: Phase 8.4
     남은 Phase: Phase 8.5~8.8, 9, 10, 11, 12
     배정 model/effort: {model}/{effort}
-    누락/불일치 항목만 반환하고 파일은 수정하지 마세요.
+    누락/불일치 항목과 근거 완료·부족 상태를 반환하고 파일은 수정하지 마세요.
 ```
 
 ## Phase 8.5: 통합 수정

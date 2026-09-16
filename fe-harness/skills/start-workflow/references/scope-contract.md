@@ -17,6 +17,10 @@ python3 -I -B "{PLUGIN_ROOT}/skills/start-workflow/assets/workflow_scope.py" \
 - 단독 호출은 호출자가 지정한 SHA 또는 **명시적으로 결정한 base ref**의 merge-base를 쓴다(`--start-sha` 대신 `--base-ref`). base가 없으면 먼저 기존 PR base·프로젝트 mainBranch·origin/HEAD를 근거로 결정한다. 동일 feature upstream을 PR base로 추정하지 않는다. 미해결은 BLOCKED이며 HEAD로 대체하지 않는다.
 - Read-back 부모는 여기서 소스를 선정해 **명시 파일 목록만** 자식에게 전달한다. 자식은 main/base를 다시 추론하지 않는다. Spec·Plan·상태·Test Map 격리는 유지한다. 같은 브랜치에 직접 커밋하는 --hard도 START_SHA를 사용하므로 범위가 사라지지 않는다.
 
+# 읽기 전용 리뷰용 파일
+
+BE scope 위임은 [review-evidence.md](review-evidence.md)의 `--patch-dir`를 사용한다. 새 실행 외부 디렉터리에 JSON 목록과 patch_file/index_patch_file을 분리하고 각 diff의 SHA-256을 기록한다. 디렉터리 재사용은 오류이며 기존 증거를 덮지 않는다. 옵션 미지정 출력은 기존 patch/index_patch 인라인 계약을 유지한다.
+
 # 검증 이후 변경
 
 검증 전후 `workflow_results.py tree --cwd "{CWD}"`를 비교하고 동일할 때 해당 이벤트에 `tested_tree`를 기록한다. 코드가 수정되거나 의도하지 않은 HEAD 이동이 있으면 해당 검증을 다시 수행한다. 범위 helper의 `content_sha256`은 index도 포함한 리뷰 범위 해시이며 result의 `tested_tree.content_sha256`과 다른 필드다. 두 해시를 대신 사용하지 않는다.

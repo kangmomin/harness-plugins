@@ -1,5 +1,7 @@
 <!-- overlay-source: minmos-harness@2.4.0 -->
 
+BE Phase 8.4는 be-harness 1.5.7의 `review-evidence.md` 계약을 따른다. 추가 품질 리뷰의 APPROVE로 베이스의 BLOCKED:REVIEW_SCOPE를 해소하지 않으며, diff·검사 근거의 독립 보완과 최종 check-scope를 먼저 완료한다.
+
 ## Base
 
 `be-harness:start-workflow`

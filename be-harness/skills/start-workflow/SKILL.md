@@ -401,12 +401,12 @@ for iteration in 1..{QL_MAX}:
 
 Phase 8.1(unit)·8.7(integration) 결과를 각각 `assets/test_failures.py --suite {suite} --baseline {STATE_FILE}`로 대조한다. 분류·폴백은 `references/tdd.md`의 "Phase 8: 회귀 대조", 기록·합산은 `references/result-contract.md`의 test-summary를 따른다.
 
-**테스트 판정**: suite별 `PASS` = `regression` 0건 + `new_red` 0건 / `WARN` = `flaky`만 / `FAIL` = 그 외. 루프 종료에는 unit+integration 최신 결과의 `test-summary` JSON verdict를 사용한다.
+scope 마감은 references/review-evidence.md의 check-scope와 check-current --require scope다. scope 미완료는 BLOCKED:REVIEW_SCOPE로 기록하고 QL 상한을 늘리지 않으며 후속 보고는 계속하되 원격 반영을 보류한다. **테스트 판정**: suite별 `PASS` = `regression` 0건 + `new_red` 0건 / `WARN` = `flaky`만 / `FAIL` = 그 외. 루프 종료에는 unit+integration 최신 결과의 `test-summary` JSON verdict를 사용한다.
 
 | 종료 조건 | 결과 |
 |----------|------|
-| `modified == false` **AND** 테스트 판정 `PASS` | 루프 탈출 → Phase 8.8 |
-| `modified == false` AND 합산 테스트 `PASS`/정당한 `SKIPPED` (TDD SKIP 시) | 루프 탈출 → Phase 8.8 |
+| `modified == false` **AND** 테스트 판정 `PASS` AND scope 마감 통과 | 루프 탈출 → Phase 8.8 |
+| `modified == false` AND 합산 테스트 `PASS`/정당한 `SKIPPED` (TDD SKIP 시) AND scope 마감 통과 | 루프 탈출 → Phase 8.8 |
 | 그 외 | 커밋 후 다음 iteration |
 | `{QL_MAX}`회 도달 & 미PASS | `BLOCKED:TEST_NOT_GREEN` 기록 → 강제 탈출 → Phase 8.8 |
 
@@ -429,7 +429,7 @@ Phase 8.1(unit)·8.7(integration) 결과를 각각 `assets/test_failures.py --su
 
 ### Phase 10: PR / Push
 
-진입 직전 light면 승격 ⑦ 재평가(`references/verification-tier.md` §4) — 발화 시 Phase 8을 standard로 1회 재진입한 뒤 돌아온다.
+원격 반영 전에 references/review-evidence.md의 현재 범위 수집 → check-scope → check-current --require scope를 기존 필수 검증과 함께 통과해야 한다. 과거 scope 없는 결과·부모 대체 검토·BLOCKED:REVIEW_SCOPE는 push 근거가 아니다. 진입 직전 light면 승격 ⑦ 재평가(`references/verification-tier.md` §4) — 발화 시 Phase 8을 standard로 1회 재진입한 뒤 돌아온다.
 - `PUBLISH_POLICY=local`: 검증한 소유 변경을 common:commit 절차로 로컬 커밋만 수행한다. 도메인 전환의 local 정책을 hard push로 확대하지 않는다.
 - `PUBLISH_POLICY=pr`: workflow-pr 에이전트의 common:commit-pr 정본 절차를 실행하고 실제 PR URL/HEAD를 확인한다.
 - `PUBLISH_POLICY=push` (BE/FE --hard): **common:commit-hard-push**의 소유 dirty 변경 commit → Git 오류를 구분한 Gate → push 순서를 수행한다. 이미 커밋한 구현과 품질 루프의 미커밋 수정도 포함해 검사한다. common 미설치면 해당 반영 단계는 BLOCKED이며 raw push로 우회하지 않는다.

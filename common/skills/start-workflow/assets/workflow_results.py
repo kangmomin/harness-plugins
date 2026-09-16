@@ -16,7 +16,7 @@ import subprocess
 import sys
 import tempfile
 
-KINDS = {'unit', 'integration', 'e2e', 'readback', 'lint', 'typecheck', 'build', 'pr'}
+KINDS = {'unit', 'integration', 'e2e', 'readback', 'scope', 'lint', 'typecheck', 'build', 'pr'}
 VERDICTS = {'PASS', 'WARN', 'FAIL', 'INCONCLUSIVE', 'PARTIAL', 'SKIPPED'}
 DOMAINS = {'be', 'fe', 'fs'}
 
@@ -144,6 +144,20 @@ def validate(data, run_id=None):
         if event['kind'] in ('unit', 'integration'):
             require(type(event.get('regression_count')) is int and event['regression_count'] >= 0, event['kind'] + ' regression_count required')
             require(event['verdict'] != 'PASS' or event['regression_count'] == 0, 'PASS conflicts with regressions')
+        if event['kind'] == 'scope':
+            require(nonempty(event.get('review_id')) and event.get('review_stage') in ('initial', 'followup'), 'scope review identity required')
+            require(type(event.get('ql_iteration')) is int and event['ql_iteration'] > 0, 'scope ql_iteration required')
+            require(type(event.get('evidence_complete')) is bool, 'scope evidence_complete boolean required')
+            missing = event.get('missing_evidence')
+            require(isinstance(missing, list) and all(nonempty(item) for item in missing), 'scope missing_evidence array required')
+            require(event['evidence_complete'] == (not missing), 'scope evidence completeness conflicts with missing evidence')
+            require(event['verdict'] != 'PASS' or event['evidence_complete'], 'scope PASS requires complete evidence')
+            evidence = event.get('scope')
+            if evidence is not None:
+                require(isinstance(evidence, dict) and all(nonempty(evidence.get(k)) for k in ('artifact', 'artifact_sha256', 'root', 'start_sha', 'content_sha256')), 'scope artifact identity required')
+                require(Path(evidence['artifact']).is_absolute() and Path(evidence['root']).is_absolute(), 'scope artifact/root must be absolute')
+                require(bool(re.fullmatch(r'[0-9a-f]{40,64}', evidence['start_sha'])) and all(re.fullmatch(r'[0-9a-f]{64}', evidence[k]) for k in ('content_sha256', 'artifact_sha256')), 'scope hashes invalid')
+            require(not event['evidence_complete'] or evidence is not None, 'complete scope requires artifact evidence')
         if event['kind'] == 'e2e':
             require(event.get('case_id') in cases, 'unknown e2e case_id')
             target = targets[cases[event['case_id']]['target_id']]
@@ -173,6 +187,9 @@ def validate(data, run_id=None):
         fixes.add(key)
     # Final passing evidence must describe the final tested tree, never a prior build.
     for event in latest(data).values():
+        if event['kind'] == 'scope' and data['terminal_state'] == 'DONE':
+            require(event['evidence_complete'] and event['terminal_state'] == 'DONE' and event['verdict'] in ('PASS', 'WARN'),
+                    'completed run requires accepted scope evidence')
         if event['verdict'] == 'PASS' and data['terminal_state'] == 'DONE':
             require(same_tree(event['tested_tree'], data['tested_tree']), 'final PASS describes a different tested tree')
     return data
@@ -254,6 +271,27 @@ def check_current(data, current, required):
             'note': 'freshness only; FAIL/BLOCKED and required-case coverage still govern publication'}
 
 
+def check_scope(data, current_scope, domain='be'):
+    """Require accepted independent review of the current index AND working scope."""
+    validate(data)
+    event = latest(data).get((domain, 'scope', None))
+    require(event is not None, 'missing required verification: scope')
+    require(event['evidence_complete'] and event['terminal_state'] == 'DONE' and event['verdict'] in ('PASS', 'WARN'),
+            'scope review incomplete or not accepted')
+    require(isinstance(current_scope, dict) and current_scope.get('schema_version') == 1, 'current scope artifact required')
+    raw = Path(event['scope']['artifact']).read_bytes()
+    require(hashlib.sha256(raw).hexdigest() == event['scope']['artifact_sha256'], 'reviewed scope artifact changed')
+    reviewed = json.loads(raw)
+    require(reviewed.get('schema_version') == 1 and all(reviewed.get(key) == event['scope'][key] for key in ('root', 'start_sha', 'content_sha256')), 'reviewed scope identity mismatch')
+    for key in ('patch', 'index_patch'):
+        require(nonempty(reviewed.get(key + '_file')) and Path(reviewed[key + '_file']).is_absolute(), 'readable scope patches required')
+        payload = Path(reviewed[key + '_file']).read_bytes()
+        require(hashlib.sha256(payload).hexdigest() == reviewed.get(key + '_sha256'), 'reviewed scope patch changed: ' + key)
+    require(all(event['scope'][key] == current_scope.get(key) for key in ('root', 'start_sha', 'content_sha256')),
+            'stale scope evidence: collect and review changed scope')
+    return {'ready': True, 'run_id': data['run_id'], 'review_id': event['review_id'], 'verdict': event['verdict']}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -273,6 +311,11 @@ def main():
     fresh.add_argument('--cwd', required=True)
     fresh.add_argument('--require', action='append', default=[])
     fresh.add_argument('--include-head', action='store_true')
+    review = sub.add_parser('check-scope')
+    review.add_argument('file')
+    review.add_argument('--run-id', required=True)
+    review.add_argument('--scope', required=True, help='Fresh workflow_scope.py output; collection must have exited 0')
+    review.add_argument('--domain', choices=('be', 'fe'), default='be')
     init = sub.add_parser('init')
     for key in ('out', 'run-id', 'domain', 'mode', 'cwd'):
         init.add_argument('--' + key, required=True)
@@ -288,6 +331,8 @@ def main():
             result = check_current(load(args.file, args.run_id), tested_tree(args.cwd, args.include_head), args.require)
         elif args.command == 'test-summary':
             result = test_summary(load(args.file, args.run_id), args.require)
+        elif args.command == 'check-scope':
+            result = check_scope(load(args.file, args.run_id), json.loads(Path(args.scope).read_text()), args.domain)
         else:
             result = validate({'schema_version': 1, 'run_id': args.run_id, 'domain': args.domain, 'mode': args.mode,
                 'terminal_state': 'RUNNING', 'tested_tree': tested_tree(args.cwd, args.include_head), 'targets': [], 'cases': [], 'events': [], 'fixes': []})

@@ -101,9 +101,24 @@ def main():
     parser.add_argument('--base-ref', help='Standalone only: explicit/resolved PR base, never the branch upstream by default')
     parser.add_argument('--owned-files', required=True, help='Run-owned root-relative paths JSON array; [] is explicit')
     parser.add_argument('--out', help='Run-owned JSON artifact, refreshed each iteration by the orchestrator')
+    parser.add_argument('--patch-dir', help='New absolute run directory for readable patches; requires --out')
     args = parser.parse_args()
     try:
         result = scope(args.cwd, args.start_sha, json.loads(Path(args.owned_files).read_text()), args.base_ref)
+        if args.patch_dir:
+            directory = Path(args.patch_dir)
+            if not args.out or not directory.is_absolute() or directory.resolve().is_relative_to(Path(result['root']).resolve()):
+                raise ScopeError('patch-dir requires --out and an absolute directory outside the repository')
+            if directory.resolve() != directory or Path(args.out).resolve().parent != directory:
+                raise ScopeError('out must be inside patch-dir; symlink directories are not allowed')
+            # One directory per review attempt: a later collection cannot overwrite reviewed evidence.
+            directory.mkdir(parents=True, exist_ok=False)
+            for key in ('patch', 'index_patch'):
+                destination = directory / (key + '.diff')
+                payload = result.pop(key).encode('utf-8', errors='surrogateescape')
+                destination.write_bytes(payload)
+                result[key + '_file'] = str(destination)
+                result[key + '_sha256'] = hashlib.sha256(payload).hexdigest()
         output = json.dumps(result, ensure_ascii=True, indent=2) + '\n'
         if args.out:
             destination = Path(args.out)

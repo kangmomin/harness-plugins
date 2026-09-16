@@ -1,4 +1,5 @@
 import copy
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -34,7 +35,89 @@ def target(data, identifier, protocol='HTTP', called=True, supported=True):
             'server_contact': True, 'client_error': False, 'streaming': 'unary', 'deadline': '2s', 'server_status': 'OK', 'status_origin': 'server'})
 
 
+
+def scope_event(directory):
+    patches = {}
+    for key in ('patch', 'index_patch'):
+        path = directory / (key + '.diff')
+        path.write_text('diff fixture\n')
+        patches[key + '_file'] = str(path)
+        patches[key + '_sha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
+    manifest = dict(schema_version=1, root=str(directory), start_sha='a' * 40, content_sha256='c' * 64, **patches)
+    artifact = directory / 'scope.json'
+    artifact.write_text(json.dumps(manifest))
+    identity = {key: manifest[key] for key in ('root', 'start_sha', 'content_sha256')}
+    identity.update(artifact=str(artifact), artifact_sha256=hashlib.sha256(artifact.read_bytes()).hexdigest())
+    event = dict(domain='be', kind='scope', phase='8.4', iteration=1, ql_iteration=1, review_id='scope-1',
+                 review_stage='initial', verdict='PASS', terminal_state='DONE', tested_tree=TREE.copy(),
+                 evidence_complete=True, missing_evidence=[], scope=identity)
+    return event, manifest
+
 class ResultsTest(unittest.TestCase):
+    def test_scope_pending_cannot_pass_and_followup_preserves_initial_result(self):
+        with tempfile.TemporaryDirectory() as outside:
+            event, current = scope_event(Path(outside))
+            data = fixture()
+            data['terminal_state'] = 'RUNNING'
+            pending = {**event, 'evidence_complete': False, 'missing_evidence': ['pending_8.1'],
+                       'verdict': 'PARTIAL', 'terminal_state': 'RUNNING'}
+            data['events'] = [pending]
+            results.validate(data)
+            with self.assertRaisesRegex(ValueError, 'scope review incomplete'):
+                results.check_scope(data, current)
+            invalid = copy.deepcopy(data)
+            invalid['events'][0].update(verdict='PASS', terminal_state='DONE')
+            with self.assertRaisesRegex(ValueError, 'scope PASS requires complete evidence'):
+                results.validate(invalid)
+            data['events'].append({**event, 'iteration': 2, 'review_id': 'scope-2', 'review_stage': 'followup'})
+            self.assertTrue(results.check_scope(data, current)['ready'])
+            self.assertEqual(['pending_8.1'], data['events'][0]['missing_evidence'])
+            self.assertEqual(2, len(data['events']))
+            data['terminal_state'] = 'DONE'
+            results.validate(data)
+            data['terminal_state'] = 'RUNNING'
+            data['events'].append({**pending, 'iteration': 3, 'review_id': 'scope-3'})
+            with self.assertRaisesRegex(ValueError, 'scope review incomplete'):
+                results.check_scope(data, current)
+            data['terminal_state'] = 'DONE'
+            with self.assertRaisesRegex(ValueError, 'completed run requires accepted scope evidence'):
+                results.validate(data)
+
+    def test_scope_gate_rejects_missing_review_and_lost_or_changed_artifacts(self):
+        with self.assertRaisesRegex(ValueError, 'missing required verification: scope'):
+            results.check_scope(fixture(), {})
+        for damage in ('manifest', 'patch', 'index_patch', 'lost'):
+            with self.subTest(damage=damage), tempfile.TemporaryDirectory() as outside:
+                event, current = scope_event(Path(outside))
+                data = fixture()
+                data['events'] = [event]
+                if damage == 'lost':
+                    Path(event['scope']['artifact']).unlink()
+                    with self.assertRaises(OSError):
+                        results.check_scope(data, current)
+                else:
+                    path = Path(event['scope']['artifact'] if damage == 'manifest' else current[damage + '_file'])
+                    path.write_text(path.read_text() + 'tampered')
+                    with self.assertRaisesRegex(ValueError, 'changed'):
+                        results.check_scope(data, current)
+
+    def test_scope_cli_fails_closed_without_changing_other_freshness_policy(self):
+        with tempfile.TemporaryDirectory() as outside:
+            directory = Path(outside)
+            event, current = scope_event(directory)
+            data = fixture()
+            data['terminal_state'] = 'RUNNING'
+            data['events'] = [{**event, 'verdict': 'INCONCLUSIVE', 'evidence_complete': False,
+                               'missing_evidence': ['diff unreadable'], 'terminal_state': 'DONE'}]
+            self.assertTrue(results.check_current(data, TREE, ['scope'])['current'])
+            source = directory / 'results.json'
+            source.write_text(json.dumps(data))
+            run = subprocess.run([sys.executable, str(ASSETS / 'workflow_results.py'), 'check-scope', str(source),
+                                  '--run-id', data['run_id'], '--scope', event['scope']['artifact']], capture_output=True, text=True)
+            self.assertEqual(2, run.returncode)
+            self.assertIn('scope review incomplete', run.stderr)
+
+
     def test_unit_rerun_preserves_integration_failure_and_required_evidence(self):
         data = fixture()
         data['events'] = [dict(domain='be', kind=kind, phase=phase, iteration=1, verdict=verdict,

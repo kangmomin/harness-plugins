@@ -140,12 +140,12 @@ def update_frontmatter(lines, values):
 def final_results(data, rows, mode):
     if data is not None:
         selected = list(latest(data).values())
-        return {kind: [event for event in selected if event["kind"] == kind] for kind in ("unit", "integration", "e2e", "readback")}
+        return {kind: [event for event in selected if event["kind"] == kind] for kind in ("unit", "integration", "e2e", "readback", "scope")}
     # Legacy migration view only: paired values come from the SAME last row.
     phases = {"be": {"unit": "8.1", "integration": "8.7", "e2e": "8.6"},
               "fe": {"unit": "7.1", "e2e": "7.4"},
               "fs": {"unit": "7", "e2e": "8.2", "readback": "8.1"}}.get(mode, {})
-    out = {kind: [] for kind in ("unit", "integration", "e2e", "readback")}
+    out = {kind: [] for kind in ("unit", "integration", "e2e", "readback", "scope")}
     for kind, phase in phases.items():
         matches = [row for row in rows if len(row) >= 3 and row[0] == phase]
         if not matches:
@@ -260,6 +260,7 @@ def archive_main():
         if fm_get(fm_lines, key) is None:
             owned[key] = value
     if evidence is not None:
+        owned["scope_review_history"] = [event for event in evidence["events"] if event["kind"] == "scope"]
         owned.update(result_schema_version=evidence["schema_version"], tested_tree=evidence["tested_tree"], terminal_state=evidence["terminal_state"])
     if tier:
         owned["tier"] = tier
@@ -279,6 +280,9 @@ def archive_main():
     a.append("- 최종 테스트 판정: " + describe_results(final["unit"] + final["integration"]))
     a.append("- E2E: " + describe_results(final["e2e"]))
     a.append("- Read-back: " + describe_results(final["readback"]))
+    a.append("- Scope: " + describe_results(final["scope"]))
+    for event in final["scope"]:
+        a.append("  - review_id: %s · evidence_complete: %s · missing_evidence: %s" % (event["review_id"], event["evidence_complete"], json.dumps(event["missing_evidence"], ensure_ascii=False)))
     a.append("- 산출물: %s" % (" / ".join(l.strip().lstrip("- ") for l in (artifacts or "").splitlines() if l.strip().startswith("-")) or "기록 없음"))
     a.append("- 미결 질문: %s" % ("%d건" % open_q if open_q is not None else "기록 없음(impl-notes 미전달)"))
     a.append("- touched_paths: %s" % ("%d개 (frontmatter)" % len(tp) if tp is not None else "생략(시작 SHA 없음·도달 불가)"))
