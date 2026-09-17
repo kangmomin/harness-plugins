@@ -181,6 +181,7 @@ def check(root):
     groups += [[f'{p}/{sw}references/{name}' for p in ('be-harness', 'fe-harness', 'common')] for name in ('writer-safety.md', 'scope-contract.md', 'result-contract.md', 'review-evidence.md', 'execution-policy.md')]
     groups += [[f'{p}/skills/config/assets/{name}' for p in ('be-harness', 'fe-harness')] for name in ('profile.py', 'doctor.py')]
     groups += [[f'{p}/skills/e2e-test/assets/e2e_lock.py' for p in ('be-harness', 'fe-harness')]]
+    groups += [[f'{p}/skills/simplify-loop/references/workflow-script.md' for p in ('be-harness', 'fe-harness')]]
     for group in groups:
         require(all((root / p).is_file() for p in group), 'missing parity member: ' + ', '.join(group))
         if all((root / p).is_file() for p in group):

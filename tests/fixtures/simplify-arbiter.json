@@ -1,0 +1,27 @@
+{
+  "ruling": {
+    "candidateId": "i1-c1",
+    "verdict": "PROCEED",
+    "reasoning": "The empty input branch is preserved by the caller guard.",
+    "action": "Apply the unchanged proposal.",
+    "objectionsResolved": true,
+    "evidence": "src/example.js:12 guards empty input before this call."
+  },
+  "cases": [
+    {"name": "resolved with evidence", "patch": {}, "expected": "APPROVED"},
+    {"name": "unresolved objection", "patch": {"objectionsResolved": false}, "expected": "HOLD"},
+    {"name": "empty evidence", "patch": {"evidence": ""}, "expected": "HOLD"},
+    {"name": "whitespace evidence", "patch": {"evidence": " \n\t"}, "expected": "HOLD"},
+    {"name": "missing resolution", "omit": "objectionsResolved", "expected": "ARBITER_FAILURE"},
+    {"name": "string resolution", "patch": {"objectionsResolved": "true"}, "expected": "ARBITER_FAILURE"},
+    {"name": "integer resolution", "patch": {"objectionsResolved": 1}, "expected": "ARBITER_FAILURE"},
+    {"name": "missing evidence", "omit": "evidence", "expected": "ARBITER_FAILURE"},
+    {"name": "nonstring evidence", "patch": {"evidence": null}, "expected": "ARBITER_FAILURE"},
+    {"name": "unknown verdict", "patch": {"verdict": "APPROVE"}, "expected": "ARBITER_FAILURE"},
+    {"name": "different candidate", "patch": {"candidateId": "another"}, "expected": "ARBITER_FAILURE"},
+    {"name": "empty reasoning", "patch": {"reasoning": " "}, "expected": "ARBITER_FAILURE"},
+    {"name": "missing action", "omit": "action", "expected": "ARBITER_FAILURE"},
+    {"name": "explicit hold", "patch": {"verdict": "HOLD", "objectionsResolved": false, "evidence": ""}, "expected": "HOLD"},
+    {"name": "revise proposal", "patch": {"verdict": "RECONSIDER", "objectionsResolved": false, "evidence": ""}, "expected": "RECONSIDER"}
+  ]
+}

@@ -8,6 +8,10 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-09-17 단순화 반론 검증
+
+BE 1.5.8 / FE 1.4.7. 3/4 찬성의 즉시 적용을 없애고 실제 소수 반론을 독립 Arbiter가 검토한다. 만장일치는 기존 DA를 유지하며, 모든 승인은 반론 해소 여부와 코드·테스트 근거를 요구한다. 미해소·근거 부족은 보류하고 잘못된 결과는 기존 재시도 상한을 따른다. 단일 writer·루프 상한·최종 검증 계약은 유지한다.
+
 ## 2026-09-16 리뷰 근거 보강
 
 BE 1.5.7 / common 0.14.5 / FE 공통 자산 1.4.6 / minmos 2.5.3. 읽기 전용 scope 리뷰에 실제 diff와 검사 로그를 전달하고, 근거 미완료·staged 내용 변경·artifact 손상은 마감에서 검사한다. 최초/보완 결과와 지적의 반영·보류·범위 제외를 구분해 남긴다. FE 필수 리뷰 단계는 변경하지 않고 공통 자산만 동기화했다. 상세 계약은 [review-evidence.md](be-harness/skills/start-workflow/references/review-evidence.md)에 있다.

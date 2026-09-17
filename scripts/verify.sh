@@ -8,5 +8,6 @@ python3 -B -m unittest discover -s tests -p 'test_*.py' -v
 python3 -B -m unittest discover -s work-log/tests -p 'test_*.py' -v
 node --test work-log/tests/*.test.js
 node --test tests/docgen.test.mjs
+node --test tests/simplify-loop.test.mjs
 python3 -B tests/fixtures/fe-components/verify.py
 python3 -B tests/fixtures/grpcurl/verify.py

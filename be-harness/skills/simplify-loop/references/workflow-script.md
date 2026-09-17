@@ -33,7 +33,7 @@ Workflow tool:
 ## Script 전문
 
 에이전트 프롬프트의 유일한 정의처는 아래 script 내 named const다 (`SCAN_PROMPT`, `PERSPECTIVES`, `REVIEW_PROMPT`, `DA_PROMPT`, `ARBITER_PROMPT`, `APPLY_PROMPT`, `RECONCILE_PROMPT`).
-리뷰 프로세스는 simplify-review-convention(4관점 → 만장일치 시 Devil's Advocate → Arbiter)의 재구현이며 **canonical은 본 파일이다** (전역 규칙 파일과의 동기화는 수동).
+리뷰 프로세스는 4관점 → 만장일치 시 Devil's Advocate → Arbiter이며, 3/4 찬성은 실제 소수 의견으로 Arbiter에 직접 보낸다. **canonical은 본 파일이다** (전역 규칙 파일과의 동기화는 수동).
 
 ```javascript
 export const meta = {
@@ -60,6 +60,15 @@ const norm = s => String(s || '').replace(/\s+/g, ' ').trim()
 const hash = s => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0; return h.toString(36) }
 const contentKeyOf = c => c.file + '#' + hash(norm(c.current))
 const proposedKeyOf = c => c.file + '#' + hash(norm(c.proposed))
+
+// 근거의 존재만 검사한다. 근거가 실제 반론을 해소하는지는 독립 Arbiter의 책임이다.
+const gateRuling = (a, candidateId) => {
+  if (!a || a.candidateId !== candidateId || !['PROCEED', 'RECONSIDER', 'HOLD'].includes(a.verdict)
+    || !['reasoning', 'action'].every(k => typeof a[k] === 'string' && a[k].trim())
+    || typeof a.objectionsResolved !== 'boolean' || typeof a.evidence !== 'string') return 'ARBITER_FAILURE'
+  if (a.verdict !== 'PROCEED') return a.verdict
+  return a.objectionsResolved === true && a.evidence.trim() ? 'APPROVED' : 'HOLD'
+}
 
 // ═══ 프롬프트 — 단일 출처: 본 script의 named const (simplify-review-convention 재구현, canonical) ═══
 const SCAN_PROMPT = (seenSummary) => `당신은 코드 단순화 후보를 스캔하는 에이전트입니다.
@@ -121,20 +130,25 @@ const DA_PROMPT = (batch, verdictNotes) => `당신은 이 코드 변경들에 **
 ${JSON.stringify(batch.map(c => ({ candidateId: c.id, file: c.file, summary: c.summary, current: c.current, proposed: c.proposed, 찬성요지: verdictNotes[c.id] })), null, 2)}`
 
 const ARBITER_PROMPT = (batch, verdictNotes, dissents) => `당신은 중재자(Arbiter)입니다. 이전 리뷰어들과 무관한 독립 판단을 내리세요.
-각 후보에 대해 찬성 의견(4관점 만장일치 CHANGE)과 Devil's Advocate의 반론을 평가하세요:
+각 후보의 네 관점 verdict/rationale/risks를 모두 평가하세요. 3/4 찬성 후보는 실제 KEEP/CONDITIONAL 소수 의견이 반론이고,
+만장일치 후보는 Devil's Advocate 반론도 함께 받습니다. CHANGE 리뷰의 risks도 생략하지 마세요:
 1. 구체성: 반론이 구체적 시나리오/코드 경로에 기반하는가?
 2. 재현 가능성: 반론의 위험 시나리오가 실제로 발생할 수 있는가?
-3. 비용 대비: 변경의 이점이 반론이 지적한 위험보다 명확히 큰가?
+3. 해소 근거: 실제 코드 경로·호출 계약 또는 이미 실행된 테스트 결과가 각 반론을 해소하는가?
+동작 변경·정확성 위험을 가독성/성능 이점이나 찬성표 수로 상쇄하지 마세요. 취향 차이는 동작 위험과 구분하세요.
 
 후보별 판정:
-- PROCEED: 반론이 형식적/비현실적 → 변경 진행
+- PROCEED: 모든 구체적 반론을 근거로 해소 → 변경 진행
 - RECONSIDER: 반론에 타당한 포인트 → 제안 수정 필요 (reasoning에 수정 방향 명시)
 - HOLD: 반론이 강력 → 보류, 사용자 판단 위임
+- objectionsResolved: 모든 반론의 검토와 동작 위험 해소를 마친 경우에만 true (boolean)
+- evidence: 직접 확인한 파일:라인·코드 경로/호출 계약 또는 실제 테스트 명령·결과와 반론별 해소 이유.
+  단순한 "안전함", 다수결, 앞으로 테스트하겠다는 약속은 근거가 아닙니다. 근거 부족이면 HOLD/RECONSIDER.
 
 ## 입력
-${JSON.stringify(batch.map(c => ({ candidateId: c.id, file: c.file, summary: c.summary, current: c.current, proposed: c.proposed, 찬성요지: verdictNotes[c.id], 반론: dissents[c.id] })), null, 2)}
+${JSON.stringify(batch.map(c => ({ candidateId: c.id, file: c.file, summary: c.summary, current: c.current, proposed: c.proposed, reviews: verdictNotes[c.id], devilsAdvocate: dissents[c.id] || null })), null, 2)}
 
-각 후보에 verdict(PROCEED/RECONSIDER/HOLD), reasoning(3~5문장), action(다음 단계)을 반환하세요.`
+각 후보에 verdict(PROCEED/RECONSIDER/HOLD), reasoning(3~5문장), action(다음 단계), objectionsResolved, evidence를 반환하세요.`
 
 const APPLY_PROMPT = (batch) => `당신은 승인된 코드 단순화를 적용하는 에이전트입니다. 아래 후보를 **순서대로 하나씩** 적용하세요.
 
@@ -202,10 +216,11 @@ const daSchema = ids => ({
 const arbiterSchema = ids => ({
   type: 'object', required: ['rulings'],
   properties: { rulings: { type: 'array', items: {
-    type: 'object', required: ['candidateId', 'verdict', 'reasoning', 'action'],
+    type: 'object', required: ['candidateId', 'verdict', 'reasoning', 'action', 'objectionsResolved', 'evidence'],
     properties: {
       candidateId: { enum: ids }, verdict: { enum: ['PROCEED', 'RECONSIDER', 'HOLD'] },
       reasoning: { type: 'string' }, action: { type: 'string' },
+      objectionsResolved: { type: 'boolean' }, evidence: { type: 'string' },
     } } } },
 })
 const applySchema = ids => ({
@@ -341,7 +356,7 @@ while (!converged && !exitStatus && iter < MAX_ITER) {
   }
 
   // ── 4. 판정 (후보별, script 코드) ──
-  const approvedNow = [], unanimous = []
+  const approvedNow = [], unanimous = [], arbitration = []
   const verdictNotes = {}
   for (const c of batch) {
     const vs = PERSPECTIVES.map(p => vmap[p.key][c.id])
@@ -350,16 +365,15 @@ while (!converged && !exitStatus && iter < MAX_ITER) {
     PERSPECTIVES.forEach((p, i) => { entry.verdicts[p.key] = { verdict: vs[i].verdict, confidence: vs[i].confidence, rationale: vs[i].rationale, risks: vs[i].risks } })
     logEntry.candidates.push(entry)
     const changes = vs.filter(v => v.verdict === 'CHANGE').length // CONDITIONAL은 non-CHANGE 집계
-    verdictNotes[c.id] = vs.map((v, i) => PERSPECTIVES[i].key + ': ' + v.verdict + '(' + v.confidence + ') ' + v.rationale).join(' / ')
+    verdictNotes[c.id] = entry.verdicts
     if (changes === 4) { unanimous.push(c); entry.decision = 'UNANIMOUS→DA' }
     else if (changes === 3) {
-      const minority = vs.find(v => v.verdict !== 'CHANGE')
-      entry.decision = 'APPROVED(3/4)'; entry.minorityWarning = minority.rationale
-      approvedNow.push(c)
+      entry.decision = 'MAJORITY→ARBITER'
+      arbitration.push(c)
     }
     else if (changes === 2) {
       entry.decision = 'HOLD(2/2 사용자 위임)'
-      holds.push({ candidateId: c.id, file: c.file, line: c.line, summary: c.summary, current: c.current, proposed: c.proposed, reason: 'SPLIT_2_2 — 사용자 판단 위임', detail: verdictNotes[c.id] })
+      holds.push({ candidateId: c.id, file: c.file, line: c.line, summary: c.summary, current: c.current, proposed: c.proposed, reason: 'SPLIT_2_2 — 사용자 판단 위임', detail: JSON.stringify(verdictNotes[c.id]) })
       addSeen(c, 'HOLD')
     }
     else if (changes === 1) {
@@ -375,30 +389,47 @@ while (!converged && !exitStatus && iter < MAX_ITER) {
     }
   }
 
-  // ── 4b. 만장일치 → Devil's Advocate → Arbiter (배치, 후보별 schema 강제) ──
+  // ── 4b. 만장일치만 DA. 3/4는 실제 소수 의견으로 같은 Arbiter 배치에 합류 ──
+  const dmap = {}
   if (unanimous.length > 0) {
     const uniIds = unanimous.map(c => c.id)
     const da = await agent(DA_PROMPT(unanimous, verdictNotes), { schema: daSchema(uniIds), label: 'devils-advocate#' + iter, phase: 'Review' })
-    const dmap = {}
-    if (da) for (const d of da.dissents) { if (uniIds.includes(d.candidateId) && !dmap[d.candidateId]) dmap[d.candidateId] = d }
-    const arb = da ? await agent(ARBITER_PROMPT(unanimous, verdictNotes, dmap), { schema: arbiterSchema(uniIds), label: 'arbiter#' + iter, phase: 'Review' }) : null
-    const amap = {}
-    if (arb) for (const a of arb.rulings) { if (uniIds.includes(a.candidateId) && !amap[a.candidateId]) amap[a.candidateId] = a }
+    if (da && Array.isArray(da.dissents)) for (const d of da.dissents) { if (d && uniIds.includes(d.candidateId) && !dmap[d.candidateId]) dmap[d.candidateId] = d }
     for (const c of unanimous) {
+      if (dmap[c.id]) arbitration.push(c)
+      else {
+        toInfraPending(c, 'ARBITER_FAILURE', nextPending)
+        logEntry.candidates.find(e => e.id === c.id).decision = 'INFRA_PENDING(ARBITER_FAILURE)'
+      }
+    }
+  }
+  if (arbitration.length > 0) {
+    const arbIds = arbitration.map(c => c.id)
+    const arb = await agent(ARBITER_PROMPT(arbitration, verdictNotes, dmap), { schema: arbiterSchema(arbIds), label: 'arbiter#' + iter, phase: 'Review' })
+    const amap = {}
+    if (arb && Array.isArray(arb.rulings)) for (const a of arb.rulings) {
+      if (a && arbIds.includes(a.candidateId)) {
+        // 같은 후보의 복수 판정은 모호하다. 이후 응답으로도 승인 복구하지 않는다.
+        amap[a.candidateId] = Object.prototype.hasOwnProperty.call(amap, a.candidateId) ? null : a
+      }
+    }
+    for (const c of arbitration) {
       const entry = logEntry.candidates.find(e => e.id === c.id)
       const d = dmap[c.id], a = amap[c.id]
-      if (!d || !a) { toInfraPending(c, 'ARBITER_FAILURE', nextPending); if (entry) entry.decision = 'INFRA_PENDING(ARBITER_FAILURE)'; continue }
-      entry.daStrength = d.strength
-      entry.arbiter = { verdict: a.verdict, reasoning: a.reasoning }
-      if (a.verdict === 'PROCEED') { entry.decision = 'APPROVED(만장일치+Arbiter PROCEED)'; approvedNow.push(c) }
-      else if (a.verdict === 'RECONSIDER') {
+      const decision = gateRuling(a, c.id)
+      if (decision === 'ARBITER_FAILURE') { toInfraPending(c, decision, nextPending); entry.decision = 'INFRA_PENDING(ARBITER_FAILURE)'; continue }
+      if (d) entry.daStrength = d.strength
+      entry.arbiter = { verdict: a.verdict, reasoning: a.reasoning, action: a.action, objectionsResolved: a.objectionsResolved, evidence: a.evidence }
+      if (decision === 'APPROVED') { entry.decision = 'APPROVED(Arbiter PROCEED+근거 확인)'; approvedNow.push(c) }
+      else if (decision === 'RECONSIDER') {
         entry.decision = 'RECONSIDER(수정 재제안 허용)'
         rejected.push({ candidateId: c.id, file: c.file, summary: c.summary, kind: 'RECONSIDER', arbiterReasoning: a.reasoning })
         addSeen(c, 'RECONSIDER')
       }
       else {
         entry.decision = 'HOLD(Arbiter)'
-        holds.push({ candidateId: c.id, file: c.file, line: c.line, summary: c.summary, current: c.current, proposed: c.proposed, reason: 'ARBITER_HOLD — ' + a.reasoning, daStrength: d.strength })
+        const reason = a.verdict === 'PROCEED' ? 'UNRESOLVED_OBJECTION — 반론 미해소 또는 근거 없음' : 'ARBITER_HOLD — ' + a.reasoning
+        holds.push({ candidateId: c.id, file: c.file, line: c.line, summary: c.summary, current: c.current, proposed: c.proposed, reason, daStrength: d ? d.strength : null })
         addSeen(c, 'HOLD')
       }
     }
