@@ -10,7 +10,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      PUPPETEER_CACHE_DIR: ${{ runner.temp }}/harness-chromium
       # GitHub's isolated runner may disable user namespaces for Chromium.
       HARNESS_DOCGEN_NO_SANDBOX: '1'
     steps:
