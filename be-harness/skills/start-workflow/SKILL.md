@@ -51,7 +51,7 @@ user-invocable: true
 | `--verify` 또는 `-v` 포함 | **Verify** | Phase V1 → V5 |
 | 위 플래그 없음 | **Build** (기본) | Phase 1 → 12 |
 
-- `--resume`이면 명시된 상태의 `## Run` MODE로 모드를 판별하고 경로 검증을 수행한다. 명시 모드 플래그와 충돌하면 `BLOCKED:RUN_MISMATCH`. `--analyze`와 `--verify`는 상호 배타적이다. 동시 지정 시 유저에게 하나를 선택하도록 안내한다.
+- `--resume`이면 명시된 상태의 `## Run` MODE로 모드를 판별하고 경로 검증을 수행한다. 명시 모드 플래그와 충돌하면 `BLOCKED:RUN_MISMATCH`. `--analyze`와 `--verify`는 상호 배타적이다. 동시 지정은 진입 검사(`references/entry-contract.md`)가 `BLOCKED:MODE_CONFLICT`로 종료하며, 사유와 지원 조합을 안내한다.
 - Build 모드 전용 플래그 (Analyze/Verify 모드에서는 무시 — 구현 Phase를 경유하지 않음): `$HARD_MODE`와 `$PUBLISH_POLICY`는 진입 gate의 `hard`/`publish_policy` 값을 사용한다 · `--no-tdd`면 `$TDD = false` (기본값 `true`) · `--reflect`면 `$REFLECT = true` (기본값 `false` — Phase 11 실행 여부) · `--tier standard`면 `$TIER_FORCE = true` (기본값 `false` — Phase 2 게이트에서 standard 강제).
 - **범위 지정**: 플래그 뒤 경로가 있으면 분석/검증 범위로 사용한다. 없으면 전체 코드베이스 (profile의 `sourceDirs` 기준).
   예: `--analyze src/book`, `--verify src/book/handler.go`
@@ -206,7 +206,7 @@ profile 값을 근거로 누락 항목이 있으면 어떤 Phase가 SKIP될 것�
 Technical Spec을 분석하여 1~10 난이도를 산정한다. **종합 난이도 = max(A, B)**, 각 축 = 요소별 밴드 최댓값, 근거 없는 요소는 `UNKNOWN`(= 높음).
 B축 근거는 Spec `참조 구현` 경로로 `assets/risk_facts.py`를 실행한 사실(변경 빈도·동반 테스트·과거 워크플로우 이력)로 뒷받침한다.
 
-**검증 티어**: A ≤ 3 ∧ B ≤ 3 ∧ 금지 조건 0건 ∧ `$TDD = true` ∧ 전략 ≠ parallel-slices ∧ `$TIER_FORCE = false` → `light`(추가 리뷰 레이어·루프 상한·E2E 범위만 축소). 그 외 `standard`(기존 절차 무변경).
+**검증 티어**: A ≤ 3 ∧ B ≤ 3 ∧ 금지 조건 0건 ∧ `$TDD = true` ∧ 전략 ≠ parallel-slices ∧ `$TIER_FORCE = false` → `light`(추가 리뷰 레이어·루프 상한·E2E 범위만 축소). 그 외 `standard`(light 축소 없이 전체 절차 실행).
 
 출력: `난이도: 코드 [A]/10 + 리스크 [B]/10 — [근거]` / `검증 티어: light|standard — A [a]/B [b], 금지 조건 [해당 없음|{항목}], [사유]`
 
@@ -254,7 +254,7 @@ Spec 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 �
 
 ### Phase 4.2: 다관점 Plan 보강 (Claude, 1회)
 
-검증 루프 진입 전 Claude 측 다관점 리뷰로 명백한 결함을 1회 보강한다. **이 단계는 검증 루프가 아니다.**
+검증 루프 진입 전 Claude 측 다관점 리뷰로 Plan을 1회 보강한다. 각 리뷰어는 담당 관점에서 발견한 문제를 심각도와 함께 모두 보고하고, 반영 여부는 아래 종합 단계에서 가린다. **이 단계는 검증 루프가 아니다.**
 
 최대 3개 서브에이전트(`general-purpose`) 병렬 × 2배치:
 - Batch 1: 유지보수성 + 성능 + 엣지 케이스
@@ -325,7 +325,7 @@ Plan의 파일 목록으로 금지 조건을 재점검한다(발견 시 즉시 s
 > Phase 5 진입 시 MUST: 같은 폴더의 `references/tdd.md`를 Read하고 "TDD 적용 판정"과 "Phase 5: 회귀 Baseline 수집" 절차를 따른다.
 
 여기가 **유저와 대화 가능한 마지막 지점**이다. baseline 수집이 실패하면 자율 실행에 들어가기 전에 선택지를 제시한다 (절차: `references/tdd.md`). 수집 실패 확정 시 light는 승격 ④로 standard.
-TDD SKIP 판정 시 사유를 `## Test Baseline`에 기록하고, 이후 Phase 6은 기존 단일 구현 흐름으로 진행한다.
+TDD SKIP 판정 시 사유를 `## Test Baseline`에 기록하고, 이후 Phase 6은 6.1을 건너뛰고 6.2(구현)만 실행한다.
 
 출력:
 - `sequential`: **"자율 실행을 시작합니다. Phase 6~11을 서브 에이전트로 순차 실행합니다."**
@@ -341,7 +341,7 @@ TDD SKIP 판정 시 사유를 `## Test Baseline`에 기록하고, 이후 Phase 6
 
 > Phase 6 진입 시 MUST: 같은 폴더의 `references/tdd.md`를 Read한다. Phase 6.1의 프롬프트·판정·배리어는 모두 이 문서를 따른다.
 
-`$TDD = false`이거나 Phase 5에서 `SKIPPED:*` 판정이면 **Phase 6.1을 건너뛰고 6.2만 실행한다** (기존 단일 구현 흐름과 동일).
+`$TDD = false`이거나 Phase 5에서 `SKIPPED:*` 판정이면 **Phase 6.1을 건너뛰고 6.2만 실행한다**.
 
 #### Phase 6.1: 테스트 우선 (Red)
 

@@ -119,6 +119,8 @@ framework·typescript·testRunner를 먼저 적용한다. 아래 React TS 예시
 
 각 대상에 맞는 테스트를 작성한다. Spec 기반 모드에서는 각 테스트에 대응 ID를 주석으로 남긴다 (예: `// AC-01`).
 
+아래 패턴은 설명용이며 runner API import(`describe`·`it`·`expect`·`vi`)를 생략했다. 실제 파일에는 위 규칙대로 vitest 또는 `@jest/globals`에서 명시 import한다.
+
 #### 컴포넌트 테스트 패턴
 
 ```tsx

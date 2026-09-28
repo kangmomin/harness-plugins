@@ -11,7 +11,7 @@ Spec이 요구하는 동작을 먼저 실패하는 테스트로 고정해 두면
 
 ## TDD 적용 판정
 
-Phase 5에서 아래를 순서대로 확인하고, 하나라도 걸리면 TDD를 SKIP한다. SKIP 시 워크플로우는 **기존과 완전히 동일하게** 동작한다.
+Phase 5에서 아래를 순서대로 확인하고, 하나라도 걸리면 TDD를 SKIP한다. SKIP 시 TDD 단계(baseline 수집·Phase 6.1 Red·구현 프롬프트의 TDD 규칙 블록·Phase 8 회귀 분류)만 빠지고 나머지 절차는 그대로 진행한다.
 
 | # | 조건 | 상태 코드 |
 |---|------|----------|
@@ -45,7 +45,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --ru
 |------|------|
 | `러너 완주` | 러너가 전체 스위트를 발견·실행 완료했는지. `N`이면 실패 목록을 신뢰할 수 없다. 판정 매트릭스: 종료 마커(go `ok/FAIL {pkg}` 요약 줄, jest `Tests:`, vitest `Test Files`) 있음 → `Y` (exit ≠ 0은 "실패 있음"으로만 해석) / 마커 없음 → `N` (중단·크래시·설정 오류) / 마커 있음 ∧ 실패 0 ∧ exit ≠ 0 → `Y` + `unparsed` 1건(실패 없는 비정상 종료) / 테스트 0건 → `Y` + `unparsed`(테스트 0건) |
 | `실패 목록` | 항목 = `` `{식별자}` :: `{정규화 시그니처}` ``, 항목 구분은 닫는 백틱과 여는 백틱 사이의 ` / `만. 식별자는 러너 네이티브 전체 ID(go `{package}::TestX/sub`, jest·vitest `{runner}::{file}::{describe › it}` 전체 경로), 키 = suite + 식별자. 내부 백틱은 `'`로, `\|`는 escape |
-| `정규화 시그니처` | Go는 기존 첫 오류 정규화 규칙을 따른다. JS는 JSON `failureMessages` 또는 텍스트 오류 본문의 matcher·Expected/Received·diff 전체에서 stack/source frame만 제거한다. 실제 오류 값의 경로·숫자는 보존한다. 비교는 전체 문자열, 표시만 120자 + 해시 8자 |
+| `정규화 시그니처` | Go는 실패 메시지 첫 줄에서 경로·라인 번호·타임스탬프·메모리 주소(`0x…`)·goroutine id·소요 시간을 제거하고 공백을 축약한다. JS는 JSON `failureMessages` 또는 텍스트 오류 본문의 matcher·Expected/Received·diff 전체에서 stack/source frame만 제거한다. 실제 오류 값의 경로·숫자는 보존한다. 비교는 전체 문자열, 표시만 120자 + 해시 8자 |
 | `unparsed` | 지원 러너(go · jest · vitest) 밖이거나 파싱이 불확실한 항목. 대조 불가 데이터 — 잔존 시 테스트 판정 `PASS` 불가 |
 
 JS는 가능하면 `--json` reporter 결과 파일을 baseline·현재·재실행에 동일하게 사용한다. `--runner`를 명시하고 동일 저장소 루트 cwd에서 파싱한다. 텍스트는 Jest `--verbose`, Vitest `--reporter=verbose`를 사용한다. 파일 없는 구 baseline은 다시 수집하며 Test Map도 정확한 전체 ID를 기록한다. leaf/suffix 매칭, 다른 파일의 동명 PASS 추정은 금지한다.
@@ -220,7 +220,7 @@ Phase 8.5 통합 수정 에이전트에는 이 순서대로 이슈를 전달하�
 
 # read-back 격리 (Phase 8.8 보강)
 
-기존 격리 3규칙에 **네 번째 조항**을 추가한다:
+`references/quality-loop.md`의 Phase 8.8 격리 규칙 ④가 이 조항이다:
 
 > ④ `## TDD Test Map`을 read-back 에이전트에 **전달하지 않는다.**
 > Test Map은 Spec ID ↔ 테스트 매핑이므로, 이를 본 에이전트는 Spec을 역추론하게 되어 격리가 무너진다.

@@ -299,7 +299,7 @@ E2E 실측 결과를 근거로 엔드포인트 status 를 정하고 push 페이�
 
 ### 5.2 Push 결과 보고
 
-API 응답의 `data.counters`를 파싱하여 보고:
+`import-contract.md`의 decision/read-back 결과와 API 응답의 `data.counters`를 함께 보고한다. counters만으로 완료로 표시하지 않는다:
 
 ```markdown
 ### Push 결과
@@ -309,6 +309,7 @@ API 응답의 `data.counters`를 파싱하여 보고:
 | Schema | {created} | {updated} | {failed} |
 
 - status: `{값}` ({한국어 라벨}) — {E2E 추론 사유 | 기존 값 유지(다운그레이드 방지)}
+- 판정: `{decision 상태}` · read-back: `{OBSERVED_MATCH | OBSERVED_NEW_MATCH | UNKNOWN}` — UNKNOWN·부분 적용이면 미확정 사유와 보존된 artifact 경로
 ```
 
 ---

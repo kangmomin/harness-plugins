@@ -29,7 +29,7 @@ user-invocable: true
 2. 현재 브랜치의 open PR을 조회한다. 인증/조회 오류와 “open PR 없음”을 구분한다. 오류를 새 PR 없음으로 간주하지 않는다.
 3. commit-push Step 1로 최종 브랜치를 준비한다(기존 PR 브랜치는 유지). base 우선순위: 기존 PR baseRefName → 명시 사용자 base → 최종 prefix의 프로젝트 브랜치 모델 → 보호 브랜치에서 분기했다면 그 시작 브랜치 → profile mainBranch/원격 기본 브랜치. 서로 충돌하거나 후보가 여러 개면 해결 전 BLOCKED:BASE_UNRESOLVED다. feature의 push upstream을 부모 브랜치로 추정하지 않는다.
 4. `{BASE_NAME}`(PR 목적 브랜치 이름)과 실제 ref `{BASE_REF}`를 기록한다. 원격 base를 사용하면 먼저 `git -C "{GIT_ROOT}" fetch origin "{BASE_NAME}"`의 종료 코드를 확인한다. fetch 실패 시 기존 ref 사용 여부와 stale 근거를 명시하며 base 자체가 없으면 중단한다.
-5. 아래 읽기 전용 helper로 `{GIT_ROOT}`, `{BASE_SHA}`, root-relative VERSION 후보를 확정한다. 재명명으로 prefix가 달라지면 여기서 매핑을 다시 검증한다.
+5. 아래 읽기 전용 helper로 `{GIT_ROOT}`, `{BASE_SHA}`, root-relative VERSION 후보를 확정한다. 재명명으로 prefix가 달라지면 여기서 매핑을 다시 검증한다. `{COMMON_ROOT}`는 설치된 common 플러그인 루트(이 스킬 디렉터리의 `../..`)다.
 
 ```bash
 python3 -I -B "{COMMON_ROOT}/skills/commit/assets/git_checks.py" base --cwd "{CWD}" --base-ref "{BASE_REF}"
@@ -41,7 +41,7 @@ python3 -I -B "{COMMON_ROOT}/skills/commit/assets/git_checks.py" base --cwd "{CW
 
 - root의 VERSION 또는 VERSION.txt가 없으면 일반 실행은 `SKIPPED:NO_VERSION_FILE`로 계속한다. bump-only는 `BLOCKED:NO_VERSION_FILE`; 파일 생성이 요청되지 않았으면 임의 버전을 만들지 않는다.
 - 기준 버전은 `git -C "{GIT_ROOT}" show "{BASE_SHA}:{VERSION_PATH}"`로 읽는다. local/base의 유효 semver 세 필드를 비교해 큰 값의 patch를 1 올린다.
-- base에 VERSION이 없거나 내용이 semver가 아니면 그 원인을 명시한다. 일반 명령 오류를 “파일 없음”으로 숨기지 않는다. local 기준 범프를 쓰는 기존 fallback은 `version_base:local`과 미검증 이유를 보고하며, PR base 자체는 Step 0의 확정값을 유지한다.
+- base에 VERSION이 없거나 내용이 semver가 아니면 그 원인을 명시한다. 일반 명령 오류를 “파일 없음”으로 숨기지 않는다. 이때 local 값 기준으로 범프하면 `version_base:local`과 미검증 이유를 보고하며, PR base 자체는 Step 0의 확정값을 유지한다.
 - 기존 open PR도 base 버전이 전진해 재범프가 필요한지 확인한다. 추가 범프 뒤에는 새 커밋·새 HEAD Gate·push까지 다시 수행한다. 같은 버전을 가진 동시 PR 점유를 자동 회피했다고 주장하지 않는다.
 
 ## Step 2: 커밋과 Gate·push

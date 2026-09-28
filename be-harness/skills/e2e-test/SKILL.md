@@ -19,7 +19,7 @@ user-invocable: true
 
 ## Language Rule
 
-유저와의 모든 대화는 **한국어** (profile의 `language` 기준).
+유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
 
 ---
 
@@ -55,7 +55,7 @@ user-invocable: true
 
 사용자의 요청 또는 현재 브랜치의 `git diff`에서 변경된 API를 추출한다:
 
-1. `git diff --name-only main...HEAD` 로 변경 파일 목록.
+1. `git diff --name-only {mainBranch}...HEAD` 로 변경 파일 목록 (`{mainBranch}` = profile 값 — `main`을 가정하지 않는다).
 2. profile의 `sourceDirs` 중 handler/route 계층에서 HTTP 엔드포인트(Method + Path) 변경을 찾는다.
 3. 각 엔드포인트에 대해 아래를 정리한다:
    - Method, Path
@@ -110,7 +110,7 @@ Spec에 엣지 케이스 표가 없거나 ID가 없으면(구버전 Spec) `EC-*`
    > 2. 토큰 직접 입력 → 그대로 사용
    > 3. 모름/제공 불가 → `SKIPPED:NO_AUTH` 반환 후 종료"
 
-입력받은 방법은 `projectNotes` 업데이트를 제안한다 (사용자 승인 시에만).
+입력받은 발급 방법(토큰 값 제외)은 profile 본문의 `# Project Notes`에 기록하도록 제안한다 (사용자 승인 시에만).
 확보한 계정의 실제 역할·소유 자원을 시나리오와 대조한다. 관리자 토큰으로 일반 사용자나 타 소유자 검증을 대신하지 않는다. 특정 역할 토큰·자원이 없으면 해당 케이스를 `UNCOVERED:{사유}`로 남기고 가능한 케이스는 진행한다. 필요한 인증 자체를 확보하지 못한 경우의 `SKIPPED:NO_AUTH`는 유지한다. 발급 방법만 기록하며 토큰 값은 Spec·위임·리포트에 복제하지 않는다.
 
 ## Step 3.5: 실행 락 획득

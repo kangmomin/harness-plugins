@@ -26,7 +26,7 @@ Playwright 기반으로 사용자 시나리오를 E2E 테스트한다.
 
 ### 필요 환경
 - **E2E 러너**: Playwright 또는 Cypress (`.claude/fe-harness.local.md`의 `e2eRunner` 참조)
-- **개발 서버**: `package.json`의 `scripts.dev` 존재
+- **개발 서버**: profile의 실효 `runServerCommand` (기본: `package.json`의 `scripts.dev`)
 - **Playwright 브라우저**: 설치 완료 상태
 
 ### `--init` (초기 세팅)
@@ -180,7 +180,7 @@ npx playwright test {테스트 파일들} --reporter=list
 설정이 없으면 유저에게 개발 서버 실행을 안내한다:
 
 > "E2E 테스트 실행 전 개발 서버가 필요합니다. `playwright.config.ts`에 webServer 설정을 추가하거나,
-> 별도 터미널에서 `npm run dev`를 실행해주세요."
+> 별도 터미널에서 `{runServerCommand}`를 실행해주세요."
 
 ### Step 4: 결과 보고
 

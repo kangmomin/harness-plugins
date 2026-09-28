@@ -88,8 +88,7 @@ projectConventions: ["CLAUDE.md"]
 
 ## 레거시 profile 호환 (`.hyeondong-config.json`)
 
-구 `hyeondongs-harness` 는 fe-harness 스킬을 복제하고 설정만 JSON으로 바꾼 fork였다(자체 에이전트 없이 fe-harness 에이전트에 의존).
-중복 스킬 10종을 fe-harness 로 흡수하면서, 기존 프로젝트가 설정을 다시 만들지 않아도 되도록 이 파일을 2순위 profile로 읽는다.
+`.hyeondong-config.json` 은 `hyeondongs-harness` 오버레이의 `/hyeondongs-harness:init` 이 만드는 JSON profile이다. 이 파일만 있는 프로젝트가 설정을 다시 만들지 않아도 되도록 fe-harness는 이 파일을 2순위 profile로 읽는다.
 
 1순위(`.claude/fe-harness.local.md`)가 있으면 이 파일은 **읽지 않는다.**
 

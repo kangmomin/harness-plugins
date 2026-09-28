@@ -40,7 +40,7 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
 |------|------|
 | `path` | vault 상대 경로 (`.md` 만) |
 | `content` | 본문 (frontmatter 없이 본문만 넘긴다 — 신규 문서면 자동 부여된다) |
-| `frontmatter` | 신규 문서의 메타 재정의 (선택) |
+| `frontmatter` | 메타 재정의 (선택) — 신규 문서는 자동 부여값을 덮고, overwrite 는 기존 frontmatter 에 병합한다. append 에는 반영되지 않는다 |
 | `mode` | `create`(기본) / `overwrite` / `append` |
 | `expected_hash` | 낙관적 잠금 (아래 참조) |
 
@@ -69,8 +69,8 @@ updated: 2026-08-21
    `content` 를 `---` 로 시작시키는 것도 차단된다. 본문만 넘겨라
 2. **frontmatter 가 있는 문서는 모르는 키가 보존된다** (`share_link` 등 Obsidian 플러그인 키)
 3. 덮어쓰기 전에 `wiki_read` 로 현재 내용을 읽고, 응답 내용을 근거로 수정하라
-4. 사람이 그 사이 Obsidian 에서 편집했을 위험이 있으면 `expected_hash` 를 넘겨라
-   (불일치하면 거부된다 → 다시 읽고 재시도)
+4. 사람이 그 사이 Obsidian 에서 편집했을 위험이 있으면 `expected_hash` 를 넘겨라. 값은 파일 전체 바이트의 SHA-1 앞 12자리이며, 직전 `wiki_write` 응답의 `written.hash` 를 쓰거나 파일에서 직접 계산한다 (`wiki_read` 는 hash 를 주지 않는다)
+   (불일치하면 거부된다 → 다시 읽고, 오류 메시지의 `actual` 값으로 재시도)
 
 같은 문서의 work-log 쓰기는 기존/교체 inode의 커널 잠금으로 직렬화된다. 대기 시간 초과는 살아 있거나 중지된 실행이 끝날 때까지 기다린다. 프로세스 종료 시 잠금은 자동 해제된다. 구버전 `.write-lock`이 남았다면 같은 vault의 구버전 서버가 모두 종료된 것을 확인한 뒤 해당 구버전 잠금 디렉터리만 제거한다. 신버전의 cache `index.lock`은 삭제하지 않는다.
 

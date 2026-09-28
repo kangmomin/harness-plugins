@@ -69,7 +69,7 @@ user-invocable: true
 | 항목 | 점검 방법 | 관련 스킬 |
 |------|----------|----------|
 | Go 설치 | `go version` | e2e-test |
-| Go 빌드 | `go build ./cmd/main.go` (dry-run) | e2e-test |
+| Go 빌드 | `go build -o /dev/null ./cmd/main.go` (산출물 파일을 남기지 않는 빌드 확인) | e2e-test |
 | grpcurl 설치 (선택) | `grpcurl --version` | e2e-test (gRPC) |
 | GRPC_PORT (선택) | `secret/.env` 확인 | e2e-test (gRPC) |
 
@@ -128,7 +128,7 @@ user-invocable: true
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | Go 설치 | OK / MISSING | go version |
-| Go 빌드 | OK / FAIL | dry-run |
+| Go 빌드 | OK / FAIL | 빌드 확인 (산출물 미생성) |
 | grpcurl 설치 | OK / MISSING | 선택 (gRPC 전용) |
 | GRPC_PORT | OK / MISSING / SKIP | 선택 (gRPC 전용) |
 

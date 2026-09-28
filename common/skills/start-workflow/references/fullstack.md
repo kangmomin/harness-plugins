@@ -214,7 +214,7 @@ TDD 판정은 **도메인별로 따로** 한다. BE만 SKIP되고 FE는 활성�
 
 > Phase 6 진입 시 MUST: 같은 폴더의 `fullstack-tdd.md`와 `fullstack-agent-prompts.md`를 Read한다.
 
-`$TDD = false`이거나 Phase 5에서 양 도메인 모두 `SKIPPED:*`면 **6.1을 건너뛰고 6.2만 실행한다** (기존 단일 구현 흐름과 동일).
+`$TDD = false`이거나 Phase 5에서 양 도메인 모두 `SKIPPED:*`면 **6.1을 건너뛰고 6.2만 실행한다**.
 
 ### Phase 6.1: 계약 테스트 우선 (Red) — 배리어 필수
 

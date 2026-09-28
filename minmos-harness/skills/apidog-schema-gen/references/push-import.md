@@ -25,7 +25,7 @@ echo "TOKEN=${APIDOG_ACCESS_TOKEN:+set}" "PROJECT=${APIDOG_PROJECT_ID:+set}"
 
 Push 전에 Apidog 프로젝트에서 해당 API 경로의 **기존 존재 여부**를 확인하고 폴더를 결정한다.
 
-1. `mcp__apidog__read_project_oas_*`로 OAS 전체를 읽어 기존 경로 목록을 확인한다.
+1. `{APIDOG_CALLABLES.read}`로 OAS 전체를 읽어 기존 경로 목록을 확인한다.
 2. **경로가 이미 존재** → `updateFolderOfChangedEndpoint: false`로 기존 위치에서 수정 (폴더 이동 안 함).
 3. **경로가 없음 (신규 API)** → 유사 경로를 탐색하여 가장 가까운 폴더에 배치한다:
    - 유사 경로 판별 기준: **경로 prefix가 가장 많이 일치하는 기존 엔드포인트의 폴더**
@@ -79,9 +79,9 @@ status 는 **항상 명시한다** — 생략하지 않는다. import 시 `x-api
 
 `deprecated` 로 표시하는 대상은 **코드에 handler 가 없다** — 코드 기준 스키마를 만들 수 없다. 이때 빈 스텁을 `OVERWRITE_EXISTING` 으로 밀어넣으면 Apidog 에 남아 있던 기존 문서가 파괴된다.
 
-**이 분기는 종결 분기다** — Step 8.3의 "코드 기준 스키마 재구성"을 수행하지 않는다. 8.3의 flat 재생성을 그대로 적용하면 보존해야 할 기존 정의가 코드 기준 스키마로 대체되어 특칙의 목적이 무너진다.
+**이 분기는 종결 분기다** — Step 8.3의 "코드 기준 스키마 재구성"을 수행하지 않는다. 8.3의 코드 기준 필드 수정을 적용하면 보존해야 할 기존 정의가 코드 기준으로 바뀌어 특칙의 목적이 무너진다.
 
-1. `mcp__apidog__read_project_oas_ref_resources_*` 로 해당 엔드포인트의 **기존 정의를 그대로 읽는다** (참조하는 스키마 의존까지 함께).
+1. `{APIDOG_CALLABLES.refs}`로 해당 엔드포인트의 **기존 정의를 그대로 읽는다** (참조하는 스키마 의존까지 함께).
 2. 그 정의를 **변경 없이** 재발행하고, operation 에 두 필드만 추가한다:
    - `x-apidog-status: deprecated`
    - `deprecated: true` (OpenAPI 표준 필드 — Apidog 외 도구에서도 인식된다)

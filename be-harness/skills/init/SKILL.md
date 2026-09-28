@@ -16,13 +16,13 @@ user-invocable: true
 
 ## Language Rule
 
-유저와의 모든 대화는 **한국어**로 진행한다 (profile에서 변경 가능).
+유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
 
 ---
 
 ## Step 1: 현재 상태 스캔
 
-아래 항목을 조용히 점검한다.
+아래 항목을 점검하고, 결과는 Step 2 표로 요약한다.
 
 - `.claude/be-harness.local.md` 존재 여부
 - 프로젝트 언어 자동 탐지

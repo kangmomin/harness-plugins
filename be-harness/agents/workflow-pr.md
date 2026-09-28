@@ -22,4 +22,4 @@ model: sonnet
 6. 기존 PR 재사용 또는 draft 생성 시 실제 base를 전달하고 본문은 --body-file을 사용한다. `확정된 결정` 기록을 인계하며 미검증을 숨기지 않는다.
 7. PR head/base를 읽어 이번 commit/push와 일치하는지 확인하고 결과를 반환한다.
 
-출력: Phase 10 · 상태 · 브랜치 · base · 생성 커밋 · push HEAD · PR URL · 검증/차단 근거. 성공 URL을 만들거나 미완료를 DONE으로 반환하지 않는다.
+출력: 프롬프트의 현재 Phase · 상태 · 브랜치 · base · 생성 커밋 · push HEAD · PR URL · 검증/차단 근거. 성공 URL을 만들거나 미완료를 DONE으로 반환하지 않는다.

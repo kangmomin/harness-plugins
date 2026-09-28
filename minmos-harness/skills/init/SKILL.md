@@ -34,7 +34,7 @@ user-invocable: true
 
 ### Step 1: 현재 상태 스캔
 
-먼저 모든 항목의 현재 상태를 조용히 점검한다:
+먼저 모든 항목의 현재 상태를 점검한다:
 
 - 실제 MCP 연결 probe 실행 → Apidog MCP OAS 읽기, PostgreSQL MCP `SELECT 1`
 - MCP tool 호출이 불가할 때만 `.mcp.json` 등 현재 클라이언트의 설정 파일을 참고하여 설정 안내

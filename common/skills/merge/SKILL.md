@@ -28,7 +28,7 @@ gh pr view "{PR_URL}" --json id,number,url,title,state,isDraft,headRefName,headR
 
 ## Step 2: 요약에 사용할 HEAD 고정
 
-요약 **전** 조회 JSON을 실행별 파일 `{PR_BEFORE}`에 저장한다. helper `snapshot`의 결과를 `{REVIEWED}`에 저장하며 여기의 headRefOid/baseRefOid가 요약 입력이다.
+요약 **전** 조회 JSON을 실행별 파일 `{PR_BEFORE}`에 저장한다. helper `snapshot`의 결과를 `{REVIEWED}`에 저장하며 여기의 headRefOid/baseRefOid가 요약 입력이다. `{COMMON_ROOT}`는 설치된 common 플러그인 루트(이 스킬 디렉터리의 `../..`)다.
 
 ```bash
 python3 -I -B "{COMMON_ROOT}/skills/merge/assets/merge_state.py" snapshot --current "{PR_BEFORE}"

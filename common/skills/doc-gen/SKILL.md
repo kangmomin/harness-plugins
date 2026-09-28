@@ -94,6 +94,8 @@ The result should feel like a polished engineering design review document / a hi
 
 NOT: a dump of implementation details, a raw changelog, a commit log copy.
 
+The GOOD/BAD lines, flow blocks, checklists and tables in the rules below are illustrative and all come from one database upsert refactor: copy their format, not their content or domain — the content comes from the analyzed scope.
+
 ## Document Structure (default)
 
 1. Hero / 문서 목적
@@ -128,11 +130,7 @@ BAD: long academic-style paragraphs, verbose explanations, giant walls of text.
 
 ## Mermaid Rules (VERY IMPORTANT)
 
-Use Mermaid aggressively, BUT:
-
-NEVER: one giant sequence diagram, horizontally massive diagrams, too many concepts in one graph, unreadable enterprise-style diagrams.
-
-ALWAYS: split flows into multiple small diagrams, ONE concept per diagram, optimize for mobile vertical reading, prefer `flowchart TD`, place diagrams inside isolated cards/sections.
+Use a Mermaid diagram wherever a flow, branch or state change is faster to grasp as a picture than as prose. Keep each diagram readable on a phone without horizontal scrolling: one concept per diagram, several small diagrams rather than one large sequence diagram, `flowchart TD` by default, each diagram in its own card/section.
 
 GOOD: separate diagrams for ① Insert flow ② Conflict handling ③ Error branch ④ Rollback path.
 Each Mermaid block should be independently understandable.
@@ -187,7 +185,7 @@ Always include rejected alternatives and tradeoffs (e.g., DO UPDATE trick reject
 
 ## Technical Focus
 
-Explicitly highlight: race conditions, rollback boundaries, compatibility concerns, regression fallback, data consistency, concurrency behavior, edge-case handling.
+Where the analyzed change involves them, highlight race conditions, rollback boundaries, compatibility concerns, regression fallback, data consistency, concurrency behavior and edge-case handling; leave out concerns the change does not touch.
 
 ## HTML Rules (`-html` / `--twin`)
 
@@ -199,4 +197,4 @@ The pinned renderer is the executable contract. [Mermaid security configuration]
 
 ## Final Goal
 
-PR reviewers, teammates, and future maintainers should understand within 3 minutes: why the change exists, what fundamentally changed, what tradeoffs were made, which edge cases matter, how rollback/race behavior works, what was intentionally NOT changed.
+PR reviewers, teammates, and future maintainers should understand within 3 minutes: why the change exists, what fundamentally changed, what tradeoffs were made, which edge cases matter, how rollback/race behavior works where relevant, what was intentionally NOT changed.

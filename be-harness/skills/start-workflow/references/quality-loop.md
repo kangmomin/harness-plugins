@@ -19,7 +19,6 @@ Phase 8.1~8.7은 **루프 안**에서 최대 `{QL_MAX}`회(standard 3 / light 2)
 [review-evidence.md](review-evidence.md)의 회차별 scope artifact를 준비한 뒤 세 실행 단위(8.1 Bash 직접 / 8.2·8.3 통합 스캐너 / 8.4 scope-reviewer)를 **하나의 메시지에서 동시에 호출**한다. 모든 서브 에이전트는 **이슈 목록만 반환하며 파일을 수정하지 않는다**.
 파일 수정은 Phase 8.5(통합 수정)에서 일괄 처리하여 에이전트 간 파일 편집 경합을 제거한다.
 
-> **CRITICAL**: Batch A의 에이전트는 모두 읽기/분석만 수행한다. 같은 메시지에서 병렬 실행해도 편집 충돌이 발생하지 않는다.
 > 만약 에이전트가 파일을 수정했다면 해당 변경을 **무시**하고 이슈 목록만 채택한다 (통합 수정 시 기준 상태에서 다시 편집).
 
 ### Phase 8.1: 빌드 + 테스트 — Bash로 직접 실행 (에이전트 아님)
@@ -49,7 +48,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --ru
 | 5 | 3·4 판정 전 1회 재실행, 결과가 뒤집히면 | `flaky` |
 
 Phase 8.5에 전달하는 이슈 순서는 `regression` → `new_red` 다. `pre_existing`은 **이번 범위 밖이므로 전달하지 않고 보고만** 한다.
-TDD가 SKIP된 경우 분류 없이 기존대로 전체 실패 로그를 수집한다.
+TDD가 SKIP된 경우 분류 없이 전체 실패 로그를 수집한다.
 
 **light 승격 ③**: `regression` ≥ 1, 또는 판정 불가(러너 완주 N / `UNPARSED` 잔존을 오케스트레이터도 분류하지 못함) → 종료 조건 평가 전에 standard 전환(`{QL_MAX}` = 3 복원), 이 iteration의 8.6부터 full E2E, 루프 후 8.8 실행 (`verification-tier.md` §4).
 

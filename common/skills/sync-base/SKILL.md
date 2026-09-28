@@ -43,7 +43,7 @@ git branch --show-current
 | 상태 | 행동 |
 |------|------|
 | 비어 있음 (detached HEAD) | "detached HEAD 상태입니다. 브랜치를 체크아웃한 뒤 다시 실행하세요." 보고 후 종료 (`BLOCKED:DETACHED_HEAD`) |
-| 보호 브랜치 (`main`·`master`·`dev`·`rc*`) | "보호 브랜치에서는 실행하지 않습니다. 작업 브랜치로 이동 후 다시 실행하세요." 보고 후 종료 (`BLOCKED:ON_BASE`) |
+| 보호 브랜치 (`main`·`master`·`dev`·`rc*`와 원격 origin/HEAD 의 기본 브랜치, 호출자가 전달한 profile mainBranch — `/common:commit-push` Step 1 과 같은 집합) | "보호 브랜치에서는 실행하지 않습니다. 작업 브랜치로 이동 후 다시 실행하세요." 보고 후 종료 (`BLOCKED:ON_BASE`) |
 
 작업 트리 검사는 여기서 하지 않는다 — 재개 경로(Step 4.1)에서는 충돌 해결 결과가 작업 트리에 있는 것이 정상이므로, 재개 여부를 판정한 뒤에 검사한다.
 

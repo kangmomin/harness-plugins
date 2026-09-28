@@ -158,15 +158,12 @@ enum Status { IDLE, LOADING, ERROR }
 
 - **커밋 메시지 형식**: [Prefix]: 간략한 설명
 - **작성 언어**: Prefix는 영문으로 유지하고, 설명/본문은 기본적으로 한국어로 작성
-- **Prefix**: Add, Fix, Del, Refactor, Style, Doc, Test, Chore, WIP
+- **Prefix**: profile의 `commitPrefixes`를 사용한다 (기본 `Add, Fix, Del, Refactor, Doc, Test, Chore, WIP` — `/common:commit` 표와 같다).
 - **PR 제목**: [commit-prefix]: 작업내용
 
 ## 8. 작업 프로세스
 
-- **분석**: 작업 시작 전 현재 코드와 컨벤션의 일치 여부를 먼저 분석한다.
-- **구현**: 위 규칙에 따라 코드를 작성한다.
-- **최종 코드리뷰**: 작업 종료 전 Props 설계, 상태관리, 에러 처리를 스스로 리뷰한다.
-- **결과 보고**: 모든 응답의 마지막에 아래 양식으로 보고를 수행한다.
+- **결과 보고**: 이 가이드로 코드를 직접 수정한 작업을 마칠 때 아래 양식으로 보고한다. 이 문서를 기준으로 로드한 스킬(convention-check, start-workflow 등)이 출력 형식을 정하면 그 형식을 따른다.
 
 ## 최종 작업 보고 (Final Report)
 1. **수정 사항 요약**

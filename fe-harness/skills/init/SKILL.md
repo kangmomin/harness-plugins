@@ -45,7 +45,7 @@ framework·typescript·testRunner·uiLibrary 선택을 함께 검증한다. comp
 
 ### Step 1: 현재 상태 스캔
 
-먼저 모든 항목의 현재 상태를 조용히 점검한다:
+먼저 모든 항목의 현재 상태를 점검한다:
 
 - `.claude/fe-harness.local.md` 읽기 → 기존 설정 존재 여부
 - `package.json` 읽기 → 프레임워크, 의존성, 스크립트 확인

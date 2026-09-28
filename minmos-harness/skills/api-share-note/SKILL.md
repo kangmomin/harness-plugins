@@ -1,6 +1,6 @@
 ---
 name: api-share-note
-description: "This skill should be used when the user asks to \"API 변경 공유용으로 정리해줘\", \"변경된 API 요약해줘\", \"API 변경 공유 노트 만들어줘\", \"어제부터 바뀐 API 정리\", \"share API changes\", \"api change summary\", or mentions summarizing created/modified APIs over a period for sharing with other teams. Scans git route deltas between a baseline and current work (merged + unmerged branches), classifies changes as replaced/behavior-changed/new/pending-merge, attaches Apidog endpoint links, and produces a fixed-format share note saved to work-log."
+description: "기간 내 생성·수정된 API를 git 라우트 델타(머지 + 미머지 브랜치)로 수집해 대체/동작 변경/신규/미머지로 분류하고, Apidog 링크를 단 고정 형식 공유 노트를 work-log에 저장한다. 다른 팀에 공유할 기간별 API 변경 요약을 요청할 때 사용 — 예: 'API 변경 공유용으로 정리해줘', '어제부터 바뀐 API 정리'."
 allowed-tools: Read, Write, Glob, Grep, Bash, AskUserQuestion, mcp__apidog__read_project_oas_w9of5k, mcp__apidog__refresh_project_oas_w9of5k, mcp__plugin_work-log_work-log__wiki_write, mcp__plugin_work-log_work-log__wiki_resolve
 argument-hint: "[기간 예: 어제부터 | 8/24-8/25 | <baseline-commit>] [--no-save]"
 user-invocable: true

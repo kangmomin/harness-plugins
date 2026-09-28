@@ -11,7 +11,7 @@ Spec이 요구하는 렌더 결과를 먼저 실패하는 테스트로 고정해
 
 ## TDD 적용 판정
 
-Phase 4에서 아래를 순서대로 확인하고, 하나라도 걸리면 TDD를 SKIP한다. SKIP 시 워크플로우는 **기존과 완전히 동일하게** 동작한다.
+Phase 4에서 아래를 순서대로 확인하고, 하나라도 걸리면 TDD를 SKIP한다. SKIP 시 TDD 단계(baseline 수집·Phase 5.1 Red·frozen 모드·회귀 대조)만 빠지고 나머지 절차는 그대로 진행한다.
 
 | # | 조건 | 상태 코드 |
 |---|------|----------|
@@ -41,7 +41,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --ru
 |------|------|
 | `러너 완주` | 러너가 전체 스위트를 발견·실행 완료했는지. `N`이면 실패 목록을 신뢰할 수 없다. 판정 매트릭스: 종료 마커(jest `Tests:`, vitest `Test Files`) 있음 → `Y` (exit ≠ 0은 "실패 있음"으로만 해석) / 마커 없음 → `N` / 마커 있음 ∧ 실패 0 ∧ exit ≠ 0 → `Y` + `unparsed` 1건 / 테스트 0건 → `Y` + `unparsed`(테스트 0건) |
 | `실패 목록` | 항목 = `` `{식별자}` :: `{정규화 시그니처}` ``, 항목 구분은 닫는 백틱과 여는 백틱 사이의 ` / `만. 식별자는 러너·파일을 포함한 전체 ID(`{runner}::{file}::{describe › it}`), 키 = suite + 식별자. 내부 백틱은 `'`로, `\|`는 escape |
-| `정규화 시그니처` | Go는 기존 첫 오류 정규화 규칙을 따른다. JS는 JSON `failureMessages` 또는 텍스트 오류 본문의 matcher·Expected/Received·diff 전체에서 stack/source frame만 제거한다. 실제 오류 값의 경로·숫자는 보존한다. 비교는 전체 문자열, 표시만 120자 + 해시 8자 |
+| `정규화 시그니처` | Go는 실패 메시지 첫 줄에서 경로·라인 번호·타임스탬프·메모리 주소(`0x…`)·goroutine id·소요 시간을 제거하고 공백을 축약한다. JS는 JSON `failureMessages` 또는 텍스트 오류 본문의 matcher·Expected/Received·diff 전체에서 stack/source frame만 제거한다. 실제 오류 값의 경로·숫자는 보존한다. 비교는 전체 문자열, 표시만 120자 + 해시 8자 |
 | `unparsed` | 지원 러너(jest · vitest · go) 밖이거나 파싱이 불확실한 항목. 대조 불가 데이터 — 잔존 시 테스트 판정 `PASS` 불가 |
 
 JS는 가능하면 `--json` reporter 결과 파일을 baseline·현재·재실행에 동일하게 사용한다. `--runner`를 명시하고 동일 저장소 루트 cwd에서 파싱한다. 텍스트는 Jest `--verbose`, Vitest `--reporter=verbose`를 사용한다. 파일 없는 구 baseline은 다시 수집하며 Test Map도 정확한 전체 ID를 기록한다. leaf/suffix 매칭, 다른 파일의 동명 PASS 추정은 금지한다.
@@ -193,14 +193,14 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --ru
 ## frozen 모드
 
 TDD가 활성이면 Phase 7.4의 `/fe-harness:test-loop` 를 **frozen 모드**로 호출한다 (테스트 파일 수정 금지, 소스만 수정).
-TDD가 SKIP이면 test-loop은 **기존 동작 그대로** 실행된다 (테스트·소스 양쪽 수정 허용) — 하위 호환을 위한 장치다.
+TDD가 SKIP이면 test-loop은 frozen 모드 없이 실행된다 (테스트·소스 양쪽 수정 허용).
 검증 티어가 light면 `--smoke`를 함께 전달한다 — 단위 테스트·frozen 모드는 그대로이고 E2E 범위만 `## Related E2E Specs`로 줄어든다 (test-loop이 `E2E 실행 수준`을 보고).
 
 ---
 
 # read-back 격리 (Phase 7.7 보강)
 
-기존 격리 3규칙에 **네 번째 조항**을 추가한다:
+Phase 7.7 격리 규칙 ④(`references/agent-prompts.md`와 동일):
 
 > ④ `## TDD Test Map`을 read-back 에이전트에 **전달하지 않는다.**
 > Test Map은 Spec ID ↔ 테스트 매핑이므로, 이를 본 에이전트는 Spec을 역추론하게 되어 격리가 무너진다.

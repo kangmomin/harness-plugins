@@ -81,9 +81,9 @@ profile의 `testCommand` 를 우선 사용:
 {testCommand}
 ```
 
-`testCommand` 가 비어있으면 `testRunner` 값에 따라 fallback:
-- **vitest**: `npx vitest run --reporter=verbose`
-- **jest**: `npx jest --verbose`
+`testCommand` 가 비어있으면 `testRunner` 값에 따라 설치된 로컬 runner로 fallback한다 (runner를 내려받을 수 있는 `npx`는 쓰지 않는다 — 로컬 실행 파일이 없으면 `SKIPPED`):
+- **vitest**: `node_modules/.bin/vitest run --reporter=verbose`
+- **jest**: `node_modules/.bin/jest --verbose`
 
 실패 시:
 1. 에러 메시지를 분석한다.
@@ -119,16 +119,16 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" release "{E2E_RE
 {e2eCommand}
 ```
 
-비어있으면 `e2eRunner` 값에 따라 fallback:
-- **playwright**: `npx playwright test --reporter=list`
-- **cypress**: `npx cypress run`
+비어있으면 `e2eRunner` 값에 따라 설치된 로컬 runner로 fallback한다 (로컬 실행 파일이 없으면 `SKIPPED:NO_E2E_RUNNER`):
+- **playwright**: `node_modules/.bin/playwright test --reporter=list`
+- **cypress**: `node_modules/.bin/cypress run`
 
 **`--smoke` 범위 판정** (E2E만, 매 iteration 동일):
 
 | 조건 | 실행 | E2E 실행 수준 |
 |------|------|---------------|
-| `## Related E2E Specs`의 파일이 모두 존재 ∧ `e2eCommand` 비어있음 ∧ runner playwright | `npx playwright test --reporter=list {files}` | `smoke` |
-| 위와 같고 runner cypress | `npx cypress run --spec {files 쉼표 결합}` | `smoke` |
+| `## Related E2E Specs`의 파일이 모두 존재 ∧ `e2eCommand` 비어있음 ∧ runner playwright | `node_modules/.bin/playwright test --reporter=list {files}` | `smoke` |
+| 위와 같고 runner cypress | `node_modules/.bin/cypress run --spec {files 쉼표 결합}` | `smoke` |
 | `e2eCommand`가 있음 (custom) | `{e2eCommand}` 전체 실행 | `full-command` |
 | 목록이 `없음` / 섹션 부재 / 파일 하나라도 미존재 | 전체 실행 (fallback 명령) | `full(smoke 미적용: {사유})` |
 

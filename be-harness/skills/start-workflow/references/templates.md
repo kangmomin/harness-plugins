@@ -169,7 +169,7 @@ light 티어: `Phase Results`에 8.2·8.8 행을 `SKIPPED:TIER_LIGHT`로 미리 
 
 ## Phase 5: Implementation Notes 라이브 파일 초기화
 
-상태 파일과 별개로 `{IMPL_NOTES}`를 Write tool로 생성한다. 기존 파일이 있으면 덮어쓴다.
+상태 파일과 별개로 `{IMPL_NOTES}`를 Write tool로 생성한다. 신규 실행에서만 생성하며, 검증된 재개에서는 기존 파일을 덮어쓰지 않고 보존한다.
 
 ```markdown
 # Implementation Notes — {작업 요약}

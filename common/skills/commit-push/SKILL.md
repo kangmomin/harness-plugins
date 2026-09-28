@@ -105,7 +105,7 @@ git branch --show-current
 | 커밋 메시지 태그 | **미push 커밋**(`@{upstream}..HEAD`, upstream 없으면 `{base}..HEAD`)의 본문 | 하드 게이트 — 해소 전 push 금지 |
 | 이미 push된 커밋 메시지의 태그 | 재작성 불가 (force-push 금지) | WARN 보고만 |
 
-코드 base는 기존 PR base 또는 commit-pr Step 0의 BASE_REF를 재사용한다. 단독 실행은 명시 base·프로젝트 mainBranch·원격 기본 브랜치를 근거로 먼저 결정한다. **동일 feature upstream은 코드 base가 아니다.** 메시지 범위는 실제 존재하는 push upstream, 없으면 확정 base다. ref 부재와 Git 명령 실패를 구분한다.
+코드 base는 기존 PR base 또는 commit-pr Step 0의 BASE_REF를 재사용한다. 단독 실행은 명시 base·프로젝트 mainBranch·원격 기본 브랜치를 근거로 먼저 결정한다. **동일 feature upstream은 코드 base가 아니다.** 메시지 범위는 실제 존재하는 push upstream, 없으면 확정 base다. ref 부재와 Git 명령 실패를 구분한다. `{COMMON_ROOT}`는 설치된 common 플러그인 루트(이 스킬 디렉터리의 `../..`)다.
 
 ```bash
 python3 -I -B "{COMMON_ROOT}/skills/commit/assets/git_checks.py" assumptions \

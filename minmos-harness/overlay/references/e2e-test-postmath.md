@@ -103,7 +103,7 @@
 | 1 | `secret/.env` 존재 | 파일 존재 확인 | `SKIPPED:ENV_MISSING` — 서버 부팅 불가 |
 | 2 | PostgreSQL MCP 연결 | `SELECT 1` | `SKIPPED:POSTGRES_MCP_UNAVAILABLE` — DB 시드/정리 불가 |
 | 3 | DB 호스트 로컬 전용 | `DB_HOST` + MCP `inet_server_addr()` | 화이트리스트 승인 절차로 이동, 거부 시 `SKIPPED:REMOTE_DB_BLOCKED` |
-| 4 | Go 빌드 | `go build ./cmd/main.go` | `FAIL:BUILD` — 코드 문제, 빌드 에러 보고 (SKIP 아님) |
+| 4 | Go 빌드 | `go build -o /dev/null ./cmd/main.go` | `FAIL:BUILD` — 코드 문제, 빌드 에러 보고 (SKIP 아님) |
 
 처리 규칙:
 - 모두 OK → 한 줄 요약 후 Step 2로 진행.

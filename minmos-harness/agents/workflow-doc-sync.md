@@ -28,11 +28,7 @@ API 변경 작업인 경우, Apidog 스키마를 동기화한다.
 
 **생성·수정이면** Skill tool로 `/minmos-harness:e2e-apidog-schema-gen` 실행을 시도한다.
 
-**Skill 불가 시 직접 수행**:
-
-1. E2E 테스트를 실행하여 실측 요청/응답 데이터를 수집한다.
-2. 기존 Apidog 스키마 파일을 찾아 업데이트한다.
-3. 변경 사항을 커밋한다.
+**Skill 호출이 불가하면** E2E 실행·스키마 수정·커밋을 직접 하지 않는다. E2E 실행 잠금·로컬 DB 전용 규칙(e2e-test)과 Apidog capability 확인(apidog 스킬)은 스킬 절차에만 있기 때문이다. 출력의 `실행 여부: N`과 함께 `SKIPPED:SKILL_UNAVAILABLE`, 실패 사유, 수동 실행 안내(`/minmos-harness:e2e-apidog-schema-gen`)를 반환한다.
 
 ### 커밋
 
@@ -51,7 +47,7 @@ EOF
 ## 출력
 
 ```
-## Phase 11 결과: 문서 동기화
+## Phase 9 결과: 문서 동기화
 - 실행 여부: Y/N
 - 변경 내용: [요약 또는 "해당 없음"]
 ```

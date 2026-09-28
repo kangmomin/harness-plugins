@@ -1,6 +1,6 @@
 ---
 name: apidog-schema-gen
-description: "This skill should be used when the user asks to \"generate API schema from Apidog\", \"extract request response schema\", \"Apidog에서 스키마 뽑아줘\", \"API 스키마 생성\", \"엔드포인트 스키마 추출\", \"스키마 파일로 저장\", \"flat schema\", \"Apidog에 푸시\", \"Apidog 동기화\", \"API 문서 업데이트\", or mentions extracting JSON schema from Apidog OAS endpoints or pushing specs to Apidog. Reads Apidog OAS endpoint definitions, cross-references with Go codebase structs to catch missing fields, generates dialect-explicit JSON schemas with finite local references, and optionally pushes OpenAPI specs to Apidog via Import API."
+description: "Apidog OAS 엔드포인트 정의에서 request/response JSON 스키마를 추출하고 Go struct와 교차 검증해 누락 필드를 보완하며(선언 dialect·유한 local ref 유지), 선택적으로 OpenAPI 스펙을 Apidog Import API로 push한다. 엔드포인트 스키마 추출·파일 저장, Apidog 명세 push·동기화 요청 시 사용 — 예: 'Apidog에서 스키마 뽑아줘', 'Apidog에 푸시'."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, WebFetch
 user-invocable: true
 ---

@@ -40,40 +40,50 @@ const TOOLS = [
   {
     name: 'wiki_resolve',
     description:
-      'work-log 문서를 랭킹해 후보를 반환한다. 본문을 포함하지 않으므로 토큰이 거의 들지 않는다. ' +
-      '항상 이 툴을 먼저 호출해 후보를 좁힌 뒤 wiki_read 로 하나만 읽어라.',
+      'work-log 인덱스에서 문서 후보를 점수순으로 반환한다. 본문은 주지 않고 후보마다 path, title, type, kind(md/html), tags, created, ' +
+      'summary(본문 앞 200자), snippet, companions(같은 폴더·같은 이름의 .html 경로), score 를, total 에 일치 문서 수를 준다. ' +
+      'query 를 공백으로 나눈 단어마다 title·tags·headings·경로·본문 앞부분(코드 블록 제외)에서 대소문자를 무시한 부분 문자열로 찾아 ' +
+      '가중 합산하고, 모든 단어가 맞는 문서에 가산점을 준다(형태소 분석 없음, 동점은 최근 수정순). ' +
+      '일치가 없으면 candidates: [], emptyResult: true 와 vault 상위 태그 hintTags 를 반환한다. ' +
+      '인덱스는 마지막 wiki_sync·wiki_write 시점 기준이라 그 뒤 vault 에 직접 추가·수정한 문서는 wiki_sync 전까지 보이지 않고, ' +
+      '인덱스가 없거나 현재 서버와 호환되지 않으면 wiki_sync 를 요구하는 오류를 반환한다. 본문은 반환된 path 로 wiki_read 를 호출해 읽는다.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
       required: ['query'],
       properties: {
-        query: { type: 'string', description: '검색어. 공백으로 여러 단어를 넣을 수 있다' },
-        type: { type: 'string', enum: TYPE_ENUM, description: '문서 종류 필터' },
-        tags: { type: 'array', items: { type: 'string' }, description: '태그 필터 (모두 만족)' },
-        limit: { type: 'integer', minimum: 1, maximum: 20, default: 5 },
+        query: { type: 'string', description: '검색어. 공백으로 나눈 단어를 각각 찾는다(모든 단어가 맞는 문서에 가산점)' },
+        type: { type: 'string', enum: TYPE_ENUM, description: '문서 종류 필터. frontmatter type, 없으면 파일명 접미사(-plan 등)나 최상위 폴더로 추론한 종류와 정확히 같아야 한다' },
+        tags: { type: 'array', items: { type: 'string' }, description: '태그 필터. 넘긴 태그마다 문서 태그 하나에 부분 문자열로 포함돼야 한다(모두 만족, 대소문자 무시)' },
+        limit: { type: 'integer', minimum: 1, maximum: 20, default: 5, description: '반환할 후보 수 (기본 5, 최대 20)' },
       },
     },
   },
   {
     name: 'wiki_read',
     description:
-      'work-log 문서 하나의 본문을 읽는다. section 으로 헤딩 단위 일부만, token_budget 으로 분량을 제한할 수 있다.',
+      'work-log 문서 하나를 인덱스 없이 파일에서 직접 읽는다. .md 는 { path, citation, frontmatter(없으면 null), body(frontmatter 제외), ' +
+      'matchedHeading, sectionNotFound, truncated, approximateBudget, chars } 를 반환한다. .html 은 본문 없이 ' +
+      '{ path, kind: "html", note, absolutePath } 만 반환하므로 absolutePath 를 파일 읽기 도구로 연다. 파일 hash 는 반환하지 않는다.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
       required: ['path'],
       properties: {
-        path: { type: 'string', description: 'vault 상대 경로 (wiki_resolve 가 반환한 path)' },
-        section: { type: 'string', description: '헤딩 이름 일부. 그 섹션만 반환한다' },
-        token_budget: { type: 'integer', minimum: 1, description: '근사 토큰 상한 (1토큰≈4자)' },
+        path: { type: 'string', description: 'vault 상대 경로 (wiki_resolve 가 반환한 path, .md 또는 .html). 절대 경로·vault 밖·제외 폴더는 거부된다' },
+        section: { type: 'string', description: '헤딩 텍스트 일부(대소문자 무시). 처음 일치한 헤딩부터 같거나 더 높은 수준의 다음 헤딩 직전까지 반환한다. 일치하는 헤딩이 없으면 본문 전체와 sectionNotFound: true 를 반환한다' },
+        token_budget: { type: 'integer', minimum: 1, description: '근사 토큰 상한 (1토큰≈4자). 넘으면 잘라 내고 truncated: true 를 붙이며, chars 는 잘린 뒤 글자 수다' },
       },
     },
   },
   {
     name: 'wiki_write',
     description:
-      'work-log 에 문서를 만들거나 고친다. 기본은 create 이며 파일이 있으면 실패한다. ' +
-      'frontmatter 가 없는 기존 문서에는 frontmatter 를 주입하지 않는다.',
+      'work-log vault 에 .md 문서 하나를 쓴다(삭제 기능은 없다). mode 로 새로 만들기(create)·본문 교체(overwrite)·끝에 덧붙이기(append)를 고른다. ' +
+      'frontmatter 가 없는 기존 문서에 frontmatter 인자를 넘기면 거부된다(frontmatter 를 새로 주입하지 않는다). ' +
+      '쓰기 뒤 인덱스를 다시 만들고 { written: {path, bytes, hash, mode, ...}, indexed, indexing: {status, errors, retry} } 를 반환한다. ' +
+      'written 이 있으면 저장은 끝났으므로 indexing.status 가 OK 가 아니어도 같은 쓰기를 다시 보내지 말고 wiki_sync 만 호출한다. ' +
+      '문서·인덱스 잠금을 5초 안에 얻지 못하면 실패한다.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -81,21 +91,26 @@ const TOOLS = [
       properties: {
         path: { type: 'string', description: 'vault 상대 경로 (.md 만)' },
         content: { type: 'string', description: '본문' },
-        frontmatter: { type: 'object', description: '신규 문서의 frontmatter 재정의' },
-        mode: { type: 'string', enum: ['create', 'overwrite', 'append'], default: 'create' },
-        expected_hash: { type: 'string', description: '낙관적 잠금. 현재 파일 해시와 다르면 거부' },
+        frontmatter: { type: 'object', description: 'frontmatter 키 재정의. create: 자동 부여값을 덮고 키를 더한다. overwrite: 기존 frontmatter 에 병합한다(모르는 키 보존, updated 갱신). append: 반영되지 않는다' },
+        mode: { type: 'string', enum: ['create', 'overwrite', 'append'], default: 'create', description: 'create(기본): 새 파일만 만든다 — 이미 있으면 실패. overwrite: 기존 본문을 content 로 교체. append: 기존 파일 끝에 덧붙인다. overwrite·append 는 파일이 없으면 실패한다' },
+        expected_hash: { type: 'string', description: '낙관적 잠금. 현재 파일 전체 바이트의 SHA-1 hex 앞 12자이며 다르면 거부한다. 직전 wiki_write 응답의 written.hash 또는 불일치 오류의 actual 값이 이 형식이다(wiki_read 는 hash 를 주지 않는다)' },
       },
     },
   },
   {
     name: 'wiki_sync',
     description:
-      'vault 를 전체 재스캔해 인덱스를 갱신하고 drift 리포트를 반환한다. vault 파일은 변경하지 않는다.',
+      'vault 의 .md/.html 을 모두 다시 읽어 인덱스를 재생성하고 drift 리포트를 반환한다. vault 파일은 변경하지 않는다. ' +
+      'vault 에 직접 추가·수정한 문서를 검색에 반영하거나 인덱스 없음·호환 불가 오류를 해결할 때 호출한다(wiki_write 는 쓰기 뒤 자동으로 재생성한다). ' +
+      '반환의 status 가 DEGRADED 이면 읽기·파싱에 실패한 항목이 errors 에 있다. 다른 sync·쓰기가 인덱스 잠금을 5초 넘게 쥐고 있으면 실패한다.',
     inputSchema: { type: 'object', additionalProperties: false, properties: {} },
   },
   {
     name: 'wiki_status',
-    description: '현재 스코프·vault 루트·인덱스 신선도와 진단 정보(cwd, configSource)를 반환한다.',
+    description:
+      '읽기 전용 진단 툴이다. 스코프가 설정되지 않아도 오류 없이 { needsInit: true, hint, cwd, configSource, server, safeIO } 를 반환하므로 ' +
+      '다른 wiki_ 툴보다 먼저 호출해도 된다. 설정돼 있으면 scope, root, indexPath, indexExists, indexAgeSeconds, generatedAt, counts, ' +
+      'indexState(OK·DEGRADED 또는 INDEX_MISSING 등 재생성 사유), errors, scan 을 함께 반환한다. safeIO.available 이 false 이면 wiki_write·wiki_sync 가 동작하지 않는다.',
     inputSchema: { type: 'object', additionalProperties: false, properties: {} },
   },
 ];

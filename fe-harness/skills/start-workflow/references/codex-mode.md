@@ -12,8 +12,8 @@
 | Plan 검증 루프 리뷰어 (`review` — 입력은 기존대로 Spec·Plan 전문) | **Claude 패널** (§6) | Codex `review` 슬롯 | mix와 동일 |
 | 특화 하네스 품질 리뷰 (`review` — 오버레이가 삽입하는 Codex 리뷰 단계) | Claude `general-purpose` 1개 = 정규 경로 (상한 불변) | Codex `review` 슬롯 | 동일 |
 | 탐색·수집 / 이해·요약 (`explore` — haiku·sonnet급 작업) | Claude | Claude | Codex `explore` 슬롯, `read-only` |
-| 읽기 전용 판정 (`judge` — 스코프·품질·접근성 리뷰어, 검증기, 통합 스캐너, Read-back 복원, 엣지 케이스 분석) | Claude 등급표 | Claude 등급표 | Codex `judge` 슬롯, `read-only` — **검사만** 수행. 빌드·테스트 명령은 오케스트레이터/러너가 실행해 로그 경로를 전달 |
-| 쓰기 (`write` — 구현, Red 테스트 작성, 빌드·품질·E2E 수정, 문서 동기화, 성찰) | Claude 등급표 | Claude 등급표 | Codex `write` 슬롯, `workspace-write` (§5 쓰기 안전) |
+| 읽기 전용 판정 (`judge` — 스코프·품질·접근성 리뷰어, 검증기, 통합 스캐너, Read-back 복원, 엣지 케이스 분석, 성찰) | Claude 등급표 | Claude 등급표 | Codex `judge` 슬롯, `read-only` — **검사만** 수행. 빌드·테스트 명령은 오케스트레이터/러너가 실행해 로그 경로를 전달 |
+| 쓰기 (`write` — 구현, Red 테스트 작성, 빌드·품질·E2E 수정, 문서 동기화) | Claude 등급표 | Claude 등급표 | Codex `write` 슬롯, `workspace-write` (§5 쓰기 안전) |
 | 오케스트레이션 — 항상 Claude | ① 오케스트레이터 ② **스킬 러너** (Codex는 Skill tool을 못 부르므로 스킬 실행은 Claude `general-purpose`; `max`면 내부 리프를 이 계약으로 위임) ③ PR 에이전트 (Assumption Gate 유저 확인 + push 네트워크) | 〃 | 〃 |
 
 - 세 모드 모두 **절차·상한·종료 조건·티어 규칙 불변** — 실행 주체와 리뷰어의 모델·effort만 바뀐다. 검증 티어와 직교한다.
@@ -160,9 +160,9 @@
 |------|------|------|
 | Plan 검증 루프 (`review`) | Phase 3.3 (난이도 = Phase 2 종합 난이도) | — (Spec·Plan 전문 전달) |
 | 특화 하네스 품질 리뷰 (`review`) | 해당 없음 (hyeondongs 오버레이는 리뷰 단계를 삽입하지 않음) | — |
-| 탐색·수집 / 이해·요약 (`explore`) | 탐색 위임 에이전트 · 7.7 Read-back 복원(general-purpose) | — (general-purpose) |
-| 읽기 전용 판정 (`judge`) | 7.5 `scope-reviewer` · 8 `component-reviewer` · 8 `a11y-reviewer` | `{PLUGIN_ROOT}/agents/{name}.md` |
-| 쓰기 (`write`) | 5.1 Red(러너 내부 리프) · 5.2 `workflow-implementer` · 6 build-fix · 7.2/7.3/7.4/7.6 수정(러너 내부 리프) · 8 Critical 이슈 수정 · 10 `workflow-reflection` | `{PLUGIN_ROOT}/agents/{name}.md` (general-purpose는 생략) |
+| 탐색·수집 / 이해·요약 (`explore`) | 7.7 Read-back 복원(general-purpose) | — (general-purpose) |
+| 읽기 전용 판정 (`judge`) | 7.5 `scope-reviewer` · 8 `component-reviewer` · 8 `a11y-reviewer` · 10 `workflow-reflection` | `{PLUGIN_ROOT}/agents/{name}.md` |
+| 쓰기 (`write`) | 5.1 Red(러너 내부 리프) · 5.2 `workflow-implementer` · 6 build-fix · 7.2/7.3/7.4/7.6 수정(러너 내부 리프) · 8 Critical 이슈 수정 | `{PLUGIN_ROOT}/agents/{name}.md` (general-purpose는 생략) |
 | 러너 대상 (항상 Claude — `max`면 §8 포인터 1줄) | 5.1 `/fe-harness:unit-test --red` · 7.2 `/fe-harness:simplify-loop` · 7.3 `/fe-harness:convention-check` · 7.4 `/fe-harness:test-loop` · 7.6 `/fe-harness:lint-check` | — |
 | PR (항상 Claude) | 9 `workflow-pr` | — |
 

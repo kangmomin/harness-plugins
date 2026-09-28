@@ -191,7 +191,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/risk_facts.py --paths
 
 ### 검증 티어
 
-`light` ⇔ A ≤ 3 ∧ B ≤ 3(= 모든 요소 `낮음`, `UNKNOWN` 0건) ∧ 금지 조건 0건 ∧ `$TDD = true` ∧ `$TIER_FORCE = false`. 그 외 `standard`(= 기존 절차 무변경). light 강제 플래그는 없다 — 점수는 유저가 근거를 제시하면 재산정할 수 있으나 게이트 조건은 불변. 풀스택 전환 시 항상 standard.
+`light` ⇔ A ≤ 3 ∧ B ≤ 3(= 모든 요소 `낮음`, `UNKNOWN` 0건) ∧ 금지 조건 0건 ∧ `$TDD = true` ∧ `$TIER_FORCE = false`. 그 외 `standard`(= 축소 없는 전체 절차). light 강제 플래그는 없다 — 점수는 유저가 근거를 제시하면 재산정할 수 있으나 게이트 조건은 불변. 풀스택 전환 시 항상 standard.
 
 **금지 조건**(우회 불가, Phase 3.4에서 Plan 파일 목록으로 재점검): 디자인 시스템·전역 레이아웃·전역 스토어 계약 변경 / 인증·인가·개인정보 처리 UI / 결제·정산 화면 / 공유 훅·미들웨어·인터셉터 / Breaking change(Props·API 계약) / 외부 서비스 연동 변경.
 
@@ -236,7 +236,7 @@ Spec 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 �
 
 ### Phase 3.2: 다관점 Plan 보강 (Claude, 1회)
 
-검증 루프 진입 전 Claude 측 다관점 리뷰로 명백한 결함을 1회 보강한다. **이 단계는 검증 루프가 아니다.**
+검증 루프 진입 전 Claude 측 다관점 리뷰로 Plan을 1회 보강한다. 각 리뷰어는 담당 관점에서 발견한 문제를 심각도와 함께 모두 보고하고, 반영 여부는 아래 종합 단계에서 가린다. **이 단계는 검증 루프가 아니다.**
 
 최대 3개 서브에이전트(`general-purpose`) 병렬 × 2배치:
 - Batch 1: 유지보수성 + 성능 + 엣지 케이스
@@ -311,7 +311,7 @@ Plan의 파일 목록으로 금지 조건을 재점검한다(발견 시 즉시 s
 > Phase 4 진입 시 MUST: 같은 폴더의 `references/tdd.md`를 Read하고 "TDD 적용 판정"과 "Phase 4: 회귀 Baseline 수집" 절차를 따른다.
 
 여기가 **유저와 대화 가능한 마지막 지점**이다. baseline 수집이 실패하면 자율 실행에 들어가기 전에 선택지를 제시한다. 수집 실패 확정 시 light는 승격 ④로 standard.
-TDD SKIP 판정 시 사유를 `## Test Baseline`에 기록하고, Phase 5는 기존 단일 구현 흐름으로 진행한다.
+TDD SKIP 판정 시 사유를 `## Test Baseline`에 기록하고, Phase 5는 5.1을 건너뛰고 5.2(구현)만 실행한다.
 
 출력: **"자율 실행을 시작합니다. Phase 5~10을 서브 에이전트로 순차 실행합니다."**
 
@@ -325,7 +325,7 @@ TDD SKIP 판정 시 사유를 `## Test Baseline`에 기록하고, Phase 5는 기
 
 > Phase 5 진입 시 MUST: 같은 폴더의 `references/tdd.md`를 Read한다. Phase 5.1의 프롬프트·판정은 이 문서를 따른다.
 
-`$TDD = false`이거나 Phase 4에서 `SKIPPED:*` 판정이면 **Phase 5.1을 건너뛰고 5.2만 실행한다** (기존 단일 구현 흐름과 동일).
+`$TDD = false`이거나 Phase 4에서 `SKIPPED:*` 판정이면 **Phase 5.1을 건너뛰고 5.2만 실행한다**.
 
 #### Phase 5.1: 테스트 우선 (Red)
 

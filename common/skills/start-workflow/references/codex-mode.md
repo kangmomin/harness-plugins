@@ -12,8 +12,8 @@
 | Plan 검증 루프 리뷰어 (`review` — 입력은 기존대로 Spec·Plan 전문) | **Claude 패널** (§6) | Codex `review` 슬롯 | mix와 동일 |
 | 특화 하네스 품질 리뷰 (`review` — 오버레이가 삽입하는 Codex 리뷰 단계) | Claude `general-purpose` 1개 = 정규 경로 (상한 불변) | Codex `review` 슬롯 | 동일 |
 | 탐색·수집 / 이해·요약 (`explore` — haiku·sonnet급 작업) | Claude | Claude | Codex `explore` 슬롯, `read-only` |
-| 읽기 전용 판정 (`judge` — 스코프·품질·접근성 리뷰어, 검증기, 통합 스캐너, Read-back 복원, 엣지 케이스 분석) | Claude 등급표 | Claude 등급표 | Codex `judge` 슬롯, `read-only` — **검사만** 수행. 빌드·테스트 명령은 오케스트레이터/러너가 실행해 로그 경로를 전달 |
-| 쓰기 (`write` — 구현, Red 테스트 작성, 빌드·품질·E2E 수정, 문서 동기화, 성찰) | Claude 등급표 | Claude 등급표 | Codex `write` 슬롯, `workspace-write` (§5 쓰기 안전) |
+| 읽기 전용 판정 (`judge` — 스코프·품질·접근성 리뷰어, 검증기, 통합 스캐너, Read-back 복원, 엣지 케이스 분석, 성찰) | Claude 등급표 | Claude 등급표 | Codex `judge` 슬롯, `read-only` — **검사만** 수행. 빌드·테스트 명령은 오케스트레이터/러너가 실행해 로그 경로를 전달 |
+| 쓰기 (`write` — 구현, Red 테스트 작성, 빌드·품질·E2E 수정, 문서 동기화) | Claude 등급표 | Claude 등급표 | Codex `write` 슬롯, `workspace-write` (§5 쓰기 안전) |
 | 오케스트레이션 — 항상 Claude | ① 오케스트레이터 ② **스킬 러너** (Codex는 Skill tool을 못 부르므로 스킬 실행은 Claude `general-purpose`; `max`면 내부 리프를 이 계약으로 위임) ③ PR 에이전트 (Assumption Gate 유저 확인 + push 네트워크) | 〃 | 〃 |
 
 - 세 모드 모두 **절차·상한·종료 조건·티어 규칙 불변** — 실행 주체와 리뷰어의 모델·effort만 바뀐다. 검증 티어와 직교한다.
@@ -163,8 +163,8 @@
 | Plan 검증 루프 (`review`) | Phase 4.4 — `review` 슬롯 티어링(기본값 표: Simple·Standard → xhigh, Complex·Critical → max) | — (Spec·계약·Plan 전문 전달) |
 | 특화 하네스 품질 리뷰 (`review`) | 해당 없음 (풀스택은 하위 워크플로우를 중첩 실행하지 않음) | — |
 | 탐색·수집 / 이해·요약 (`explore`) | 8.1 계약 복원 에이전트 ×2 (general-purpose) | `{PLUGIN_ROOT}/skills/start-workflow/references/fullstack-agent-prompts.md` "계약 격리 Read-back 프롬프트 (Phase 8.1)" 절 |
-| 읽기 전용 판정 (`judge`) | 3 계약 리뷰 advisor(Batch 1·2) · 8.2 통합 검증 리뷰어 | 3: `{PLUGIN_ROOT}/skills/start-workflow/references/contract-templates.md` "Phase 3" 절 / 8.2: `{PLUGIN_ROOT}/skills/start-workflow/references/fullstack.md` "Phase 8.2" 절 |
-| 쓰기 (`write`) | 6.1 BE/FE Red · 6.2 BE/FE 구현 · 7 도메인 품질 루프 수정(러너 내부 리프) · 10 `workflow-reflection` | `{PLUGIN_ROOT}/skills/start-workflow/references/fullstack-agent-prompts.md` 의 "Red 에이전트 프롬프트 (Phase 6.1)" / "구현 에이전트 프롬프트 (Phase 6.2)" 해당 절 (7·10은 general-purpose 취급) |
+| 읽기 전용 판정 (`judge`) | 3 계약 리뷰 advisor(Batch 1·2) · 8.2 통합 검증 리뷰어 · 10 `workflow-reflection` | 3: `{PLUGIN_ROOT}/skills/start-workflow/references/contract-templates.md` "Phase 3" 절 / 8.2: `{PLUGIN_ROOT}/skills/start-workflow/references/fullstack.md` "Phase 8.2" 절 / 10: — (general-purpose 취급) |
+| 쓰기 (`write`) | 6.1 BE/FE Red · 6.2 BE/FE 구현 · 7 도메인 품질 루프 수정(러너 내부 리프) | `{PLUGIN_ROOT}/skills/start-workflow/references/fullstack-agent-prompts.md` 의 "Red 에이전트 프롬프트 (Phase 6.1)" / "구현 에이전트 프롬프트 (Phase 6.2)" 해당 절 (7은 general-purpose 취급) |
 | 러너 대상 (항상 Claude — `max`면 §8 포인터 1줄) | 7 각 도메인 품질 스킬(`/be-harness:*` · `/fe-harness:*` Skill tool 실행) | — |
 | PR (항상 Claude) | 9 커밋/PR | — |
 

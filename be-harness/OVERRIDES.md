@@ -112,7 +112,7 @@ Phase 12 에서 유저 선택:
 2. **로컬 + PR** — Tier 1 먼저 + Tier 2 로 범용 항목만 PR
 3. **건너뛰기**
 
-선택 2 에서 gh 미설치/미인증/네트워크 실패 시 `[SKIPPED:*]` 반환 후 Tier 1 만 유지하여 정상 종료.
+선택 2 에서 gh 미설치/미인증/fork·clone·네트워크 실패 시 `/common:submit-feedback` 은 `LOCAL_ONLY`(결과 불명확 시 `UNKNOWN`)를 보고하고 로컬 artifact를 유지한다. Tier 1 로컬 반영은 그대로 두고 정상 종료한다.
 
 ## 전역 컨벤션 파일과의 차이
 

@@ -3,7 +3,7 @@
 
 # Codex 품질 리뷰 (Phase 8+)
 
-품질 루프가 완료되면 다음 Phase로 넘어가기 전에 **반드시 Codex 리뷰**를 받는다. 구현 결과 전체를 외부 관점으로 한 번 더 검증하는 단계다.
+품질 루프가 완료되면 다음 Phase로 넘어가기 전에 품질 리뷰를 받는다 (리뷰어는 아래 `codexMode`별 실행 주체). 구현 결과 전체를 외부 관점으로 한 번 더 검증하는 단계다.
 
 ## 리뷰 입력
 
@@ -37,7 +37,7 @@ Spec·Plan 대비 구현 누락 / 비즈니스 로직 결함 / 레이어 구조 
 |----------|------|------|
 | MCP 부재 (`mcp_missing` — 베이스 runtime latch) | 환경 부재 | Claude 패널 1개로 리뷰어 대체 + `SKIPPED:CODEX_UNAVAILABLE` 기록 (리뷰는 계속) |
 | 인증 오류 / 모델·effort 미지원 (`auth_failed` / `model_unavailable(…)` — provider·슬롯 범위 latch) | 환경 부재 | 위와 동일 (latch) |
-| quota/rate-limit (429, "usage limit", "rate limit", "quota", "try again at") | quota 차단 | Claude 패널로 리뷰어 대체 + `SKIPPED:CODEX_QUOTA_BLOCKED` 기록 |
+| quota/rate-limit (`quota_exhausted` — 베이스 §7 판정 순서 ③) | quota 차단 | Claude 패널로 리뷰어 대체 + `SKIPPED:CODEX_QUOTA_BLOCKED` 기록 |
 | 기타 일시 오류 (타임아웃, 5xx) | `tool_error` | 1회 재시도 → 재실패 시 **이 호출만** 패널로 대체 (latch 없음, 진단 `codex_fallback(8+:tool_error)`) |
 
 `SKIPPED:CODEX_*`는 "Codex 호출" 항목에 대한 기록이며, 리뷰 자체는 아래 Claude 패널로 계속 실행된다 (Phase SKIP이 아니다). `review` 슬롯에 적용되는 대표 사유(베이스 §7)별 코드: `quota_exhausted` → `SKIPPED:CODEX_QUOTA_BLOCKED`, 그 외(`mcp_missing`·`auth_failed`·`model_unavailable(…)`) → `SKIPPED:CODEX_UNAVAILABLE`.

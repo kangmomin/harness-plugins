@@ -4,7 +4,7 @@
 > 플레이스홀더(`{STATE_FILE}`·`{PLAN_MAX}`·`{QL_MAX}` 등)는 SKILL.md 본문 정의를 따른다.
 
 Spec 직후 **코드 복잡도(A)** 와 **영향 범위·회귀 리스크(B)** 를 점수화해, 저위험·저복잡도 작업에서만 추가 리뷰 레이어·루프 상한·E2E 범위를 줄인다(`light`).
-그 외는 전부 `standard`(= 기존 절차 무변경). Spec이 정의한 검증(AC/EC 전수, TDD Red, scope-reviewer, 빌드, 통합 테스트)은 어떤 티어에서도 축소하지 않는다.
+그 외는 전부 `standard`(= §3의 light 축소 없이 전체 절차). Spec이 정의한 검증(AC/EC 전수, TDD Red, scope-reviewer, 빌드, 통합 테스트)은 어떤 티어에서도 축소하지 않는다.
 
 ## 1. 점수 산정 (Phase 2)
 

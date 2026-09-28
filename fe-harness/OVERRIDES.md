@@ -75,9 +75,9 @@ updated: 2026-04-21
 
 ### 오버레이 플러그인이 쓰는 경로
 
-특화 하네스(`hyeondongs-harness`)는 이 레이어를 **경로 B**로 사용한다. `/hyeondongs-harness:init` 이 자기 `overlay/*.md` 를 위 경로에 복사하면, `/fe-harness:*` 를 직접 호출해도 특화 규칙이 적용된다.
+특화 하네스(`hyeondongs-harness`)의 오버레이는 `/hyeondongs-harness:start-workflow` 가 플러그인의 `overlay/*.md` 를 직접 읽어 적용한다(경로 A). `/hyeondongs-harness:init` 은 `.hyeondong-config.json` 만 만들고 이 레이어에 파일을 복사하지 않는다. 오버레이 파일을 위 경로에 두면(경로 B) `/fe-harness:*` 를 직접 호출해도 특화 규칙이 적용된다.
 
-복사된 파일은 첫 줄에 `<!-- overlay-source: hyeondongs-harness@{version} -->` 마커를 갖는다. 마커가 있는 파일은 오버레이 플러그인이 관리하므로 **수동 편집하지 않는다** (init 재실행 시 덮어써진다). 프로젝트 고유 규칙은 마커 없는 별도 파일에 쓴다 — 둘은 함께 적용된다.
+경로 B 파일은 첫 줄에 `<!-- overlay-source: hyeondongs-harness@{version} -->` 마커를 유지한다. 마커가 있으면 `/hyeondongs-harness:start-workflow` 가 설치본 오버레이 대신 이 파일을 쓰므로 원본과 같게 두고 **수동 편집하지 않는다**. 프로젝트 고유 규칙은 마커 없는 별도 파일에 쓴다 — 둘은 함께 적용된다.
 
 오버레이 규약의 canonical: `docs/overlay.md`.
 
@@ -112,7 +112,7 @@ Phase 11 옵션:
 2. **로컬 + PR**
 3. **건너뛰기**
 
-선택 2 에서 gh 미설치/미인증/네트워크 실패 시 `[SKIPPED:*]` 반환 후 Tier 1 만 유지하여 정상 종료.
+선택 2 에서 gh 미설치/미인증/fork·clone·네트워크 실패 시 `/common:submit-feedback` 은 `LOCAL_ONLY`(결과 불명확 시 `UNKNOWN`)를 보고하고 로컬 artifact를 유지한다. Tier 1 로컬 반영은 그대로 두고 정상 종료한다.
 
 ## 전역 컨벤션 파일과의 차이
 

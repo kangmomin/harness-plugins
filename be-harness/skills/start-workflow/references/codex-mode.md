@@ -12,8 +12,8 @@
 | Plan 검증 루프 리뷰어 (`review` — 입력은 기존대로 Spec·Plan 전문) | **Claude 패널** (§6) | Codex `review` 슬롯 | mix와 동일 |
 | 특화 하네스 품질 리뷰 (`review` — 오버레이가 삽입하는 Codex 리뷰 단계) | Claude `general-purpose` 1개 = 정규 경로 (상한 불변) | Codex `review` 슬롯 | 동일 |
 | 탐색·수집 / 이해·요약 (`explore` — haiku·sonnet급 작업) | Claude | Claude | Codex `explore` 슬롯, `read-only` |
-| 읽기 전용 판정 (`judge` — 스코프·품질·접근성 리뷰어, 검증기, 통합 스캐너, Read-back 복원, 엣지 케이스 분석) | Claude 등급표 | Claude 등급표 | Codex `judge` 슬롯, `read-only` — **검사만** 수행. 빌드·테스트 명령은 오케스트레이터/러너가 실행해 로그 경로를 전달 |
-| 쓰기 (`write` — 구현, Red 테스트 작성, 빌드·품질·E2E 수정, 문서 동기화, 성찰) | Claude 등급표 | Claude 등급표 | Codex `write` 슬롯, `workspace-write` (§5 쓰기 안전) |
+| 읽기 전용 판정 (`judge` — 스코프·품질·접근성 리뷰어, 검증기, 통합 스캐너, Read-back 복원, 엣지 케이스 분석, 성찰) | Claude 등급표 | Claude 등급표 | Codex `judge` 슬롯, `read-only` — **검사만** 수행. 빌드·테스트 명령은 오케스트레이터/러너가 실행해 로그 경로를 전달 |
+| 쓰기 (`write` — 구현, Red 테스트 작성, 빌드·품질·E2E 수정, 문서 동기화) | Claude 등급표 | Claude 등급표 | Codex `write` 슬롯, `workspace-write` (§5 쓰기 안전) |
 | 오케스트레이션 — 항상 Claude | ① 오케스트레이터 ② **스킬 러너** (Codex는 Skill tool을 못 부르므로 스킬 실행은 Claude `general-purpose`; `max`면 내부 리프를 이 계약으로 위임) ③ PR 에이전트 (Assumption Gate 유저 확인 + push 네트워크) | 〃 | 〃 |
 
 - 세 모드 모두 **절차·상한·종료 조건·티어 규칙 불변** — 실행 주체와 리뷰어의 모델·effort만 바뀐다. 검증 티어와 직교한다.
@@ -161,11 +161,11 @@
 | Plan 검증 루프 (`review`) | Phase 4.3 (난이도 = Phase 2 종합 난이도) | — (Spec·Plan 전문 전달) |
 | 특화 하네스 품질 리뷰 (`review`) | minmos 오버레이 `Phase 8+` | — |
 | 탐색·수집 / 이해·요약 (`explore`) | 탐색 위임 에이전트(haiku/low 묶음) · 8.8 Read-back 복원(sonnet) | — (general-purpose) |
-| 읽기 전용 판정 (`judge`) | 8.4 `scope-reviewer` · 8.2+8.3 통합 스캐너 · A3 `code-analyzer` · V3 `code-verifier` · `edge-case-analyzer`(워크플로우 밖 직접 호출 시) | `{PLUGIN_ROOT}/agents/{name}.md` (통합 스캐너는 general-purpose) |
-| 쓰기 (`write`) | 6.1 Red(러너 내부 리프) · 6.2 `workflow-implementer` / 병렬 슬라이스 general-purpose · 7 build-fix · 8.5 통합 수정 · 8.6 E2E 수정(러너 내부 리프) · 8.7 통합 테스트 수정 · 9 문서 동기화 · 11 `workflow-reflection` | `{PLUGIN_ROOT}/agents/{name}.md` (general-purpose는 생략) |
+| 읽기 전용 판정 (`judge`) | 8.4 `scope-reviewer` · 8.2+8.3 통합 스캐너 · A3 `code-analyzer` · V3 `code-verifier` · `edge-case-analyzer`(워크플로우 밖 직접 호출 시) · 11 `workflow-reflection` | `{PLUGIN_ROOT}/agents/{name}.md` (통합 스캐너는 general-purpose) |
+| 쓰기 (`write`) | 6.1 Red(러너 내부 리프) · 6.2 `workflow-implementer` / 병렬 슬라이스 general-purpose · 7 build-fix · 8.5 통합 수정 · 8.6 E2E 수정(러너 내부 리프) · 8.7 통합 테스트 수정 · 9 문서 동기화 | `{PLUGIN_ROOT}/agents/{name}.md` (general-purpose는 생략) |
 | 러너 대상 (항상 Claude — `max`면 §8 포인터 1줄) | 6.1 `/be-harness:unit-test --red` · 8.6 `/be-harness:e2e-test-loop` · V4 `/be-harness:convention-check` | — |
 | PR (항상 Claude) | 10 `workflow-pr` | — |
 
 - `max`의 6.1 sequential: Codex `write` 슬롯이 `{PLUGIN_ROOT}/skills/unit-test/SKILL.md` Step 1~4를 직접 읽어 수행한다 (`references/tdd.md`). none·mix는 기존 Skill tool 경로.
-- Analyze/Verify 모드: A3·V3은 "읽기 전용 판정"(`judge`) 지점이다. 해당 상태 파일에는 `## Codex` 절(`CODEX: {mode}` / `CODEX_MODELS: …` / `상태: …`)을 둔다.
+- Analyze/Verify 모드: A3·V3은 "읽기 전용 판정"(`judge`) 지점이다. 해당 상태 파일은 Build와 같은 `## Flags`(`CODEX`·`CODEX_MODELS`)·`## Codex Runtime`(`상태`) 계약을 쓴다 (`references/analyze-verify-modes.md` 상태 템플릿).
 - 오버라이드 경로: `{CWD}/.claude/be-harness/common.md` · `{CWD}/.claude/be-harness/agents/{name}.md`.

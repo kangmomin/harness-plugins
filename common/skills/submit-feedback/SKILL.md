@@ -1,6 +1,6 @@
 ---
 name: submit-feedback
-description: "harness 플러그인 사용 중 수집된 범용 보완점을 플러그인 레포(kangmomin/harness-plugins)의 community-feedback 영역에 PR로 제출한다. '피드백 보내줘', '보완점 PR 올려줘' 요청 시 사용. 실패 시 로컬 저장으로 fallback."
+description: "harness 플러그인 사용 중 수집된 범용 보완점을 플러그인 레포(kangmomin/harness-plugins)의 community-feedback 영역에 PR로 제출한다. '피드백 보내줘', '보완점 PR 올려줘' 요청 시 사용. 원격 제출 전 로컬에 먼저 보존하며, 제출이 실패해도 로컬 보존본은 남는다."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 argument-hint: "[--be|--fe|--mm|--hd] <보완점 항목 JSON> 또는 대화 컨텍스트에서 수집"
 user-invocable: true
@@ -32,7 +32,7 @@ user-invocable: true
 | agent | `{plugin}/community-feedback/agents/{target_name}.md` |
 | common | `{plugin}/community-feedback/common/{date}-{summary-slug}-{identity-hash}.md` |
 
-`common`을 `commons`로 만들지 않는다. hash는 날짜·대상·요약으로 정해 같은 입력은 같은 경로, slug가 같은 서로 다른 제안은 서로 다른 경로가 된다.
+hash는 날짜·대상·요약으로 정해 같은 입력은 같은 경로, slug가 같은 서로 다른 제안은 서로 다른 경로가 된다.
 
 ## 3. 구체적인 제출 내용과 권한 확인
 

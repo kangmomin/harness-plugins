@@ -1,6 +1,6 @@
 <!-- overlay-source: minmos-harness@2.4.0 -->
 
-BE Phase 8.4는 be-harness 1.5.7의 `review-evidence.md` 계약을 따른다. 추가 품질 리뷰의 APPROVE로 베이스의 BLOCKED:REVIEW_SCOPE를 해소하지 않으며, diff·검사 근거의 독립 보완과 최종 check-scope를 먼저 완료한다.
+BE Phase 8.4는 be-harness `review-evidence.md` 계약을 따른다. 추가 품질 리뷰의 APPROVE로 베이스의 BLOCKED:REVIEW_SCOPE를 해소하지 않으며, diff·검사 근거의 독립 보완과 최종 check-scope를 먼저 완료한다.
 
 ## Base
 
@@ -46,7 +46,7 @@ BE Phase 8.4는 be-harness 1.5.7의 `review-evidence.md` 계약을 따른다. �
 
 E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직접 묻는다. git diff 기반 자동 도출만으로는 의도한 주 사용 흐름이 누락될 수 있다.
 
-**모든 Build 모드 작업에서 항상 질문한다** (작업 유형과 무관). 아직 Plan 모드 대화 중이므로 평문으로 묻는다:
+**모든 Build 모드 작업에서 메인 플로우를 확보한다** (작업 유형과 무관). 요청·대화에 이미 있으면 재질문하지 않고 그 원문을 보관한다. 없으면 아직 Plan 모드 대화 중이므로 평문으로 묻는다:
 
 > "E2E 테스트 메인 플로우를 알려주세요. 이 작업의 핵심 사용자 시나리오 또는 주요 API 호출 순서를 서술해주세요.
 > 예: `진단지 생성 → 목록 조회 → 단건 수정 → 삭제`
@@ -65,7 +65,7 @@ E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직
 |----------|------|------|
 | MCP 부재 (`mcp_missing` — 베이스 runtime latch) | 환경 부재 | Claude 다관점 패널로 리뷰어 대체 + `SKIPPED:CODEX_UNAVAILABLE` 기록 (검증 루프는 계속 실행된다) |
 | 인증 오류 / 모델·effort 미지원 (`auth_failed` / `model_unavailable(…)` — `review` 슬롯에 적용되는 provider·슬롯 범위 latch) | 환경 부재 | 위와 동일 (패널 + `SKIPPED:CODEX_UNAVAILABLE`) |
-| quota/rate-limit (429, "usage limit", "rate limit", "quota", "try again at") | quota 차단 | **Claude 다관점 패널로 리뷰어 대체** + 상태 파일에 `SKIPPED:CODEX_QUOTA_BLOCKED` 기록 (Phase가 아닌 Codex 호출 항목에 대한 기록 — 검증 루프 자체는 계속 실행된다) |
+| quota/rate-limit (`quota_exhausted` — 베이스 §7 판정 순서 ③) | quota 차단 | **Claude 다관점 패널로 리뷰어 대체** + 상태 파일에 `SKIPPED:CODEX_QUOTA_BLOCKED` 기록 (Phase가 아닌 Codex 호출 항목에 대한 기록 — 검증 루프 자체는 계속 실행된다) |
 | 기타 일시 오류 (타임아웃, 5xx) | `tool_error` | 1회 재시도 → 재실패 시 **이 호출만** 패널로 대체 (latch 없음, 진단 `codex_fallback(plan_review:tool_error)`) |
 
 **Claude 다관점 패널 (대체 리뷰어)**: Logic / Architecture / Edge Cases 3관점 `general-purpose` 에이전트 병렬 실행.
@@ -86,7 +86,7 @@ E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직
 
 | 단계 | light | standard |
 |------|-------|----------|
-| Phase 1+ E2E 메인 플로우 수집 | 동일 (항상 질문) | 동일 |
+| Phase 1+ E2E 메인 플로우 수집 | 동일 (항상 확보, 재질문 없음) | 동일 |
 | Phase 4 Plan 검증 루프 보강 | quota 폴백 패널 그대로 — 패널 대체는 리뷰 수행으로 간주(베이스 승격 ⑤ 아님) | 동일 |
 | Phase 8 내부 e2e-test / e2e-test-loop | `--smoke` 실효 수준에 따라 `overlay/e2e-test.md` §smoke 분기 | 동일 (삽입 전부) |
 | Phase 8+ Codex 품질 리뷰 | **총 2회** (초회 + 재리뷰 1회), quota 폴백 패널 1 에이전트 | 총 4회 (초회 + 재리뷰 3회) |

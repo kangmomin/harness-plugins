@@ -16,7 +16,7 @@ model: sonnet
 
 ## Language Rule
 
-모든 출력은 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
+보고·설명 등 사용자에게 보여 주는 출력은 profile의 `language` 값(기본 `ko`, 한국어)을 따른다. 커밋 메시지는 아래 '커밋' 절을, 코드·주석·식별자는 프로젝트의 기존 관례를 따른다.
 
 ## 병렬 위임
 
@@ -105,8 +105,8 @@ EOF
 
 ```
 ## Phase 5.2 결과: 구현
-- 빌드: OK / FAIL
-- 타입 체크: OK / FAIL
+- 빌드: OK / FAIL / SKIPPED
+- 타입 체크: OK / FAIL / SKIPPED
 - 변경 파일: [파일 목록]
 - 커밋 수: N개
 - Plan 대비 차이점: [내용 또는 "없음"]

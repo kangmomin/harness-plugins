@@ -44,7 +44,7 @@ git rev-parse --show-toplevel 2>/dev/null || pwd
 선택한 경로가 아래에 해당하면 **채택하지 않고 다시 묻는다**:
 
 - 존재하지 않거나 디렉토리가 아님
-- **플러그인 소스 디렉토리** — `.claude-plugin/`·`.codex-plugin/`·`mcp/server.js`·`skills/` 를 포함하는 경로.
+- **플러그인 소스 디렉토리** — `.claude-plugin/`·`.codex-plugin/`·`mcp/server.js` 중 하나를 포함하거나, `skills/` 와 `.mcp.json` 을 함께 포함하는 경로.
   플러그인 저장소에서 프로젝트 스코프를 켜면 `<repo>/work-log/` 가 이 플러그인 코드 자신을
   가리키게 된다. `config.js` 가 이 경우를 거부한다
 

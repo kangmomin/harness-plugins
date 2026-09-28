@@ -15,7 +15,7 @@ model: sonnet
 
 ## Language Rule
 
-모든 출력은 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
+보고·설명 등 사용자에게 보여 주는 출력은 profile의 `language` 값(기본 `ko`, 한국어)을 따른다. 커밋 메시지는 아래 '커밋' 절을, 코드·주석·식별자는 프로젝트의 기존 관례를 따른다.
 
 ## 병렬 위임
 
