@@ -17,7 +17,7 @@ base 브랜치를 **현재 브랜치로** merge 하고(base → here), VERSION �
 
 ## 핵심 원칙
 
-- **base 결정과 버전 계산 규칙은 `/common:commit-pr`와 동일** — 이원화하지 않는다. base 는 브랜치 모델이 최우선이고, 버전은 `max(base, 로컬) + patch 1` 이다.
+- **base 결정과 버전 계산 규칙은 `/common:commit-pr`와 동일** — 이원화하지 않는다. 예외는 `$ARGUMENTS` 최상위 override 와, 자동 결정이 안 되면 멈추는 대신 사용자에게 묻는 것(Step 2.1)뿐이다. 버전은 로컬 ≤ base 이면 `max(base, 로컬) + patch 1`, 로컬 > base 이면 로컬 값을 유지한다(Step 6.1).
 - **push 는 Assumption Gate 를 거쳐서만 한다** — `/common:commit-push`의 Step 3·4를 위임 호출한다. Gate 를 우회해 직접 `git push` 하지 않는다.
 - **merge 커밋과 범프 커밋을 분리한다** — 충돌을 해결할 때도 merge 커밋에는 범프하지 않은 잠정값만 담는다.
 - **버전 파일 외의 충돌은 자동 해결하지 않는다** — 사용자에게 넘기고, 재실행하면 이어서 진행한다.
@@ -53,17 +53,17 @@ git branch --show-current
 
 `/common:commit-pr` Step 0의 base 결정 규칙을 그대로 따르되, 사용자 인자를 최상위 override 로 둔다.
 
-1. **`$ARGUMENTS`에 브랜치명이 있으면 그 값** — 사용자 명시 override
-2. **오버라이드 `.claude/common/common.md`의 브랜치 모델 표**에서 현재 브랜치 prefix 에 매핑된 base (선언돼 있으면 이 값이 확정이다)
-3. **현재 브랜치의 open PR** — `gh pr view --json baseRefName`. 브랜치 모델 미선언 시 "바로 상위 브랜치"의 근거로 사용한다. gh 미설치·미인증·PR 없음이면 조용히 다음으로
-4. **기본 브랜치** — `git symbolic-ref -q --short refs/remotes/origin/HEAD` 의 `origin/` 뒤 부분
+1. **`$ARGUMENTS`에 브랜치명이 있으면 그 값** — 사용자 명시 override. 이때 2~4는 조회하지 않는다
+2. **현재 브랜치의 open PR** — `gh pr view --json baseRefName,state` 에서 `state` 가 `OPEN` 인 경우의 `baseRefName`. PR 이 없으면 다음으로 간다. gh 미설치·미인증·조회 오류는 "PR 없음"이 아니다 — 조용히 넘어가지 않고 아래 질문으로 간다
+3. **오버라이드 `.claude/common/common.md`의 브랜치 모델 표**에서 현재 브랜치 prefix 의 허용 base
+4. **기본 브랜치** — 호출자가 전달한 profile mainBranch, 없으면 `git symbolic-ref -q --short refs/remotes/origin/HEAD` 의 `origin/` 뒤 부분
 
-> 브랜치 모델이 선언된 프로젝트에서 open PR 의 base 가 모델과 다르면, 모델 값을 쓰고 그 사실을 경고로 남긴다 — PR base 가 선언된 모델을 덮어쓰지 않는다.
+선택: 2가 있고 3이 없거나 2가 3의 허용 base 에 속하면 2를 쓴다. open PR 이 없으면 3(허용 base 가 하나일 때), 그다음 4를 쓴다. 3이 있는데 2가 그 허용 base 에 없거나, open PR 없이 3의 후보가 여럿이면 자동 선택하지 않고 아래 질문으로 간다 (commit-pr 의 "해결 전 진행하지 않음"과 같은 원칙). commit-pr 의 "보호 브랜치에서 분기했다면 그 시작 브랜치" 후보는 이 스킬이 보호 브랜치에서 실행되지 않으므로(Step 1) 해당 없다.
 
-4까지 실패하면 `AskUserQuestion` 으로 묻는다:
+4까지 실패했거나 자동 선택할 수 없으면(PR 조회 오류·후보 충돌) `AskUserQuestion` 으로 묻는다 (확인된 후보와 사유를 함께 보여준다):
 > base 브랜치를 결정하지 못했습니다.
-> 1. `main` 사용
-> 2. `dev` 사용
+> 1. {확인된 후보 1, 없으면 `main`} 사용
+> 2. {확인된 후보 2, 없으면 `dev`} 사용
 > 3. 직접 입력 — 입력값은 `git rev-parse --verify origin/{입력}` 으로 존재를 확인하고, 실패하면 1회 재질문
 > 4. 중단 (`BLOCKED:NO_BASE`)
 
@@ -383,7 +383,7 @@ merge 만 하고 push 는 나중에 하려면 이 단계에서 중단을 선택�
 ## 호출 예시
 
 ```bash
-/common:sync-base          # base 자동 결정 (브랜치 모델 → PR base → origin/HEAD)
+/common:sync-base          # base 자동 결정 (open PR base → 브랜치 모델 → 기본 브랜치, 결정 불가 시 질문)
 /common:sync-base dev      # base 명시
 /common:sync-base main
 ```

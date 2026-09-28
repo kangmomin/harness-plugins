@@ -38,8 +38,9 @@ Agent tool:
     배정 model/effort: {model}/{effort}
 
     [Assumption 규칙]
-    Spec에 명시되지 않은 동작 변경을 수행한 경우,
-    해당 항목에 반드시 [Assumption] 태그를 붙여 보고하세요.
+    Spec에 명시되지 않은 동작 변경이 필요하다고 판단되면 코드를 수정하지 말고,
+    필요한 변경과 근거를 결과 보고에 [Assumption] 태그로 적으세요. 적용은 유저 승인 후에만 합니다.
+    (TDD 활성 시 테스트가 그런 동작을 요구하면 TDD 규칙의 [TestConflict]로 보고하세요.)
 
     [커밋 단위 규칙]
     컴포넌트 1개 = 커밋 1개를 원칙으로 합니다.

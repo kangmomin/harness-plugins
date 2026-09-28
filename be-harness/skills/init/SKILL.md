@@ -200,6 +200,6 @@ mkdir -p .claude/be-harness/skills .claude/be-harness/agents
 
 ## 주의사항
 
-- 기존 `.claude/be-harness.local.md`가 있으면 overwrite하지 않고, 변경된 필드만 Edit로 반영한다.
+- 기존 `.claude/be-harness.local.md`가 있고 재생성을 원하지 않으면 overwrite하지 않는다. 바뀐 키는 config 스킬의 배치 수정 절차(typed JSON preview → 같은 입력과 `sha256_before`로 apply — `skills/config/SKILL.md`)로 반영한다.
 - `.claude/` 디렉토리가 없으면 먼저 생성한다.
 - Git이 초기화되지 않은 프로젝트도 profile은 생성한다 (Git 관련 필드는 빈 값 허용).

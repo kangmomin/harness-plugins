@@ -278,8 +278,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" release "{E2E_RE
 SKIP은 오케스트레이터의 루프 재시작 트리거가 아니다.
 `BLOCKED:LOCK_UNAVAILABLE`도 재시작 트리거가 아니다 — 환경 오류라 재시도로 풀리지 않는다.
 
-**SKIP 경로의 락 해제**: Step 3.5 이후에 발생하는 SKIP/BLOCKED(`NO_AUTH`, `SERVER_BUILD_FAIL`, `SERVER_START_FAIL`, `SERVER_CODE_UNVERIFIED`)은 종료 전에 반드시 Step 6.5를 수행한다.
-Step 3.5 이전의 SKIP(`NO_PROFILE`, `DISABLED`, `NO_SERVER_URL`, `NO_SERVER`, `NO_CHANGED_API`)과 `LOCK_TIMEOUT`, `LOCK_UNAVAILABLE`은 애초에 락을 잡지 않았으므로 해제할 것이 없다.
+**SKIP 경로의 락 해제**: Step 3.5 이후에 발생하는 SKIP/BLOCKED(`NO_AUTH`(락 획득 후 발생 시), `SERVER_BUILD_FAIL`, `SERVER_START_FAIL`, `SERVER_CODE_UNVERIFIED`)은 종료 전에 반드시 Step 6.5를 수행한다.
+Step 3.5 이전의 SKIP(`NO_PROFILE`, `DISABLED`, `NO_SERVER_URL`, `NO_SERVER`, `NO_CHANGED_API`, `NO_AUTH`(Step 3에서 발생 시))과 `LOCK_TIMEOUT`, `LOCK_UNAVAILABLE`은 애초에 락을 잡지 않았으므로 해제할 것이 없다. 해제 여부는 상태 코드가 아니라 이번 실행이 락을 획득했는지(`E2E_RESOURCE_KEY` 보유)로 판정한다.
 
 ## 주의사항
 

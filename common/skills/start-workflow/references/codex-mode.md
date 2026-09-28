@@ -12,7 +12,7 @@
 | Plan 검증 루프 리뷰어 (`review` — 입력은 기존대로 Spec·Plan 전문) | **Claude 패널** (§6) | Codex `review` 슬롯 | mix와 동일 |
 | 특화 하네스 품질 리뷰 (`review` — 오버레이가 삽입하는 Codex 리뷰 단계) | Claude `general-purpose` 1개 = 정규 경로 (상한 불변) | Codex `review` 슬롯 | 동일 |
 | 탐색·수집 / 이해·요약 (`explore` — haiku·sonnet급 작업) | Claude | Claude | Codex `explore` 슬롯, `read-only` |
-| 읽기 전용 판정 (`judge` — 스코프·품질·접근성 리뷰어, 검증기, 통합 스캐너, Read-back 복원, 엣지 케이스 분석, 성찰) | Claude 등급표 | Claude 등급표 | Codex `judge` 슬롯, `read-only` — **검사만** 수행. 빌드·테스트 명령은 오케스트레이터/러너가 실행해 로그 경로를 전달 |
+| 읽기 전용 판정 (`judge` — 스코프·품질·접근성 리뷰어, 검증기, 통합 스캐너, 엣지 케이스 분석, 성찰) | Claude 등급표 | Claude 등급표 | Codex `judge` 슬롯, `read-only` — **검사만** 수행. 빌드·테스트 명령은 오케스트레이터/러너가 실행해 로그 경로를 전달 |
 | 쓰기 (`write` — 구현, Red 테스트 작성, 빌드·품질·E2E 수정, 문서 동기화) | Claude 등급표 | Claude 등급표 | Codex `write` 슬롯, `workspace-write` (§5 쓰기 안전) |
 | 오케스트레이션 — 항상 Claude | ① 오케스트레이터 ② **스킬 러너** (Codex는 Skill tool을 못 부르므로 스킬 실행은 Claude `general-purpose`; `max`면 내부 리프를 이 계약으로 위임) ③ PR 에이전트 (Assumption Gate 유저 확인 + push 네트워크) | 〃 | 〃 |
 
@@ -118,7 +118,7 @@
 | `continue` | `fallback` (Claude 이어서) | `fallback` (Claude 이어서) | `fallback` (Claude 이어서) |
 | `fallback` | 종료 조건 | 종료 조건 | 종료 조건 |
 
-- 종료 조건 = 기존 사망 규약의 종료 조건 (구현·수정류 `BLOCKED:AGENT_DIED`). 이어서 프롬프트에는 변경 파일 목록·HEAD 이동과 "범위 밖 수정은 보고하고 해당 worker 결과를 보존하세요. 다른 writer의 파일을 자동 복원하지 마세요"를 포함한다.
+- 종료 조건 = 사망 규약의 종료 조건. 사망 규약(Agent tool 오류 또는 요구된 완료 보고 형식이 없는 Claude 에이전트): Phase당 최대 2회 재시도(1차 동일 조건, 2차 model 1단계 강등 — haiku는 동일 조건) 후에도 실패하면 구현·수정류는 `BLOCKED:AGENT_DIED`로 중단, 격리 필수 단계(Read-back·계약 복원)는 오케스트레이터가 대신하지 않고 `SKIPPED:AGENT_DIED`, 그 외(읽기 전용 스캔·문서·PR·성찰 등)는 오케스트레이터 축소 수행(`degraded_fallback` 기록) 후 계속한다. 이어서 프롬프트에는 변경 파일 목록·HEAD 이동과 "범위 밖 수정은 보고하고 해당 worker 결과를 보존하세요. 다른 writer의 파일을 자동 복원하지 마세요"를 포함한다.
 - 병렬 slice는 `writer-safety.md`의 실행 소유 별도 checkout·정확한 allow_files·종료 배리어·`writer_guard.py scope`를 적용한다. scope PASS인 patch만 오케스트레이터가 부모에 순차 반영한다. 격리/종료 확인이 불가능하면 병렬 쓰기 금지. 다음 묶음/재시도는 앞선 pending 해소 뒤 시작한다.
 - 커밋: sequential 구현 에이전트의 논리 단위 커밋은 기존 규칙 유지 (HEAD 이동 = 진행). parallel-slices는 Codex의 커밋·빌드·테스트 명령 실행 금지 (테스트 파일·스텁 **작성**은 허용), 배리어에서 오케스트레이터가 단독 수행한다.
 

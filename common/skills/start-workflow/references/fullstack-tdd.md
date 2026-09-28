@@ -166,7 +166,7 @@ git commit -m "Test: {기능 요약} — 계약 기반 실패 테스트 선작�
 | `WARN` | `flaky`만 존재 |
 | `FAIL` | `regression` 1건+ 또는 `new_red` 1건+ |
 
-**양 도메인이 모두 `PASS`여야** Phase 7 루프를 탈출한다 (`fullstack.md` 참조).
+각 도메인은 수정 0건 **AND** 테스트 판정 `PASS`일 때 자기 Phase 7 루프를 탈출한다 (TDD SKIP 도메인은 수정 0건만 — `fullstack.md` Phase 7 규칙표).
 
 ---
 

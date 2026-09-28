@@ -140,5 +140,5 @@ wire_api = "responses"          # Codex는 responses만 지원
 
 ## profile 생성
 
-`/be-harness:init` 을 실행하여 대화형으로 생성한다. 기존 파일이 있으면 diff를 보여준 뒤 업데이트.
+`/be-harness:init` 을 실행하여 대화형으로 생성한다. 기존 파일의 키 변경은 파일을 다시 쓰지 않고 config helper의 preview → apply로 반영한다 (위 "결정적 해석·편집").
 값 하나를 보거나 바꿀 때는 `/be-harness:config` — `{키}` 조회, `{키}={값} …` 배치 수정 (주석·키 순서 보존, 파일 생성 없음).

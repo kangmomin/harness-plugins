@@ -36,12 +36,12 @@ user-invocable: true
 
 2. **유저 선택 수집**: `AskUserQuestion`으로 선택을 받는다.
 
-3. **설정 파일 업데이트**: `.claude/fe-harness.local.md`의 YAML frontmatter `projectConventions` 배열을 업데이트한다.
+3. **설정 파일 업데이트**: config 스킬(`skills/config/SKILL.md`)의 배치 수정 절차로 `.claude/fe-harness.local.md`의 `projectConventions` 키만 갱신한다 (typed JSON preview → 같은 입력과 `sha256_before`로 apply). 레거시 `.hyeondong-config.json`만 있으면 갱신하지 않고 PROFILE.md "쓰기 규칙"의 안내를 출력한다. 쓰기 대상 profile이 없을 때의 처리는 config 스킬을 따른다.
    ```yaml
    projectConventions: ["default-conventions", "CLAUDE.md"]
    ```
 
-4. **결과 보고**:
+4. **결과 보고**: apply 결과가 `DONE`일 때만 아래 완료 문구를 출력하고, 갱신을 건너뛰었으면 사유와 안내를 출력한다.
    > "컨벤션 설정 완료. 적용 컨벤션: [선택 목록]"
 
 ### `--doctor` (상태 진단)

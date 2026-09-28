@@ -63,7 +63,7 @@
 | PostgreSQL MCP 연결 | OK / MISSING / FAIL | `SELECT 1` 시도 |
 | secret/.env 존재 | OK / MISSING | JWT_SECRET, DB 접속 정보 |
 | Go 빌드 | OK / FAIL | go build 시도 |
-| DB 호스트 (로컬 전용) | OK / **BLOCKED** | DB_HOST가 localhost/127.0.0.1인지 확인 |
+| DB 호스트 (로컬 전용) | OK / **BLOCKED** | DB_HOST가 아래 허용 호스트 정책에 맞는지 1차 확인 (실제 대상 확인은 `references/db-safety.md` Step 7.1·7.4) |
 | MCP DB 호스트 (로컬 전용) | OK / **BLOCKED** / UNKNOWN / SKIP | PostgreSQL MCP `inet_server_addr()` 확인 |
 | grpcurl 설치 (선택) | OK / MISSING | grpcurl --version |
 | GRPC_PORT (선택) | OK / MISSING / SKIP | secret/.env 확인 |
@@ -82,7 +82,7 @@
 
 > **E2E 테스트는 반드시 localhost DB에서만 실행한다. 이 원칙에는 예외가 없다.**
 
-- 허용 호스트: `localhost` / `127.0.0.1` / `0.0.0.0` / `host.docker.internal` / `secret/.e2e-allowed-hosts`에 **사용자가 명시적으로 승인 등록한** 호스트만.
+- 허용 호스트: `localhost` / `127.0.0.1` / `host.docker.internal` / `secret/.e2e-allowed-hosts`에 **사용자가 명시적으로 승인 등록한** 호스트만. 호스트 문자열은 1차 조건일 뿐이다 — loopback·별칭도 실제 연결 identity로 확인하며, 허용 목록은 identity·소유권 검증을 대체하지 않는다 (`references/db-safety.md` Step 7.1).
 - 무단 원격 DB 접근 금지. PostgreSQL MCP를 통한 우회 금지. "테스트 데이터니까 괜찮다"는 논리 금지. `secret/.env` 외 DB 접속 정보 사용 금지. 사용자 승인 없는 화이트리스트 자동 등록 금지.
 - 검증 게이트·차단 시 승인 절차·화이트리스트 형식의 canonical: `references/db-safety.md`.
 

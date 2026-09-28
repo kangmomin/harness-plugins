@@ -19,7 +19,7 @@ user-invocable: true
 |--------|------|
 | 없음 | 논리 단위 커밋 → push → draft PR |
 | --ready | 새 PR ready 또는 기존 draft ready 전환 |
-| --bump-only | VERSION patch 변경만 새 커밋에 포함한 뒤 Gate → push → PR |
+| --bump-only | VERSION patch 변경만 새 커밋에 포함한 뒤 Gate → push → PR (`SKIPPED:ALREADY_AHEAD`이면 증가 없이 local 값을 쓴다 — 그 값이 HEAD에 아직 없으면 VERSION만 커밋하고, 이미 있으면 VERSION 커밋 없이 진행) |
 
 ## Step 0: root·브랜치·base 확정
 
@@ -40,13 +40,15 @@ python3 -I -B "{COMMON_ROOT}/skills/commit/assets/git_checks.py" base --cwd "{CW
 ## Step 1: VERSION
 
 - root의 VERSION 또는 VERSION.txt가 없으면 일반 실행은 `SKIPPED:NO_VERSION_FILE`로 계속한다. bump-only는 `BLOCKED:NO_VERSION_FILE`; 파일 생성이 요청되지 않았으면 임의 버전을 만들지 않는다.
-- 기준 버전은 `git -C "{GIT_ROOT}" show "{BASE_SHA}:{VERSION_PATH}"`로 읽는다. local/base의 유효 semver 세 필드를 비교해 큰 값의 patch를 1 올린다.
+- 기준 버전은 `git -C "{GIT_ROOT}" show "{BASE_SHA}:{VERSION_PATH}"`로 읽고, local은 작업 트리의 VERSION 값이다. 유효 semver 세 필드를 비교해 local ≤ base이면 `max(base, local)`의 patch를 1 올리고, local > base이면 이미 범프된 값이므로 증가 없이 local을 쓰고 `SKIPPED:ALREADY_AHEAD`로 보고한다(`/common:sync-base` Step 6.1과 같은 판정).
 - base에 VERSION이 없거나 내용이 semver가 아니면 그 원인을 명시한다. 일반 명령 오류를 “파일 없음”으로 숨기지 않는다. 이때 local 값 기준으로 범프하면 `version_base:local`과 미검증 이유를 보고하며, PR base 자체는 Step 0의 확정값을 유지한다.
 - 기존 open PR도 base 버전이 전진해 재범프가 필요한지 확인한다. 추가 범프 뒤에는 새 커밋·새 HEAD Gate·push까지 다시 수행한다. 같은 버전을 가진 동시 PR 점유를 자동 회피했다고 주장하지 않는다.
 
 ## Step 2: 커밋과 Gate·push
 
 일반 경로는 common commit의 논리 단위 커밋을 수행한다. 테스트 후 남은 소스 수정과 VERSION 변경을 빠뜨리지 않는다. 각 커밋의 실제 경로/트리를 확인하고, 사용자 소유의 무관한 staged/unstaged는 포함하지 않는다.
+
+bump-only에서 `SKIPPED:ALREADY_AHEAD`이고 확정 VERSION 값이 이미 HEAD에 있으면 아래 VERSION 커밋과 그 사후 확인을 생략하고 현재 HEAD의 Gate → push로 진행한다. HEAD에 없으면 아래 VERSION 전용 커밋을 수행한다.
 
 bump-only는 **VERSION만 명시한 --only 커밋**을 사용한다. `git add VERSION` 뒤 일반 commit은 기존 index 전체를 포함하므로 사용하지 않는다.
 
