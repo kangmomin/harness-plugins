@@ -18,7 +18,7 @@ import {
 import { rank, extractSection, applyBudget } from './lib/search.js';
 import { ioCapability } from './lib/io.js';
 
-const SERVER_INFO = { name: 'work-log', version: '0.3.0' };
+const SERVER_INFO = { name: 'work-log', version: '0.3.1' };
 const SUPPORTED_PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
 const log = (...a) => process.stderr.write(`[work-log] ${a.join(' ')}\n`);

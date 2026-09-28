@@ -37,7 +37,7 @@ class ContractChecksTests(unittest.TestCase):
 
     def test_invalid_manifest_agent_field_and_parity_fail(self):
         changes = [
-            ('work-log/.codex-plugin/plugin.json', lambda s: s.replace('"version": "0.3.0"', '"version": "0.0.0"'), 'version mismatch'),
+            ('work-log/.codex-plugin/plugin.json', lambda s: s.replace('"version": "0.3.1"', '"version": "0.0.0"'), 'version mismatch'),
             ('be-harness/agents/scope-reviewer.md', lambda s: s.replace('tools:', 'allowed-tools:', 1), 'unsupported'),
             ('common/skills/start-workflow/assets/workflow_policy.py', lambda s: s + '\n# divergence\n', 'parity mismatch'),
         ]
