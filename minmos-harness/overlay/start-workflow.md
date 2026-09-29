@@ -1,4 +1,4 @@
-<!-- overlay-source: minmos-harness@2.6.0 -->
+<!-- overlay-source: minmos-harness@2.6.1 -->
 
 BE Phase 8.4는 be-harness `review-evidence.md` 계약을 따른다. 추가 품질 리뷰의 APPROVE로 베이스의 BLOCKED:REVIEW_SCOPE를 해소하지 않으며, diff·검사 근거의 독립 보완과 최종 check-scope를 먼저 완료한다.
 
@@ -48,7 +48,7 @@ BE Phase 8.4는 be-harness `review-evidence.md` 계약을 따른다. 추가 품�
 
 E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직접 묻는다. git diff 기반 자동 도출만으로는 의도한 주 사용 흐름이 누락될 수 있다.
 
-**모든 Build 모드 작업에서 메인 플로우를 확보한다** (작업 유형과 무관). 요청·대화에 이미 있으면 재질문하지 않고 그 원문을 보관한다. `$TIER_DECLARED = quick`이면 질문하지 않고 `자동 도출 (git diff 기반)`을 보관한다 — 베이스 4.4 재판정으로 승인 전에 상향되면 그 승인 대화에서 1회 묻고, 승인 후 승격이면 자동 도출을 쓴다. 그 외에 없으면 아직 Plan 모드 대화 중이므로 평문으로 묻는다:
+**모든 Build 모드 작업에서 메인 플로우를 확보한다** (작업 유형과 무관). 요청·대화에 이미 있으면 재질문하지 않고 그 원문을 보관한다. `$TIER_DECLARED = quick`이면 질문하지 않고 `자동 도출 (git diff 기반)`을 보관한다 — 승인 전에 유효 티어 T가 quick보다 높아지면(4.1 §3 상향·선언 변경·4.4 재판정) 4.4 승인 대화에서 1회 묻고, 승인 후 승격이면 자동 도출을 쓴다. Plan 깊이 P만 바뀌면 묻지 않는다. 그 외에 없으면 아직 Plan 모드 대화 중이므로 평문으로 묻는다:
 
 > "E2E 테스트 메인 플로우를 알려주세요. 이 작업의 핵심 사용자 시나리오 또는 주요 API 호출 순서를 서술해주세요.
 > 예: `진단지 생성 → 목록 조회 → 단건 수정 → 삭제`
@@ -89,7 +89,7 @@ E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직
 | 단계 | quick | light | standard |
 |------|-------|-------|----------|
 | Phase 1+ E2E 메인 플로우 수집 | 선언 quick: 질문 없이 `자동 도출` 보관 | 동일 (항상 확보, 재질문 없음) | 동일 |
-| Phase 4 Plan 검증 루프 보강 | 해당 없음 (4.3 `SKIPPED:TIER_QUICK`) | quota 폴백 패널 그대로 — 패널 대체는 리뷰 수행으로 간주(베이스 승격 ⑤ 아님) | 동일 |
+| Phase 4 Plan 검증 루프 보강 — **Plan 깊이 P 기준** (베이스 §2.1) | 해당 없음 (4.3 `SKIPPED:PLAN_QUICK`) | quota 폴백 패널 그대로 — 패널 대체는 리뷰 수행으로 간주(베이스 승격 ⑤ 아님) | 동일 |
 | Phase 8 내부 e2e-test / e2e-test-loop | 미호출 (8.6 `SKIPPED:TIER_QUICK`) | `--smoke` 실효 수준에 따라 `overlay/e2e-test.md` §smoke 분기 | 동일 (삽입 전부) |
 | Phase 8+ Codex 품질 리뷰 | **SKIP** (`SKIPPED:TIER_QUICK`, 사용 0회) | **총 2회** (초회 + 재리뷰 1회), quota 폴백 패널 1 에이전트 | 총 4회 (초회 + 재리뷰 3회) |
 | Phase 9 Apidog 동기화 | E2E 결과 없으면 `SKIPPED:DOC_SYNC_DEFERRED` → Phase 12 결정 | 기존 | 기존 |
