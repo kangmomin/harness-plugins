@@ -46,7 +46,7 @@ Agent tool:
     컴포넌트 1개 = 커밋 1개를 원칙으로 합니다.
     관련 없는 컴포넌트 변경을 하나의 커밋에 묶지 마세요.
 
-    {TDD 활성 시: 아래 "TDD 규칙" 블록을 여기에 삽입}
+    {TDD 활성 시: 아래 "TDD 규칙" 블록을 여기에 삽입 — quick이면 대신 `references/tdd.md`의 "quick 테스트 동반 모드" 블록}
 
     구현 완료 후 변경 파일 목록, 커밋 수, Plan 대비 차이점, [Assumption]·[TestConflict] 목록을 보고하세요.
 ```
@@ -64,6 +64,8 @@ Agent tool:
     - 통과 기준: 상태 파일 `## TDD Test Map`의 모든 테스트 통과
       AND `## Test Baseline` 대비 신규 실패 0건
 ```
+
+Phase 5.1이 `SKIPPED:TIER_QUICK`이면(quick + TDD 활성) 위 블록 대신 `references/tdd.md`의 "quick 테스트 동반 모드" 블록을 넣고, 반환 표를 `## Quick Test Evidence`에 기록한다 (`references/verification-tier.md` §4.1).
 
 완료 후 유저에게 간략 보고: "Phase 5.2 완료: [변경 파일 수]개 파일, [커밋 수]개 커밋"
 
@@ -126,7 +128,7 @@ Agent tool:
   model: [테스트 실패 심각도 기준 선택]
   effort: [테스트 실패 심각도 기준 선택]
   prompt: |
-    프로젝트 루트 {CWD}에서 Skill tool로 /fe-harness:test-loop {TIER = light면 `--smoke`} 를 실행하세요.
+    프로젝트 루트 {CWD}에서 Skill tool로 /fe-harness:test-loop {TIER = light면 `--smoke` · quick이면 `--unit-only`} 를 실행하세요.
     상태 파일 `{STATE_FILE}`을 읽고 Phase 7.4 상태를 갱신하세요.
     배정 model/effort: {model}/{effort}
 
@@ -137,10 +139,21 @@ Agent tool:
     실패는 `## Test Baseline` 과 대조해 regression / pre_existing / new_red / flaky 로 분류해
     보고하세요. `pre_existing` 은 이번 범위 밖이므로 손대지 마세요.
 
-    완료 후 "이슈: N건, 수정: Y/N, 분류: regression N / new_red N / pre_existing N / flaky N, 최종 상태: ALL PASS|UNRESOLVED, E2E 실행 수준: {test-loop 종료 출력의 값 그대로}" 형식으로 보고하세요.
+    {`## Quick Test Evidence`가 있으면}
+    Evidence 테스트는 5.2에서 고정됐으므로 test-loop을 **frozen 모드**로 실행하세요 (Test Map이 비어 있어도 동일).
+    최종 단위 테스트 실행 로그 원문에서 Evidence의 ID마다 정확 ID의 PASS 줄(`✓ {ID}`)을 확인하세요.
+    그 실행에서 실패했지만 같은 트리 재실행에서 PASS로 명시돼 flaky로 분류된 ID는 재실행 줄을 증거로 인정하세요.
+    미출력·SKIP/pending/todo·시작만 출력·같은 ID 선언 2개 이상·PASS/SKIP 혼재면 그 ID를 `INCONCLUSIVE`로 보고하세요.
+
+    {`## Test Baseline`의 e2e 행이 `SKIPPED:TIER_QUICK`이고 이번 호출이 E2E를 실행하면 (quick 출신 승격)}
+    E2E baseline이 없습니다. E2E 실패는 이번 변경이 원인으로 확인된 것만 수정하고,
+    나머지는 수정하지 말고 `unparsed(E2E baseline 없음)`로 보고하세요.
+
+    완료 후 "이슈: N건, 수정: Y/N, 관측 누적: regression N / 판정 불가 N, 최종 분류: regression N / new_red N / pre_existing N / flaky N, 최종 상태: ALL PASS|UNRESOLVED, E2E 실행 수준: {test-loop 종료 출력의 값 그대로}{, Evidence PASS 증거: N/M 확인 | INCONCLUSIVE({ID}: {사유})}" 형식으로 보고하세요.
 ```
 
-- `E2E 실행 수준`·최종 상태를 `Phase Results` 7.4 행에 기록한다. light 승격 ③(regression·판정 불가)·⑥(`UNRESOLVED`에 E2E 실패 잔존)은 SKILL.md Phase 2 승격 표 — 종료 조건 평가 전에 적용한다.
+- `E2E 실행 수준`·최종 상태를 `Phase Results` 7.4 행에 기록한다. 승격 ③은 **관측 누적**(수정 전 실행 포함 — 수정으로 해결된 regression도 발화), ⑥은 light의 `UNRESOLVED`에 E2E 실패 잔존으로 판정한다 (`references/verification-tier.md` §5 — 종료 조건 평가 전에 적용).
+- 테스트 판정과 RESULTS_FILE `kind:unit`의 `regression_count`는 **최종 분류**(최종 트리의 마지막 실행)로 기록한다. Evidence PASS 증거 미충족이나 필수 ID의 Evidence 누락이면 `kind:unit` 결과를 `INCONCLUSIVE`로 기록한다 (`references/verification-tier.md` §4.1 — 승격 ③의 판정 불가가 아니다).
 
 ### Phase 7.5: Scope Review
 
@@ -156,7 +169,13 @@ Agent tool:
     현재 Phase: Phase 7.5
     남은 Phase: Phase 7.6, 8, 9, 10, 11
     배정 model/effort: {model}/{effort}
+
+    {`## Quick Test Evidence`가 있으면}
+    Evidence의 각 테스트가 대응 Spec ID의 입력·단언(file:line)으로 그 요구를 실제 검증하는지 확인하고,
+    필수 ID(추적 ID 전체 + 기본 동작 EC − 수용된 deferred_e2e)의 누락·잘못된 대응을 scope 이슈로 보고하세요.
 ```
+
+- Evidence 누락·잘못된 대응 이슈가 있으면 Phase 5.2 프롬프트 형식으로 `fe-harness:workflow-implementer`에 보완을 위임한다 — 구현 지시 대신 `references/tdd.md`의 "quick 테스트 동반 모드" 블록(해당 ID만)을 넣어 **신규 테스트 추가만** 허용한다(기존 테스트 수정 금지). 반환 표를 `## Quick Test Evidence`에 append하고 `modified = true`로 다음 iteration에서 다시 확인한다 (`references/verification-tier.md` §4.1).
 
 ### Phase 7.6: Lint Check
 
@@ -298,12 +317,13 @@ Critical 이슈가 있으면 general-purpose 에이전트로 수정을 위임한
 
 **상태 기록 주체**: 오케스트레이터가 두 리뷰 결과를 수집한 뒤 Phase 8 상태를 기록한다. 읽기 전용 리뷰어에게 Bash·Write·Edit 또는 상태 기록을 위임하지 않는다.
 
-**Phase 8 수정 후 재검증(티어·변경 파일 수와 무관)**: 수정이 한 파일이라도 발생하면 Phase 6의 관련 build/type와 Phase 7의 lint/unit/E2E를 다시 실행한다. 의미·인터페이스가 바뀌면 Read-back도 새 파일 목록으로 다시 수행한다. standard도 동일하며 light→standard 승격 여부로 이 단계를 생략하지 않는다. 결과 JSON에 새 iteration·phase·tested_tree를 기록하고 과거 결과는 유지한다. 영향 없는 검증도 현재 tree로 재실행하거나 명시 근거를 가진 SKIP 결과를 새로 기록하며 과거 PASS의 tree만 바꿔 쓰지 않는다.
+**Phase 8 수정 후 재검증(티어·변경 파일 수와 무관)**: 수정이 한 파일이라도 발생하면 Phase 6의 관련 build/type와 Phase 7의 lint/unit/E2E를 다시 실행한다. 의미·인터페이스가 바뀌면 Read-back도 새 파일 목록으로 다시 수행한다. standard도 동일하며 승격 여부로 이 단계를 생략하지 않는다. 결과 JSON에 새 iteration·phase·tested_tree를 기록하고 과거 결과는 유지한다. 영향 없는 검증도 현재 tree로 재실행하거나 명시 근거를 가진 SKIP 결과를 새로 기록하며 과거 PASS의 tree만 바꿔 쓰지 않는다.
 
-PR 전 `workflow_results.py check-current "{RESULTS_FILE}" --run-id "{RUN_ID}" --cwd "{CWD}"`를 실행한다. 이번 변경에 필요한 검증 kind는 `--require`로 각각 전달한다(unit/build/lint/typecheck, 활성 E2E, 필요한 readback). fresh 검사는 성공 verdict를 대신하지 않으며 기존 FAIL/BLOCKED 정책도 적용한다. stale·미완료·필수 결과 누락이면 Phase 9로 이동하지 말고 필요한 검증으로 돌아간다. 워크트리와 index의 내용이 다르면 검증한 내용만 commit되도록 먼저 정합성을 맞춘다.
+PR 전 `workflow_results.py check-current "{RESULTS_FILE}" --run-id "{RUN_ID}" --cwd "{CWD}"`를 실행한다. 이번 변경에 필요한 검증 kind는 `--require`로 각각 전달한다 — light·standard는 unit/build/lint/typecheck, 활성 E2E, 필요한 readback, quick은 설정된 unit/build/typecheck(unit은 `{testCommand}` 또는 `{testRunner}` fallback이 있으면 필수). 필수 kind는 유효 티어와 profile 설정으로 정적으로 정한다 (`references/verification-tier.md` §4.2). fresh 검사는 성공 verdict를 대신하지 않으며 기존 FAIL/BLOCKED 정책도 적용한다. stale·미완료·필수 결과 누락이면 Phase 9로 이동하지 말고 필요한 검증으로 돌아간다. 워크트리와 index의 내용이 다르면 검증한 내용만 commit되도록 먼저 정합성을 맞춘다.
 
 
 **light**: 병렬 2가 아니라 `a11y-reviewer`만 단독 호출한다. component-reviewer는 `Phase Results`에 `SKIPPED:TIER_LIGHT`로 기록한다 (승격으로 standard가 됐다면 둘 다 실행).
+**quick**: 두 리뷰어를 호출하지 않고 각각 `SKIPPED:TIER_QUICK`으로 기록한다 (승격했다면 새 티어대로). 위 PR 전 check-current는 그대로 실행한다.
 
 ## Phase 9: PR 생성 (workflow-pr)
 

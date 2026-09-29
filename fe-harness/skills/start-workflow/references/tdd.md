@@ -20,7 +20,7 @@ Phase 4에서 아래를 순서대로 확인하고, 하나라도 걸리면 TDD를
 | 3 | 테스트 러너가 스위트를 발견하지 못함 | `SKIPPED:NO_TEST_INFRA` |
 | 4 | Spec에 관측 가능한 조항이 0개 | `SKIPPED:NO_TEST_BASIS` |
 
-SKIP 판정을 `{STATE_FILE}`의 `## Test Baseline`에 사유와 함께 기록하고 Phase 5로 진행한다.
+SKIP 판정을 `{STATE_FILE}`의 `## Test Baseline`에 사유와 함께 기록하고 Phase 5로 진행한다. R0에 없던 SKIP이고 검증 티어가 standard가 아니면 승격 ④를 함께 기록한다 (`references/verification-tier.md` §5).
 
 ---
 
@@ -34,6 +34,8 @@ git rev-parse HEAD  # 기준 커밋 (= `## Flags`의 START_SHA)
 python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --runner auto --exit-code $EXIT --suite unit --emit-baseline "{RUN_DIR}/baseline-unit.log"
 {e2eCommand}        # e2eRunner가 none이면 SKIP, 명령이 비면 PROFILE.md의 runner fallback으로 같은 방식으로 --suite e2e 수집 (playwright/cypress 출력은 지원 러너 밖 → unparsed 행으로 기록)
 ```
+
+검증 티어가 quick이면 `{e2eCommand}` 줄을 실행하지 않고 e2e suite 행을 `SKIPPED:TIER_QUICK`으로 기록한다. 승격 후 E2E 실패의 귀속은 `references/verification-tier.md` §5 "효과"를 따르며, 사후 실행 결과를 baseline으로 쓰지 않는다. Phase 4 안에서 승격 ④가 일어나면 남은 E2E baseline을 새 티어대로 수집한다.
 
 `--emit-baseline` 출력(표 행)을 `{STATE_FILE}`의 `## Test Baseline`에 그대로 붙인다. 스크립트가 exit ≠ 0이면 아래 필드 규칙대로 수동 기록하고 진단 `script_fallback(test_failures:{사유})`를 남긴다.
 
@@ -57,7 +59,7 @@ JS는 가능하면 `--json` reporter 결과 파일을 baseline·현재·재실�
 > 2. **중단** — 기존 테스트를 먼저 고치고 워크플로우를 다시 시작합니다
 > 3. **`--no-tdd`로 전환** — TDD 없이 기존 워크플로우로 진행합니다"
 
-1번 선택 시 `## Test Baseline`에 `수집 실패 — regression 판정 불가`를 명시 기록한다. 검증 티어가 light면 승격 ④로 standard 전환을 함께 기록한다 (SKILL.md Phase 2 승격 표).
+1번 선택 시 `## Test Baseline`에 `수집 실패 — regression 판정 불가`를 명시 기록한다. 검증 티어가 standard가 아니면 승격 ④로 standard 전환을 함께 기록한다 (`references/verification-tier.md` §5). 이 경우 선택지에 "1·3번은 검증 티어를 standard로 올립니다"를 함께 표시한다.
 
 ---
 
@@ -143,13 +145,30 @@ git commit -m "Test: {작업 요약} — 실패 테스트 선작성 (Red)"
       AND `## Test Baseline` 대비 신규 실패 0건
 ```
 
+## quick 테스트 동반 모드 (quick + TDD 활성)
+
+Phase 5.1이 `SKIPPED:TIER_QUICK`이면 위 블록 대신 아래 규칙을 전달한다. 필수 ID 목록은 오케스트레이터가 승인 Spec에서 만든다 (`references/verification-tier.md` §4.1). Phase 7.5 보완 위임도 같은 블록에 누락·잘못된 대응 ID만 넣어 전달한다.
+
+```
+    ## quick 테스트 동반 모드 (Phase 5.1 Red가 생략되었습니다)
+    - 필수 ID마다 그 요구를 검증하는 **신규** 테스트를 작성하세요: {필수 ID 목록}
+      근거 표 밖의 테스트는 작성하지 마세요. 스냅샷은 근거로 쓰지 말고 role/텍스트 단언을 쓰세요.
+    - 기존 테스트(케이스·단언·fixture·스냅샷)는 수정하지 마세요. 충돌하면 `[TestConflict]` 태그로 보고하세요.
+    - 작성한 테스트를 verbose로 직접 실행해 green을 확인하세요 (jest `--verbose`, vitest `--reporter=verbose`).
+    - 통과 기준: 작성한 신규 테스트 전부 PASS AND `## Test Baseline` 대비 신규 실패 0건
+    - 보고: Spec ID | 러너 네이티브 정확 ID | 파일 표.
+      식별자는 baseline 규칙과 같습니다(`{runner}::{file}::{describe › it}`). 같은 ID를 두 번 선언하지 마세요.
+```
+
+오케스트레이터는 보고 표를 `## Quick Test Evidence`에 기록(보완분은 append)하고 `## TDD Test Map`에는 등재하지 않는다.
+
 ## `[TestConflict]` 판정 (오케스트레이터)
 
 자율 실행 구간이므로 유저에게 묻지 않고 판정한다. **기준은 Spec 원문이다.**
 
 | 상황 | 판정 | 행동 |
 |------|------|------|
-| 테스트 단언이 Spec 조항과 다름 | 테스트 오류 | 오케스트레이터가 테스트를 수정하고 Test Map을 갱신, 사유 기록 |
+| 테스트 단언이 Spec 조항과 다름 | 테스트 오류 | 오케스트레이터가 테스트를 수정하고 Test Map(Evidence 테스트면 `## Quick Test Evidence`)을 갱신, 사유 기록 |
 | Spec 조항이 모호하거나 부재 | Spec 문제 | 코드·테스트 **양쪽 다 유지**, `[Assumption]` 기록, 해당 ID를 미해결로 표시하고 진행 → Phase 11에서 유저 결정 |
 
 ---
@@ -173,9 +192,10 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --ru
 | 4 | baseline에 없는 식별자의 실패 | `regression` |
 | 5 | 3·4 판정 전 **1회 재실행**, 결과가 뒤집히면 | `flaky` |
 
+- `## Quick Test Evidence`의 테스트는 Test Map에 등재하지 않으므로, 실패하면 4행(`regression`)으로 분류된다 (`references/verification-tier.md` §4.1).
 - `flaky`는 regression 집계에서 제외하고 보고만 한다. FE는 비동기 렌더·타이머로 flaky가 잦으므로 이 규칙이 특히 중요하다.
   재실행은 verbose 출력 필수(jest `--verbose`, vitest `--reporter=verbose`) — `--rerun FILE2 --rerun-exit-code M`으로 전달한다. `flaky` ⇔ 재실행이 완주했고 **그 식별자가 PASS로 명시**됨(`✓ {ID}`). 그 외(미완주·PASS 줄 부재)는 원 분류 유지 + `rerun_incomplete`.
-- `unparsed`·러너 완주 `N`이 남아 있으면 `PASS` 판정을 내릴 수 없다. 오케스트레이터가 로그를 직접 읽어 분류하고, 그래도 분류하지 못하면 **판정 불가** = 테스트 판정 `FAIL`로 취급한다 (light: 승격 ③).
+- `unparsed`·러너 완주 `N`이 남아 있으면 `PASS` 판정을 내릴 수 없다. 오케스트레이터가 로그를 직접 읽어 분류하고, 그래도 분류하지 못하면 **판정 불가** = 테스트 판정 `FAIL`로 취급한다 (T < standard면 승격 ③).
 - **이름 변경·삭제**: Spec이 승인한 경우에만 허용하고 `## Test Baseline`에 tombstone을 append한다. 승인 없는 소멸은 `regression`으로 취급한다.
 
 수정 우선순위: `regression` → `new_red` → `pre_existing`(범위 밖, 보고만).
@@ -188,13 +208,13 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --ru
 | `WARN` | `flaky`만 존재 |
 | `FAIL` | `regression` 1건+ 또는 `new_red` 1건+ 또는 판정 불가(`unparsed`·완주 `N` 잔존을 분류하지 못함) |
 
-이 판정이 Phase 7 루프의 종료 조건에 들어간다 (SKILL.md 본문 참조).
+이 판정이 Phase 7 루프의 종료 조건에 들어간다 (SKILL.md 본문 참조). 입력은 test-loop의 **최종 분류**(최종 트리의 마지막 실행)이고, 호출 중 **관측 누적**된 regression·판정 불가는 승격 ③에만 쓴다. quick 종료 증거 게이트 미충족으로 기록한 `INCONCLUSIVE`도 `FAIL`로 취급한다 (test-summary도 FAIL로 집계).
 
 ## frozen 모드
 
-TDD가 활성이면 Phase 7.4의 `/fe-harness:test-loop` 를 **frozen 모드**로 호출한다 (테스트 파일 수정 금지, 소스만 수정).
+TDD가 활성이면 Phase 7.4의 `/fe-harness:test-loop` 를 **frozen 모드**로 호출한다 (테스트 파일 수정 금지, 소스만 수정). `## Quick Test Evidence`가 있으면(Test Map이 비어 있을 수 있으므로) 승격 후에도 프롬프트에 frozen 지시를 명시한다 — Evidence 보완(`references/verification-tier.md` §4.1)만 예외다.
 TDD가 SKIP이면 test-loop은 frozen 모드 없이 실행된다 (테스트·소스 양쪽 수정 허용).
-검증 티어가 light면 `--smoke`를 함께 전달한다 — 단위 테스트·frozen 모드는 그대로이고 E2E 범위만 `## Related E2E Specs`로 줄어든다 (test-loop이 `E2E 실행 수준`을 보고).
+검증 티어가 light면 `--smoke`를 함께 전달한다 — 단위 테스트·frozen 모드는 그대로이고 E2E 범위만 `## Related E2E Specs`로 줄어든다 (test-loop이 `E2E 실행 수준`을 보고). quick이면 `--unit-only`를 전달한다 — E2E 단계를 실행하지 않고 `E2E 실행 수준: SKIPPED:UNIT_ONLY`를 보고한다.
 
 ---
 

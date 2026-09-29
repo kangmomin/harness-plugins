@@ -2,7 +2,7 @@
 name: start-workflow
 description: "전체 프론트엔드 개발 워크플로우를 자동화한다. 요청 분석 → 난이도 산정 → Plan 리뷰 → 구현 → 품질 루프 → 컴포넌트/접근성 리뷰 → PR → 성찰까지 일관된 파이프라인. '워크플로우 시작', '화면/컴포넌트 만들어줘(전 과정 자동)' 요청 시 사용."
 allowed-tools: AskUserQuestion, Read, Write, Edit, Glob, Grep, Bash, Agent, EnterPlanMode, ExitPlanMode, Skill
-argument-hint: "<작업 설명 또는 빈 값> [--hard] [--no-tdd] [--reflect] [--tier standard] [--codex none|mix|max] [--codex-models {slot}={provider}/{model}[@{effort}],…]"
+argument-hint: "<작업 설명 또는 빈 값> [--hard] [--no-tdd] [--reflect] [--tier quick|light|standard] [--codex none|mix|max] [--codex-models {slot}={provider}/{model}[@{effort}],…]"
 user-invocable: true
 ---
 
@@ -23,7 +23,7 @@ user-invocable: true
 - `{STATE_FILE}` = `{RUN_DIR}/workflow-state.md` · `{IMPL_NOTES}` = `{RUN_DIR}/implementation-notes.md`
 - `{REPORT_DIR}` = profile의 `reportDir` (없으면 `.claude/harness-reports`)
 - `{WORK_REPORT}` = `{RUN_DIR}/workflow-report.md`
-- `{PLAN_MAX}` = Phase 3.3 상한 (standard 5 / light 2) · `{QL_MAX}` = Phase 7 상한 (standard 3 / light 2)
+- `{PLAN_MAX}` = Phase 3.3 상한 (standard 5 / light 2 / quick 0) · `{QL_MAX}` = Phase 7 상한 (standard 3 / light 2 / quick 2)
 - `{CWD}` = 현재 작업 디렉토리 (프로젝트 루트)
 - `{buildCommand}` 등 profile 변수 = `.claude/fe-harness.local.md`에서 로드
 
@@ -37,13 +37,13 @@ user-invocable: true
 |--------|------|------|
 | `--resume {STATE_FILE}` | | 절대 상태 경로를 명시해 같은 저장소·모드의 미완료 실행을 검증 후 재개 (`references/run-lifecycle.md`). |
 | `--hard` | `-h` | 브랜치 생성/검증을 건너뛰고 현재 브랜치에서 바로 push. PR 생략. |
-| `--no-tdd` | | Phase 5.1(테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. 검증 티어는 standard 강제. |
+| `--no-tdd` | | Phase 5.1(테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. 미선언이면 검증 티어 standard (선언 시 `references/verification-tier.md` §3). |
 | `--reflect` | | Phase 10(성찰)을 실행한다. 미지정 시 Phase 10은 `SKIPPED:REFLECT_NOT_REQUESTED` (주기 실행 권장 — 워크플로우 5~10회마다 1회). |
-| `--tier standard` | | Phase 2 판정과 무관하게 검증 티어를 standard로 강제한다 (light 축소 비활성). light 강제 플래그는 없다. |
+| `--tier {quick\|light\|standard}` | | 검증 티어를 선언한다 (3.4 승인 전까지 변경 가능). 값 검증은 진입 검사가 하고, 산정 티어와의 충돌·승격은 `references/verification-tier.md` §1·§3·§5를 따른다. |
 | `--codex {none\|mix\|max}` | | Codex 사용 모드를 지정하고 profile `codexMode`에 저장한다. 미지정 시 profile → 질문(권장 `mix`). 정의·호출 계약·실패 정책: `references/codex-mode.md` |
 | `--codex-models {슬롯}={provider}/{model}[@{effort}] \| default[,…]` | | Codex 위임 모델 슬롯(`review`·`explore`·`judge`·`write`)을 지정하고 profile `codexModels`에 저장한다 (`--codex none`이면 N/A). 문법·병합·검증: `references/codex-mode.md` §2.1 |
 
-`$HARD_MODE`와 `$PUBLISH_POLICY`는 진입 gate의 `hard`/`publish_policy` 값을 사용한다, `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`), `--reflect`가 있으면 `$REFLECT = true` (기본값 `false`), `--tier standard`가 있으면 `$TIER_FORCE = true` (기본값 `false`).
+`$HARD_MODE`와 `$PUBLISH_POLICY`는 진입 gate의 `hard`/`publish_policy` 값을 사용한다, `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`), `--reflect`가 있으면 `$REFLECT = true` (기본값 `false`), `--tier` 값 또는 티어 이름을 지목한 지시가 있으면 `$TIER_DECLARED` = 그 값 (기본값 `none` — 해석: `references/verification-tier.md` §1).
 
 | Phase | 일반 모드 | --hard 모드 |
 |-------|----------|------------|
@@ -137,6 +137,7 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 내부 request 호출은 Spec 수집만 지시한다. 검토·디버깅 실행은 이 워크플로우의 후속 단계가 맡으며 Plan 안에서 먼저 실행하지 않는다.
 
 > 어느 경우든 작업 계약(대상·기준·범위·완료·승인·미결)을 Spec에 포함해 공유한다. 이미 확정된 요구는 다시 확인받지 않으며 결과를 바꾸는 미결 결정만 묻는다. request를 생략해도 권한·소유권 조건의 AC/EC를 빠뜨리지 않는다.
+> `$TIER_DECLARED = quick`이면 request를 생략하고 위 분기 계약으로 Spec을 직접 정리한다. quick 의무 EC는 `references/verification-tier.md` §2를 따른다.
 
 ### 풀스택 판정
 
@@ -155,73 +156,9 @@ Spec 확정 시 **백엔드 변경이 함께 필요한지** 판정한다. 아래
 
 출력: `도메인 판정: [frontend/fullstack] — [근거]`
 
-## Phase 2: 난이도 산정 + 검증 티어 판정
+## Phase 2: 티어 선언 확인
 
-Technical Spec을 분석하여 1~10 난이도를 산정한다. **종합 난이도 = max(A, B)**, 각 축 = 요소별 밴드 점수의 최댓값(평균 금지), 판정 근거가 없는 요소는 `UNKNOWN`(= 높음 밴드, fail-safe).
-
-### A. 코드 복잡도
-
-| 요소 | 낮음 (1-3) | 중간 (4-6) | 높음 (7-10) |
-|------|-----------|-----------|------------|
-| 파일 수 | 1-3개 | 4-7개 | 8개+ |
-| 컴포넌트 수 | 1개 | 2-3개 | 4개+ |
-| 상태 복잡도 | useState 단순 | 여러 상태 조합 | 전역 상태 + 서버 상태 |
-| API 연동 | 없음 | 기존 API | 새 API 연동 |
-| 반응형/a11y | 기본 | 반응형 필수 | 반응형 + 접근성 + 애니메이션 |
-| 엣지 케이스 | 1-2개 | 3-5개 | 6개+ |
-
-### B. 영향 범위·회귀 리스크
-
-| 요소 | 낮음 (1-3) | 중간 (4-6) | 높음 (7-10) |
-|------|-----------|-----------|------------|
-| 공유 컴포넌트·디자인 시스템 | 미수정 | 내부 구현만 수정 | Props·토큰 변경 |
-| 전역·서버 상태 계약 | 없음 | 필드 추가 | 기존 계약 변경 |
-| Props 계약 | 신규 컴포넌트만 | 선택 prop 추가 | 필수 prop·타입 변경 |
-| 라우팅·레이아웃 | 없음 | 신규 라우트 | 기존 라우트·레이아웃 변경 |
-| 기존 동작 변경 범위 | 없음·신규 경로만 | 기존 경로에 분기 추가 | 기존 경로의 동작 변경 |
-| 변경 영역 기존 테스트 | 단위 + E2E 있음 | 일부만 있음 | 없음 · `UNKNOWN` |
-| 롤백 용이성 | 즉시 가능 | 상태·스토리지 마이그레이션 롤백 필요 | 데이터 복구 필요 |
-
-B축 근거(기본 실행): Spec `참조 구현` 열의 경로로 아래를 실행해 출력(존재·최근 변경 커밋 수·동반 테스트·과거 워크플로우 이력)을 `변경 영역 기존 테스트`·`기존 동작 변경 범위`의 근거로 쓴다. 경로가 없거나 exit ≠ 0이면 해당 행은 `UNKNOWN`.
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/risk_facts.py --paths {참조 구현 경로들} --report-dir {REPORT_DIR} [--test-dir {설정된 testDir} …]
-```
-
-출력: `난이도: 코드 [A]/10 + 리스크 [B]/10 — [근거]`
-
-### 검증 티어
-
-`light` ⇔ A ≤ 3 ∧ B ≤ 3(= 모든 요소 `낮음`, `UNKNOWN` 0건) ∧ 금지 조건 0건 ∧ `$TDD = true` ∧ `$TIER_FORCE = false`. 그 외 `standard`(= 축소 없는 전체 절차). light 강제 플래그는 없다 — 점수는 유저가 근거를 제시하면 재산정할 수 있으나 게이트 조건은 불변. 풀스택 전환 시 항상 standard.
-
-**금지 조건**(우회 불가, Phase 3.4에서 Plan 파일 목록으로 재점검): 디자인 시스템·전역 레이아웃·전역 스토어 계약 변경 / 인증·인가·개인정보 처리 UI / 결제·정산 화면 / 공유 훅·미들웨어·인터셉터 / Breaking change(Props·API 계약) / 외부 서비스 연동 변경.
-
-| 단계 | standard | light |
-|------|----------|-------|
-| 3.2 다관점 Plan 보강 | 3에이전트 × 2배치 | **1에이전트 3관점**(엣지 케이스 · 기존 코드 영향 · 더 단순한 경로) |
-| 3.3 Plan 검증 루프 `{PLAN_MAX}` | 5 | **2** (2회 소진 시 승격 ①) |
-| 7 품질 루프 `{QL_MAX}` | 3 | **2** |
-| 7.2 simplify-loop | 실행 | `SKIPPED:TIER_LIGHT` |
-| 7.4 test-loop | full | `test-loop --smoke` (단위 테스트 무변경, E2E는 `## Related E2E Specs` 범위) |
-| 7.7 Spec 정합 Read-back | 1회 | `SKIPPED:TIER_LIGHT` |
-| 8 컴포넌트/접근성 리뷰 | component + a11y 병렬 | a11y-reviewer만 (component-reviewer `SKIPPED:TIER_LIGHT`) |
-| 유지(축소 금지) | — | 5.1 TDD Red · 6 · 7.1 · 7.3 convention · 7.5 scope · 7.6 lint · 9 |
-
-**승격(light → standard, 단방향 — 자율 구간은 질문 없이 기록; 전환은 해당 루프의 종료 조건·상한 평가보다 먼저 적용)**:
-
-| # | 시점 | 트리거 | 효과 |
-|---|------|--------|------|
-| ① | 3.3 | 리뷰어 CONCERN/REJECT로 light 상한 2회 소진 | `{PLAN_MAX}` = 5 복원, 카운터 승계(3회차부터). 3.2 재실행 없음 |
-| ② | 5.2 완료 직후, Phase 6 전 | 변경 소스 파일 > 3 **또는** 금지 조건 발견 (집계 규칙: 아래) | Phase 6·7 전부 standard |
-| ③ | 7.4 회귀 대조 | `regression` ≥ 1, 또는 판정 불가(러너 완주 N / `unparsed` 잔존을 오케스트레이터도 분류 못 함) | `{QL_MAX}` = 3 복원. 다음 iteration의 7.2·7.4가 full. 회귀·판정 불가 = FAIL이라 다음 iteration 보장, 복원 상한에서도 미PASS면 `BLOCKED:TEST_NOT_GREEN`. 루프 후 7.7·component-reviewer 실행 |
-| ④ | 4 baseline 수집 | 수집 실패(`regression 판정 불가` 선택) | standard |
-| ⑤ | 3.3 | `CODEX-UNAVAILABLE` = Claude 패널 실패 (유효 verdict 3개 미달 — `references/codex-mode.md` §6) | standard 기록 후 기존 규칙대로. Codex 호출 실패의 패널 폴백(§7)은 리뷰 수행으로 간주(승격 아님) |
-| ⑥ | 7.4 test-loop | 최종 상태 `UNRESOLVED`에 E2E 실패 잔존 (`full(smoke 미적용: …)`은 관련 spec 부재일 뿐이므로 기록만) | standard + 현재 iteration 종료 후 standard iteration 최소 1회 추가 (탈출 평가는 그 뒤부터) |
-| ⑦ | 각 iteration 종료 시 + Phase 9 진입 직전 — **light인 동안만 평가(승격 = latch, 1회)** | ②와 동일 집계 재평가 | standard + standard iteration 최소 1회 추가 (Phase 9 직전이면 Phase 7을 standard 루프로 재진입 — 상한 3, 종료 시 `검증 트리: {git rev-parse HEAD} (dirty: Y/N)` 기록, 이력 `⑦: Phase 7 재진입`) |
-
-②·⑦ 집계: `## Flags`의 `START_SHA` 기준 `git cat-file -e {START_SHA} && { git diff --name-only {START_SHA}; git ls-files --others --exclude-standard; } | sort -u` — 커밋·스테이징·작업 트리·untracked 전부, 삭제·이름 변경도 1건. 제외는 **명시 패턴만**(`*.test.*` · `*.spec.*` · `__tests__/` · `e2e/` · `node_modules/` · `*.gen.*` · `mocks/` · `__pycache__/` · `*.md` · `docs/`), 나머지는 전부 소스로 집계하고 목록을 승격 이력에 기록. `START_SHA` 없음·도달 불가 → `## Test Baseline`의 `커밋:` → 그것도 없으면 standard 강제 + 이력 `②: 시작 SHA 판정 불가`(HEAD 대체 금지).
-기록: `Phase Results` 진단 셀 `tier_escalated({①..⑦})`, `## Verification Tier` 승격 이력 행(시점 / 트리거 / 근거 / 조치), `## Flags` `TIER` 갱신, 보고서 §1 `검증 티어: light → standard (②, 3.2 light 실행)`. 승격 시 재실행하지 않는 유일한 항목은 3.2 — 이력에 `미재실행: 3.2`로 남긴다.
-
-출력: `검증 티어: light|standard — A [a]/B [b], 금지 조건 [해당 없음|{항목}], [TDD off|--tier standard 로 standard]` — Plan과 함께 `ExitPlanMode`에서 승인.
+> Phase 2 진입 시 MUST: 같은 폴더의 `references/verification-tier.md`를 Read하고 §1로 티어 선언만 확인해 `선언: {quick|light|standard|없음}({출처})`을 출력한다. 난이도 산정과 티어 판정은 Plan 초안의 사실로 Phase 3.1 끝에서 1회 수행한다.
 
 ## Phase 3: Plan 작성 + 리뷰
 
@@ -234,6 +171,8 @@ Spec 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 �
 - 의존 관계, 예상 리스크
 - **관련 E2E spec 파일 경로 목록** (없으면 `없음`) — Phase 4가 `## Related E2E Specs`로 복사하고 light의 `test-loop --smoke`가 이 범위만 실행한다
 
+**난이도·티어 판정** (Plan 초안 직후 1회): `references/verification-tier.md` §2로 A/B·종합 난이도(여기서 동결)·계산 티어를 산정하고 §3으로 유효 티어를 정해 §2 형식으로 출력한다. quick이면 3.2·3.3을 `SKIPPED:TIER_QUICK`으로 건너뛰고 3.4로 간다.
+
 ### Phase 3.2: 다관점 Plan 보강 (Claude, 1회)
 
 검증 루프 진입 전 Claude 측 다관점 리뷰로 Plan을 1회 보강한다. 각 리뷰어는 담당 관점에서 발견한 문제를 심각도와 함께 모두 보고하고, 반영 여부는 아래 종합 단계에서 가린다. **이 단계는 검증 루프가 아니다.**
@@ -241,7 +180,7 @@ Spec 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 �
 최대 3개 서브에이전트(`general-purpose`) 병렬 × 2배치:
 - Batch 1: 유지보수성 + 성능 + 엣지 케이스
 - Batch 2: 상태 정합성 + 접근성 + 기존 코드 영향
-- **light**: 배치 없이 `general-purpose` 1개가 3관점(엣지 케이스 · 기존 코드 영향 · 더 단순한 경로)을 한 번에 리뷰한다.
+- **light**: 배치 없이 `general-purpose` 1개가 3관점(엣지 케이스 · 기존 코드 영향 · 더 단순한 경로)을 한 번에 리뷰한다. **quick**: `SKIPPED:TIER_QUICK`.
 
 각 에이전트 프롬프트에 Spec 전문 + Plan 전문을 전달하고 아래 형식으로 받는다:
 
@@ -292,7 +231,7 @@ for iteration in 1..{PLAN_MAX}:
 
 ### Phase 3.4: Plan 확정
 
-Plan의 파일 목록으로 금지 조건을 재점검한다(발견 시 즉시 standard). 작업 계약의 완료 조건·티어·원격 효과를 Plan과 함께 공유하고 같은 Spec·Plan·대상·효과의 기존 승인을 확인한다. 일치하면 추가 확인 질문 없이 재사용하고, 미승인 변경만 구체적으로 승인받는다. 루프 종료 후 `ExitPlanMode`를 실행하며 호스트가 요구하는 승인은 따른다. 상태 파일 하단에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
+최종 Plan으로 티어를 재판정해 승인 기준선 R0를 확정한다 (상향만 — 건너뛴 3.2·3.3은 새 티어로 실행 후 복귀, `references/verification-tier.md` §2·§3). 작업 계약의 완료 조건·티어·원격 효과를 Plan과 함께 공유하고 같은 Spec·Plan·대상·효과의 기존 승인을 확인한다. 일치하면 추가 확인 질문 없이 재사용하고, 미승인 변경만 구체적으로 승인받는다. 루프 종료 후 `ExitPlanMode`를 실행하며 호스트가 요구하는 승인은 따른다. 상태 파일 하단에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
 
 ## Phase 4: 브랜치 + 상태 파일 + Baseline + 자율 실행 시작
 
@@ -303,15 +242,15 @@ Plan의 파일 목록으로 금지 조건을 재점검한다(발견 시 즉시 s
 **상태 파일 생성**:
 
 > Phase 4 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고
-> ① "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다. Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, profile 주요 설정, **Phase 3.3의 `Plan Verification Log`**를 복사해 넣고, `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·CODEX_MODELS·RUN_ID·START_SHA)·`## Verification Tier`·`## Codex Runtime`(`$CODEX_RUNTIME` 값 그대로 — `active`로 초기화하지 않음)·`## Related E2E Specs`(Plan 3.1의 목록)를 기록한다 (`CODEX_MODELS` = `$CODEX_MODELS` 확정값 — `tiered`는 Phase 2 난이도로 확정).
+> ① "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다. Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, profile 주요 설정, **Phase 3.3의 `Plan Verification Log`**를 복사해 넣고, `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·CODEX_MODELS·RUN_ID·START_SHA)·`## Verification Tier`·`## Codex Runtime`(`$CODEX_RUNTIME` 값 그대로 — `active`로 초기화하지 않음)·`## Related E2E Specs`(Plan 3.1의 목록)를 기록한다 (`CODEX_MODELS` = `$CODEX_MODELS` 확정값 — `tiered`는 Phase 3.1에서 동결한 난이도로 확정).
 > ② "Implementation Notes 라이브 파일 초기화" 템플릿대로 `{IMPL_NOTES}`를 생성한다 (신규 실행만 생성, 재개 시 보존).
 
 **회귀 Baseline 수집 (TDD 활성 시)**:
 
 > Phase 4 진입 시 MUST: 같은 폴더의 `references/tdd.md`를 Read하고 "TDD 적용 판정"과 "Phase 4: 회귀 Baseline 수집" 절차를 따른다.
 
-여기가 **유저와 대화 가능한 마지막 지점**이다. baseline 수집이 실패하면 자율 실행에 들어가기 전에 선택지를 제시한다. 수집 실패 확정 시 light는 승격 ④로 standard.
-TDD SKIP 판정 시 사유를 `## Test Baseline`에 기록하고, Phase 5는 5.1을 건너뛰고 5.2(구현)만 실행한다.
+여기가 **유저와 대화 가능한 마지막 지점**이다. baseline 수집이 실패하면 자율 실행에 들어가기 전에 선택지를 제시한다. 수집 실패 확정 또는 R0에 없던 TDD SKIP이면 승격 ④로 standard.
+TDD SKIP 판정 시 사유를 `## Test Baseline`에 기록하고, Phase 5는 5.1을 건너뛰고 5.2(구현)만 실행한다. quick은 E2E baseline을 `SKIPPED:TIER_QUICK`으로 건너뛴다 (`references/tdd.md`).
 
 출력: **"자율 실행을 시작합니다. Phase 5~10을 서브 에이전트로 순차 실행합니다."**
 
@@ -325,7 +264,7 @@ TDD SKIP 판정 시 사유를 `## Test Baseline`에 기록하고, Phase 5는 5.1
 
 > Phase 5 진입 시 MUST: 같은 폴더의 `references/tdd.md`를 Read한다. Phase 5.1의 프롬프트·판정은 이 문서를 따른다.
 
-`$TDD = false`이거나 Phase 4에서 `SKIPPED:*` 판정이면 **Phase 5.1을 건너뛰고 5.2만 실행한다**.
+`$TDD = false`이거나 Phase 4에서 `SKIPPED:*` 판정이면 **Phase 5.1을 건너뛰고 5.2만 실행한다**. quick도 5.1을 `SKIPPED:TIER_QUICK`으로 건너뛴다.
 
 #### Phase 5.1: 테스트 우선 (Red)
 
@@ -345,7 +284,8 @@ Spec의 추적 ID(`AC-nn`·`EC-nn`)를 근거로 **실패하는 테스트를 먼
 
 `fe-harness:workflow-implementer` 에이전트로 구현 + 커밋 (컴포넌트 1개 = 커밋 1개 원칙). `codexMode: max`: Codex `write` 슬롯(`workspace-write`), 쓰기 안전 = codex-mode.md §5.
 TDD 활성 시 **테스트 파일 수정 금지** 규칙과 `[TestConflict]` 보고 규칙을 프롬프트에 추가한다 (`references/tdd.md`).
-완료 직후 **승격 ② 평가**(변경 소스 파일 > 3 또는 금지 조건 발견 — Phase 2 집계 규칙) → light면 standard 전환을 기록하고 Phase 6으로.
+quick + TDD 활성이면 대신 quick 테스트 동반 모드 블록을 추가하고, 반환된 Spec ID ↔ 테스트 ID 목록을 `## Quick Test Evidence`에 기록한다 (`references/verification-tier.md` §4.1).
+완료 직후 T < standard면 **승격 ② 재판정**(`references/verification-tier.md` §5) → 상향 시 기록하고 Phase 6으로.
 
 ### Phase 6: 빌드/타입 체크 (MANDATORY — 구현 직후 강제 실행)
 
@@ -372,31 +312,32 @@ for iteration in 1..{QL_MAX}:
   7.1 build + type-check      → Bash 직접 실행 (비어있으면 SKIPPED, 실패 시 수정 위임)
   7.2 simplify-loop           → general-purpose 에이전트
   7.3 convention-check        → general-purpose 에이전트
-  7.4 test-loop               → general-purpose 에이전트 (TDD 활성 시 frozen 모드, light는 --smoke)
+  7.4 test-loop               → general-purpose 에이전트 (TDD 활성 시 frozen 모드, light는 --smoke, quick은 --unit-only)
   7.5 scope-reviewer          → scope-reviewer 에이전트
   7.6 lint-check              → general-purpose 에이전트
 
 [루프 종료 후 1회] 7.7 Spec 정합 Read-back — 판정만, 코드 수정 없음
 ```
 
-**light**: 7.2 = `SKIPPED:TIER_LIGHT`, 7.4 = `test-loop --smoke`, 7.7 = `SKIPPED:TIER_LIGHT`. 승격 ③·⑥·⑦은 Phase 2 승격 표 — 티어 전환은 아래 종료 조건 평가보다 먼저 적용하고, ⑥·⑦은 standard iteration을 최소 1회 추가한다. 각 iteration 종료 시(light만) ⑦을 재평가한다.
+**light**: 7.2 = `SKIPPED:TIER_LIGHT`, 7.4 = `test-loop --smoke`, 7.7 = `SKIPPED:TIER_LIGHT`. 승격 ③·⑥·⑦(회귀 · E2E 실패 잔존 · 재판정)은 `references/verification-tier.md` §5 — 티어 전환은 아래 종료 조건 평가보다 먼저 적용하고, ⑥·⑦은 새 티어 iteration을 최소 1회 추가한다. 각 iteration 종료 시(T < standard) ⑦을 재판정한다.
+**quick**: 7.2·7.3·7.6·7.7 = `SKIPPED:TIER_QUICK`, 7.4 = `test-loop --unit-only`. `## Quick Test Evidence`가 있으면(승격 후에도 유지) 7.4에 Evidence 종료 증거 게이트, 7.5에 Evidence 대응 확인을 더한다 (`references/verification-tier.md` §4.1).
 `codexMode: max`: 7.5 scope-reviewer는 Codex `judge` 슬롯, 7.7 복원은 `explore` 슬롯, 7.1 수정과 7.2/7.3/7.4/7.6 러너 내부의 수정 리프는 `write` 슬롯으로 위임한다 (러너 프롬프트에 §8 포인터 1줄 — `references/codex-mode.md`).
 
-7.4의 테스트 실패는 `assets/test_failures.py --baseline {STATE_FILE}`로 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (절차·폴백: `references/tdd.md`의 "Phase 7: 회귀 대조"). `unparsed`·러너 완주 N 잔존 시 PASS 불가.
+7.4의 테스트 실패는 `assets/test_failures.py --baseline {STATE_FILE}`로 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (절차·폴백: `references/tdd.md`의 "Phase 7: 회귀 대조"). `unparsed`·러너 완주 N 잔존 시 PASS 불가. test-loop 보고의 **관측 누적**(이번 호출에서 확정된 regression·판정 불가)은 승격 ③에만, **최종 분류**(최종 트리의 마지막 실행)는 아래 테스트 판정·결과 기록에 쓴다.
 
-**테스트 판정**: `PASS` = `regression` 0건 + `new_red` 0건 / `WARN` = `flaky`만 / `FAIL` = 그 외
+**테스트 판정**: `PASS` = `regression` 0건 + `new_red` 0건 / `WARN` = `flaky`만 / `FAIL` = 그 외 (Evidence 게이트 `INCONCLUSIVE` 포함)
 
 | 종료 조건 | 결과 |
 |----------|------|
 | `modified == false` **AND** 테스트 판정 `PASS` | 루프 탈출 → Phase 7.7 |
-| `modified == false` (TDD SKIP 시) | 루프 탈출 → Phase 7.7 |
+| `modified == false` AND 합산 테스트 `PASS`/정당한 `SKIPPED` (TDD SKIP 시) | 루프 탈출 → Phase 7.7 |
 | 그 외 | 커밋 후 다음 iteration |
 | `{QL_MAX}`회 도달 & 미PASS | `BLOCKED:TEST_NOT_GREEN` 기록 → 강제 탈출 → Phase 7.7 |
 
 수정이 0건이어도 테스트가 깨져 있으면 탈출하지 않는다 — 얼어붙은 테스트가 실패하는데 소스 수정이 없으면 루프가 "성공"으로 오종료되기 때문이다.
 `BLOCKED:TEST_NOT_GREEN`이어도 **자율 실행은 중단하지 않고** 이후 Phase를 계속 진행하며, 선택지는 Phase 11에서 제시한다.
 
-**Phase 7.7은 루프 밖에서 1회만 실행한다** (최종 트리 변경 후 재검증은 `references/finalization.md`의 예외 적용) (light: `SKIPPED:TIER_LIGHT`). Spec을 모르는 격리된 에이전트가 테스트·구현 산출물에서 보장 동작을 복원하고, 오케스트레이터가 그것을 Spec·기존 코드와 대조해 이탈을 판정한다. 코드는 수정하지 않으며 결과는 Phase 11에서 유저에게 보고한다. 판정이 `FAIL`이어도 자율 실행은 멈추지 않는다.
+**Phase 7.7은 루프 밖에서 1회만 실행한다** (최종 트리 변경 후 재검증은 `references/finalization.md`의 예외 적용) (light: `SKIPPED:TIER_LIGHT` · quick: `SKIPPED:TIER_QUICK`). Spec을 모르는 격리된 에이전트가 테스트·구현 산출물에서 보장 동작을 복원하고, 오케스트레이터가 그것을 Spec·기존 코드와 대조해 이탈을 판정한다. 코드는 수정하지 않으며 결과는 Phase 11에서 유저에게 보고한다. 판정이 `FAIL`이어도 자율 실행은 멈추지 않는다.
 프롬프트·Diff 분류·판정 기준: `references/agent-prompts.md`의 "Phase 7.7" 섹션.
 
 ### Phase 8: 컴포넌트/접근성 리뷰 (조건부)
@@ -404,13 +345,13 @@ for iteration in 1..{QL_MAX}:
 작업 유형이 화면 생성/화면 수정/컴포넌트 생성/컴포넌트 수정인 경우만 실행. API 연동 유형은 `SKIPPED:TASK_TYPE`.
 
 `component-reviewer` + `a11y-reviewer` 두 에이전트를 **병렬 실행**. Critical 이슈가 있으면 general-purpose 에이전트로 수정 위임 (`codexMode: max`: 리뷰어 = Codex `judge` 슬롯, 수정 = `write` 슬롯).
-light: `a11y-reviewer`만 단독 실행, component-reviewer는 `SKIPPED:TIER_LIGHT`.
+light: `a11y-reviewer`만 단독 실행, component-reviewer는 `SKIPPED:TIER_LIGHT`. quick: 둘 다 `SKIPPED:TIER_QUICK`.
 
 Phase 8에서 코드가 수정됐으면 agent-prompts.md의 수정 후 재검증을 완료하고 results check-current를 통과해야 Phase 9에 진입한다. standard/단일 파일 수정도 예외가 아니다.
 
 ## Phase 9: PR / Push
 
-진입 직전 light면 승격 ⑦ 재평가(Phase 2 승격 표) — 발화 시 Phase 7을 standard로 1회 재진입한 뒤 돌아온다.
+필수 kind는 티어별로 정적이다(`references/verification-tier.md` §4.2). 진입 직전 T < standard면 승격 ⑦ 재판정(§5) — 상향 시 Phase 7을 새 티어로 1회 재진입하고 7.7·Phase 8을 새 티어대로 실행한 뒤 돌아온다.
 
 - `PUBLISH_POLICY=local`: 검증한 소유 변경을 common:commit 절차로 로컬 커밋만 수행한다. 도메인 전환의 local 정책을 hard push로 확대하지 않는다.
 - `PUBLISH_POLICY=pr`: workflow-pr 에이전트의 common:commit-pr 정본 절차를 실행하고 실제 PR URL/HEAD를 확인한다.
@@ -435,7 +376,7 @@ Phase 8에서 코드가 수정됐으면 agent-prompts.md의 수정 후 재검증
 | 코드 | 의미 |
 |------|------|
 | `DONE` / `IN_PROGRESS` / `PENDING` | Phase 진행 상태 |
-| `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 (예: `SKIPPED:PROFILE_EMPTY`, `SKIPPED:TASK_TYPE`, `SKIPPED:USER_OPT_OUT`, `SKIPPED:REFLECT_NOT_REQUESTED`, `SKIPPED:TIER_LIGHT`) |
+| `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 (예: `SKIPPED:PROFILE_EMPTY`, `SKIPPED:TASK_TYPE`, `SKIPPED:USER_OPT_OUT`, `SKIPPED:REFLECT_NOT_REQUESTED`, `SKIPPED:TIER_LIGHT`, `SKIPPED:TIER_QUICK`) |
 | `BLOCKED:{사유}` | 진행 불가 — 사용자 개입 필요 (예: `BLOCKED:BUILD_FAIL`, `BLOCKED:MAX_ITERATIONS`, `BLOCKED:NO_VALID_RED`, `BLOCKED:TEST_NOT_GREEN`) |
 | `PASS` / `WARN` / `FAIL` | 테스트 판정, Read-back 판정 |
 
@@ -446,6 +387,7 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 
 | 파일 | 로드 시점 |
 |------|----------|
+| `references/verification-tier.md` | Phase 2 (선언), Phase 3.1·3.4 (산정·판정·R0), Phase 4·5·7·9 (깊이·승격) |
 | `references/templates.md` | Phase 4 (상태 파일·라이브 노트), Phase 11 (보고서·md 아카이브·보완점) |
 | `references/tdd.md` | Phase 4 (TDD 판정·baseline), Phase 5 진입 시 |
 | `references/agent-prompts.md` | Phase 5 진입 시 (Phase 5.2~10 프롬프트 — Phase 10은 `--reflect` 시만) |
@@ -456,18 +398,18 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 ```
 [유저 대화] — Phase 1~3 전체가 단일 EnterPlanMode 컨텍스트
 Phase 1: EnterPlanMode → /request 또는 직접 Technical Spec + 작업 계약 (미결 결정만 확인) + 풀스택 판정
-Phase 2: 난이도 산정 (1-10, A 코드 복잡도 + B 회귀 리스크) + 검증 티어 판정 (light / standard)
-Phase 3: Plan 작성 → 다관점 1회 보강 → 검증 루프 (리뷰어 = codexMode: Codex `review` 슬롯 | Claude 패널, 최대 {PLAN_MAX}회) → ExitPlanMode
+Phase 2: 티어 선언 확인 (quick / light / standard — 산정·판정은 3.1 끝)
+Phase 3: Plan 작성 → 난이도·티어 판정 → 다관점 1회 보강 → 검증 루프 (리뷰어 = codexMode: Codex `review` 슬롯 | Claude 패널, 최대 {PLAN_MAX}회 — quick은 둘 다 SKIP) → 재판정·ExitPlanMode
 Phase 4: feature 브랜치 + 상태 파일 + implementation-notes.md + 회귀 baseline → "자율 실행 시작"
 
 [자율 실행 — 유저 확인 없이 완주. codexMode max: 리프 에이전트를 Codex 슬롯(`explore`/`judge` 읽기 · `write` 쓰기)으로 위임 — codex-mode.md]
-Phase 5.1: 테스트 우선 (Red) — Spec ID 근거로 실패 테스트 선작성 + 스텁, Red 커밋
-Phase 5.2: 구현 (Green) — workflow-implementer, 테스트 파일 수정 금지
+Phase 5.1: 테스트 우선 (Red) — Spec ID 근거로 실패 테스트 선작성 + 스텁, Red 커밋 (quick: SKIP)
+Phase 5.2: 구현 (Green) — workflow-implementer, 테스트 파일 수정 금지 (quick: 신규 테스트 동반)
 Phase 6: {buildCommand}+{typeCheckCommand} 체크 (실패 시 수정 최대 3회)
 Phase 7: 품질 루프 최대 {QL_MAX}회 (7.1 빌드 → 7.2 simplify → 7.3 convention → 7.4 test → 7.5 scope → 7.6 lint)
          탈출 조건 = 수정 0건 AND 테스트 판정 PASS (회귀 3분류 대조)
-         light: 7.2 SKIP · 7.4 --smoke · 7.7 SKIP — 승격 트리거 발생 시 standard로 전환 (단방향)
-Phase 8: component-reviewer + a11y-reviewer (병렬, 컴포넌트 변경 시만 — light는 a11y만)
+         light: 7.2 SKIP · 7.4 --smoke · 7.7 SKIP / quick: 7.2·7.3·7.6·7.7 SKIP · 7.4 --unit-only — 승격은 단방향
+Phase 8: component-reviewer + a11y-reviewer (병렬, 컴포넌트 변경 시만 — light는 a11y만, quick은 SKIP)
 Phase 9: workflow-pr (--hard: push만)
 Phase 10: 성찰 (--reflect 지정 시만 — 기본 SKIPPED:REFLECT_NOT_REQUESTED)
 

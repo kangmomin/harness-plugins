@@ -1,0 +1,208 @@
+# 검증 티어 (Verification Tier)
+
+> 이 문서는 `start-workflow` 스킬의 Phase 2(선언 확인), Phase 3.1(산정·판정), Phase 3.4(재판정·승인 기준선), Phase 4·5·7·9(깊이·승격)에서 로드된다. 단독 실행 금지.
+> 플레이스홀더(`{STATE_FILE}`·`{PLAN_MAX}`·`{QL_MAX}` 등)는 SKILL.md 본문 정의를 따른다.
+
+티어는 `quick` < `light` < `standard` 3단계다. Plan 초안의 사실로 **코드 복잡도(A)** 와 **영향 범위·회귀 리스크(B)** 를 점수화해, 위험이 낮을수록 추가 리뷰 레이어·루프 상한·E2E 범위를 줄인다. `standard`는 축소 없는 전체 절차다.
+Spec이 정의한 검증(추적 ID 테스트, scope-reviewer, 빌드·타입 체크, 단위 테스트의 회귀 대조)은 어떤 티어에서도 없애지 않는다. quick은 별도 Red 단계 대신 구현 dispatch에서 신규 테스트를 함께 작성하고, §4.1의 증거 게이트로 Spec 대응을 확인한다.
+
+## 1. 선언 (Phase 2 확인 — 3.4 승인 전까지만 변경)
+
+| 채널 | 인정 | 비인정 |
+|------|------|--------|
+| `--tier quick\|light\|standard` | 값 검증은 `assets/workflow_policy.py route`가 먼저 한다 — 허용 밖 값·`-`로 시작하는 토큰·서로 다른 중복 값은 입력 오류(exit 2) | — |
+| 티어 이름을 지목한 명시 지시 | "quick 티어로", "티어는 light", "standard로 올려줘" | "quick하게"·"빨리", "난이도 하/상", 요청 본문의 업무 용어(문제 난이도 등) |
+
+- **우선순위**: 최초 입력 안에서는 CLI가 자연어보다 우선한다. 이후 승인 전 Plan 대화의 명시 변경 지시는 최신 지시가 우선한다. 3.4 승인 후에는 선언을 바꿀 수 없고 §5 승격만 일어난다.
+- **결과**: `$TIER_DECLARED` = `quick|light|standard|none`과 출처(CLI·대화). 비인정 표현은 Phase 2 출력에 `선언: 없음`으로 고지한다. 상태 파일 생성 전(Phase 1~3)에는 Spec 작업 계약에 `티어 선언: {값}({출처})` 한 줄로 보존한다.
+- **무시**: 풀스택 전환(`--fs`·Phase 1 풀스택 판정)은 항상 standard이며 선언을 `무시됨(FS)`으로 기록하고 standard로 인계한다.
+
+## 2. 산정·판정 (Phase 3.1 Plan 초안 직후 1회 · 3.4 재판정)
+
+**산정 규칙**
+- 입력: Plan의 파일 목록·계약·동작 사실, 그리고 Plan 변경 경로(없으면 Spec `참조 구현` 경로)로 실행한 아래 출력(존재·최근 변경 커밋 수·동반 테스트·과거 워크플로우 이력)을 B축 `변경 영역 기존 테스트`·`기존 동작 변경 범위`의 근거로 쓴다. 경로가 없거나 exit ≠ 0이면 해당 행은 `UNKNOWN`.
+  ```bash
+  python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/risk_facts.py --paths {변경 경로들} --report-dir {REPORT_DIR} [--test-dir {설정된 testDir} …]
+  ```
+- 각 축 점수 = 요소별 밴드 점수의 **최댓값**(평균 금지). 판정 근거가 없는 요소는 `UNKNOWN` = **높음 밴드**(fail-safe).
+- **종합 난이도 = `max(A, B)`** 는 3.1에서 **동결**한다. Model/Effort 등급표와 `CODEX_MODELS` `tiered` effort의 입력이며 이후 바꾸지 않는다. 3.4·승격 재판정의 A/B(현재 사실)는 동결값과 별도로 기록한다.
+
+### A. 코드 복잡도
+
+| 요소 | 낮음 (1-3) | 중간 (4-6) | 높음 (7-10) |
+|------|-----------|-----------|------------|
+| 파일 수 | 1-3개 | 4-7개 | 8개+ |
+| 컴포넌트 수 | 1개 | 2-3개 | 4개+ |
+| 상태 복잡도 | useState 단순 | 여러 상태 조합 | 전역 상태 + 서버 상태 |
+| API 연동 | 없음 | 기존 API | 새 API 연동 |
+| 반응형/a11y | 기본 | 반응형 필수 | 반응형 + 접근성 + 애니메이션 |
+| 엣지 케이스 | 1-2개 | 3-5개 | 6개+ |
+
+### B. 영향 범위·회귀 리스크
+
+| 요소 | 낮음 (1-3) | 중간 (4-6) | 높음 (7-10) |
+|------|-----------|-----------|------------|
+| 공유 컴포넌트·디자인 시스템 | 미수정 | 내부 구현만 수정 | Props·토큰 변경 |
+| 전역·서버 상태 계약 | 없음 | 필드 추가 | 기존 계약 변경 |
+| Props 계약 | 신규 컴포넌트만 | 선택 prop 추가 | 필수 prop·타입 변경 |
+| 라우팅·레이아웃 | 없음 | 신규 라우트 | 기존 라우트·레이아웃 변경 |
+| 기존 동작 변경 범위 | 없음·신규 경로만 | 기존 경로에 분기 추가 | 기존 경로의 동작 변경 |
+| 변경 영역 기존 테스트 | 단위 + E2E 있음 | 일부만 있음 | 없음 · `UNKNOWN` |
+| 롤백 용이성 | 즉시 가능 | 상태·스토리지 마이그레이션 롤백 필요 | 데이터 복구 필요 |
+
+출력: `난이도: 코드 [A]/10 + 리스크 [B]/10 — [근거]`
+
+### 판정표 (위에서부터 첫 일치 = 계산 티어 C)
+
+| # | 조건 | C |
+|---|------|---|
+| 1 | 금지 조건 ≥ 1 · TDD SKIP 예정(`--no-tdd`·`{testCommand}`와 `{testRunner}` 모두 없음·관측 가능한 조항 0) | standard |
+| 2 | quick 조건 Q-a~Q-f 전부 충족 | quick |
+| 3 | A·B 모든 요소 ≤ 중간, `UNKNOWN` 0 | light |
+| 4 | 그 외 | standard |
+
+**quick 조건** — 확인할 수 없는 사실은 불충족으로 본다.
+
+| # | 조건 |
+|---|------|
+| Q-a | A·B에 '높음'·`UNKNOWN` 요소가 없다. 단 B `변경 영역 기존 테스트`의 '없음·`UNKNOWN`'은 허용하고 아래 기본 동작 EC 테스트로 보완한다 |
+| Q-b | 변경 소스 ≤ 3 (§5 집계 규칙을 Plan 파일 목록에 적용) |
+| Q-c | 신규 외부 연동·신규 의존성이 모두 0 (스키마·데이터 항목은 FE 해당 없음) |
+| Q-d | Props·API 계약 변경이 없거나 선택 prop·파라미터 추가뿐이다 |
+| Q-e | 기본 동작 불변 — 신규 입력(prop·파라미터)이 없으면 기존 렌더 결과와 같다 |
+| Q-f | Spec의 관측 가능한 추적 ID 전체(`AC`·`EC`)를 단위 테스트로 검증할 수 있다 — `deferred_e2e` 예상 0 |
+
+**quick 의무**: Q-e가 성립하면 Spec에 기본 동작 EC(`신규 입력 없음 → 기존 결과 동일`)를 추가하고 5.2에서 테스트로 고정한다. Q-e 미충족인데 선언 quick을 유지한 경우(§3)에는 넣지 않는다 — 바뀐 동작은 해당 AC가 검증한다.
+
+**금지 조건** — 자동 판정이나 선언만으로는 낮출 수 없다. 선언 티어를 유지하려면 §3의 승인 전 질문에서 사용자가 항목별로 수용해야 한다.
+
+| 금지 조건 |
+|----------|
+| 디자인 시스템 · 전역 레이아웃 · 전역 스토어 계약 변경 |
+| 인증 · 인가 · 개인정보 처리 UI |
+| 결제 · 정산 화면 |
+| 공유 훅 · 미들웨어 · 인터셉터 |
+| Breaking change (Props · API 계약) |
+| 외부 서비스 연동 변경 |
+
+- 출력(3.1·3.4): `검증 티어: {T} — 선언 {D|없음}({출처}), 계산 {C} (#{판정 행}: {근거}), A [a]/B [b], 금지 조건 [해당 없음|{항목}]` — Plan과 함께 `ExitPlanMode`에서 승인.
+- **3.4 재판정**: 최종 Plan으로 판정표와 §3을 다시 적용하고(상향만), **승인 기준선 R0**를 확정한다. R0 = 판정 사실(소스 목록·수, A/B 요소값, 금지 조건, 계약 변경, TDD 적용·SKIP 사유, `deferred_e2e` ID) + 수용 예외 + 선언 유지 사유. R0는 이후 갱신하지 않는다.
+- 상태 파일 `## Verification Tier`(템플릿: `references/templates.md`)에 선언·C0(3.1)·R0·유효 티어·수용 예외·승격 이력을 기록하고, `## Flags`의 `TIER`에 유효 티어를 적는다.
+
+## 3. 선언과 계산의 충돌 (3.1 직후 · 3.4 재판정)
+
+| 경우 | 유효 티어 T |
+|------|------------|
+| 미선언 | C |
+| D ≥ C | D |
+| D < C, 원인에 금지 조건 포함 | AskUserQuestion "D 유지 / C로 상향"(원인 전부 표시). 유지하면 **수용 예외** {금지 항목·정규화 경로·행위·Plan 버전}을 기록한다 |
+| D < C, 원인에 금지 조건 없음 (규모·A/B 요소(`UNKNOWN` 포함)·그 밖의 quick 조건 미충족·TDD SKIP·`deferred_e2e`) | D 유지 + 승인 화면 1줄 고지. TDD SKIP이면 "회귀 대조 없음"을 적는다 |
+
+- 3.4 재판정은 계산 결과로 티어를 내리지 않는다(상향만). 승인 전 사용자가 선언을 바꾸면 §1대로 새 D로 이 표를 다시 적용한다. 이미 실행해 수렴한 3.2/3.3은 재사용하고 `미재실행: 3.2`를 기록한다. quick으로 SKIP했던 3.2/3.3은 새 티어로 실행한 뒤 3.4로 돌아온다(승인 전이므로 가능).
+
+## 4. 티어별 깊이
+
+| 단계 | standard | light | quick |
+|------|----------|-------|-------|
+| 1 Spec | request 또는 직접 | 동일 | 선언 quick: request 생략 — 직접 Spec 분기 계약 + quick 의무 EC |
+| 3.2 Plan 보강 | 3에이전트 × 2배치 | **1에이전트 3관점**(엣지 케이스 · 기존 코드 영향 · 더 단순한 경로) | `SKIPPED:TIER_QUICK` |
+| 3.3 `{PLAN_MAX}` | 5 | **2** (소진 시 승격 ①) | 0 — `SKIPPED:TIER_QUICK` |
+| 4 baseline | unit + E2E | 동일 | unit만 — E2E baseline `SKIPPED:TIER_QUICK` |
+| 5.1 Red | 실행 | 실행 | `SKIPPED:TIER_QUICK` |
+| 5.2 구현 | 구현 | 구현 | **구현 + 신규 테스트 1 dispatch** (§4.1) |
+| 6 빌드/타입 | 실행 | 실행 | 실행 |
+| 7 `{QL_MAX}` | 3 | **2** | **2** (이슈가 없으면 1회에 탈출) |
+| 7.2 simplify-loop | 실행 | `SKIPPED:TIER_LIGHT` | `SKIPPED:TIER_QUICK` |
+| 7.3 convention | 실행 | 실행 | `SKIPPED:TIER_QUICK` |
+| 7.4 test-loop | full | `test-loop --smoke` (단위 테스트 무변경, E2E는 `## Related E2E Specs` 범위) | `test-loop --unit-only` (E2E 미실행) |
+| 7.5 scope | 실행 | 실행 | 실행 + §4.1 대응 확인 |
+| 7.6 lint | 실행 | 실행 | `SKIPPED:TIER_QUICK` |
+| 7.7 Read-back | 1회 | `SKIPPED:TIER_LIGHT` | `SKIPPED:TIER_QUICK` |
+| 8 컴포넌트/접근성 리뷰 | component + a11y 병렬 | a11y-reviewer만 (component-reviewer `SKIPPED:TIER_LIGHT`) | `SKIPPED:TIER_QUICK` |
+| 9 PR 필수 kind | §4.2 | §4.2 | §4.2 |
+
+- 표에 없는 단계(7.1)는 티어와 무관하게 같다. `## Quick Test Evidence`가 있으면 티어와 무관하게 7.4·7.5에 §4.1의 게이트·보완을 더한다. 생략 단계의 `SKIPPED:TIER_*`는 도달 시점에 기록한다 — 승격으로 실행될 수 있으므로 미리 기록하지 않는다.
+
+### 4.1 quick 테스트 동반 (TDD 활성 시만)
+
+TDD SKIP이면 5.2는 구현만 하고 이 절은 적용하지 않는다.
+
+- **작성 (5.2)**: 구현 프롬프트에 quick 테스트 동반 모드 블록(`references/tdd.md` "Phase 5.2")을 추가한다.
+  - Spec 추적 ID(`AC`·`EC` — unit-test Red 근거 집합과 동일) 근거의 **신규** 테스트만 작성한다.
+  - 기존 테스트(케이스·단언·fixture·스냅샷)는 수정하지 않는다. 충돌하면 `[TestConflict]`로 보고한다.
+  - 작성한 테스트를 직접 실행해 green을 확인한다.
+  - Spec ID ↔ 러너 네이티브 정확 ID ↔ 파일 목록을 반환한다(식별자 규칙: `references/tdd.md`).
+- **기록**: 오케스트레이터는 반환 목록을 상태 파일 `## Quick Test Evidence`에 기록한다. `## TDD Test Map`에는 등재하지 않는다. `test_failures.py`는 Test Map만 읽으므로 quick 테스트의 실패는 baseline에 없는 식별자 = `regression`(→ 승격 ③)으로 분류된다. flaky는 기존 재실행 규칙을 따른다.
+- **종료 증거 게이트**: 7.4 test-loop 단위 테스트 실행 로그 원문(`references/tdd.md`의 verbose/JSON 계약, 첫 실행부터 수집)에서 Evidence의 ID마다 **정확 ID의 PASS 줄**(`✓ {ID}`)을 확인한다. 그 실행에서 실패한 ID가 같은 트리 재실행에서 PASS로 명시돼 `flaky`로 분류되면 재실행 로그의 PASS 줄을 증거로 인정한다(판정 WARN — 수정 뒤 실행은 flaky 증거가 아니다).
+  - 다음이면 그 suite 결과를 `INCONCLUSIVE`(검증 미완료)로 기록한다: 미출력 · SKIP·pending·todo · 시작만 출력 · 같은 ID의 선언이 2개 이상(중복 제목) · PASS와 SKIP 혼재.
+  - `INCONCLUSIVE`는 테스트 판정 `FAIL`로 취급되므로(result-contract test-summary도 FAIL로 집계) 기존 종료 규칙·`BLOCKED:TEST_NOT_GREEN`·원격 반영 보류를 그대로 따른다.
+  - ③의 "판정 불가"(러너 미완주·`unparsed`)가 아니므로 승격하지 않는다. 테스트 자체의 문제는 `[TestConflict]`로 보고하고 `references/tdd.md` 판정표를 따른다 — 단언이 Spec과 다른 테스트 오류만 오케스트레이터가 수정·Evidence 갱신하고, 그 밖의 동결 테스트 문제는 미해결로 Phase 11 결정에 넘긴다.
+- **필수 대응 게이트** (Red 단계가 맡던 Spec ID ↔ 단언 대응을 대신한다)
+  - 필수 ID 집합 = 승인 Spec의 관측 가능한 추적 ID 전체(`AC`·`EC`) + quick 의무로 넣은 기본 동작 EC. R0가 수용한 `deferred_e2e` ID는 빼고 보고서에 "미검증(E2E 이연)"으로 남긴다.
+  - Evidence에 필수 ID마다 테스트가 1개 이상 있어야 한다. 누락·빈 Evidence는 `INCONCLUSIVE`다.
+  - 7.5 scope 리뷰가 Evidence의 각 테스트가 해당 ID의 입력·단언(`file:line`)으로 요구를 실제 검증하는지 확인한다(추가 dispatch 없음). 잘못된 대응(예: "결과 동일" EC에 렌더 여부만 보는 기존 테스트 연결)은 scope 이슈다.
+  - **보완**: Evidence 누락·잘못된 대응 이슈에 한해 `fe-harness:workflow-implementer` 보완 위임이 quick 동반 모드 규칙대로 **신규 테스트 추가만** 할 수 있다(기존 테스트 수정 금지 유지). 결과는 Evidence에 추가하고 다음 iteration에서 다시 확인한다.
+  - 최종 성공 = 필수 ID 전체 대응 + scope 대응 확인 + 정확 ID PASS 증거. 상한 안에 충족하지 못하면 `INCONCLUSIVE` → `BLOCKED:TEST_NOT_GREEN` → 원격 반영 보류. 승격·재개·finalization 이후에도 이 의무는 유지된다.
+- 위 보완 예외와 오케스트레이터의 `[TestConflict]` 판정 수정을 빼면 5.2 이후 테스트는 동결된다(7.4 test-loop frozen 모드).
+- Evidence가 생긴 뒤 승격해도 이 절의 게이트·보완·의무는 그대로 적용한다(5.1 `미재실행`이면 Evidence가 Spec 대응의 유일한 근거다).
+
+### 4.2 필수 kind · 마감
+
+- PR 직전 `check-current`의 필수 kind는 유효 티어와 profile 명령 설정으로 **정적으로** 정한다(실행 이력으로 정하지 않음). quick = 설정된 `unit` · `build` · `typecheck` — `unit`은 `{testCommand}` 또는 `{testRunner}` fallback이 있으면 필수다. light·standard = 기존 필수 검증 그대로(`references/agent-prompts.md` Phase 8 끝).
+- finalization 재검증은 현재 티어의 검증 집합을 따른다 — 생략 단계를 자동 복원하지 않는다.
+- 7.5 scope는 루프 iteration마다 1회 실행한다. 이후 트리가 바뀌면(문서 · VERSION 등) `references/finalization.md`의 재검증 규칙을 따른다.
+- 재진입·재실행은 `references/result-contract.md`의 "새 iteration" 규칙을 그대로 쓴다(새 카운터 없음).
+
+## 5. 승격 (단방향 quick → light → standard, 여러 단계 동시 가능)
+
+자율 구간의 승격은 **질문 없이 기록하고 진행**한다. 티어 전환은 항상 해당 루프의 **종료 조건·상한 평가보다 먼저** 적용한다.
+
+**재판정** (②·⑦ — 유효 티어 T < standard인 동안)
+- 현재 사실(실제 diff, 금지 조건, Props·API 계약·의존성, 보고된 `deferred_e2e`)로 판정표를 다시 실행해 C′를 구한다.
+- 단 R0에서 **사용자가 수용한 원인**(§3 유지 행)은 승인 값 이내면 원인에서 제외한다. "이내"는 값 유형별로 판정한다.
+  - 수치(소스 수, A/B 요소 밴드): 현재 값 ≤ 승인 값
+  - 목록(`deferred_e2e` ID): 현재 목록 ⊆ 승인 목록
+  - 범주(TDD SKIP 사유, 불충족 quick 조건): 같은 값
+  - 수용 예외: 금지 항목·정규화 경로·승인 행위/대상·Plan 버전이 **모두 일치**할 때만 제외한다. 같은 경로의 다른 행위는 새 원인이다.
+  - `UNKNOWN`: R0에서 수용한 같은 요소·대상의 `UNKNOWN`이 그대로 지속되면 제외한다. 새 요소의 `UNKNOWN`, 새 불확실성, 승인 후 새로 확인된 위험은 원인으로 센다.
+- **T := max(T, C′)**. 미선언 실행은 제외 대상이 없다. R0는 갱신하지 않고, 사실이 줄어도 강등하지 않는다.
+
+| # | 시점 | 트리거 | 효과 |
+|---|------|--------|------|
+| ① | 3.3 (light) | 리뷰어 CONCERN/REJECT로 light 상한 2회 소진 (상한 평가 전에 판정) | standard, `{PLAN_MAX}` = 5 복원, 카운터 승계(3회차부터). 3.2 재실행 없음 |
+| ② | 5.2 완료 직후, Phase 6 전 | 재판정 C′ > T (집계 규칙: 아래) | 새 티어로 Phase 6·7 |
+| ③ | 7.4 회귀 대조 | test-loop **관측 누적**의 `regression` ≥ 1, 또는 판정 불가(러너 완주 N / `unparsed` 잔존을 오케스트레이터도 분류 못 함) | standard, `{QL_MAX}` = 3 복원. 다음 iteration은 standard 단계 전부(7.2 · 7.3 · 7.6 · 7.4 full). 관측된 regression은 수정됐으면 `modified == true`, 남았으면 FAIL이라 다음 iteration이 보장되며, 복원 상한에서도 미PASS면 `BLOCKED:TEST_NOT_GREEN`. 루프 후 7.7·Phase 8(component + a11y) 실행 |
+| ④ | 4 baseline 수집 | R0에 없던 TDD SKIP, 또는 수집 실패(`regression 판정 불가` 선택) | standard. 자율 실행 전이므로 Phase 4의 남은 baseline(E2E 포함)과 5.1(TDD 활성 시)을 새 티어대로 실행한다 |
+| ⑤ | 3.3 (light) | `CODEX-UNAVAILABLE` = Claude 패널 실패 (유효 verdict 3개 미달 — `references/codex-mode.md` §6) | standard 기록 후 기존 규칙대로. Codex 호출 실패의 패널 폴백(§7)은 리뷰 수행으로 간주(승격 아님) |
+| ⑥ | 7.4 test-loop (light) | 최종 상태 `UNRESOLVED`에 E2E 실패 잔존 (`full(smoke 미적용: …)`은 관련 spec 부재일 뿐이므로 기록만) | standard + 현재 iteration 종료 후 standard iteration 최소 1회 추가 (탈출 평가는 그 뒤부터) |
+| ⑦ | 각 iteration 종료 시 + Phase 9 진입 직전 + finalization 반영 직전 — T < standard인 동안 | 재판정 C′ > T | 새 티어 + 새 티어 iteration 최소 1회 추가. Phase 9 직전이면 Phase 7을 **새 티어 루프로 재진입** (새 루프, 상한 = 새 티어 `{QL_MAX}`, 종료 조건 동일, 미PASS → `BLOCKED:TEST_NOT_GREEN`)하고 이어서 7.7·Phase 8을 새 티어대로 실행한 뒤 돌아온다. 이력 `⑦: Phase 7 재진입`, 재진입 루프 종료 시 `검증 트리: {git rev-parse HEAD} (dirty: Y/N)` 기록 |
+
+**②·⑦ 집계 규칙**
+- 기준 = `## Flags`의 `START_SHA`.
+  ```bash
+  git cat-file -e {START_SHA} && { git diff --name-only {START_SHA}; git ls-files --others --exclude-standard; } | sort -u
+  ```
+  커밋·스테이징·작업 트리·untracked 전부 포함, 삭제·이름 변경도 1건.
+- 제외는 **명시 패턴만**: `*.test.*` · `*.spec.*` · `__tests__/` · `e2e/` · `node_modules/` · `*.gen.*` · `mocks/` · `__pycache__/` · `*.md` · `docs/` · root `VERSION` · `VERSION.txt`. 나머지는 전부 소스로 집계한다(분류 불가를 제외로 해석하지 않음). 제외 파일도 scope·freshness 검증 대상에는 그대로 포함한다.
+- 집계한 파일 목록을 승격 이력 행에 기록한다.
+- `START_SHA` 없음·도달 불가 → `## Test Baseline`의 `커밋:`으로 대체. 그것도 없으면 판정 불가로 **standard 강제** + 이력 `②: 시작 SHA 판정 불가` (사후 HEAD로 대체 금지).
+
+**효과**
+- 아직 도달하지 않은 단계는 새 티어대로 실행한다.
+- 지난 단계: 승인 후 3.2/3.3은 `미재실행: 3.2`(3.3)으로 기록한다. 5.1은 Phase 5 전(④)이면 실행하고, 그 뒤면 `미재실행: 5.1`로 기록한다.
+- 새 티어 iteration을 최소 1회 보장한다(③은 다음 iteration 보장, ⑥·⑦은 1회 추가). 어떤 경로든 light는 convention·lint·smoke E2E·a11y 리뷰, standard는 simplify·full E2E와 루프 후 7.7·component 리뷰가 최소 1회 실행된다.
+- **quick 출신 승격 후 E2E**: quick은 E2E baseline이 없다(Phase 4 `SKIPPED:TIER_QUICK`). 승격 뒤 7.4의 E2E 실패는 이번 변경이 원인으로 확인된 것만 수정하고, 나머지는 `unparsed(E2E baseline 없음)`로 보고해 ⑥·Phase 11 결정 항목으로 넘긴다. 사후 실행 결과를 baseline으로 쓰지 않는다.
+- 승격 뒤 필요한 E2E의 환경이 없으면 test-loop의 기존 SKIP 코드(`SKIPPED:DISABLED`·`SKIPPED:NO_E2E_RUNNER` 등)로 기록한다.
+
+**기록**
+- `Phase Results` 진단 셀: `tier_escalated({①..⑦})`.
+- `## Verification Tier` 승격 이력 행(시점 / 트리거 / 근거 목록 / 조치 / 의무 / 완료)과 `## Flags`의 `TIER`를 **같은 Edit**로 갱신한다. 의무 = 승격으로 생긴 실행 의무(예: `Phase 7 재진입`, `5.1 실행`), 완료 = Y/N.
+- 재개 시 완료 N인 의무를 먼저 처리한다. 다단계 승격은 최종 티어의 의무로 합산한다(상위 티어 실행이 하위 의무를 충족). 이력과 Flags가 다르면 높은 티어를 채택하고 그 의무까지 복원한다. Phase 11 마감 전에 모든 의무의 완료를 확인한다.
+- Workflow Report §1: `검증 티어: {이전} → {최종} ({트리거}, 미재실행: {목록})`.
+- **구 상태 재개**: `TIER: light|standard`는 그대로 쓴다. 신규 필드가 없으면 선언 없음·C0 = TIER로 본다. 의무 열이 없는 구 이력은 조치 열과 `Phase Results`에서 의무·완료를 복원하고, 근거가 없으면 미완료로 본다(예: `⑦: Phase 7 재진입` + 재진입 결과 없음 → 재진입 수행). baseline은 재수집하지 않는다.
+
+## 6. smoke E2E (light)
+
+- 7.4는 `test-loop --smoke`로 호출한다. 단위 테스트·frozen 모드·루프 상한은 그대로이고 E2E 범위만 `## Related E2E Specs`(Plan 3.1 목록)로 줄어든다.
+- 목록이 `없음`·섹션 부재·파일 미존재·custom `e2eCommand`면 test-loop이 전체 실행으로 폴백하고 `full(smoke 미적용: {사유})`·`full-command`를 보고한다 — 관련 spec 부재일 뿐이므로 기록만 한다(⑥ 아님).
+- test-loop 종료 출력의 `E2E 실행 수준`·최종 상태를 `Phase Results` 7.4 행에 기록한다.

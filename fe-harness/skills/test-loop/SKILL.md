@@ -3,7 +3,7 @@ name: test-loop
 description: "단위 테스트 + E2E 테스트를 실행하고, 실패 시 수정 후 재실행을 반복한다 (최대 5회). '테스트 통과할 때까지 고쳐줘' 요청 시 사용. start-workflow 품질 루프에서 자동 호출됨."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
-argument-hint: "[--smoke] [--no-lock]"
+argument-hint: "[--smoke] [--unit-only] [--no-lock]"
 ---
 
 > **Project Overrides**: 실행 전 `.claude/fe-harness/common.md`와 `.claude/fe-harness/skills/test-loop.md`를 Read.
@@ -27,9 +27,10 @@ argument-hint: "[--smoke] [--no-lock]"
 | 모드 | 진입 조건 | 테스트 파일 | 소스 |
 |------|----------|------------|------|
 | **기본** | 아래 조건에 해당하지 않을 때 | 수정 허용 | 수정 허용 |
-| **frozen** | 프롬프트에 frozen 지시가 있거나, 전달받은 상태 파일에 `## TDD Test Map` 이 존재 | **수정 금지** | 수정 허용 |
+| **frozen** | 프롬프트에 frozen 지시가 있거나, 전달받은 상태 파일에 `## TDD Test Map` 이 존재하거나 `## Quick Test Evidence`가 있음(`해당 없음` 제외) | **수정 금지** | 수정 허용 |
 
-**frozen 모드**는 테스트가 구현보다 먼저 작성된 경우(TDD)에만 쓴다. 테스트를 고쳐서 통과시키면 TDD가 무력화되기 때문이다.
+**frozen 모드**는 테스트가 구현보다 먼저 작성됐거나(TDD) 구현과 함께 Spec 근거로 고정된 경우(start-workflow quick 테스트 동반)에만 쓴다. 테스트를 고쳐서 통과시키면 테스트가 Spec 증거 역할을 잃기 때문이다.
+frozen 모드에서는 테스트 파일(케이스·단언·fixture·스냅샷)을 수정·삭제하거나 `skip`·`only`로 우회하지 않는다 — 실패는 소스 수정 또는 `[TestConflict]` 보고로만 처리한다.
 
 - 테스트가 잘못되었다고 판단되면 코드와 테스트 어느 쪽도 고치지 말고 `[TestConflict]` 태그로 **보고만** 한다.
 - 실패를 상태 파일의 `## Test Baseline` 과 대조해 분류한다:
@@ -44,6 +45,8 @@ argument-hint: "[--smoke] [--no-lock]"
 
 - 수정 우선순위: `regression` → `new_red`. **`pre_existing` 은 이번 범위 밖이므로 손대지 않는다.**
 - `flaky`는 수정 대상이 아니며 보고만 한다.
+- `## Test Baseline`의 e2e 행이 `SKIPPED:*`면(E2E baseline 없음 — start-workflow quick 출신 승격) E2E 실패에 4행을 적용하지 않는다. 이번 변경이 원인으로 확인된 실패만 근거와 함께 `regression`으로 수정하고, 나머지는 수정하지 않고 `unparsed(E2E baseline 없음)`로 보고한다. 사후 실행 결과를 baseline으로 쓰지 않는다.
+- 분류는 두 값으로 보고한다. **관측 누적** = 이번 호출의 모든 실행(수정 전 실행 포함)에서 확정된 `regression`·판정 불가(`unparsed`·러너 완주 N) — flaky는 기존대로 수정 전 동일 트리 재실행으로 가려 제외한다. **최종 분류** = 최종 트리의 마지막 실행 결과. 수정으로 해결된 `regression`은 관측 누적에만 남는다.
 
 > 진단 분류(`regression`·`pre_existing`·`new_red`·`flaky`)는 상태 코드가 아니라 데이터다. 결과 표의 셀 안에서만 쓴다.
 
@@ -54,6 +57,7 @@ argument-hint: "[--smoke] [--no-lock]"
 | 플래그 | 효과 |
 |--------|------|
 | `--no-lock` | E2E 단계(Step 2)의 실행 락을 건너뛴다. 단독 실행/디버깅 전용 — 다른 에이전트와 동시에 돌면 dev 서버 포트가 충돌한다 |
+| `--unit-only` | Step 1(단위 테스트, runner fallback 포함)만 실행하고 Step 2(E2E)는 run-context·락·실행 모두 건너뛴다. `--smoke`보다 우선한다. `E2E 실행 수준: SKIPPED:UNIT_ONLY`로 보고하며, 이 SKIP은 `ALL PASS`를 막지 않는다 |
 | `--smoke` | E2E 범위만 축소한다 — 전달받은 상태 파일의 `## Related E2E Specs` 목록 파일만 실행. 단위 테스트·루프 상한 5·frozen 모드는 무변경. 목록이 `없음`·섹션 부재·파일 미존재·custom `e2eCommand`면 전체 실행(fail-safe) |
 
 ---
@@ -66,7 +70,7 @@ argument-hint: "[--smoke] [--no-lock]"
 for iteration in 1..5:
   1. 단위 테스트 실행
   2. 실패 시 → 원인 분석 → 코드 수정 → modified = true
-  3. E2E 테스트 실행 (e2eRunner가 none이 아닌 경우)
+  3. E2E 테스트 실행 (e2eRunner가 none이 아니고 `--unit-only`가 아닌 경우)
   4. 실패 시 → 원인 분석 → 코드 수정 → modified = true
   
   modified == false? → 루프 탈출
@@ -92,7 +96,7 @@ profile의 `testCommand` 를 우선 사용:
 
 ### Step 2: E2E 테스트 실행
 
-`e2eRunner: none`이면 `SKIPPED:DISABLED`로 기록한다. `e2eCommand`가 비어있으면 아래 runner fallback·smoke 분기를 실행한다. 지원 runner도 없으면 `SKIPPED:NO_E2E_RUNNER`로 기록한다.
+`--unit-only`면 이 Step 전체를 건너뛰고 `SKIPPED:UNIT_ONLY`로 기록한다 (`--smoke`보다 우선). `e2eRunner: none`이면 `SKIPPED:DISABLED`로 기록한다. `e2eCommand`가 비어있으면 아래 runner fallback·smoke 분기를 실행한다. 지원 runner도 없으면 `SKIPPED:NO_E2E_RUNNER`로 기록한다.
 첫 E2E 진입 전에 `${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/references/run-context.md`를 Read하고 이번 루프의 실행 디렉토리·토큰을 한 번 확정한다. 이후 iteration은 같은 값을 쓴다.
 
 **실행 락**: 여러 에이전트가 동시에 E2E를 돌리면 dev 서버 포트가 충돌한다. E2E 명령을 돌리기 전에 락을 잡고, 끝나면(실패해도) 해제한다. `--no-lock` 이면 건너뛴다.
@@ -141,7 +145,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" release "{E2E_RE
 
 ### 루프 판정
 
-- `modified == false` → 루프 탈출. 실행한 테스트의 실제 결과로 판정하며 E2E SKIP/BLOCKED가 있으면 전체 `ALL PASS`로 표시하지 않는다
+- `modified == false` → 루프 탈출. 실행한 테스트의 실제 결과로 판정하며 E2E SKIP/BLOCKED가 있으면 전체 `ALL PASS`로 표시하지 않는다 (`SKIPPED:UNIT_ONLY`는 호출자가 요청한 범위이므로 예외 — 단위 테스트 결과로 판정)
 - `modified == true` → 수정사항 있음, 다음 iteration
 - 5회 도달 → 미해결 사항 보고 후 강제 탈출
 
@@ -160,7 +164,8 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" release "{E2E_RE
 - **E2E 실행 수준**: smoke / full / full(smoke 미적용: {사유}) / full-command / SKIPPED:{사유}
 
 ### frozen 모드일 때 추가
-- **분류**: regression [n]건 / new_red [n]건 / pre_existing [n]건(범위 밖) / flaky [n]건
+- **관측 누적**: regression [n]건 / 판정 불가 [n]건 (수정 전 실행 포함)
+- **최종 분류**: regression [n]건 / new_red [n]건 / pre_existing [n]건(범위 밖) / flaky [n]건 (최종 트리의 마지막 실행)
 - **`[TestConflict]`**: [테스트 ↔ 의심 사유, 없으면 "없음"]
 ```
 

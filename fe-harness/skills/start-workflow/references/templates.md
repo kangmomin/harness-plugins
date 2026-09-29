@@ -29,7 +29,7 @@ Write tool로 `{STATE_FILE}`을 생성한다:
 - ROUTE_TARGET: {be|fe|mm|hd|fs} — entry-contract.md의 확정 경로
 - TDD: {true|false}
 - REFLECT: {true|false}
-- TIER: {light|standard}
+- TIER: {quick|light|standard} — 유효 티어 (승격 시 이력 행과 같은 Edit로 갱신, 재개 기준)
 - CODEX: {none|mix|max}
 - CODEX_MODELS: {review={provider}/{model}@{effort},explore=…,judge=…,write=… | N/A} — 4슬롯 고정 순서·확정 effort(`-` = 키 생략), `CODEX: none`이면 `N/A` (`references/codex-mode.md` §2.1)
 - RUN_ID: {RUN_ID}
@@ -42,18 +42,22 @@ Write tool로 `{STATE_FILE}`을 생성한다:
 [화면 생성/화면 수정/컴포넌트 생성/컴포넌트 수정/API 연동/API 연동 수정]
 
 ## Difficulty
-[N]/10
+[N]/10 — Phase 3.1 동결 (`CODEX_MODELS` `tiered` 입력)
 
 ## Verification Tier
-- 계산 티어: {light|standard} — A [a]/10, B [b]/10
-- 최종 티어: {light|standard} ({사유: 해당 없음 | 금지 조건 {항목} | TDD off | --tier standard})
+- 선언: {quick|light|standard ({CLI|대화}) | 없음 | 무시됨(FS)}
+- C0 (3.1): {quick|light|standard} — 판정 #{n}, A [a]/10, B [b]/10
+- 승인 기준 R0 (3.4): 판정 #{n} / A·B 요소값 / 소스 {N}개 ({목록}) / 금지 조건 {해당 없음|{항목}} / 계약 {변경 없음|{요약}} / TDD {적용|SKIP:{사유}} / deferred_e2e {없음|{ID}} / 선언 유지 사유 {없음|{원인}}
+- 유효 티어: {quick|light|standard}
+- 수용 예외: {없음 | {금지 항목} · {정규화 경로} · {행위·대상} · Plan v{N}, …}
 - 근거: {요소별 밴드 요약 + risk_facts.py 출력 요약}
 - 시작 커밋: {START_SHA}
-- 축소 항목: {3.2 1에이전트 / PLAN_MAX 2 / QL_MAX 2 / 7.2 SKIP / 7.4 smoke / 7.7 SKIP / 8 a11y만 | 없음}
+- 축소 항목: {light: 3.2 1에이전트 / PLAN_MAX 2 / QL_MAX 2 / 7.2 SKIP / 7.4 smoke / 7.7 SKIP / 8 a11y만 | quick: 3.2·3.3·E2E baseline·5.1·7.2·7.3·7.6·7.7·8 SKIP / QL_MAX 2 / 7.4 unit-only | 없음}
 
-| 시점 | 트리거 | 근거 | 조치 |
-|------|--------|------|------|
-[승격 발생 시 append — 예: `5.2 완료 직후` | `② 변경 소스 파일 5 > 3` | `A.tsx, B.tsx, …` | `standard 전환, 미재실행: 3.2`]
+| 시점 | 트리거 | 근거 | 조치 | 의무 | 완료 |
+|------|--------|------|------|------|------|
+[승격 발생 시 append (`## Flags` `TIER`와 같은 Edit) — 예: `5.2 완료 직후` | `② C′ light (소스 5 > 3)` | `A.tsx, B.tsx, …` | `quick → light 전환` | `-` | `-`
+/ `Phase 9 직전` | `⑦ C′ standard (금지 조건: 공유 훅)` | `useCart.ts` | `standard 전환, 미재실행: 3.2` | `Phase 7 재진입` | `N`]
 
 ## Related E2E Specs
 [Plan 3.1의 "관련 E2E spec 파일 경로 목록"을 그대로 복사. 없으면 `없음`. light의 `test-loop --smoke`가 이 목록만 실행한다 — 파일이 하나라도 없으면 test-loop이 전체 실행으로 폴백한다]
@@ -121,6 +125,14 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | AC-01 | 목록 렌더 | ProductList.test.tsx:12 | red_assertion | PASS |
 | EC-01 | 빈 목록 EmptyState | ProductList.test.tsx:40 | already_satisfied | PASS |
 
+## Quick Test Evidence
+[quick + TDD 활성이면 Phase 5.2 직후 기록(빈 반환도 빈 표로 기록)하고, 7.5 보완 위임의 신규 테스트는 append. `## TDD Test Map`과 별개의 최상위 섹션이며 회귀 분류에 쓰지 않는다 (`references/verification-tier.md` §4.1). 승격·재개 후에도 보존한다. 그 외는 `해당 없음`(= Evidence 없음)]
+
+| Spec ID | 테스트 ID | 파일 |
+|---------|-----------|------|
+| AC-01 | vitest::src/ProductList.test.tsx::ProductList › status 필터 적용 | ProductList.test.tsx:30 |
+| EC-09 | vitest::src/ProductList.test.tsx::ProductList › 필터 없음이면 기존 목록과 동일 | ProductList.test.tsx:58 |
+
 ## Plan
 [확정된 Plan 전문 그대로 복사]
 
@@ -131,7 +143,7 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 [Phase 3.3 검증 루프의 Iteration Diff Log — Phase 4 ①에서 복사]
 
 ## Readback Diff
-[Phase 7.7 결과. Phase 7.7 실행 전에는 `미실행`, light면 `SKIPPED:TIER_LIGHT`]
+[Phase 7.7 결과. Phase 7.7 실행 전에는 `미실행`, light면 `SKIPPED:TIER_LIGHT`, quick이면 `SKIPPED:TIER_QUICK`]
 
 ## Final Decisions
 [Phase 11 ②~④에서 받은 유저 결정을 받는 즉시 append. 재개 시 기록된 항목은 다시 묻지 않는다]
@@ -151,7 +163,7 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 ```
 
 `--reflect` 미지정 시(기본): 생성 시점에 Phase 10 행의 Status를 `SKIPPED:REFLECT_NOT_REQUESTED`로 기록하고, `Remaining Phases`에서 "Phase 10: 성찰"을 제외한다.
-light 티어: `Phase Results`에 7.2·7.7 행을 `SKIPPED:TIER_LIGHT`로 미리 기록하지 않는다 — 승격으로 실행될 수 있으므로 해당 단계 도달 시점에 기록한다.
+light·quick 티어: 생략 단계(`SKIPPED:TIER_LIGHT`·`SKIPPED:TIER_QUICK`)를 `Phase Results`·Phase Assignments에 미리 기록하지 않는다 — 승격으로 실행될 수 있으므로 해당 단계 도달 시점에 기록한다.
 
 ## Phase 4: Implementation Notes 라이브 파일 초기화
 
@@ -221,7 +233,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py"
 ### 1. 작업 요약
 - **작업 유형**: [화면 생성/화면 수정/컴포넌트 생성/컴포넌트 수정/API 연동/API 연동 수정]
 - **난이도**: [N]/10 (산정) → [M]/10 (체감)
-- **검증 티어**: [light | standard | light → standard ({트리거}, 미재실행: 3.2)]
+- **검증 티어**: [{T} (선언 {D|없음}, 계산 {C0}) | {이전} → {최종} ({트리거}, 미재실행: {목록})]
 - **Codex 모드**: [none | mix | max] · 모델: [기본 | {CODEX_MODELS}]{ · runtime: fallback({항목}, …)}
 - **PR**: [PR URL]
 
@@ -236,14 +248,14 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py"
 | EC-01 | [케이스] | [대응] | PASS | 일치 |
 | EC-02 | [케이스] | [대응] | deferred_e2e | A 검증 누락 |
 
-- `테스트` 열: Phase 5.1 TDD Test Map의 Green 결과 또는 진단 분류. TDD SKIP이면 `-`
+- `테스트` 열: Phase 5.1 TDD Test Map의 Green 결과 또는 진단 분류. `## Quick Test Evidence`가 있으면 그 테스트와 최신 7.4 결과(정확 ID PASS 증거 확인), R0가 수용한 deferred_e2e는 `미검증(E2E 이연)`. TDD SKIP이면 `-`
 - `Read-back` 열: Phase 7.7 Diff 유형(A~E) 또는 `일치`. Phase 7.7이 SKIP이면 `-`
 
 ### 4. 품질 루프 결과
 - **루프**: [N]회 (상한 `{QL_MAX}`) / 수정 [M]건 — 단계별 건수·상태는 부록 B `Phase Results`
 - **E2E 실행 수준**: [smoke | full | full(smoke 미적용: {사유}) | full-command | SKIPPED:{사유}]
 - **테스트 판정**: [PASS/WARN/FAIL] — regression [n]건 / new_red [n]건 / flaky [n]건 / pre_existing [n]건(범위 밖)
-- **Read-back 판정**: [PASS/WARN/FAIL | SKIPPED:TIER_LIGHT] — A [n]건 / C [n]건 / E [n]건 (소스: 테스트 파일 / 테스트 리포트 / 구현 코드)
+- **Read-back 판정**: [PASS/WARN/FAIL | SKIPPED:TIER_*] — A [n]건 / C [n]건 / E [n]건 (소스: 테스트 파일 / 테스트 리포트 / 구현 코드)
 
 ### 4.1 TDD 미해결 항목 (유저 결정 필요)
 > TDD가 SKIP이거나 미해결 항목이 없으면 "없음"으로 적고 이 섹션을 비운다.
@@ -257,8 +269,8 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py"
 | `cannot_compile` | 3회 시도 후 되돌린 테스트 | [Spec ID] | 수동 작성 / 범위 제외 |
 
 ### 5. 컴포넌트/접근성 리뷰
-- 컴포넌트 리뷰: [요약 | SKIPPED:TIER_LIGHT]
-- 접근성 리뷰: [요약]
+- 컴포넌트 리뷰: [요약 | SKIPPED:TIER_*]
+- 접근성 리뷰: [요약 | SKIPPED:TIER_QUICK]
 
 ### 6. 성찰
 [성찰 에이전트 결과. Phase 10이 `SKIPPED:*`면 "성찰 생략(`{실제 상태 코드}`)" 한 줄만 기입하고 사유별 안내를 덧붙인다 —
