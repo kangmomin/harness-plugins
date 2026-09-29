@@ -94,16 +94,16 @@ be-harness Phase 구성에 오버레이 델타가 얹힌 실행 흐름:
 Pre-flight: profile 점검 (be) + .env / Apidog MCP / PostgreSQL MCP (오버레이)
 Phase 1 : Spec 수집 (/be-harness:request + request 오버레이, Plan 모드)
 Phase 1+: E2E 메인 플로우 수집                          ← 오버레이 삽입
-Phase 2 : 난이도 산정 (1-10) + 검증 티어 판정 (light / standard)
+Phase 2 : 티어 선언 확인 (quick / light / standard — 산정·판정은 Phase 4.1 끝)
 Phase 3 : 실행 전략 판정 (sequential / parallel-slices / fullstack)
-Phase 4 : Plan 작성 → Claude 다관점 보강 → Codex 검증 루프  (quota 시 Claude 패널 대체 ← 오버레이)
+Phase 4 : Plan 작성 → 난이도·티어 판정 → Claude 다관점 보강 → Codex 검증 루프  (quota 시 Claude 패널 대체 ← 오버레이, quick은 보강·루프 SKIP)
 Phase 5 : 브랜치 + 상태 파일 + implementation-notes + 회귀 baseline → 자율 실행 시작
 Phase 6~11: 자율 실행 (묻지 않고 완주)
-  6 TDD 구현 → 7 빌드 체크 → 8 품질 루프(E2E 포함 — light 티어면 축소·smoke)
-  8+ Codex 품질 리뷰                                    ← 오버레이 삽입
-  9 Apidog 문서 동기화 (workflow-doc-sync)              ← 오버레이 치환
+  6 TDD 구현 → 7 빌드 체크 → 8 품질 루프(E2E 포함 — light는 축소·smoke, quick은 E2E 없음)
+  8+ Codex 품질 리뷰 (quick SKIP)                       ← 오버레이 삽입
+  9 Apidog 문서 동기화 (workflow-doc-sync — quick은 Phase 12 결정으로 이연) ← 오버레이 치환
   10 PR → 11 성찰 (`--reflect` 시에만)
-Phase 12: 최종 보고 → md Workflow Report 아카이브 (workflow_archive.py)
+Phase 12: 최종 보고 (quick 이연 문서 동기화 결정 ← 오버레이 삽입) → md Workflow Report 아카이브 (workflow_archive.py)
 ```
 
 > `--analyze` / `--verify` 모드는 be-harness 의 `references/analyze-verify-modes.md` 를 그대로 따른다.
