@@ -89,6 +89,31 @@ class WorkflowPolicyTests(unittest.TestCase):
         self.assertEqual(got['domain'], 'fe')
         self.assertEqual(got['arguments'], ['--codex-models', '--analyze', '--', '--fs'])
 
+    def test_tier_value_is_validated_before_routing_or_ignoring(self):
+        for tier in ('quick', 'light', 'standard'):
+            got = policy.route(dict(entry='be', arguments=['--tier', tier]))
+            self.assertEqual(got['status'], 'READY')
+            self.assertEqual(got['arguments'], ['--tier', tier])
+        self.assertEqual(policy.route(dict(entry='fe', arguments=['--tier', 'quick', '--tier', 'quick']))['status'], 'READY')
+        self.assertEqual(policy.route(dict(entry='be', arguments=['--analyze', '--tier', 'quick']))['mode'], 'analyze')
+        for args in (['--tier', '--verify'], ['--fs', '--tier', '--verify'], ['--tier', 'fast'],
+                     ['--tier', 'quick', '--tier', 'light'], ['--tier']):
+            with self.assertRaises(ValueError, msg=args):
+                policy.route(dict(entry='common', arguments=args, installed=INSTALLED))
+        resume = dict(resume_mode='be', resume_hard=False, installed=INSTALLED)
+        state = ['--resume', '/tmp/run/workflow-state.md']
+        self.assertEqual(policy.route(dict(resume, arguments=state + ['--tier', 'light']))['status'], 'READY')
+        with self.assertRaises(ValueError):
+            policy.route(dict(resume, arguments=state + ['--tier', 'fast']))
+        self.assertEqual(policy.route(dict(entry='be', arguments=['--', '--tier', 'fast']))['status'], 'READY')
+        with tempfile.TemporaryDirectory() as tmp:
+            proc = subprocess.run([sys.executable, '-I', '-B', str(ASSETS / 'workflow_policy.py'), 'route', '-'],
+                                  input=json.dumps(dict(entry='be', arguments=['--tier', '--verify'])),
+                                  cwd=tmp, text=True, capture_output=True)
+        self.assertEqual(proc.returncode, 2)
+        self.assertEqual(proc.stdout, '')
+        self.assertIn('BLOCKED:WORKFLOW_POLICY: invalid --tier value: --verify', proc.stderr)
+
     def test_blocked_fullstack_reaches_decision_without_git_even_without_tdd(self):
         green = dict(be='PASS', fe='PASS', contract='PASS', hooks='PASS', fresh=True, publish_policy='pr')
         for key, failure in [('be', 'BLOCKED:TEST_NOT_GREEN'), ('contract', 'BLOCKED:CONTRACT_DIFF'),

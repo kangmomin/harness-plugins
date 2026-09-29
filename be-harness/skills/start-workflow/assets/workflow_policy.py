@@ -21,6 +21,7 @@ def flag_values(args):
     """Do not interpret flag-like values or literal text after -- as flags."""
     result = []
     values = {'--resume', '--codex', '--codex-models', '--tier'}
+    tiers = set()
     i = 0
     while i < len(args):
         flag = args[i]
@@ -31,7 +32,14 @@ def flag_values(args):
             if i + 1 == len(args):
                 raise ValueError('missing value: ' + flag)
             i += 1
+            # Only --tier validates its value; other value flags keep flag-like values literal.
+            if flag == '--tier':
+                if args[i] not in ('quick', 'light', 'standard'):
+                    raise ValueError('invalid --tier value: ' + args[i])
+                tiers.add(args[i])
         i += 1
+    if len(tiers) > 1:
+        raise ValueError('conflicting --tier values: ' + ', '.join(sorted(tiers)))
     return result
 
 
