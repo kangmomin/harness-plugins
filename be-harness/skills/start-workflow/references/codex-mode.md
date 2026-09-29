@@ -158,7 +158,7 @@
 
 | 지점 (슬롯) | 대상 | 역할 파일 (`developer-instructions` ①) |
 |------|------|------|
-| Plan 검증 루프 (`review`) | Phase 4.3 (난이도 = Phase 4.1에서 동결한 종합 난이도 — quick은 4.3 SKIP) | — (Spec·Plan 전문 전달) |
+| Plan 검증 루프 (`review`) | Phase 4.3 (난이도 = Phase 4.1에서 동결한 종합 난이도 — Plan 깊이 quick은 4.3 SKIP) | — (Spec·Plan 전문 전달) |
 | 특화 하네스 품질 리뷰 (`review`) | minmos 오버레이 `Phase 8+` | — |
 | 탐색·수집 / 이해·요약 (`explore`) | 탐색 위임 에이전트(haiku/low 묶음) · 8.8 Read-back 복원(sonnet) | — (general-purpose) |
 | 읽기 전용 판정 (`judge`) | 8.4 `scope-reviewer` · 8.2+8.3 통합 스캐너 · A3 `code-analyzer` · V3 `code-verifier` · `edge-case-analyzer`(워크플로우 밖 직접 호출 시) · 11 `workflow-reflection` | `{PLUGIN_ROOT}/agents/{name}.md` (통합 스캐너는 general-purpose) |

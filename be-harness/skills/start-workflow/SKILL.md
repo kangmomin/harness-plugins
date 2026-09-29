@@ -21,7 +21,7 @@ user-invocable: true
 - `{STATE_FILE}` = `{RUN_DIR}/workflow-state.md` · `{IMPL_NOTES}` = `{RUN_DIR}/implementation-notes.md`
 - `{REPORT_DIR}` = profile의 `reportDir` (없으면 `.claude/harness-reports`)
 - `{WORK_REPORT}` = `{RUN_DIR}/workflow-report.md`
-- `{PLAN_MAX}` = Phase 4.3 상한 (standard 5 / light 2 / quick 0) · `{QL_MAX}` = Phase 8 상한 (standard 3 / light 2 / quick 2)
+- `{PLAN_MAX}` = Phase 4.3 상한 (Plan 깊이 P 기준: standard 5 / light 2 / quick 0) · `{QL_MAX}` = Phase 8 상한 (티어 T 기준: standard 3 / light 2 / quick 2)
 - `{CWD}` = 현재 작업 디렉토리 (프로젝트 루트)
 - `{buildCommand}` 등 profile 변수 = Pre-flight에서 로드
 
@@ -37,7 +37,7 @@ user-invocable: true
 | `--hard` | `-h` | 브랜치 생성/검증을 건너뛰고 현재 브랜치에서 바로 push. `/common:commit-hard-push` 방식. |
 | `--no-tdd` | | Phase 6.1(테스트 우선)을 건너뛰고 곧바로 구현한다. 회귀 baseline도 수집하지 않는다. 미선언이면 검증 티어 standard (선언 시 `references/verification-tier.md` §3). |
 | `--reflect` | | Phase 11(성찰)을 실행한다. 미지정 시 Phase 11은 `SKIPPED:REFLECT_NOT_REQUESTED` (주기 실행 권장 — 워크플로우 5~10회마다 1회). |
-| `--tier {quick\|light\|standard}` | | 검증 티어를 선언한다 (4.4 승인 전까지 변경 가능). 값 검증은 진입 검사가 하고, 산정 티어와의 충돌·승격은 `references/verification-tier.md` §1·§3·§5를 따른다. |
+| `--tier {quick\|light\|standard}` | | 검증 티어(작업 난이도)를 선언한다 (4.4 승인 전까지 변경 가능). 자연어 `작업 난이도: 하\|중\|상`·착수 질문 응답도 같은 선언이며, 선언은 Plan 깊이의 상한이 된다. 값 검증은 진입 검사가 하고, 산정 티어와의 충돌·승격은 `references/verification-tier.md` §1·§2.1·§3·§5를 따른다. |
 | `--codex {none\|mix\|max}` | | Codex 사용 모드를 지정하고 profile `codexMode`에 저장한다 (모든 모드 공통). 미지정 시 profile → 질문(권장 `mix`). 정의·호출 계약·실패 정책: `references/codex-mode.md` |
 | `--codex-models {슬롯}={provider}/{model}[@{effort}] \| default[,…]` | | Codex 위임 모델 슬롯(`review`·`explore`·`judge`·`write`)을 지정하고 profile `codexModels`에 저장한다 (`--codex none`이면 N/A). 문법·병합·검증: `references/codex-mode.md` §2.1 |
 | `--analyze` | `-a` | **Analyze 모드**. 전체 또는 특정 범위의 코드를 분석하여 보고서를 생성한다. |
@@ -52,7 +52,7 @@ user-invocable: true
 | 위 플래그 없음 | **Build** (기본) | Phase 1 → 12 |
 
 - `--resume`이면 명시된 상태의 `## Run` MODE로 모드를 판별하고 경로 검증을 수행한다. 명시 모드 플래그와 충돌하면 `BLOCKED:RUN_MISMATCH`. `--analyze`와 `--verify`는 상호 배타적이다. 동시 지정은 진입 검사(`references/entry-contract.md`)가 `BLOCKED:MODE_CONFLICT`로 종료하며, 사유와 지원 조합을 안내한다.
-- Build 모드 전용 플래그 (Analyze/Verify 모드에서는 무시 — 구현 Phase를 경유하지 않음): `$HARD_MODE`와 `$PUBLISH_POLICY`는 진입 gate의 `hard`/`publish_policy` 값을 사용한다 · `--no-tdd`면 `$TDD = false` (기본값 `true`) · `--reflect`면 `$REFLECT = true` (기본값 `false` — Phase 11 실행 여부) · `--tier` 값 또는 티어 이름을 지목한 지시면 `$TIER_DECLARED` = 그 값 (기본값 `none` — 해석: `references/verification-tier.md` §1).
+- Build 모드 전용 플래그 (Analyze/Verify 모드에서는 무시 — 구현 Phase를 경유하지 않음): `$HARD_MODE`와 `$PUBLISH_POLICY`는 진입 gate의 `hard`/`publish_policy` 값을 사용한다 · `--no-tdd`면 `$TDD = false` (기본값 `true`) · `--reflect`면 `$REFLECT = true` (기본값 `false` — Phase 11 실행 여부) · `--tier` 값, 티어 이름을 지목한 지시, `작업 난이도: 하|중|상` 또는 착수 질문 응답이면 `$TIER_DECLARED` = 그 값 (기본값 `none` — 해석: `references/verification-tier.md` §1·§1.1).
 - **범위 지정**: 플래그 뒤 경로가 있으면 분석/검증 범위로 사용한다. 없으면 전체 코드베이스 (profile의 `sourceDirs` 기준).
   예: `--analyze src/book`, `--verify src/book/handler.go`
 
@@ -157,7 +157,7 @@ Codex 호출 실패는 이 규약 대상이 아니다 — `references/codex-mode
 신규 실행에서 profile이 없으면 안내 후 종료한다:
 > "`.claude/be-harness.local.md` 가 없습니다. 먼저 `/be-harness:init`을 실행하세요."
 
-**Codex 모드 resolve** (`references/codex-mode.md` §2): 재개면 상태 파일 `## Flags`의 `CODEX`가 기준(`--codex` 무시). 신규면 `--codex` > profile `codexMode` > (대화형) 3지선다 질문 / (비대화형) `mix` ephemeral — 명시 입력만 profile에 기록하고, 값은 exact `none|mix|max`로 검증한다. 확정 직후 `--codex-models`도 동형으로 resolve한다 (§2.1 — 재개면 `CODEX_MODELS` 기준·플래그 무시, `none`이면 `N/A`, 명시 입력만 profile `codexModels`에 기록, 슬롯 단위 병합 `플래그 > profile > 기본값`; 결과는 `$CODEX_MODELS`).
+**Codex 모드 resolve** (`references/codex-mode.md` §2): 재개면 상태 파일 `## Flags`의 `CODEX`가 기준(`--codex` 무시). 신규면 `--codex` > profile `codexMode` > (대화형) 3지선다 질문 / (비대화형) `mix` ephemeral — 명시 입력만 profile에 기록하고, 값은 exact `none|mix|max`로 검증한다. Build 신규 실행이면 질문 전에 난이도 착수 질문(`references/verification-tier.md` §1.1)의 필요 여부도 판정해, 둘 다 필요하면 한 AskUserQuestion으로 묻고 착수 질문만 필요하면 이 시점에 단독으로 묻는다 (SKIP 사전 경고보다 먼저). 확정 직후 `--codex-models`도 동형으로 resolve한다 (§2.1 — 재개면 `CODEX_MODELS` 기준·플래그 무시, `none`이면 `N/A`, 명시 입력만 profile `codexModels`에 기록, 슬롯 단위 병합 `플래그 > profile > 기본값`; 결과는 `$CODEX_MODELS`).
 `none`이 아니면 도구 목록에 `mcp__codex__codex` 존재를 확인한다 — 없으면 `$CODEX_RUNTIME = fallback(global:mcp_missing)` + 고지(profile 불변). `max`이고 세션 모델이 opus/fable 계열이 아니면 1줄 고지한다.
 
 ### 2. SKIP 예정 Phase 사전 경고
@@ -247,7 +247,7 @@ Spec 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 �
 **parallel-slices 추가 요구사항**: Plan에 `## Slices` 섹션을 명시한다 (Slice별 제목/파일 범위/설명, 최대 3개).
 슬라이스 간 파일 범위가 겹치면 `sequential`로 전략을 변경한다.
 
-**난이도·티어 판정** (Plan 초안 직후 1회): `references/verification-tier.md` §2로 A/B·종합 난이도(여기서 동결)·계산 티어를 산정하고 §3으로 유효 티어를 정해 §2 형식으로 출력한다. quick이면 4.2·4.3을 `SKIPPED:TIER_QUICK`으로 건너뛰고 4.4로 간다.
+**난이도·티어 판정** (Plan 초안 직후 1회): `references/verification-tier.md` §2로 A/B·종합 난이도(여기서 동결)·계산 티어를 산정하고 §3으로 유효 티어 T를, §2.1로 Plan 깊이 P를 정해 §2 형식으로 출력한다. P가 quick이면 4.2·4.3을 `SKIPPED:PLAN_QUICK`으로 건너뛰고 4.4로 간다.
 
 ### Phase 4.2: 다관점 Plan 보강 (Claude, 1회)
 
@@ -256,7 +256,7 @@ Spec 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 �
 최대 3개 서브에이전트(`general-purpose`) 병렬 × 2배치:
 - Batch 1: 유지보수성 + 성능 + 엣지 케이스
 - Batch 2: 데이터 정합성 + 보안 + 기존 코드 영향
-- **light**: 배치 없이 `general-purpose` 1개가 3관점(엣지 케이스 · 기존 코드 영향 · 더 단순한 경로)을 한 번에 리뷰한다. **quick**: `SKIPPED:TIER_QUICK`.
+- **P light**: 배치 없이 `general-purpose` 1개가 3관점(엣지 케이스 · 기존 코드 영향 · 더 단순한 경로)을 한 번에 리뷰한다. **P quick**: `SKIPPED:PLAN_QUICK`.
 
 각 에이전트 프롬프트에 Spec 전문 + Plan 전문을 전달하고 아래 형식으로 받는다:
 
@@ -292,8 +292,8 @@ for iteration in 1..{PLAN_MAX}:
 |----------|------|
 | 리뷰어 `APPROVE` | **PROCEED** → Phase 4.4 |
 | 사용자가 명시적으로 루프 종료 지시 | **USER-INTERRUPTED** → 잔존 이슈 기록 후 진행 |
-| Claude 패널 실패 (유효 verdict 3개 미달 — codex-mode.md §6) | **CODEX-UNAVAILABLE** → 사유를 상태 파일에 기록하고 진행 (light면 승격 ⑤ → standard). Codex 호출 실패 자체는 §7대로 패널 폴백이며 이 코드가 아니다 |
-| `{PLAN_MAX}`회 도달, 미APPROVE | **BLOCKED:MAX_ITERATIONS** → 아래 선택지 제시 (light는 상한 평가 전에 승격 ① → `{PLAN_MAX}` = 5로 계속) |
+| Claude 패널 실패 (유효 verdict 3개 미달 — codex-mode.md §6) | **CODEX-UNAVAILABLE** → 사유를 상태 파일에 기록하고 진행 (P light면 승격 ⑤ → T standard). Codex 호출 실패 자체는 §7대로 패널 폴백이며 이 코드가 아니다 |
+| `{PLAN_MAX}`회 도달, 미APPROVE | **BLOCKED:MAX_ITERATIONS** → 아래 선택지 제시 (P light는 상한 평가 전에 승격 ① → `{PLAN_MAX}` = 5로 계속) |
 
 `{PLAN_MAX}`회 도달 시 선택지: "Plan 검증 루프가 {PLAN_MAX}회에 도달했습니다. 미해결 이슈: {요약} — 1. 현재 Plan으로 진행(잔존 이슈를 상태 파일에 기록하고 Phase 4.4로) 2. 루프 계속(5회 추가 반복) 3. 중단(워크플로우 종료)"
 
@@ -303,7 +303,7 @@ for iteration in 1..{PLAN_MAX}:
 
 ### Phase 4.4: Plan 확정
 
-최종 Plan으로 티어를 재판정해 승인 기준선 R0를 확정한다 (상향만 — 건너뛴 4.2·4.3은 새 티어로 실행 후 복귀, `references/verification-tier.md` §2·§3). 작업 계약의 완료 조건·티어·원격 효과를 Plan과 함께 공유하고 같은 Spec·Plan·대상·효과의 기존 승인을 확인한다. 일치하면 추가 확인 질문 없이 재사용하고, 미승인 변경만 구체적으로 승인받는다. 루프 종료 후 `ExitPlanMode`를 실행하며 호스트가 요구하는 승인은 따른다. 상태 파일 하단에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
+최종 Plan으로 티어 T와 Plan 깊이 P를 재판정해 승인 기준선 R0를 확정한다 (상향만 — P가 올라 건너뛴 4.2·4.3은 새 P로 실행 후 복귀, T만 오르면 재실행 없음, `references/verification-tier.md` §2·§2.1·§3). 작업 계약의 완료 조건·티어·원격 효과를 Plan과 함께 공유하고 같은 Spec·Plan·대상·효과의 기존 승인을 확인한다. 일치하면 추가 확인 질문 없이 재사용하고, 미승인 변경만 구체적으로 승인받는다. 루프 종료 후 `ExitPlanMode`를 실행하며 호스트가 요구하는 승인은 따른다. 상태 파일 하단에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
 
 ## Phase 5: 브랜치 + 상태 파일 + Baseline + 자율 실행 시작
 
@@ -452,7 +452,7 @@ scope 마감은 references/review-evidence.md의 check-scope와 check-current --
 | 코드 | 의미 |
 |------|------|
 | `DONE` / `IN_PROGRESS` / `PENDING` | Phase 진행 상태 |
-| `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 (예: `SKIPPED:PROFILE_EMPTY`, `SKIPPED:USER_OPT_OUT`, `SKIPPED:NO_TEST_BASIS`, `SKIPPED:REFLECT_NOT_REQUESTED`, `SKIPPED:TIER_LIGHT`, `SKIPPED:TIER_QUICK`, `SKIPPED:BUDGET_PRESERVED`, `SKIPPED:AGENT_DIED`) |
+| `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 (예: `SKIPPED:PROFILE_EMPTY`, `SKIPPED:USER_OPT_OUT`, `SKIPPED:NO_TEST_BASIS`, `SKIPPED:REFLECT_NOT_REQUESTED`, `SKIPPED:TIER_LIGHT`, `SKIPPED:TIER_QUICK`, `SKIPPED:PLAN_QUICK`, `SKIPPED:BUDGET_PRESERVED`, `SKIPPED:AGENT_DIED`) |
 | `BLOCKED:{사유}` | 진행 불가 — 사용자 개입 필요 (예: `BLOCKED:BUILD_FAIL`, `BLOCKED:MAX_ITERATIONS`, `BLOCKED:NO_VALID_RED`, `BLOCKED:REGRESSION_AT_RED`, `BLOCKED:TEST_NOT_GREEN`, `BLOCKED:AGENT_DIED`) |
 | `PASS` / `WARN` / `FAIL` | Verify 모드 판정, 테스트 판정, Read-back 판정 |
 
@@ -465,7 +465,7 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 | 파일 | 로드 시점 |
 |------|----------|
 | `references/analyze-verify-modes.md` | `--analyze` / `--verify` 모드 진입 시 |
-| `references/verification-tier.md` | Phase 2 (선언), Phase 4.1·4.4 (산정·판정·R0), Phase 5·6·8·10 (깊이·승격) |
+| `references/verification-tier.md` | Pre-flight (착수 질문), Phase 2 (선언), Phase 4.1·4.4 (산정·판정·Plan 깊이·R0), Phase 5·6·8·10 (깊이·승격) |
 | `references/templates.md` | Phase 5 (상태 파일·라이브 노트), Phase 12 (보고서·md 아카이브·보완점) |
 | `references/tdd.md` | Phase 5 (TDD 판정·baseline), Phase 6 진입 시 |
 | `references/agent-prompts.md` | Phase 6 진입 시 (Phase 6.2/7/9/10/11 프롬프트) + 에이전트 사망 시 (공통 규약 — 미로드면 즉시 Read) |
@@ -477,9 +477,9 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 ```
 [유저 대화] — Phase 1~4 전체가 단일 EnterPlanMode 컨텍스트
 Phase 1: EnterPlanMode → /request 또는 직접 Technical Spec + 작업 계약 (미결 결정만 확인)
-Phase 2: 티어 선언 확인 (quick / light / standard — 산정·판정은 4.1 끝)
+Phase 2: 티어 선언 확인 (--tier · 작업 난이도 · 착수 질문 — 산정·판정은 4.1 끝)
 Phase 3: 실행 전략 판정 (sequential / parallel-slices / fullstack → /common:start-workflow --fs 로 전환)
-Phase 4: Plan 작성 → 난이도·티어 판정 → 다관점 1회 보강 → 검증 루프 (리뷰어 = codexMode: Codex `review` 슬롯 | Claude 패널, 최대 {PLAN_MAX}회 — quick은 둘 다 SKIP) → 재판정·ExitPlanMode
+Phase 4: Plan 작성 → 난이도·티어·Plan 깊이 판정 → 다관점 1회 보강 → 검증 루프 (리뷰어 = codexMode: Codex `review` 슬롯 | Claude 패널, 최대 {PLAN_MAX}회 — Plan 깊이 quick은 둘 다 SKIP) → 재판정·ExitPlanMode
 Phase 5: feature 브랜치 + 상태 파일 + implementation-notes.md + 회귀 baseline → "자율 실행 시작"
 
 [자율 실행 — 유저 확인 없이 완주. codexMode max: 리프 에이전트를 Codex 슬롯(`explore`/`judge` 읽기 · `write` 쓰기)으로 위임 — codex-mode.md]

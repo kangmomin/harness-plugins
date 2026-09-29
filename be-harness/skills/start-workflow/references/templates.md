@@ -45,14 +45,15 @@ START_SHA=$(git rev-parse HEAD 2>/dev/null || echo 없음)
 [N]/10 — Phase 4.1 동결 (`CODEX_MODELS` `tiered` 입력)
 
 ## Verification Tier
-- 선언: {quick|light|standard ({CLI|대화}) | 없음 | 무시됨(FS)}
+- 선언: {quick|light|standard ({CLI|대화|착수 질문}) | 없음 | 무시됨(FS)}
 - C0 (4.1): {quick|light|standard} — 판정 #{n}, A [a]/10, B [b]/10
 - 승인 기준 R0 (4.4): 판정 #{n} / A·B 요소값 / 소스 {N}개 ({목록}) / 금지 조건 {해당 없음|{항목}} / 계약 {변경 없음|{요약}} / TDD {적용|SKIP:{사유}} / deferred_e2e {없음|{ID}} / 전략 {sequential|parallel-slices} / 선언 유지 사유 {없음|{원인}}
 - 유효 티어: {quick|light|standard}
+- Plan 깊이: {quick|light|standard} — P#{n}{, 선언 상한} / 4.2 {3×2|1에이전트|SKIPPED:PLAN_QUICK} / PLAN_MAX {5|2|0} {/ 변경: {4.1 값} → {최종} ({4.4 재판정|선언 변경|①})}
 - 수용 예외: {없음 | {금지 항목} · {정규화 경로} · {행위·대상} · Plan v{N}, …}
 - 근거: {요소별 밴드 요약 + risk_facts.py 출력 요약}
 - 시작 커밋: {START_SHA}
-- 축소 항목: {light: 4.2 1에이전트 / PLAN_MAX 2 / QL_MAX 2 / 8.2 SKIP / 8.6 smoke / 8.8 SKIP | quick: 4.2·4.3·6.1·8.2·8.3·8.6·8.8 SKIP / QL_MAX 2 | 없음}
+- 축소 항목 (T 기준 — 4.2·4.3·PLAN_MAX는 `Plan 깊이` 줄): {light: QL_MAX 2 / 8.2 SKIP / 8.6 smoke / 8.8 SKIP | quick: 6.1·8.2·8.3·8.6·8.8 SKIP / QL_MAX 2 | 없음}
 
 | 시점 | 트리거 | 근거 | 조치 | 의무 | 완료 |
 |------|--------|------|------|------|------|
@@ -177,7 +178,7 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 ```
 
 `--reflect` 미지정 시(기본): 생성 시점에 Phase 11 행의 Status를 `SKIPPED:REFLECT_NOT_REQUESTED`로 기록하고, `Remaining Phases`에서 "Phase 11: 성찰"을 제외한다.
-light·quick 티어: 생략 단계(`SKIPPED:TIER_LIGHT`·`SKIPPED:TIER_QUICK`)를 `Phase Results`·Phase Assignments에 미리 기록하지 않는다 — 승격으로 실행될 수 있으므로 해당 단계 도달 시점에 기록한다.
+light·quick 티어: 생략 단계(`SKIPPED:TIER_LIGHT`·`SKIPPED:TIER_QUICK`)를 `Phase Results`·Phase Assignments에 미리 기록하지 않는다 — 승격으로 실행될 수 있으므로 해당 단계 도달 시점에 기록한다. 4.2·4.3의 `SKIPPED:PLAN_QUICK`은 4.4 확정 뒤 이 상태 파일을 만들 때 기록한다.
 
 ## Phase 5: Implementation Notes 라이브 파일 초기화
 
@@ -255,7 +256,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py"
 ### 1. 작업 요약
 - **작업 유형**: [생성/수정/검토/디버깅]
 - **난이도**: [N]/10 (산정) → [M]/10 (체감)
-- **검증 티어**: [{T} (선언 {D|없음}, 계산 {C0}) | {이전} → {최종} ({트리거}, 미재실행: {목록})]
+- **검증 티어**: [{T} (선언 {D|없음}, 계산 {C0}) | {이전} → {최종} ({트리거}, 미재실행: {목록})] · Plan 깊이 {P | 구 상태면 `-`}
 - **Codex 모드**: [none | mix | max] · 모델: [기본 | {CODEX_MODELS}]{ · runtime: fallback({항목}, …)}
 - **PR**: [PR URL]
 
