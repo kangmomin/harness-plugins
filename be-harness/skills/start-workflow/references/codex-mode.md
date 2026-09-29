@@ -60,7 +60,7 @@
     write:  { provider: openrouter, model: moonshotai/kimi-k2.7 }  # effort 생략 + 비-openai → effort 미전달
   ```
 - 슬롯 레코드 = `{provider, model, effort?}` — `provider`·`model`은 함께 필수, 그 외 키·알 수 없는 슬롯 = 무효. `provider` = `openai` 또는 `^[A-Za-z0-9_-]+$` (대소문자 보존 — Codex 테이블 키와 exact match). `model` = `^[A-Za-z0-9._:/-]+$` (`,` `@` `=`·공백 금지 — `@` 포함 모델명은 미지원). `effort` ∈ `minimal | low | medium | high | xhigh | max | ultra | tiered` (`tiered`는 `review`만).
-- **effort 전달**: 명시값 → 그 값 (`tiered`는 Phase 2 종합 난이도로 `xhigh|max`를 **변환 후** 전송 — 문자열 `tiered` 전송 금지). 생략 → `openai`면 기본값 표의 effort, 비-openai면 `model_reasoning_effort` 키 자체를 생략. 거부는 §7 슬롯 latch. 컨텍스트 창·reasoning summary 등 모델 메타데이터는 Codex `model_catalog_json`/root 키로 유저가 설정한다 (슬롯별 `config` 패스스루 없음).
+- **effort 전달**: 명시값 → 그 값 (`tiered`는 해당 워크플로우가 확정한 종합 난이도(확정 후 불변 — 확정 시점은 아래 플러그인 매핑)로 `xhigh|max`를 **변환 후** 전송 — 문자열 `tiered` 전송 금지). 생략 → `openai`면 기본값 표의 effort, 비-openai면 `model_reasoning_effort` 키 자체를 생략. 거부는 §7 슬롯 latch. 컨텍스트 창·reasoning summary 등 모델 메타데이터는 Codex `model_catalog_json`/root 키로 유저가 설정한다 (슬롯별 `config` 패스스루 없음).
 - **`--codex-models {슬롯}={값}[,{슬롯}={값}]`** — `{값}` = `{provider}/{model}[@{effort}]` | `default`(슬롯 키 삭제 = 기본값). provider는 항상 명시(OpenAI도 `openai/{model}`): provider = 첫 `/` 앞, model = 그 뒤 ~ 마지막 `@` 앞, effort = 마지막 `@` 뒤. **원자적** — 빈 항목·중복 슬롯·알 수 없는 슬롯·패턴 불일치가 하나라도 있으면 플래그 전체 무효.
 
 | 입력 | 결과 |
@@ -76,7 +76,7 @@
 - **검증** (모든 입력원 동일): 명시 입력(플래그·init/질문 응답)이 무효 → 대화형: 잘못된 항목 고지 + 재입력 1회 (2차 무효 → profile·상태 파일 불변, 입력 오류로 종료) / 비대화형: 플래그 무시 + 경고, profile 불변. 저장된 profile의 무효 슬롯 → 그 슬롯만 기본값 + 경고 (실행 계속, profile 불변, doctor `INVALID_SLOT`).
 - **profile 기록**: 명시 입력이 있을 때만, `codexMode`와 같은 writable profile의 `codexModels`에 유효 슬롯만 병합 기록 (`default` = 키 삭제). profile 부재·레거시만 → ephemeral + `init` 안내 (파일 생성·수정은 `init` 소유). 시점 = Pre-flight, `codexMode` resolve **직후**.
 - **resolve 순서(고정)**: ① `CODEX` 확정 → ② `none`이면 terminal — `CODEX_MODELS: N/A`, provider 점검·dispatch·latch·minmos 매핑 전부 N/A (profile `codexModels` 무시) → ③ 그 외에만 슬롯 resolve.
-- **상태 파일**: `## Flags`에 `- CODEX_MODELS: review={provider}/{model}@{effort},explore=…,judge=…,write=…` — 4슬롯 고정 순서, effort는 **확정값만**: enum 값 = 그대로 전송 / `-` = `model_reasoning_effort` 키 생략 (문자열 `-` 전송 금지) / `tiered`는 기록 금지 — Phase 2 종합 난이도로 `xhigh|max`를 확정해 기록 (난이도는 Phase 2 이후 불변). 불변, `CODEX: none`이면 `N/A`. 상태 파일 생성 이전에는 세션 변수 `$CODEX_MODELS` (난이도 확정 전엔 `tiered` 심볼, 확정 시 값으로 치환 — Plan 루프 dispatch는 그 값. 난이도가 없는 실행(Analyze/Verify)은 `review`를 `xhigh`로 확정). 호출은 이 문자열만으로 결정된다 — 재개 중 profile 재독 없음 (상태 `review=openai/{model}@max` + 그 사이 profile이 `zai`로 바뀜 → 호출은 여전히 `openai/{model}@max`).
+- **상태 파일**: `## Flags`에 `- CODEX_MODELS: review={provider}/{model}@{effort},explore=…,judge=…,write=…` — 4슬롯 고정 순서, effort는 **확정값만**: enum 값 = 그대로 전송 / `-` = `model_reasoning_effort` 키 생략 (문자열 `-` 전송 금지) / `tiered`는 기록 금지 — 해당 워크플로우가 확정한 종합 난이도로 `xhigh|max`를 확정해 기록 (확정 후 불변). 불변, `CODEX: none`이면 `N/A`. 상태 파일 생성 이전에는 세션 변수 `$CODEX_MODELS` (난이도 확정 전엔 `tiered` 심볼, 확정 시 값으로 치환 — Plan 루프 dispatch는 그 값. 난이도가 없는 실행(Analyze/Verify)은 `review`를 `xhigh`로 확정). 호출은 이 문자열만으로 결정된다 — 재개 중 profile 재독 없음 (상태 `review=openai/{model}@max` + 그 사이 profile이 `zai`로 바뀜 → 호출은 여전히 `openai/{model}@max`).
 - **재개**: `CODEX_MODELS`가 기준 — `--codex-models` 무시 + 고지, profile 미기록. 구 상태 파일(`CODEX_MODELS` 없음) → `CODEX` 확정 후(`none`이면 `N/A`) **기본값**으로 보완 기록 + 고지 (profile 재독 금지). 상태 파일 생성 이전 중단은 재개 대상이 아니다 — Pre-flight부터 재시작 (명시 입력은 Pre-flight에서 이미 profile에 기록됨. 비대화형 ephemeral만 재입력).
 - **풀스택**: `--fs` 경로에서만 소비·resolve·기록 (단일 도메인 위임은 플래그 통과). 읽기 = `codexModels` **블록 단위** — be profile 블록 → 없으면 fe 블록 → 둘 다 없으면 기본값 (슬롯 교차 병합 없음) → 플래그는 그 위에 슬롯 단위 덮어쓰기. 기록 = 명시 입력을 존재하는 writable be·fe profile **모두**에 병합 — 대상 profile에 `codexModels` 블록이 없으면 resolve에 사용한 블록을 먼저 복사한 뒤 명시 슬롯을 적용한다 (다음 실행의 블록 단위 읽기 = 이번 resolve 결과) (레거시 fe → fe `init` 안내, writable 대상 없음 → ephemeral, 어느 경우도 profile 생성 없음). 하위 에이전트는 상태 파일 `CODEX_MODELS`만 소비 (재-resolve·재저장 금지).
 
@@ -158,7 +158,7 @@
 
 | 지점 (슬롯) | 대상 | 역할 파일 (`developer-instructions` ①) |
 |------|------|------|
-| Plan 검증 루프 (`review`) | Phase 4.3 (난이도 = Phase 2 종합 난이도) | — (Spec·Plan 전문 전달) |
+| Plan 검증 루프 (`review`) | Phase 4.3 (난이도 = Phase 4.1에서 동결한 종합 난이도 — quick은 4.3 SKIP) | — (Spec·Plan 전문 전달) |
 | 특화 하네스 품질 리뷰 (`review`) | minmos 오버레이 `Phase 8+` | — |
 | 탐색·수집 / 이해·요약 (`explore`) | 탐색 위임 에이전트(haiku/low 묶음) · 8.8 Read-back 복원(sonnet) | — (general-purpose) |
 | 읽기 전용 판정 (`judge`) | 8.4 `scope-reviewer` · 8.2+8.3 통합 스캐너 · A3 `code-analyzer` · V3 `code-verifier` · `edge-case-analyzer`(워크플로우 밖 직접 호출 시) · 11 `workflow-reflection` | `{PLUGIN_ROOT}/agents/{name}.md` (통합 스캐너는 general-purpose) |

@@ -3,7 +3,7 @@
 최종 보고 Phase에서 결정을 받은 뒤, 상태 마감·아카이브 **전에 반드시** 이 절차를 수행한다. 최초 보고는 결정용 초안이다. 기록된 `## Final Decisions`는 재개 시 다시 묻지 않는다.
 
 1. 승인한 코드·Spec·테스트 수정만 적용한다. 변경 이유와 경로를 상태/구현 노트에 기록한다. Baseline 원본은 갱신하지 않는다.
-2. 수정 범위에 필요한 빌드·타입 체크·관련 단위/E2E 테스트·컨벤션 검증을 다시 실행한다 (BE Phase 7~9, FE Phase 6~8, 풀스택 Phase 7~8의 해당 검증). 동작/계약 수정은 해당 Read-back 대조도 갱신한다. 최종 검증 결과를 result-contract.md의 RESULTS_FILE에 새 iteration으로 기록하고 검증한 tested_tree를 함께 보관한다. 실패하면 승인 범위 안에서 수정·재검증하고, 미해결이면 해당 Phase를 `BLOCKED:{사유}`로 유지한다.
+2. 수정 범위에 필요한 빌드·타입 체크·관련 단위/E2E 테스트·컨벤션 검증을 다시 실행한다 (BE Phase 7~9, FE Phase 6~8, 풀스택 Phase 7~8의 해당 검증). 재검증 집합은 현재 검증 티어(`## Flags` `TIER`)의 단계를 따르고 티어가 생략한 단계를 자동 복원하지 않으며, 반영 직전 승격 ⑦ 재판정으로 티어가 오르면 새 티어의 단계를 실행한다. 동작/계약 수정은 해당 Read-back 대조도 갱신한다. 최종 검증 결과를 result-contract.md의 RESULTS_FILE에 새 iteration으로 기록하고 검증한 tested_tree를 함께 보관한다. 실패하면 승인 범위 안에서 수정·재검증하고, 미해결이면 해당 Phase를 `BLOCKED:{사유}`로 유지한다.
 3. `entry-contract.md`의 상태 `PUBLISH_POLICY`를 읽고 검증된 소유 수정만 기존 브랜치에서 논리별 커밋한다. 정책별 후속 처리는 아래 표대로 수행한다. 완료된 branch/VERSION/PR을 중복 실행하지 않는다. 모든 새 commit/amend/rebase 뒤 Gate를 다시 통과해야 원격 반영한다. 검증되지 않은 tree의 옛 PASS는 재사용하지 않는다.
 
    | PUBLISH_POLICY | 최종 수정/재개 시 반영 |

@@ -38,7 +38,7 @@ argument-hint: "[--be|--fe|--fs] <작업 설명> | --analyze [경로] | --verify
 |--------|----------------|----------------|
 | `--resume {STATE_FILE}` | 그대로 전달 | `run-lifecycle.md`로 절대 상태 경로·저장소·모드·미완료 여부 검증 |
 | `--reflect` | 그대로 전달 — 해당 하네스의 성찰 Phase 활성화 (기본 off) | **이 스킬이 소비** — 풀스택 Phase 10 회고를 1회만 실행하고 하위 도메인 에이전트에 전달하지 않는다 |
-| `--tier standard` | 그대로 전달 — 검증 티어 상향 강제 | 무시 (풀스택은 항상 standard) |
+| `--tier {quick\|light\|standard}` | 그대로 전달 — 해당 하네스가 티어 선언으로 해석 (값 검증은 진입 gate) | 진입 gate 값 검증 후 무시 (풀스택은 항상 standard, 선언은 `무시됨(FS)`) |
 | `--hard` / `-h` | 현재 브랜치 commit → Gate → **push**, PR 생략 | 현재 브랜치 **로컬 commit만**. push/PR 생략 (재개·최종 수정도 동일) |
 | `--no-tdd` | 그대로 전달 | 계약 Red/baseline 생략, 품질/통합 검증은 유지 |
 | `--analyze`/`-a`, `--verify`/`-v` | **BE만 지원**. FE는 진입 BLOCKED | 진입 BLOCKED — Build로 재해석 금지 |

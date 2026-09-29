@@ -13,7 +13,7 @@ r"""workflow_archive.py — Phase 12(fe 11 / 풀스택 11): 슬림 Workflow Repo
   쓰기:   임시 파일 작성 → 배타적 링크; 미지원 시 exit2, replace 폴백 없음 (덮어쓰기 없음, 생성 후 수정 없음).
   검증:   --require-headings 의 각 항목이 본문 헤딩(#… 텍스트가 항목으로 시작)에 없으면 `### {항목} (INCOMPLETE)` 삽입 + DEGRADED(머리글 누락).
           impl-notes 4 머리글(설계 결정/편차/트레이드오프/미결 질문) 누락 → 플레이스홀더 + DEGRADED.
-  touched_paths: --start-sha(없으면 상태 파일 `시작 커밋`/`START_SHA`) 기준 `git diff --name-only SHA` ∪ untracked, 제외 패턴은 verification-tier.md ②와 동일.
+  touched_paths: --start-sha(없으면 상태 파일 `시작 커밋`/`START_SHA`) 기준 `git diff --name-only SHA` ∪ untracked, 제외 패턴은 verification-tier.md ②의 정적 패턴과 동일(profile `{apiDocsPath}`·root `VERSION` 제외는 티어 집계 전용 — 기록에는 포함).
 """
 import argparse
 import datetime as _dt
