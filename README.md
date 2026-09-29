@@ -8,6 +8,10 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-09-29 난이도 기반 작업 깊이 (quick 티어)
+
+BE 1.6.0 / FE 1.5.0 / common 0.15.0 / minmos 2.6.0 / hyeondongs 3.0.3. 쿼리 파라미터 추가 같은 가벼운 작업이 전체 절차를 밟지 않도록 검증 티어를 quick/light/standard 3단계로 나눴다. 티어는 `--tier` 또는 티어 이름을 지목한 지시로 선언하거나, Plan 초안 직후 A/B 점수·금지 조건·quick 조건으로 자동 판정한다(light 게이트는 '높음 요소 0건'으로 완화, BE 레이어 2~3개 = 중간). quick은 Plan 리뷰·Codex Plan 루프·별도 Red·E2E·simplify·Read-back·minmos Codex 리뷰를 생략하고, 구현과 같은 dispatch에서 Spec 추적 ID의 신규 테스트를 작성해 `## Quick Test Evidence`의 PASS 증거·scope 대응 확인을 통과해야 한다. 빌드·단위/통합 테스트 회귀 대조·scope 1회·문서 동기화·PR은 유지한다. 선언이 금지 조건과 충돌하면 승인 전에 사용자가 고르고, 승인 후에는 승인 기준선(R0) 대비 새 사실로만 단조 승격한다. `--tier` 값은 진입 gate가 검증한다(허용 밖 값·플래그형 값·상충 중복은 exit 2). minmos quick은 Apidog 동기화를 최종 보고의 대화형 결정으로 이연한다. minmos 오버레이를 프로젝트에 복사(경로 B)했다면 `/minmos-harness:init`으로 갱신한다.
+
 ## 2026-09-28 프롬프트 감사 반영
 
 BE 1.5.9 / FE 1.4.8 / common 0.14.6 / minmos 2.5.4 / hyeondongs 3.0.2 / work-log 0.3.1. 최신 모델 기준 프롬프트 감사에서 나온 낡은 문구와 파일 간 불일치 73건을 정리하고, 정본이 분명한 모순 12건(Spec 외 변경 처리, sync-base·commit-pr의 base·버전 규칙, E2E 락 해제 판정, 사망 규약 정의 등)을 한쪽 기준에 맞췄다. 제품·설계 결정이 필요한 항목은 바꾸지 않고 보류했다.
