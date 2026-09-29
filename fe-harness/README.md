@@ -38,7 +38,7 @@ commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 �
 
 | 스킬 | 호출 | 설명 |
 |------|------|------|
-| **start-workflow** | `/fe-harness:start-workflow` | 전체 프론트 워크플로우 자동화 — 요청→Plan 초안→난이도·검증 티어(quick/light/standard) 판정→Plan 리뷰→구현→품질 루프→PR. 위험이 낮을수록 리뷰 레이어·루프 상한·E2E 범위를 줄이고, quick은 Plan 리뷰·별도 Red·E2E·lint·컴포넌트 리뷰를 생략하되 빌드·타입·단위 테스트 회귀 대조·scope 1회·PR은 유지한다. `--tier quick|light|standard`로 선언 가능(금지 조건과 충돌하면 승인 전 선택, 승인 후에는 증거 기반 자동 승격만), 성찰은 `--reflect` 시에만, 종료 시 md Workflow Report 아카이브. `--codex none|mix|max`로 Codex 사용 모드 지정(profile `codexMode` 저장, 기본 mix — max는 서브에이전트까지 Codex 슬롯 모델 위임). `--codex-models {슬롯}={provider}/{model}[@{effort}]`로 슬롯별 위임 모델 지정(profile `codexModels` — GLM·Kimi 등 Codex provider) |
+| **start-workflow** | `/fe-harness:start-workflow` | 전체 프론트 워크플로우 자동화 — 요청→Plan 초안→난이도·검증 티어(quick/light/standard) 판정→Plan 리뷰→구현→품질 루프→PR. 위험이 낮을수록 리뷰 레이어·루프 상한·E2E 범위를 줄이고, quick은 Plan 리뷰·별도 Red·E2E·lint·컴포넌트 리뷰를 생략하되 빌드·타입·단위 테스트 회귀 대조·scope 1회·PR은 유지한다. `--tier quick|light|standard` 또는 `작업 난이도: 하|중|상`으로 선언 가능(없으면 착수 시 1회 질문, 금지 조건과 충돌하면 승인 전 선택, 승인 후에는 증거 기반 자동 승격만). Plan 리뷰 깊이는 설계 요인만으로 따로 판정하고 선언을 상한으로 둔다, 성찰은 `--reflect` 시에만, 종료 시 md Workflow Report 아카이브. `--codex none|mix|max`로 Codex 사용 모드 지정(profile `codexMode` 저장, 기본 mix — max는 서브에이전트까지 Codex 슬롯 모델 위임). `--codex-models {슬롯}={provider}/{model}[@{effort}]`로 슬롯별 위임 모델 지정(profile `codexModels` — GLM·Kimi 등 Codex provider) |
 
 ### 워크플로우
 
