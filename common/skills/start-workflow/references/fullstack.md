@@ -32,7 +32,7 @@
 | `--codex-models {슬롯}={provider}/{model}[@{effort}] \| default[,…]` | | Codex 위임 모델 슬롯(`review`·`explore`·`judge`·`write`). `codexMode` 확정 직후 이 오케스트레이터가 소비해 존재하는 writable be·fe profile `codexModels`에 병합 저장한다 (`none`이면 N/A). 문법·병합·검증: `codex-mode.md` §2.1 |
 
 `HARD_MODE`와 `PUBLISH_POLICY`는 진입 gate의 유효값을 사용한다. `$ARGUMENTS`에 `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`), `--reflect`가 있으면 `$REFLECT = true` (기본값 `false`).
-`--reflect`는 이 오케스트레이터가 **소비**한다 — 하위 도메인 에이전트에 전달하지 않는다 (풀스택은 하위 워크플로우를 중첩 실행하지 않으므로 회고는 Phase 10 한 곳뿐). `--tier {quick|light|standard}`와 티어 이름 지시는 진입 gate의 값 검증 뒤 무시하고 상태에 `무시됨(FS)`으로 남긴다 — 풀스택은 계약 변경 자체가 리스크 높음이므로 검증 티어가 항상 `standard`(축소 없음)이며, 도메인 hook에도 standard를 전달한다.
+`--reflect`는 이 오케스트레이터가 **소비**한다 — 하위 도메인 에이전트에 전달하지 않는다 (풀스택은 하위 워크플로우를 중첩 실행하지 않으므로 회고는 Phase 10 한 곳뿐). `--tier {quick|light|standard}`(진입 gate의 값 검증 뒤)·티어 이름 지시·`작업 난이도: 하|중|상`은 무시하고 상태에 `무시됨(FS)`으로 남기며 착수 질문도 하지 않는다 — 풀스택은 계약 변경 자체가 리스크 높음이므로 검증 티어가 항상 `standard`(축소 없음)이며, 도메인 hook에도 standard를 전달한다.
 
 **재개 규칙**: `run-lifecycle.md`의 명시적 재개 검증 성공 후에만 적용한다. 컨텍스트 요약·세션 재개 등으로 CLI 인자를 잃은 뒤 이어갈 때는 `{STATE_FILE}`의 `## Flags`가 **유일한 기준**이다 (`MODE: fs`면 이 문서의 절차를 이어간다). CLI 인자와 충돌하면 기록값이 우선하며 한 줄로 고지한다.
 

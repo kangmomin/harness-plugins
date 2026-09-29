@@ -116,7 +116,7 @@ Write tool로 `{STATE_FILE}`을 작성한다:
 - ROUTE_TARGET: {be|fe|mm|hd|fs} — entry-contract.md의 확정 경로
 - TDD: {true|false}
 - REFLECT: {true|false}
-- TIER: standard(고정) — 티어 선언(`--tier`·티어 이름 지시)이 있었으면 `선언: 무시됨(FS)`을 덧붙인다
+- TIER: standard(고정) — 티어 선언(`--tier`·티어 이름 지시·`작업 난이도`)이 있었으면 `선언: 무시됨(FS)`을 덧붙인다
 - CODEX: {none|mix|max}
 - CODEX_MODELS: {review={provider}/{model}@{effort},explore=…,judge=…,write=… | N/A} — 4슬롯 고정 순서·확정 effort(`-` = 키 생략), `CODEX: none`이면 `N/A` (`codex-mode.md` §2.1)
 - RUN_ID: {RUN_ID}
