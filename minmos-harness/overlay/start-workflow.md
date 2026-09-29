@@ -1,4 +1,4 @@
-<!-- overlay-source: minmos-harness@2.4.0 -->
+<!-- overlay-source: minmos-harness@2.6.0 -->
 
 BE Phase 8.4는 be-harness `review-evidence.md` 계약을 따른다. 추가 품질 리뷰의 APPROVE로 베이스의 BLOCKED:REVIEW_SCOPE를 해소하지 않으며, diff·검사 근거의 독립 보완과 최종 check-scope를 먼저 완료한다.
 
@@ -11,6 +11,7 @@ BE Phase 8.4는 be-harness `review-evidence.md` 계약을 따른다. 추가 품�
 ## Pre-flight 추가
 
 `overlay/common.md` 의 "Pre-flight 추가"를 그대로 적용한다.
+단 `$TIER_DECLARED = quick`이면 E2E 전용 행(`secret/.env`·PostgreSQL MCP)의 누락은 선택지 대신 1줄 고지로 처리하고, 베이스 Phase 4.4 승인 화면에서 동의받는다 (베이스 `verification-tier.md` §3). probe(파일 확인·`SELECT 1`)는 그대로 실행하고 Apidog MCP 행은 기존 선택지를 유지한다.
 
 ## Phase 삽입
 
@@ -18,13 +19,14 @@ BE Phase 8.4는 be-harness `review-evidence.md` 계약을 따른다. 추가 품�
 |------|------|----------|------|
 | `Phase 1 (작업 범위 수집)` | 직후 | **E2E 메인 플로우 수집** | 아래 §E2E 메인 플로우 수집 |
 | `Phase 4 (Plan 작성 + 리뷰)` | 내부: Plan Verification Loop | **Codex 실패 폴백 기록** | 아래 §Plan 검증 루프 보강 |
-| `Phase 8 (품질 루프)` | 직후 | **Codex 품질 리뷰** (검증 티어 light면 총 2회 상한 — §검증 티어 연동. 리뷰어는 베이스 `codexMode`를 따른다 — `none`이면 Claude 패널 1개가 정규 리뷰어) | `references/codex-review.md` |
+| `Phase 8 (품질 루프)` | 직후 | **Codex 품질 리뷰** (검증 티어 light면 총 2회 상한, quick이면 SKIP — §검증 티어 연동. 리뷰어는 베이스 `codexMode`를 따른다 — `none`이면 Claude 패널 1개가 정규 리뷰어) | `references/codex-review.md` |
+| `Phase 12 (최종 보고)` | 내부: Read-back 결정 후, 보완점 분기 전 (`--reflect` 여부와 무관) | **이연 문서 동기화 결정** (Phase 9가 `SKIPPED:DOC_SYNC_DEFERRED`일 때만) | 아래 §quick 문서 동기화 이연 |
 
 ## Phase 치환
 
 | 앵커 | 대체 절차 |
 |------|----------|
-| `Phase 9 (API 문서 동기화)` | Apidog 동기화. 조건(작업 유형이 API 생성/수정/삭제)은 베이스와 동일하되, `{apiDocsPath}` 파일 존재 대신 **Apidog MCP 연결**을 조건으로 쓴다. MCP tool 호출 전 **1회 호출로 read/write capability를 먼저 확인**하고, 지원하지 않는 기능은 시도하지 않고 수동 안내로 전환한다. 실행 주체는 `minmos-harness:workflow-doc-sync` 에이전트. |
+| `Phase 9 (API 문서 동기화)` | Apidog 동기화. 조건(작업 유형이 API 생성/수정/삭제)은 베이스와 동일하되, `{apiDocsPath}` 파일 존재 대신 **Apidog MCP 연결**을 조건으로 쓴다. MCP tool 호출 전 **1회 호출로 read/write capability를 먼저 확인**하고, 지원하지 않는 기능은 시도하지 않고 수동 안내로 전환한다. 실행 주체는 `minmos-harness:workflow-doc-sync` 에이전트. 검증 티어가 quick이고 E2E 결과가 없으면 `SKIPPED:DOC_SYNC_DEFERRED`로 기록하고 Phase 12로 이연한다 (승격으로 E2E 결과가 있으면 기존 경로). |
 
 ## 스킬 치환 매핑
 
@@ -46,7 +48,7 @@ BE Phase 8.4는 be-harness `review-evidence.md` 계약을 따른다. 추가 품�
 
 E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직접 묻는다. git diff 기반 자동 도출만으로는 의도한 주 사용 흐름이 누락될 수 있다.
 
-**모든 Build 모드 작업에서 메인 플로우를 확보한다** (작업 유형과 무관). 요청·대화에 이미 있으면 재질문하지 않고 그 원문을 보관한다. 없으면 아직 Plan 모드 대화 중이므로 평문으로 묻는다:
+**모든 Build 모드 작업에서 메인 플로우를 확보한다** (작업 유형과 무관). 요청·대화에 이미 있으면 재질문하지 않고 그 원문을 보관한다. `$TIER_DECLARED = quick`이면 질문하지 않고 `자동 도출 (git diff 기반)`을 보관한다 — 베이스 4.4 재판정으로 승인 전에 상향되면 그 승인 대화에서 1회 묻고, 승인 후 승격이면 자동 도출을 쓴다. 그 외에 없으면 아직 Plan 모드 대화 중이므로 평문으로 묻는다:
 
 > "E2E 테스트 메인 플로우를 알려주세요. 이 작업의 핵심 사용자 시나리오 또는 주요 API 호출 순서를 서술해주세요.
 > 예: `진단지 생성 → 목록 조회 → 단건 수정 → 삭제`
@@ -82,16 +84,27 @@ E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직
 
 ## 검증 티어 연동
 
-베이스 Phase 2가 판정한 검증 티어(`{STATE_FILE}`의 `## Verification Tier` 최종 티어, 없으면 `## Flags`의 `TIER`)를 오버레이 단계도 따른다.
+베이스가 판정한 유효 티어(`{STATE_FILE}`의 `## Flags` `TIER` — 승격 시 갱신되는 재개 기준, 없으면 `## Verification Tier`의 유효 티어)를 오버레이 단계도 따른다.
 
-| 단계 | light | standard |
-|------|-------|----------|
-| Phase 1+ E2E 메인 플로우 수집 | 동일 (항상 확보, 재질문 없음) | 동일 |
-| Phase 4 Plan 검증 루프 보강 | quota 폴백 패널 그대로 — 패널 대체는 리뷰 수행으로 간주(베이스 승격 ⑤ 아님) | 동일 |
-| Phase 8 내부 e2e-test / e2e-test-loop | `--smoke` 실효 수준에 따라 `overlay/e2e-test.md` §smoke 분기 | 동일 (삽입 전부) |
-| Phase 8+ Codex 품질 리뷰 | **총 2회** (초회 + 재리뷰 1회), quota 폴백 패널 1 에이전트 | 총 4회 (초회 + 재리뷰 3회) |
+| 단계 | quick | light | standard |
+|------|-------|-------|----------|
+| Phase 1+ E2E 메인 플로우 수집 | 선언 quick: 질문 없이 `자동 도출` 보관 | 동일 (항상 확보, 재질문 없음) | 동일 |
+| Phase 4 Plan 검증 루프 보강 | 해당 없음 (4.3 `SKIPPED:TIER_QUICK`) | quota 폴백 패널 그대로 — 패널 대체는 리뷰 수행으로 간주(베이스 승격 ⑤ 아님) | 동일 |
+| Phase 8 내부 e2e-test / e2e-test-loop | 미호출 (8.6 `SKIPPED:TIER_QUICK`) | `--smoke` 실효 수준에 따라 `overlay/e2e-test.md` §smoke 분기 | 동일 (삽입 전부) |
+| Phase 8+ Codex 품질 리뷰 | **SKIP** (`SKIPPED:TIER_QUICK`, 사용 0회) | **총 2회** (초회 + 재리뷰 1회), quota 폴백 패널 1 에이전트 | 총 4회 (초회 + 재리뷰 3회) |
+| Phase 9 Apidog 동기화 | E2E 결과 없으면 `SKIPPED:DOC_SYNC_DEFERRED` → Phase 12 결정 | 기존 | 기존 |
 
-베이스 승격 ⑦(Phase 10 진입 직전 재평가)로 Phase 8을 standard 루프로 재진입한 경우: 재진입 루프에서 파일이 1회라도 수정됐으면(`modified == true`) Codex 품질 리뷰를 그 검증 트리에 대해 **1회 재실행**한다 — standard 규칙(REJECT 시 `codex-review.md`의 수정·재검증·재리뷰)을 따르되 총 4회 상한의 **잔여 횟수**만 쓰고, 잔여 0이면 `BLOCKED:CODEX_REVIEW`. 수정이 없었으면 기존 APPROVE가 유효하다.
+리뷰 사용 횟수는 `## Verification Tier`에 `- minmos 리뷰 사용: {N}회`로 기록한다 (구 상태면 `Phase Results`의 8+ 행 수로 복원). 승격으로 티어가 오르면 quick 출신(사용 0회)은 새 티어 상한으로 최초 실행하고, light → standard는 사용 횟수를 승계한다(잔여 = 4 − 사용).
+
+베이스 승격 ⑦(Phase 10 진입 직전 재판정)로 Phase 8을 새 티어 루프로 재진입한 경우: 재진입 루프에서 파일이 1회라도 수정됐으면(`modified == true`) Codex 품질 리뷰를 그 검증 트리에 대해 **1회 재실행**한다 — 새 티어 규칙(REJECT 시 `codex-review.md`의 수정·재검증·재리뷰)을 따르되 그 티어 상한의 **잔여 횟수**만 쓰고, 잔여 0이면 `BLOCKED:CODEX_REVIEW`. 수정이 없었으면 기존 APPROVE가 유효하다. quick 출신이라 리뷰 이력이 없으면 수정 여부와 무관하게 1회 실행한다.
+
+## quick 문서 동기화 이연 (Phase 12)
+
+Phase 9가 `SKIPPED:DOC_SYNC_DEFERRED`로 기록된 경우에만 베이스 Phase 12 절차의 Read-back 결정 뒤, 보완점 분기 전에 실행한다.
+
+- Spec의 API 변경 대상 `{METHOD PATH}`마다 "`/minmos-harness:apidog-schema-gen {METHOD PATH}`를 지금 대화형으로 실행할까요?"를 묻는다. 확인·push는 스킬 절차를 그대로 재사용한다.
+- 결정은 대상과 함께 `## Final Decisions`에 기록하고, 재개 시 재사용해 다시 묻지 않는다. 거절은 `SKIPPED:USER_OPT_OUT`으로 종결하고, 미응답·진행 중은 미완료로 보존한다.
+- 스키마 생성 · push 승인 · 실제 반영 결과를 구분해 보고서 §5에 기록한다. repo 파일이 바뀌면 베이스의 최종 반영 절차(`finalization.md`)를 따른다.
 
 ## 상태 코드 추가
 
@@ -102,6 +115,7 @@ E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직
 | `SKIPPED:POSTGRES_MCP_UNAVAILABLE` | PostgreSQL MCP 미연결 |
 | `SKIPPED:CODEX_QUOTA_BLOCKED` | Codex quota 차단 — Claude 패널로 대체 실행됨 |
 | `SKIPPED:CODEX_UNAVAILABLE` | Codex MCP 부재·인증 오류·모델 미지원 — Claude 패널로 대체 실행됨 |
+| `SKIPPED:DOC_SYNC_DEFERRED` | quick — E2E 결과 없이 Apidog 동기화를 Phase 12 대화형 결정으로 이연 |
 | `BLOCKED:CODEX_REVIEW` | Codex 품질 리뷰 REJECT 상한 도달 |
 
 ## References

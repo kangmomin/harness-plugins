@@ -22,14 +22,15 @@ Spec·Plan 대비 구현 누락 / 비즈니스 로직 결함 / 레이어 구조 
 
 ## 검증 티어별 상한
 
-티어는 `{STATE_FILE}`의 `## Verification Tier` **최종 티어**에서 읽는다 (없으면 `## Flags`의 `TIER`, 그것도 없으면 standard).
+티어는 `{STATE_FILE}`의 `## Flags` `TIER`(유효 티어)에서 읽는다 (없으면 `## Verification Tier`의 유효·최종 티어, 그것도 없으면 standard).
 
 | 티어 | 총 리뷰 횟수 `{REVIEW_MAX}` | REJECT 재리뷰 | quota 폴백 패널 |
 |------|---------------------------|--------------|----------------|
 | standard | 4 (초회 + 재리뷰 3회) | 최대 3회 | `general-purpose` 1 에이전트 (아래 리뷰 관점 전체) |
 | light | **2** (초회 + 재리뷰 1회) | 최대 1회 | 동일 (1 에이전트) |
+| quick | 0 — `SKIPPED:TIER_QUICK` (호출 없음) | — | — |
 
-마지막 리뷰도 REJECT면 `BLOCKED:CODEX_REVIEW`. 베이스 승격 ⑦로 Phase 8을 재진입한 뒤의 재리뷰는 standard 상한의 **잔여 횟수**만 쓴다 (`overlay/start-workflow.md` §검증 티어 연동).
+마지막 리뷰도 REJECT면 `BLOCKED:CODEX_REVIEW`. 승격으로 티어가 오르면 새 티어 상한을 쓴다 — quick 출신(사용 0회)은 새 티어 상한으로 최초 실행하고, light → standard는 사용 횟수를 승계한다(잔여 = 4 − 사용). 베이스 승격 ⑦로 Phase 8을 재진입한 뒤의 재리뷰는 그 티어 상한의 **잔여 횟수**만 쓴다 (`overlay/start-workflow.md` §검증 티어 연동).
 
 ## Codex 호출 실패 처리
 

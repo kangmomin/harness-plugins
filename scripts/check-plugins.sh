@@ -27,6 +27,7 @@ check_anchor "$BE_SW" '^## Phase 1: 작업 범위 수집'
 check_anchor "$BE_SW" '^## Phase 4: Plan 작성 \+ 리뷰'
 check_anchor "$BE_SW" '^### Phase 8: 품질 루프'
 check_anchor "$BE_SW" '^### Phase 9: API 문서 동기화'
+check_anchor "$BE_SW" '^## Phase 12: 최종 보고'
 BE_E2E=be-harness/skills/e2e-test/SKILL.md
 for a in '^## Step 1: 대상 API 수집' '^## Step 2: 시나리오 구성' '^## Step 4: 서버 기동' '^## Step 5: 요청 실행' '^## Step 6: 서버 종료' '^## Step 7: 리포트'; do
   check_anchor "$BE_E2E" "$a"
