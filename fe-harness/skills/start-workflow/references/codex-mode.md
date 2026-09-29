@@ -158,7 +158,7 @@
 
 | 지점 (슬롯) | 대상 | 역할 파일 (`developer-instructions` ①) |
 |------|------|------|
-| Plan 검증 루프 (`review`) | Phase 3.3 (난이도 = Phase 3.1에서 동결한 종합 난이도 — quick은 3.3 SKIP) | — (Spec·Plan 전문 전달) |
+| Plan 검증 루프 (`review`) | Phase 3.3 (난이도 = Phase 3.1에서 동결한 종합 난이도 — Plan 깊이 quick은 3.3 SKIP) | — (Spec·Plan 전문 전달) |
 | 특화 하네스 품질 리뷰 (`review`) | 해당 없음 (hyeondongs 오버레이는 리뷰 단계를 삽입하지 않음) | — |
 | 탐색·수집 / 이해·요약 (`explore`) | 7.7 Read-back 복원(general-purpose) | — (general-purpose) |
 | 읽기 전용 판정 (`judge`) | 7.5 `scope-reviewer` · 8 `component-reviewer` · 8 `a11y-reviewer` · 10 `workflow-reflection` | `{PLUGIN_ROOT}/agents/{name}.md` |
