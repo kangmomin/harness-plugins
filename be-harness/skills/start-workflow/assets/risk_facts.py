@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""risk_facts.py — Phase 2 B축(회귀 리스크) 근거 사실 수집 (stdlib only, 판단 없음).
+"""risk_facts.py — 티어 판정(BE Phase 4.1 · FE Phase 3.1) B축(회귀 리스크) 근거 사실 수집 (stdlib only, 판단 없음).
 
-계약 (canonical — verification-tier.md §1은 호출법만 둔다):
+계약 (canonical — verification-tier.md §2는 호출법만 둔다):
   사용법: risk_facts.py --paths p1 [p2 …] [--test-dir DIR …] [--since 90d] [--report-dir DIR]
   종료:   결과(unknown 포함)를 출력하면 exit 0. 인자 오류만 exit 2.
   출력:   경로별 — 존재 / 최근 변경 커밋 수({since}) / 동반 테스트 존재 / 과거 워크플로우 리포트 일치(escalated·regression_count 집계).

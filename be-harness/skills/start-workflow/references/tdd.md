@@ -24,7 +24,7 @@ Phase 5에서 아래를 순서대로 확인하고, 하나라도 걸리면 TDD를
 - 작업 유형 `디버깅`은 **SKIP하지 않는다.** 재현 테스트를 먼저 고정하는 것이 TDD가 가장 강한 지점이며, Debug Spec의 `RC-nn` 표를 근거로 사용한다.
 - Analyze / Verify 모드는 구현 Phase를 경유하지 않으므로 **해당 없음**이다.
 
-SKIP 판정을 `{STATE_FILE}`의 `## Test Baseline` 섹션에 사유와 함께 기록하고 Phase 6으로 진행한다.
+SKIP 판정을 `{STATE_FILE}`의 `## Test Baseline` 섹션에 사유와 함께 기록하고 Phase 6으로 진행한다. R0에 없던 SKIP이고 검증 티어가 standard가 아니면 승격 ④를 함께 기록한다 (`references/verification-tier.md` §5).
 
 ---
 
@@ -65,7 +65,7 @@ Go는 패키지 요약 줄의 import path를 포함한 `{package}::TestX/sub`를
 > 2. **중단** — 기존 테스트를 먼저 고치고 워크플로우를 다시 시작합니다
 > 3. **`--no-tdd`로 전환** — TDD 없이 기존 워크플로우로 진행합니다"
 
-1번 선택 시 `## Test Baseline`에 `수집 실패 — regression 판정 불가`를 명시 기록한다. 검증 티어가 light면 승격 ④로 standard 전환을 함께 기록한다 (`references/verification-tier.md` §4).
+1번 선택 시 `## Test Baseline`에 `수집 실패 — regression 판정 불가`를 명시 기록한다. 검증 티어가 standard가 아니면 승격 ④로 standard 전환을 함께 기록한다 (`references/verification-tier.md` §5). 이 경우 선택지에 "1·3번은 검증 티어를 standard로 올립니다"를 함께 표시한다.
 
 ---
 
@@ -163,13 +163,30 @@ Phase 6의 기존 구현 프롬프트(`references/agent-prompts.md`)를 사용�
     - Phase 6.1이 만든 스텁을 실제 구현으로 채우세요.
 ```
 
+## quick 테스트 동반 모드 (quick + TDD 활성)
+
+Phase 6.1이 `SKIPPED:TIER_QUICK`이면 위 블록 대신 아래 규칙을 전달한다. 필수 ID 목록은 오케스트레이터가 승인 Spec에서 만든다 (`references/verification-tier.md` §4.1).
+
+```
+    ## quick 테스트 동반 모드 (Phase 6.1 Red가 생략되었습니다)
+    - 필수 ID마다 그 요구를 검증하는 **신규** 테스트를 작성하세요: {필수 ID 목록}
+      근거 표 밖의 테스트는 작성하지 마세요.
+    - 기존 테스트(케이스·단언·fixture)는 수정하지 마세요. 충돌하면 `[TestConflict]` 태그로 보고하세요.
+    - 작성한 테스트를 verbose로 직접 실행해 green을 확인하세요 (go `-v`, jest `--verbose`, vitest `--reporter=verbose`).
+    - 통과 기준: 작성한 신규 테스트 전부 PASS AND `## Test Baseline` 대비 신규 실패 0건
+    - 보고: Spec ID | suite(`unit`, `{makeTestCommand}`가 설정된 경우만 `integration`) | 러너 네이티브 정확 ID | 파일 표.
+      식별자는 baseline 규칙과 같습니다(go `{package}::TestX/sub`, jest·vitest `{runner}::{file}::{describe › it}`). 같은 ID를 두 번 선언하지 마세요.
+```
+
+오케스트레이터는 보고 표를 `## Quick Test Evidence`에 기록하고 `## TDD Test Map`에는 등재하지 않는다.
+
 ## `[TestConflict]` 판정 (오케스트레이터)
 
 자율 실행 구간이므로 유저에게 묻지 않고 판정한다. **기준은 Spec 원문이다.**
 
 | 상황 | 판정 | 행동 |
 |------|------|------|
-| 테스트 단언이 Spec 조항과 다름 | 테스트 오류 | 오케스트레이터가 테스트를 수정하고 Test Map을 갱신, 사유 기록 |
+| 테스트 단언이 Spec 조항과 다름 | 테스트 오류 | 오케스트레이터가 테스트를 수정하고 Test Map(quick이면 `## Quick Test Evidence`)을 갱신, 사유 기록 |
 | Spec 조항이 모호하거나 부재 | Spec 문제 | 코드·테스트 **양쪽 다 유지**, `[Assumption]` 기록, 해당 ID를 미해결로 표시하고 진행 → Phase 12에서 유저 결정 |
 
 두 번째 경우 코드를 고치지 않는 이유는 `Spec 외 변경 금지 원칙`과 같다 — 유저가 승인한 Spec을 조용히 바꾸지 않는다.
@@ -194,10 +211,11 @@ Tombstone 매핑(`## Test Baseline`)은 분류 **전에** 식별자에 적용한
 | 4 | baseline에 없는 식별자의 실패 | `regression` |
 | 5 | 3·4 판정 전 **1회 재실행**, 결과가 뒤집히면 | `flaky` |
 
+- `## Quick Test Evidence`의 테스트는 Test Map에 등재하지 않으므로, 실패하면 4행(`regression`)으로 분류된다 (quick — `references/verification-tier.md` §4.1).
 - `flaky`는 regression 집계에서 제외하고 보고만 한다. 유령을 쫓는 수정을 막기 위한 장치다.
   재실행은 러너별 verbose 옵션 필수(go `-v`, jest `--verbose`, vitest `--reporter=verbose`) — `--rerun FILE2 --rerun-exit-code M`으로 전달한다. `flaky` ⇔ 재실행에 `unparsed`가 없고 완주했으며 **그 식별자가 PASS로 명시**됨(go `--- PASS: TestX/sub`와 같은 패키지 요약으로 구성한 `{package}::TestX/sub`, jest/vitest `✓ {ID}`). 그 외(미완주·PASS 줄 부재)는 원 분류 유지 + `rerun_incomplete` 표기 — 필터 문자열·테스트 수는 증거로 인정하지 않는다.
 - 재실행의 `unparsed`와 최초 로그에 없던 추가 실패도 최종 대조 결과에 포함한다.
-- `unparsed`·러너 완주 `N`이 남아 있으면 `PASS` 판정을 내릴 수 없다. 오케스트레이터가 로그를 직접 읽어 분류하고, 그래도 분류하지 못하면 **판정 불가** = 테스트 판정 `FAIL`로 취급한다 (light: 승격 ③).
+- `unparsed`·러너 완주 `N`이 남아 있으면 `PASS` 판정을 내릴 수 없다. 오케스트레이터가 로그를 직접 읽어 분류하고, 그래도 분류하지 못하면 **판정 불가** = 테스트 판정 `FAIL`로 취급한다 (T < standard면 승격 ③).
 - **이름 변경·삭제**: Spec이 승인한 경우에만 허용하고 `## Test Baseline`에 tombstone(`{구 식별자} → {신 식별자}` 또는 `{식별자} → 삭제(근거)`)을 append한다. 승인 없는 소멸은 `regression`으로 취급한다.
   tombstone은 baseline의 **판정 데이터를 바꾸지 않는다** — 대조 시 매핑에만 쓰인다.
 
@@ -214,7 +232,7 @@ Phase 8.5 통합 수정 에이전트에는 이 순서대로 이슈를 전달하�
 | `WARN` | `flaky`만 존재 |
 | `FAIL` | `regression` 1건+ 또는 `new_red` 1건+ 또는 판정 불가(`unparsed`·완주 `N` 잔존을 분류하지 못함) |
 
-이 판정이 Phase 8 루프의 종료 조건에 들어간다 (SKILL.md 본문 참조).
+이 판정이 Phase 8 루프의 종료 조건에 들어간다 (SKILL.md 본문 참조). quick 종료 증거 게이트 미충족으로 기록한 `INCONCLUSIVE`도 test-summary에서 FAIL로 집계된다.
 
 ---
 

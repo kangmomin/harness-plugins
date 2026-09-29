@@ -97,6 +97,27 @@ FAIL example.test/a 0.001s
         self.assertEqual([r['id'] for r in result['records']], ['example.test/a::TestParent/child'])
         self.assertFalse(result['unparsed'])
 
+    def test_quick_test_evidence_is_not_test_map_so_new_failure_is_regression(self):
+        log = '''=== RUN   TestQuickFilter
+=== RUN   TestQuickFilter/default_unchanged
+    filter_test.go:9: expected 3 items, got 2
+--- FAIL: TestQuickFilter (0.00s)
+    --- FAIL: TestQuickFilter/default_unchanged (0.00s)
+FAIL
+FAIL example.test/a 0.001s
+'''
+        evidence = ('## Quick Test Evidence\n| Spec ID | suite | 테스트 ID | 파일 |\n|---|---|---|---|\n'
+                    '| EC-09 | unit | `example.test/a::TestQuickFilter` | filter_test.go |\n'
+                    '| EC-09 | unit | `example.test/a::TestQuickFilter/default_unchanged` | filter_test.go |\n')
+        baseline = '## Test Baseline\n| unit | go test -v ./... | Y | 5 | 0 | 없음 |\n'
+        test_map = '## TDD Test Map\n| Spec ID | 테스트 | 파일 | Red | Green |\n|---|---|---|---|---|\n'
+        for state in (baseline + evidence, baseline + test_map + evidence, baseline + evidence + test_map):
+            parsed = parser.parse_baseline(state)
+            self.assertEqual(parsed['testmap'], set())
+            records = parser.classify(self.analyze(log)['records'], 'unit', parsed)
+            self.assertEqual([(r['id'], r['cls']) for r in records],
+                             [('example.test/a::TestQuickFilter/default_unchanged', 'regression')])
+
     def test_nonverbose_go_failure_keeps_message_after_header(self):
         result = self.analyze('--- FAIL: TestCreate (0.00s)\n    user_test.go:3: bad user\nFAIL\nFAIL example.test/a 0.001s\n')
         self.assertEqual(result['records'][0]['raw'], 'user_test.go:3: bad user')

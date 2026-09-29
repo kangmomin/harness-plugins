@@ -10,9 +10,10 @@
 일반 위임에는 [작업 계약과 실행 원칙](execution-policy.md)의 인계 항목·정책 경로를 포함한다. Phase 8.8에는 기존 소스 전용 입력만 준다. 필수 검증 완료 후 추가 반복은 새 근거·미검증 가설·수정 영향이 있을 때만 수행하고, 미해결 실패·티어 승격·수정 후 재검증은 기존 종료 규칙대로 처리한다.
 
 루프 구조·상한·판정은 SKILL.md 본문이 canonical이다. 이 문서는 각 단계의 실행 상세와 에이전트 프롬프트를 정의한다.
-티어별 축소·승격 규칙은 `references/verification-tier.md`가 canonical이다 — light에서 달라지는 단계는 각 절에 **light:** 로 표기한다.
+티어별 축소·승격 규칙은 `references/verification-tier.md`가 canonical이다 — light·quick에서 달라지는 단계는 각 절에 **light:**·**quick:** 으로 표기한다.
 
-Phase 8.1~8.7은 **루프 안**에서 최대 `{QL_MAX}`회(standard 3 / light 2) 반복되고, Phase 8.8은 **루프가 종료된 뒤 1회만** 실행된다.
+Phase 8.1~8.7은 **루프 안**에서 최대 `{QL_MAX}`회(standard 3 / light 2 / quick 2) 반복되고, Phase 8.8은 **루프가 종료된 뒤 1회만** 실행된다.
+Phase 8 재진입(승격 ⑦)과 finalization 재검증의 결과 이벤트는 루프 회차와 무관하게 kind별 기존 최대 iteration + 1로 기록한다 (`result-contract.md` — 같은 키 중복 거부, 최신 = 최대 iteration).
 
 ## Batch A: 병렬 스캔 (Phase 8.1 ~ 8.4)
 
@@ -50,7 +51,9 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --ru
 Phase 8.5에 전달하는 이슈 순서는 `regression` → `new_red` 다. `pre_existing`은 **이번 범위 밖이므로 전달하지 않고 보고만** 한다.
 TDD가 SKIP된 경우 분류 없이 전체 실패 로그를 수집한다.
 
-**light 승격 ③**: `regression` ≥ 1, 또는 판정 불가(러너 완주 N / `UNPARSED` 잔존을 오케스트레이터도 분류하지 못함) → 종료 조건 평가 전에 standard 전환(`{QL_MAX}` = 3 복원), 이 iteration의 8.6부터 full E2E, 루프 후 8.8 실행 (`verification-tier.md` §4).
+**quick 종료 증거 게이트** (`## Quick Test Evidence`가 있으면 — 승격 후에도 유지): 회귀 대조와 별도로 UNIT_LOG에서 `## Quick Test Evidence`의 suite=unit 행마다 정확 ID의 PASS 줄을 확인한다(UNIT_LOG에서 실패했지만 같은 트리 재실행 로그에서 PASS로 명시돼 `flaky`인 ID는 그 줄을 증거로 인정 — WARN). 미출력 · SKIP/pending/todo · 시작만 출력 · 같은 ID 선언 2개 이상 · PASS/SKIP 혼재, 또는 필수 ID의 Evidence 누락이면 이번 unit 결과를 `INCONCLUSIVE`로 기록한다 (`verification-tier.md` §4.1 — 승격 ③의 판정 불가가 아니다). Evidence 테스트의 실패 자체는 위 표 4행(`regression`)으로 분류된다.
+
+**승격 ③** (T < standard): `regression` ≥ 1, 또는 판정 불가(러너 완주 N / `UNPARSED` 잔존을 오케스트레이터도 분류하지 못함) → 종료 조건 평가 전에 standard 전환(`{QL_MAX}` = 3 복원), 이 iteration의 8.6부터 full E2E, 루프 후 8.8 실행 (`verification-tier.md` §5).
 
 ### Phase 8.2 + 8.3: 품질 스캔 — Simplify + Convention (통합 스캐너 1에이전트)
 
@@ -82,6 +85,8 @@ Agent tool:
 
 **light (8.2 = `SKIPPED:TIER_LIGHT`)**: 위 프롬프트에서 "## 스캔 1 — Simplify (Phase 8.2)" 블록을 제거하고 스캔 2(convention)만 실행한다. 보고 형식은 "convention 위반: M건". `Phase Results`에 8.2 행을 `SKIPPED:TIER_LIGHT`로 기록한다.
 
+**quick (8.2·8.3 = `SKIPPED:TIER_QUICK`)**: 통합 스캐너를 호출하지 않는다. Batch A는 8.1과 8.4 두 단위만 동시에 실행하고, `Phase Results`에 8.2·8.3 행을 `SKIPPED:TIER_QUICK`으로 기록한다.
+
 결과 수신 후 **오케스트레이터가** 8.2/8.3 상태를 각각 갱신한다 — `Phase Assignments`는 기존 Phase 8 통합 행을 유지하고, 개별 상태·건수는 `Phase Results` 표에 8.2/8.3 행으로 기록한다.
 
 ### Phase 8.4: Scope Review
@@ -103,6 +108,7 @@ Agent tool:
     review ID/시도: {REVIEW_ATTEMPT}, QL 회차: {iteration}, 첫/보완: {REVIEW_STAGE}.
     이전 finding ID와 처분: {REVIEW_FINDINGS}.
     누락 자료와 evidence_complete를 코드 판정과 별도로 반환하세요.
+    {`## Quick Test Evidence`가 있으면} 그 각 테스트가 대응 Spec ID의 입력·단언(file:line)으로 그 요구를 실제 검증하는지 확인하고, 필수 ID(추적 ID 전체 + 기본 동작 EC − 수용된 deferred_e2e)의 누락·잘못된 대응을 scope 이슈로 보고하세요.
     현재 Phase: Phase 8.4
     남은 Phase: Phase 8.5~8.8, 9, 10, 11, 12
     배정 model/effort: {model}/{effort}
@@ -129,6 +135,8 @@ Agent tool:
     - **테스트 파일을 수정하지 마세요.** 실패한 테스트는 소스를 고쳐서 통과시킵니다.
     - 테스트 자체가 잘못되었다고 판단되면 `[TestConflict]` 태그로 보고만 하세요.
     - `pre_existing` 분류는 이번 범위 밖입니다. 손대지 마세요.
+    {Quick Test Evidence 누락·잘못된 대응 이슈가 있을 때}
+    - 그 이슈에 한해 **신규 테스트 추가만** 허용됩니다 (기존 테스트 수정 금지는 유지). 추가한 테스트를 실행해 green을 확인하고 Spec ID ↔ suite ↔ 정확 ID ↔ 파일을 보고하세요.
 
     ## 이슈 목록
     ### 빌드/테스트 에러 (최우선 — regression → new_red 순)
@@ -148,13 +156,15 @@ Agent tool:
     완료 후 "수정: N건, 파일: [목록]" 형식으로 보고하세요.
 ```
 
-수정 발생 시 `modified = true`.
+수정 발생 시 `modified = true`. quick 보완 테스트가 보고되면 오케스트레이터가 `## Quick Test Evidence`에 추가하고 다음 iteration에서 다시 확인한다.
 
 ## Batch B: 순차 실행 (Phase 8.6 → 8.7)
 
 서버/테스트 프로세스가 포트·DB·바이너리를 점유하므로 순차로 실행한다.
 
 ### Phase 8.6: E2E Test
+
+**quick: `SKIPPED:TIER_QUICK`** — 호출하지 않고 `Phase Results` 8.6 행에 기록한다. 승격으로 light·standard가 되면 그 티어대로 실행한다.
 
 ```
 Agent tool:
@@ -176,30 +186,30 @@ Agent tool:
 - `BLOCKED:LOCK_UNAVAILABLE` 반환 시 → `Phase Results` 8.6 행에 그대로 기록, 루프는 다른 단계로 계속(테스트 판정 불변), Workflow Report §4 E2E 항목에 그대로 표기
 - "수정: Y" → `modified = true`
 - 실행 수준 줄과 E2E 리포트 경로를 `Phase Results` 8.6 행과 `## Artifacts`(`e2e-report`)에 기록
-- **light 승격 ⑥**: 종료 상태가 `BLOCKED:MAX_ITERATIONS`·`BLOCKED:NO_PROGRESS`이거나 실행 수준이 `full(smoke 미적용: …)`이면 standard 전환 + 현재 iteration 종료 후 standard iteration 1회 추가 (`verification-tier.md` §4)
+- **light 승격 ⑥**: 종료 상태가 `BLOCKED:MAX_ITERATIONS`·`BLOCKED:NO_PROGRESS`이거나 실행 수준이 `full(smoke 미적용: …)`이면 standard 전환 + 현재 iteration 종료 후 standard iteration 1회 추가 (`verification-tier.md` §5)
 
 ### Phase 8.7: 통합 테스트 (조건부)
 
-profile의 `{makeTestCommand}`가 비어있지 않으면 Bash로 직접 실행:
+profile의 `{makeTestCommand}`가 비어있지 않으면 Bash로 직접 실행한다. INTEG_LOG는 이번 iteration의 BUILD_LOG·UNIT_LOG와 같은 디렉터리의 `integration.log` 절대 경로이며(QL 재진입에도 덮지 않음), 수정 뒤 재실행에는 새 미사용 로그 경로를 배정한다:
 
 ```bash
-{makeTestCommand} > "{RUN_DIR}/integration-{iteration}.log" 2>&1; EXIT=$?
+{makeTestCommand} > "{INTEG_LOG}" 2>&1; EXIT=$?
 ```
 
 비어있으면 `SKIPPED:PROFILE_EMPTY`로 기록하고 넘어간다.
-TDD 활성일 때 `test_failures.py --runner auto --exit-code {EXIT} --suite integration --baseline "{STATE_FILE}" "{RUN_DIR}/integration-{iteration}.log"`로 baseline을 비교한다. TDD SKIP이면 분류 없이 실제 exit/완주 상태로 판정하며 실패는 유지한다. regression/new_red/판정 불가 실패 시 `general-purpose` 에이전트로 수정 위임(Phase 8.5 형식), 수정 뒤 명령을 재실행한다. 수정 발생 시 `modified = true`. 결과와 regression_count를 `kind:integration`의 새 iteration에 기록한다. 프로필 명령 부재 SKIP도 해당 kind로 기록한다.
+TDD 활성일 때 `test_failures.py --runner auto --exit-code {EXIT} --suite integration --baseline "{STATE_FILE}" "{INTEG_LOG}"`로 baseline을 비교한다. TDD SKIP이면 분류 없이 실제 exit/완주 상태로 판정하며 실패는 유지한다. regression/new_red/판정 불가 실패 시 `general-purpose` 에이전트로 수정 위임(Phase 8.5 형식), 수정 뒤 명령을 재실행한다. 수정 발생 시 `modified = true`. 결과와 regression_count를 `kind:integration`의 새 iteration에 기록한다. 프로필 명령 부재 SKIP도 해당 kind로 기록한다. `## Quick Test Evidence`가 있으면 8.1의 종료 증거 게이트를 `## Quick Test Evidence`의 suite=integration 행에 같은 방식으로 적용한다.
 
-iteration 종료 전 `workflow_results.py test-summary "{RESULTS_FILE}" --run-id "{RUN_ID}" --require unit`을 실행한다. makeTestCommand가 설정되어 있으면 `--require integration`도 전달한다. JSON verdict가 unit+integration의 테스트 판정이며, exit 0은 요약 성공이다. FAIL/미완료/누락은 TDD SKIP이어도 루프 종료 성공 조건을 만족하지 않는다. integration의 regression/판정 불가도 light 승격 ③의 기존 근거다.
+iteration 종료 전 `workflow_results.py test-summary "{RESULTS_FILE}" --run-id "{RUN_ID}" --require unit`을 실행한다. makeTestCommand가 설정되어 있으면 `--require integration`도 전달한다. JSON verdict가 unit+integration의 테스트 판정이며, exit 0은 요약 성공이다. FAIL/미완료/누락은 TDD SKIP이어도 루프 종료 성공 조건을 만족하지 않는다. integration의 regression/판정 불가도 승격 ③(T < standard)의 근거다.
 
-### iteration 종료 시 (light만): 승격 ⑦ 재평가
+### iteration 종료 시 (T < standard인 동안): 승격 ⑦ 재판정
 
-종료 조건을 평가하기 **전에** `verification-tier.md` §4의 집계 규칙(`START_SHA` 기준 변경 소스 파일 > 3 또는 금지 조건 발견)을 재평가한다. 발화 시 standard 전환 + standard iteration 1회 추가. 승격은 1회뿐이다(latch) — standard가 된 뒤에는 평가하지 않는다.
+종료 조건을 평가하기 **전에** `verification-tier.md` §5의 재판정(`START_SHA` 기준 집계 + R0 수용 원인 제외, C′ > T)을 수행한다. 상향 시 새 티어로 전환 + 새 티어 iteration 1회 추가. 티어는 단조 증가하며 standard가 된 뒤에는 평가하지 않는다.
 
 ---
 
 # Phase 8.8: Spec 정합 Read-back (루프 밖, 1회)
 
-**light: `SKIPPED:TIER_LIGHT`** — 승격으로 standard가 됐다면 실행한다.
+**light: `SKIPPED:TIER_LIGHT` · quick: `SKIPPED:TIER_QUICK`** — 승격으로 standard가 됐다면 실행한다.
 
 품질 루프(8.1~8.7)가 종료된 뒤 **정확히 1회** 실행한다. 루프 안에서 반복하지 않는다 — 수렴 전 산출물을 읽으면 곧 사라질 차이가 Diff로 잡혀 무의미하다.
 

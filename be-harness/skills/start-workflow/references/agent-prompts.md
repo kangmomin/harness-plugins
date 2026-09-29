@@ -75,6 +75,8 @@ TDD가 활성이면(`$TDD = true` 이고 Phase 6.1이 `SKIPPED:*`가 아니면) 
 
 `[TestConflict]` 판정 절차는 `references/tdd.md`의 "Phase 6.2" 섹션을 따른다.
 
+quick(Phase 6.1 = `SKIPPED:TIER_QUICK`)이고 TDD가 활성이면 위 블록 대신 `references/tdd.md`의 "quick 테스트 동반 모드" 블록을 넣는다(quick은 항상 sequential). 반환된 대응 표는 오케스트레이터가 `## Quick Test Evidence`에 기록한다.
+
 ### sequential 모드 (기본)
 
 ```
@@ -94,9 +96,9 @@ Agent tool:
     필요한 변경과 근거를 결과 보고에 [Assumption] 태그로 적으세요. 적용은 유저 승인 후에만 합니다.
     (TDD 활성 시 테스트가 그런 동작을 요구하면 TDD 규칙의 [TestConflict]로 보고하세요.)
 
-    {TDD 활성 시: 위 "TDD 규칙" 블록을 여기에 삽입}
+    {TDD 활성 시: 위 "TDD 규칙" 블록(quick이면 "quick 테스트 동반 모드" 블록)을 여기에 삽입}
 
-    구현 완료 후 변경 파일 목록, 커밋 수, Plan 대비 차이점, [Assumption]·[TestConflict] 목록을 보고하세요.
+    구현 완료 후 변경 파일 목록, 커밋 수, Plan 대비 차이점, [Assumption]·[TestConflict] 목록(quick 동반 모드면 테스트 대응 표 포함)을 보고하세요.
 ```
 
 완료 후 유저에게 간략 보고: "Phase 6.2 완료: [변경 파일 수]개 파일, [커밋 수]개 커밋"
