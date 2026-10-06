@@ -29,6 +29,8 @@ import sys
 
 ITEM_SPLIT = re.compile(r"(?<=`) / (?=`)")
 ITEM_RE = re.compile(r"^`(.*)` :: `(.*)`$", re.S)
+# Go 1.22+ `-cover`: 테스트 파일이 없는 패키지는 `? pkg [no test files]` 대신 `\tpkg\t\tcoverage: 0.0% of statements` 한 줄만 낸다.
+GO_NO_TEST_COVERAGE = re.compile(r"^\s+(\S+)\s+coverage: \d+(?:\.\d+)?% of statements\s*$")
 
 
 def normalize(msg):
@@ -136,6 +138,11 @@ def parse_go(lines):
     packages = []
     pending = []
     for ln in lines:
+        m = GO_NO_TEST_COVERAGE.match(ln)
+        if m:
+            # 요약 줄이 없는 테스트 0건 패키지 — 진행 중인 블록(pending)은 건드리지 않고 직접 등록한다.
+            packages.append((m.group(1), dict(completed=True, reason="", passed=0, failed=[], total=0, notes=[], passed_ids=set())))
+            continue
         pending.append(ln)
         m = re.match(r"^(?:ok|FAIL|\?)\s+(\S+)(?:\s|$)", ln)
         if m:

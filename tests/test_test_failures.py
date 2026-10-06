@@ -186,6 +186,27 @@ FAIL example.test/a 0.001s
         self.assertFalse(result["completed"])
         self.assertTrue(result["unparsed"])
 
+    def test_cover_no_test_package_lines_do_not_hide_completion(self):
+        # Go 1.22+ `go test -v -cover ./...` 실제 출력 — 테스트 없는 패키지는 coverage 한 줄만 낸다(마지막 패키지일 수 있다).
+        log = ("\texample.test/m/cmd\t\tcoverage: 0.0% of statements\n"
+               "=== RUN   TestA\n--- PASS: TestA (0.00s)\nPASS\ncoverage: 100.0% of statements\n"
+               "ok  \texample.test/m\t0.004s\tcoverage: 100.0% of statements\n"
+               "\texample.test/m/types\t\tcoverage: 0.0% of statements\n")
+        result = self.analyze(log, exit_code=0)
+        self.assertTrue(result["completed"])
+        self.assertEqual(result["unparsed"], [])
+        self.assertEqual(result["passed"], 1)
+
+    def test_cover_no_test_line_does_not_close_an_unfinished_package(self):
+        log = "=== RUN   TestA\n--- PASS: TestA (0.00s)\n\texample.test/m/types\t\tcoverage: 0.0% of statements\n"
+        result = self.analyze(log, exit_code=0)
+        self.assertFalse(result["completed"])
+        self.assertTrue(result["unparsed"])
+
+    def test_cover_only_no_test_packages_is_zero_tests(self):
+        result = self.analyze("\texample.test/m/types\t\tcoverage: 0.0% of statements\n", exit_code=0)
+        self.assertIn("테스트 0건", result["unparsed"])
+
     def test_unparsed_baseline_cannot_become_flaky_on_rerun(self):
         records = [{"id": "example.test/a::TestCreate", "cls": "unparsed"}]
         parser.apply_rerun(records, self.analyze(package_log("example.test/a", False), exit_code=0))
