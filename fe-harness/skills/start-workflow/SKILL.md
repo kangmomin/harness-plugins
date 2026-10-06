@@ -66,7 +66,7 @@ user-invocable: true
 
 ### Model / Effort 선택 규칙
 
-Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `effort`를 명시한다.
+Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `effort`를 명시한다. 호스트 Agent 도구가 `effort` 인자를 받지 않고 에이전트 frontmatter에도 `effort:`가 없으면 서브에이전트는 세션 effort를 상속한다 — 이때 `effort`는 배정 기록이지 적용값이 아니며, `CLAUDE_CODE_EFFORT_LEVEL` 환경변수는 `/model`·`/effort` 선택보다 우선해 값을 고정한다.
 환경별 모델명이 다르면 같은 등급의 사용 가능한 최신 모델로 치환한다.
 
 | 등급 | 기준 | model | effort |
