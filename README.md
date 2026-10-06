@@ -8,6 +8,10 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-10-06 quick 고정비 절감과 결과 기록 명령
+
+BE 1.7.1 / FE 1.6.1 / common 0.15.2. quick 실행에서 반복되던 고정 비용을 줄였다. `workflow_results.py record`가 events 추가와 루트 `tested_tree`·`terminal_state` 갱신을 한 번에 검증한 뒤 원자 교체하므로, 오케스트레이터가 결과 JSON을 직접 편집하거나 임시 헬퍼를 만들지 않는다(exit 0은 기록 성공일 뿐 검증 통과가 아니다). BE quick의 6.2 구현자는 신규 테스트와 변경한 패키지 테스트만 baseline과 대조하고, 저장소 전체 대조는 8.1·8.7이, Spec 대응 확인은 8.4가 맡는다. 구현 프롬프트에는 상태 파일의 Plan 코드를 다시 적지 않는다. `test_failures.py`는 Go 1.22+ `-cover`가 테스트 없는 패키지에 내는 coverage 한 줄을 테스트 0건 패키지로 처리해 러너 완주를 잘못 판정하지 않는다. SKILL.md에는 서브에이전트 effort가 세션 값을 상속하는 조건을 적었다.
+
 ## 2026-09-29 Plan 깊이 분리와 착수 난이도 선언
 
 BE 1.7.0 / FE 1.6.0 / common 0.15.1 / minmos 2.6.1. 간단한 Request/Response 인자 추가가 테스트 쪽 요인(엣지 케이스 개수·E2E 필요·기존 테스트 유무) 때문에 Plan 보강과 검증 루프를 standard로 돌지 않도록 Plan 깊이 P를 검증 티어 T에서 분리했다. P는 같은 Plan 사실 중 설계 요인만으로 판정하고(금지 조건·BE `parallel-slices`면 standard), 선언은 상한이라 P = min(T, 설계 판정)이다. P는 Plan 보강(BE 4.2·FE 3.2)·검증 루프 상한 `{PLAN_MAX}`·승격 ①⑤의 트리거만 정하며, 테스트 단계는 계속 T를 따른다. P가 quick이면 보강·루프를 `SKIPPED:PLAN_QUICK`으로 건너뛴다. 난이도는 `--tier`·티어 이름 지시 외에 자연어 `작업 난이도: 하|중|상`(하 = quick · 중 = light · 상 = standard)으로도 선언한다. 선언이 없으면 Pre-flight에서 Codex 모드 질문과 함께 1회 묻고(자동 판정 권장), 재개·비대화형·풀스택에서는 묻지 않는다. minmos 오버레이를 프로젝트에 복사(경로 B)했다면 `/minmos-harness:init`으로 갱신한다.
