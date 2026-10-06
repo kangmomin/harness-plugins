@@ -173,7 +173,8 @@ Phase 6.1이 `SKIPPED:TIER_QUICK`이면 위 블록 대신 아래 규칙을 전�
       근거 표 밖의 테스트는 작성하지 마세요.
     - 기존 테스트(케이스·단언·fixture)는 수정하지 마세요. 충돌하면 `[TestConflict]` 태그로 보고하세요.
     - 작성한 테스트를 verbose로 직접 실행해 green을 확인하세요 (go `-v`, jest `--verbose`, vitest `--reporter=verbose`).
-    - 통과 기준: 작성한 신규 테스트 전부 PASS AND `## Test Baseline` 대비 신규 실패 0건
+    - 통과 기준: 작성한 신규 테스트 전부 PASS AND 변경한 패키지(모듈) 테스트에서 `## Test Baseline` 대비 신규 실패 0건.
+      저장소 전체 실행·baseline 통과 수 재집계는 하지 마세요(전체 대조는 Phase 8.1·8.7). Spec이 요구하지 않는 변이·민감도 실험도 하지 마세요.
     - 보고: Spec ID | suite(`unit`, `{makeTestCommand}`가 설정된 경우만 `integration`) | 러너 네이티브 정확 ID | 파일 표.
       식별자는 baseline 규칙과 같습니다(go `{package}::TestX/sub`, jest·vitest `{runner}::{file}::{describe › it}`). 같은 ID를 두 번 선언하지 마세요.
 ```

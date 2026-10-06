@@ -168,9 +168,10 @@ TDD SKIP이면 6.2는 구현만 하고 이 절은 적용하지 않는다.
 - **작성 (6.2)**: 구현 프롬프트에 quick 테스트 동반 모드 블록(`references/tdd.md` "Phase 6.2")을 추가한다.
   - Spec 추적 ID(`AC`·`EC`·`RC` — unit-test Red 근거 집합과 동일) 근거의 **신규** 테스트만 작성한다.
   - 기존 테스트(케이스·단언·fixture)는 수정하지 않는다. 충돌하면 `[TestConflict]`로 보고한다.
-  - 작성한 테스트를 직접 실행해 green을 확인한다.
+  - 작성한 테스트를 직접 실행해 green을 확인하고, 변경한 패키지(모듈) 테스트로 baseline 대비 신규 실패가 없는지 본다. 저장소 전체 실행과 baseline 대조는 8.1·8.7이 맡는다.
   - Spec ID ↔ suite(`unit`, 또는 `{makeTestCommand}` 설정 시 `integration`) ↔ 러너 네이티브 정확 ID ↔ 파일 목록을 반환한다(식별자 규칙: `references/tdd.md`).
 - **기록**: 오케스트레이터는 반환 목록을 상태 파일 `## Quick Test Evidence`에 기록한다. `## TDD Test Map`에는 등재하지 않는다. `test_failures.py`는 Test Map만 읽으므로 quick 테스트의 실패는 baseline에 없는 식별자 = `regression`(→ 승격 ③)으로 분류된다. flaky는 기존 재실행 규칙을 따른다.
+- **6.2 직후 (오케스트레이터)**: 위 기록 뒤 승격 ② 재판정을 거쳐 Phase 7로 간다. Spec 대응의 독립 확인은 8.4가 맡으므로 이 시점에 diff 재리뷰·변이 재검증을 하지 않는다. 변이·민감도 실험은 기본 절차가 아니며 Spec 요구·새 결함 근거·미검증 가설이 있을 때만 사유를 남기고 수행한다(`references/execution-policy.md` '검증과 종료'). writer-safety 확인·`[TestConflict]` 판정·flaky 동일 트리 재실행·8.4 보완(pending_8.1)·트리가 바뀐 뒤의 새 scope·8.5 보완 뒤의 새 iteration·finalization freshness는 그대로다.
 - **종료 증거 게이트**: Evidence 행의 suite에 해당하는 실행 로그 원문(unit = 8.1, integration = 8.7 — `references/tdd.md`의 verbose/JSON 계약, 첫 실행부터 수집)에서 행마다 **정확 ID의 PASS 줄**을 확인한다. 그 실행에서 실패한 ID가 같은 트리 재실행에서 PASS로 명시돼 `flaky`로 분류되면 재실행 로그의 PASS 줄을 증거로 인정한다(판정 WARN — 수정 뒤 실행은 flaky 증거가 아니다).
   - 다음이면 그 suite 결과를 `INCONCLUSIVE`(검증 미완료)로 기록한다: 미출력 · SKIP·pending·todo · 시작만 출력 · 같은 ID의 선언이 2개 이상(중복 제목) · PASS와 SKIP 혼재.
   - `INCONCLUSIVE`는 test-summary에서 FAIL로 집계되므로 기존 종료 규칙·`BLOCKED:TEST_NOT_GREEN`·원격 반영 보류를 그대로 따른다.
