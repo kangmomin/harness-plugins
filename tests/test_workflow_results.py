@@ -274,6 +274,89 @@ class ResultsTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'cannot be a server_status'):
             results.validate(data)
 
+    def record_cli(self, path, *args, run_id='fixture-run', stdin=None):
+        return subprocess.run([sys.executable, str(ASSETS / 'workflow_results.py'), 'record', str(path), '--run-id', run_id, *args],
+                              capture_output=True, text=True, input=stdin)
+
+    def test_record_appends_refreshes_tree_and_finishes_in_one_validated_write(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repo, run = Path(temp) / 'repo', Path(temp) / 'run'
+            repo.mkdir()
+            run.mkdir()
+            for args in (('init', '-q'), ('config', 'user.name', 'Fixture'), ('config', 'user.email', 'fixture@example.invalid'),
+                         ('config', 'core.hooksPath', '/dev/null'), ('config', 'commit.gpgsign', 'false')):
+                subprocess.run(['git', '-C', str(repo), *args], check=True, capture_output=True)
+            (repo / 'app.go').write_text('package app\n')
+            subprocess.run(['git', '-C', str(repo), 'add', '-A'], check=True, capture_output=True)
+            subprocess.run(['git', '-C', str(repo), 'commit', '-qm', 'fixture'], check=True, capture_output=True)
+            source = run / 'verification-results.json'
+            subprocess.run([sys.executable, str(ASSETS / 'workflow_results.py'), 'init', '--out', str(source), '--run-id', 'fixture-run',
+                            '--domain', 'be', '--mode', 'build', '--cwd', str(repo)], check=True, capture_output=True)
+            source.chmod(0o640)
+            (repo / 'app.go').write_text('package app\n\nconst Keywords = true\n')
+            tree = results.tested_tree(repo)
+            build = dict(domain='be', kind='build', phase='7', iteration=1, verdict='PASS', terminal_state='DONE', tested_tree=tree)
+            done = self.record_cli(source, '--event', json.dumps(build), '--tree-cwd', str(repo), '--terminal-state', 'DONE')
+            self.assertEqual(done.returncode, 0, done.stderr)
+            output = json.loads(done.stdout)
+            self.assertEqual((output['recorded'], output['events'], output['terminal_state'], output['tested_tree']), (1, 1, 'DONE', tree))
+            data = results.load(source, 'fixture-run')
+            self.assertEqual((data['events'], data['targets'], data['mode']), ([build], [], 'build'))
+            self.assertEqual(source.stat().st_mode & 0o777, 0o640)
+            unit = dict(build, kind='unit', phase='8.1', regression_count=0)
+            piped = self.record_cli(source, '--event', '-', '--tree-cwd', str(repo), '--include-head', stdin=json.dumps(unit))
+            self.assertEqual(piped.returncode, 0, piped.stderr)
+            data = results.load(source, 'fixture-run')
+            self.assertEqual(data['events'], [build, unit])
+            self.assertTrue(data['tested_tree']['head_sensitive'])
+            self.assertEqual([p.name for p in run.iterdir()], ['verification-results.json'])
+
+    def test_record_rejections_leave_the_file_untouched(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = fixture()
+            data['terminal_state'] = 'RUNNING'
+            unit = dict(domain='be', kind='unit', phase='8.1', iteration=1, verdict='PASS', terminal_state='DONE',
+                        tested_tree=TREE.copy(), regression_count=0)
+            data['events'].append(unit)
+            source, link = Path(temp) / 'results.json', Path(temp) / 'link.json'
+            source.write_text(json.dumps(data))
+            link.symlink_to(source)
+            original = source.read_bytes()
+            build_event = dict(domain='be', kind='build', phase='7', iteration=1, verdict='PASS', terminal_state='DONE', tested_tree=TREE.copy())
+            build = json.dumps(build_event)
+            for label, path, args, run_id, message in (
+                    ('no change requested', source, [], 'fixture-run', 'record requires'),
+                    ('include-head without tree-cwd', source, ['--event', build, '--include-head'], 'fixture-run', '--include-head requires --tree-cwd'),
+                    ('run-id mismatch', source, ['--event', build], 'another-run', 'result run_id mismatch'),
+                    ('malformed JSON', source, ['--event', '{'], 'fixture-run', 'Expecting'),
+                    ('array event', source, ['--event', '[]'], 'fixture-run', 'event must be a JSON object'),
+                    ('batch with a duplicate key', source, ['--event', build, '--event', json.dumps(dict(build_event, phase='7.1'))],
+                     'fixture-run', 'conflicting duplicate event key'),
+                    ('duplicate of a recorded event', source, ['--event', json.dumps(dict(unit, phase='8.7'))], 'fixture-run',
+                     'conflicting duplicate event key'),
+                    ('invalid terminal state', source, ['--terminal-state', 'FINISHED'], 'fixture-run', 'result terminal_state invalid'),
+                    ('symlinked file', link, ['--event', build], 'fixture-run', 'must not be a symlink')):
+                with self.subTest(label):
+                    rejected = self.record_cli(path, *args, run_id=run_id)
+                    self.assertEqual(rejected.returncode, 2, rejected.stderr)
+                    self.assertTrue(rejected.stderr.startswith('result error: ') and message in rejected.stderr, rejected.stderr)
+                    self.assertEqual(source.read_bytes(), original)
+                    self.assertEqual(sorted(p.name for p in Path(temp).iterdir()), ['link.json', 'results.json'])
+
+    def test_record_cannot_finish_on_a_stale_final_pass(self):
+        with tempfile.TemporaryDirectory() as temp:
+            data = fixture()
+            data.update(terminal_state='RUNNING', tested_tree=dict(TREE, content_sha256='c' * 64))
+            data['events'].append(dict(domain='be', kind='unit', phase='8.1', iteration=1, verdict='PASS', terminal_state='DONE',
+                                       tested_tree=TREE.copy(), regression_count=0))
+            source = Path(temp) / 'results.json'
+            source.write_text(json.dumps(data))
+            original = source.read_bytes()
+            rejected = self.record_cli(source, '--terminal-state', 'DONE')
+            self.assertEqual(rejected.returncode, 2, rejected.stderr)
+            self.assertIn('final PASS describes a different tested tree', rejected.stderr)
+            self.assertEqual(source.read_bytes(), original)
+
 
 if __name__ == '__main__':
     unittest.main()

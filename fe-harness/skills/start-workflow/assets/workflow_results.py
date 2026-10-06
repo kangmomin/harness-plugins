@@ -2,8 +2,10 @@
 """Version 1 verification evidence. One orchestrator serially records agent results.
 
 Commands: tree --cwd DIR; validate FILE; init --out FILE --run-id ID --domain
-be|fe|fs --mode build|analyze|verify --cwd DIR. JSON is authoritative; Markdown
-is a view. Never reconstruct a successful terminal result from prose.
+be|fe|fs --mode build|analyze|verify --cwd DIR; record FILE --run-id ID
+[--event JSON|-]... [--tree-cwd DIR [--include-head]] [--terminal-state STATE].
+JSON is authoritative; Markdown is a view. Never reconstruct a successful
+terminal result from prose.
 """
 import argparse
 import hashlib
@@ -292,6 +294,40 @@ def check_scope(data, current_scope, domain='be'):
     return {'ready': True, 'run_id': data['run_id'], 'review_id': event['review_id'], 'verdict': event['verdict']}
 
 
+def record(filename, run_id, events=(), tree_cwd=None, include_head=False, terminal_state=None):
+    """Append events and refresh root tree/state; publish atomically only after full validation."""
+    require(events or tree_cwd is not None or terminal_state is not None, 'record requires --event, --tree-cwd or --terminal-state')
+    require(tree_cwd is not None or not include_head, '--include-head requires --tree-cwd')
+    path = Path(filename)
+    require(not path.is_symlink(), 'result file must not be a symlink')
+    data = load(path, run_id)
+    for raw in events:
+        event = json.loads(sys.stdin.read() if raw == '-' else raw)
+        require(isinstance(event, dict), 'event must be a JSON object')
+        data['events'].append(event)
+    if tree_cwd is not None:
+        data['tested_tree'] = tested_tree(tree_cwd, include_head)
+    if terminal_state is not None:
+        data['terminal_state'] = terminal_state
+    validate(data, run_id)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', prefix='.' + path.name + '.', suffix='.tmp', dir=path.parent, delete=False) as stream:
+            temporary = Path(stream.name)
+            json.dump(data, stream, ensure_ascii=False, indent=2)
+            stream.write('\n')
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, stat.S_IMODE(path.stat().st_mode))
+        os.replace(temporary, path)
+        temporary = None  # Committed: the temporary name no longer exists.
+    finally:
+        if temporary is not None:
+            temporary.unlink()
+    return {'recorded': len(events), 'run_id': data['run_id'], 'events': len(data['events']),
+            'terminal_state': data['terminal_state'], 'tested_tree': data['tested_tree']}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -316,6 +352,13 @@ def main():
     review.add_argument('--run-id', required=True)
     review.add_argument('--scope', required=True, help='Fresh workflow_scope.py output; collection must have exited 0')
     review.add_argument('--domain', choices=('be', 'fe'), default='be')
+    writer = sub.add_parser('record')
+    writer.add_argument('file')
+    writer.add_argument('--run-id', required=True)
+    writer.add_argument('--event', action='append', default=[], help="One JSON object; '-' reads it from stdin")
+    writer.add_argument('--tree-cwd', help='Refresh the root tested_tree from this worktree')
+    writer.add_argument('--include-head', action='store_true')
+    writer.add_argument('--terminal-state')
     init = sub.add_parser('init')
     for key in ('out', 'run-id', 'domain', 'mode', 'cwd'):
         init.add_argument('--' + key, required=True)
@@ -333,6 +376,8 @@ def main():
             result = test_summary(load(args.file, args.run_id), args.require)
         elif args.command == 'check-scope':
             result = check_scope(load(args.file, args.run_id), json.loads(Path(args.scope).read_text()), args.domain)
+        elif args.command == 'record':
+            result = record(args.file, args.run_id, args.event, args.tree_cwd, args.include_head, args.terminal_state)
         else:
             result = validate({'schema_version': 1, 'run_id': args.run_id, 'domain': args.domain, 'mode': args.mode,
                 'terminal_state': 'RUNNING', 'tested_tree': tested_tree(args.cwd, args.include_head), 'targets': [], 'cases': [], 'events': [], 'fixes': []})

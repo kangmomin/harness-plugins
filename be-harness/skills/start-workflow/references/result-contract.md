@@ -11,6 +11,13 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_results.py"
 
 오케스트레이터만 JSON을 순서대로 갱신한다. 하위 에이전트는 자기 결과 객체를 반환하고 공유 파일에 직접 쓰지 않는다. 기존 events/fixes를 덮거나 삭제하지 않는다. 검증 직전·직후 `tree --cwd "{CWD}"` 결과가 같아야 해당 실행의 `tested_tree`로 기록한다. 수정되면 새 iteration으로 재검증한다. head와 content_sha256은 실제 명령으로 얻으며 임의 값으로 채우지 않는다. v2 지문은 HEAD/index/비무시 untracked에서 찾은 실제 존재 파일의 경로·내용·실행 비트·symlink 대상을 해시한다. staging·내용 동일 commit은 파일 지문을 바꾸지 않고 textconv·index 최적화 플래그도 내용을 숨기지 못한다. 초기화된 submodule은 자식 HEAD와 실제 내용을 포함한다. 미초기화 submodule·부모 symlink·특수 파일은 명시 오류이며 검증 성공으로 기록하지 않는다.
 
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_results.py" record "{RESULTS_FILE}" --run-id "{RUN_ID}" \
+  --event '{EVENT_JSON}' [--event …] [--tree-cwd "{CWD}" [--include-head]] [--terminal-state "{STATE}"]
+```
+
+`record`는 events 추가, 루트 `tested_tree` 갱신(`--tree-cwd`: 그 시점의 실제 `tree` 결과), 루트 `terminal_state` 변경을 한 번에 검증한 뒤 원자 교체한다. 검증·쓰기에 실패(exit 2)하면 원본은 바뀌지 않는다. 이 세 필드는 직접 편집하거나 임시 헬퍼로 쓰지 않고, 호출은 하나씩 순서대로 한다. `--event`는 JSON 객체 1건이며 `-`면 stdin에서 읽는다. event의 `tested_tree`는 위 규칙대로 검증 직전·직후의 실제 `tree` 출력이다. exit 0은 기록 성공일 뿐 검증 통과나 마감 승인이 아니며, test-summary·check-scope·check-current 등 기존 게이트는 그대로 적용된다. targets·cases·fixes·e2e 요약은 기존대로 오케스트레이터가 갱신하고 `validate`로 확인한다.
+
 ## 필드
 
 | 위치 | 필수 값 |
