@@ -250,6 +250,7 @@ Phase 7 시작 전 `{STATE_FILE}`의 상태를 갱신한다. 각 도메인 루�
 - **프론트엔드 루프**: ① build + type-check ② `/fe-harness:simplify-loop` ③ `/fe-harness:convention-check` ④ `/fe-harness:test-loop` ⑤ `/fe-harness:lint-check`
 
 품질 루프도 공유 index를 사용하므로 BE → FE 순차 실행한다. 빌드/타입 체크는 명령별 exit code를 판정하며 로그 tail 사용 시 Bash `pipefail`을 적용한다.
+MUST: [ocr-review.md](ocr-review.md)를 읽고 실제 Simplify·Convention 호출 직전에 common 오케스트레이터가 writer 종료 후 자기 collector로 최신 scope를 `--ocr` 수집한다. 각 도메인 러너에는 해당 소유 파일·역할의 검증된 groups와 status/uncovered_paths/진단을 전달하고, 러너는 실제 중첩 스킬의 스캔 입력에 인계한다. 수정이 발생하면 다음 리뷰 전에 새 artifact를 수집한다. 적용 group_id·파일·역할 및 미적용 이유를 기존 Phase 근거에 반환·보존한다. 기존 순서·수정 권한·상한은 그대로이며 OCR 실패는 기존 리뷰로 fallback한다.
 각 도메인의 테스트 실패는 해당 도메인 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (`fullstack-tdd.md`의 "Phase 7: 도메인별 회귀 대조").
 **공용 계약 테스트의 실패는 도메인 루프가 고치지 않는다** — 오케스트레이터가 원인 도메인을 판정해 배정하고, 계약 자체가 문제면 Phase 2로 복귀한다.
 
@@ -293,6 +294,7 @@ frozen contract와 실제 코드를 다시 맞춘다. 반드시 검증할 항목
 Method/Path/Event Name · Request/Response 필드명과 타입 · 에러 코드와 프론트 fallback · loading/empty/retry/disabled 상태 · 인증/권한 · 페이지네이션/커서 · 캐시 무효화/재조회
 
 Phase 8.1이 보고한 불일치를 먼저 확인한 뒤 위 항목을 점검한다.
+MUST: [ocr-review.md](ocr-review.md)를 읽고 부모가 최신 `--ocr` scope의 검증된 그룹을 준비한다. domain별 소유 파일과 계약·동작 정합성 항목에만 제한하고 순수 코드 품질 규칙은 Phase 7 판단자가 담당한다. Spec-only scope-reviewer의 일반 품질 역할은 확대하지 않는다. UI component-reviewer에는 컴포넌트 관련 그룹·진단을 실제 프롬프트에 전달하고 적용·미적용을 보고받는다. a11y 전문 입력과 Phase 8.1 격리 입력에는 OCR 규칙·artifact를 전달하지 않는다. OCR 누락/제외는 계약·변경 검토 범위를 줄이지 않는다.
 
 권장 리뷰 조합: 백엔드 `scope-reviewer` + 프론트엔드 `scope-reviewer` (+UI 변경 시 `component-reviewer`, 접근성 영향 시 `a11y-reviewer`).
 계약 불일치 가능성이 있으면 `Complex` 이상 model/effort로 생성한다.

@@ -54,6 +54,8 @@ user-invocable: true
 | Codex (선택) | 세션 도구 목록에 `mcp__codex__codex` 존재 (be profile `codexMode` ≠ none일 때) | start-workflow (Plan 검증 루프·Phase 8+ 리뷰 — codexMode mix/max) |
 | Codex providers (선택) | be profile `codexMode` ≠ none이고 `codexModels`가 있을 때(없으면 N/A): 슬롯(`review`·`explore`·`judge`·`write`) 레코드 검증(무효 → `INVALID_SLOT`) + `openai`·`ollama`·`lmstudio` 외 provider마다 `${CODEX_HOME:-$HOME/.codex}/config.toml`의 `[model_providers.{id}]` 테이블(`grep -E '^\[model_providers\.("?){id}\1\]'`)·인증(`env_key` 변수 설정 여부 / `experimental_bearer_token` / `[….auth]`)·`wire_api` 점검 — WARN 코드 `NO_TABLE`·`ENV_UNSET`·`BEARER_TOKEN`·`WIRE_API`·`PROJECT_ONLY`·`INVALID_SLOT`. 키·URL 값은 출력하지 않는다 | start-workflow (Phase 8+ 리뷰는 `review` 슬롯) |
 
+OCR은 비필수 실행 의존성이다. `shutil.which('ocr')`로 존재만 확인하고 AVAILABLE/WARN과 비필수 여부를 보고한다. 이 점검에서는 version/preview/rule·설치·업데이트를 실행하지 않는다. AVAILABLE은 delegation 계약·실행 성공이나 리뷰 통과의 증거가 아니다. 없거나 실제 품질 리뷰에서 수집에 실패해도 사유를 남기고 기존 reviewer로 진행한다. 별도 OCR LLM key/provider는 요구하지 않는다.
+
 ### 4.1 오버레이 적용 상태
 
 | 항목 | 점검 방법 | 판정 |

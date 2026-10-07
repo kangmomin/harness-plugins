@@ -8,6 +8,12 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-10-07 OCR delegation 리뷰 보조 입력
+
+OpenCodeReview(OCR)의 delegation으로 파일별 리뷰 규칙을 수집하여 기존 BE/FE/common 품질 판단자와 minmos 추가 품질 리뷰에 전달한다. 기존 리뷰어가 실제 finding·판정을 담당하며 새 LLM 리뷰·API key·provider 설정·Phase를 추가하지 않는다. hyeondongs는 FE 변경을 상속한다. OCR 제외·누락은 기존 scope·두 diff 검토를 줄이지 않고, 미설치·수집 실패는 진단을 남긴 뒤 기존 리뷰로 진행한다. quick에서 생략된 품질 리뷰·OCR 수집을 추가하지 않으며 Plan·Spec-only scope·a11y·격리 Read-back 역할도 확대하지 않는다.
+
+OCR이 PATH에 설치되어 있으면 해당 단계에서 `workflow_scope.py --ocr`로 보조 입력을 수집한다(v1.12.12 delegation 계약 기준). 설치는 자동 실행하지 않으며 [공식 설치 안내](https://github.com/alibaba/open-code-review/blob/v1.12.12/pages/src/content/docs/en/installation.md)를 따른다. `.opencodereview/rule.json`의 프로젝트 규칙은 OCR의 기존 우선순위에 따라 사용된다. doctor는 OCR 실행 파일 존재만 비필수로 진단하고 delegation 성공 여부는 실제 단계에서 확인한다. 상세 인계·실패 계약은 [ocr-review.md](be-harness/skills/start-workflow/references/ocr-review.md)에 있다.
+
 ## 2026-10-06 quick 고정비 절감과 결과 기록 명령
 
 BE 1.7.1 / FE 1.6.1 / common 0.15.2. quick 실행에서 반복되던 고정 비용을 줄였다. `workflow_results.py record`가 events 추가와 루트 `tested_tree`·`terminal_state` 갱신을 한 번에 검증한 뒤 원자 교체하므로, 오케스트레이터가 결과 JSON을 직접 편집하거나 임시 헬퍼를 만들지 않는다(exit 0은 기록 성공일 뿐 검증 통과가 아니다). BE quick의 6.2 구현자는 신규 테스트와 변경한 패키지 테스트만 baseline과 대조하고, 저장소 전체 대조는 8.1·8.7이, Spec 대응 확인은 8.4가 맡는다. 구현 프롬프트에는 상태 파일의 Plan 코드를 다시 적지 않는다. `test_failures.py`는 Go 1.22+ `-cover`가 테스트 없는 패키지에 내는 coverage 한 줄을 테스트 0건 패키지로 처리해 러너 완주를 잘못 판정하지 않는다. SKILL.md에는 서브에이전트 effort가 세션 값을 상속하는 조건을 적었다.

@@ -22,6 +22,8 @@
 | mm.quality-review | Phase 7 BE 루프 직후 | standard 리뷰 상한 4회; advisor 결과만 반환 |
 | mm.doc-sync | Phase 7 BE 문서 동기화 | API 변경이면 Apidog로 **치환**. `apiDocsPath` 존재 조건을 사용하지 않음. 생성/수정/삭제 분기는 doc-sync 역할 파일을 따름 |
 
+`mm.quality-review` 실제 dispatch 직전에 common 부모 오케스트레이터는 MUST: [ocr-review.md](ocr-review.md)를 읽고 자기 collector로 최신 `--ocr` scope를 준비한다. 현재 scope·규칙 snapshot과 맞는 artifact가 없으면 미사용 시도 디렉터리에 새로 수집하고, advisor에게 BE 소유 파일의 코드 품질 groups·scope identity·두 diff·status/uncovered_paths/진단을 전달한다. advisor가 적용 group_id·파일·미적용 이유를 기존 hook 결과에 함께 반환하도록 프롬프트에 명시한다. minmos overlay에 다른 플러그인의 직접 파일 경로를 요구하지 않는다. OCR 실패는 기존 hook 리뷰로 fallback하며 리뷰 capability·판정·상한·tested_tree 유효 범위는 바꾸지 않는다. Plan hook과 격리 Read-back에는 이 입력을 전달하지 않는다.
+
 ## 재검증과 재개
 
 - `valid_for: run/spec/iteration/tested_tree`가 기록의 유효 범위다. E2E 플로우의 기존 답은 run에서 재사용하고, 검증/품질 리뷰/API 문서는 현재 tested_tree가 같고 최신 결과가 유효할 때만 재사용한다.

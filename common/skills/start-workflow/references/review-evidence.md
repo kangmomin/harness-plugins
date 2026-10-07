@@ -4,7 +4,7 @@ BE Phase 8.4의 입력·결과 계약이다. 코드 판정과 근거 완료를 �
 
 ## 호출 전: 변경 자료를 실제 파일로 제공
 
-모든 writer가 종료된 Batch A 시작점에서 오케스트레이터가 [scope-contract.md](scope-contract.md)의 START_SHA·OWNED_FILES로 수집한다. REVIEW_ATTEMPT는 같은 RUN 안에서 증가시키며 기존 디렉터리를 재사용하지 않는다.
+모든 writer가 종료된 Batch A 시작점에서 오케스트레이터가 [scope-contract.md](scope-contract.md)의 START_SHA·OWNED_FILES로 수집한다. REVIEW_ATTEMPT는 같은 RUN 안에서 증가시키며 기존 디렉터리를 재사용하지 않는다. standard/light에서는 MUST: [ocr-review.md](ocr-review.md)를 읽고 아래 명령에 `--ocr`를 추가하여 같은 scope artifact에 품질 스캐너용 보조 입력을 수집한다. quick에서는 추가하지 않는다. 8.4의 Spec-only 판정은 선택적 `ocr` 키를 일반 품질 기준으로 사용하지 않으며, OCR 실패도 기존 scope 근거 완료 여부를 대신하지 않는다.
 
 ```bash
 python3 -I -B "{PLUGIN_ROOT}/skills/start-workflow/assets/workflow_scope.py" \
