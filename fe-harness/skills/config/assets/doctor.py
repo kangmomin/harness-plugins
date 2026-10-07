@@ -42,6 +42,8 @@ def diagnose(cwd, domain, host, tools=None):
     row("profile", "OK" if resolved["profile_source"] == "profile" else "LEGACY" if resolved["profile_source"] == "legacy" else "WARN",
         resolved["profile_source"] + "; modern and legacy files are alternatives")
     row("python", "OK", sys.version.split()[0])
+    ocr = shutil.which("ocr")
+    row("ocr", "AVAILABLE" if ocr else "WARN", ocr or "OCR 미설치; 기존 리뷰로 계속하며 자동 설치하지 않음")
     node_project = domain == "fe" or values.get("preset") == "node"
     if node_project:
         binary("node")

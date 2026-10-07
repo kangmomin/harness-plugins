@@ -40,6 +40,7 @@ class ContractChecksTests(unittest.TestCase):
             ('work-log/.codex-plugin/plugin.json', lambda s: s.replace('"version": "0.3.1"', '"version": "0.0.0"'), 'version mismatch'),
             ('be-harness/agents/scope-reviewer.md', lambda s: s.replace('tools:', 'allowed-tools:', 1), 'unsupported'),
             ('common/skills/start-workflow/assets/workflow_policy.py', lambda s: s + '\n# divergence\n', 'parity mismatch'),
+            ('common/skills/start-workflow/references/ocr-review.md', lambda s: s + '\nOCR divergence\n', 'parity mismatch'),
         ]
         for relative, transform, expected in changes:
             with self.subTest(relative=relative):

@@ -46,6 +46,20 @@ class DoctorTests(unittest.TestCase):
             self.assertFalse(result['validation_executed'])
             self.assertFalse(any(c['status'] == 'MISSING' for c in result['checks']))
 
+    def test_ocr_presence_is_optional_and_never_probed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            real_which = doctor.shutil.which
+            for executable, expected in [(None, 'WARN'), ('/fixture/ocr', 'AVAILABLE')]:
+                with self.subTest(executable=executable), \
+                     patch.object(doctor.shutil, 'which', side_effect=lambda name: executable if name == 'ocr' else real_which(name)), \
+                     patch.object(doctor.subprocess, 'run') as run:
+                    result = doctor.diagnose(root, 'be', 'claude')
+                row = next(item for item in result['checks'] if item['key'] == 'ocr')
+                self.assertEqual(expected, row['status'])
+                self.assertFalse(row['required'])
+                run.assert_not_called()
+
     def test_legacy_stays_read_only_and_actual_tool_names_are_preserved(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
