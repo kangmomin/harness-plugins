@@ -103,6 +103,13 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 | **fe-harness** | 베이스 | 범용 프론트엔드. React/Next.js 중심 컴포넌트 생성, lint/a11y, 단위/E2E 테스트, PR |
 | **minmos-harness** | be 오버레이 | Post-Math 백엔드 — Apidog 문서 동기화, gRPC/PubSub E2E, PostgreSQL MCP DB 안전 규칙, Post-Math 컨벤션 |
 | **hyeondongs-harness** | fe 오버레이 | hyeondongs 환경 세팅/진단(`.hyeondong-config.json`), 풀스택 전환 시 minmos 백엔드 연계 |
+| **work-log** | 기록 관리 | [분류형 전역 vault](work-log/README.md)(권장): projects/<project>/{history,data,docs}, 공유·미분류 자료를 함께 검색하고 소유·분류별 작성. 회의록 STT 전사 오인식 보정(`stt-fix` — 단어장 기준 치환·질문·단어장 갱신). 독립 프로젝트 root·기존 flat·저장소 내 방식도 유지 |
+
+분류형 전역 vault는 전체 root를 유지하고 선택적인 project/category 필터로 조회한다. 소유 프로젝트는
+작업 범위와 기존 폴더로 확인하며 기존 이력의 자동 이동·Properties 일괄 변경은 하지 않는다.
+별도 독립 프로젝트 root를 선택하면 worktree끼리 같은 저장소 key를 쓰지만 checkout마다 첫 init이
+필요하고 다른 clone은 분리한다. `WORK_LOG_ROOT`는 선택한 최종 root이며 실제 설정과 MCP root를
+비교하고 재시작 후 같은 root를 sync한다.
 
 ## 빠른 시작
 

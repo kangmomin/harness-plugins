@@ -23,15 +23,48 @@
 |------|-------------|-------|
 | 최초 설정 | `/work-log:init` | `$work-log:init` |
 | 검색 | `/work-log:search <검색어>` | `$work-log:search <검색어>` |
+| 회의록 STT 보정 | `/work-log:stt-fix <원본 .txt>` | `$work-log:stt-fix <원본 .txt>` |
 
 ## 스코프
 
 | 모드 | vault 위치 | 설정 파일 |
 |------|-----------|----------|
-| **전역** | 지정한 절대경로 (예: `~/work-log`) | `$XDG_CONFIG_HOME/work-log/config.json` (기본 `~/.config/work-log/config.json`) |
-| **프로젝트** | `<repo>/work-log/` | `<repo>/.work-log.json` |
+| **분류형 전역 (권장)** | `<vault>/projects/<project>/{history,data,docs}/` 및 `_shared`, `_unclassified` | 전역 설정의 root는 `<vault>` 그대로, 쓰기 경로만 분류 |
+| **독립 중앙 프로젝트별** | `<중앙 base>/<projectKey>/` | `<현재 checkout>/.work-log.json` 에 `scope: project`, root 절대경로 |
+| **기존 전역 flat** | 지정한 절대경로 (예: `~/work-log`) | `$XDG_CONFIG_HOME/work-log/config.json` (기본 `~/.config/work-log/config.json`) |
+| **저장소 내 프로젝트** | 기존 `<repo>/work-log/` | `<현재 checkout>/.work-log.json` 에 root `./work-log` |
 
-해석 우선순위 (매 호출마다 재해석 — `init` 후 재시작이 필요 없다):
+분류형 전역 모드는 root를 축소하지 않아 프로젝트 간 자료와 `_shared`를 함께 읽는다.
+신규 문서의 소유는 주제·작업 범위·기존 프로젝트 폴더로 확인하고 쓰기 경로를 분류한다.
+없는 프로젝트 키를 clone 이름만으로 만들지 않는다. 기존 문서는 원래 경로에서 갱신한다.
+
+별도 독립 중앙 모드는 **각 프로젝트/checkout의 첫 init에서 설정**한다. 미등록 repo를 자동으로 모두
+분류하는 기능이 아니다. 기존 global root는 중앙 base 후보이며 일반 기본값은
+`<기존 vault>/projects` 다. 명시된 `AGENTS.md`·`CLAUDE.md` 저장 경로가 우선한다.
+없는 base는 승인받아 생성해야 한다. 이미 정리된 projects/<project> 폴더를 hash 이름으로 바꾸거나
+그 옆에 중복 vault를 만들기 위한 기능이 아니며, 독립 root를 명시 선택한 경우에만 사용한다.
+
+```bash
+node '<plugin-root>/mcp/lib/config.js' --project-vault '<existing central base>' --project-dir '<actual project absolute dir>'
+```
+
+read-only JSON `{root,baseRoot,projectDir,projectKey,identity,configDir}` 을 반환한다.
+존재하는 canonical base 아래 단일 프로젝트 폴더를 계산하며 아직 없는 root는 생성하지 않는다.
+key는 common-dir identity에서 도출한 안전 repo 이름 + `-` + common-dir realpath SHA256 앞
+16자리다. 같은 repo의 worktree는 같은 key, 다른 clone은 다른 key다. `configDir` 는 현재
+checkout의 git show-toplevel(nonGit은 사용자가 확인한 실제 디렉토리)이며 **worktree마다
+최초 init이 필요**하다. nonGit identity는 확인한 실제 디렉토리의 realpath다. `.git` 이 있는데
+Git 조회가 실패하면 nonGit으로 대체하지 않고 오류로 처리한다. base 자체 symlink는 canonical
+경로로 허용하지만 기존 중앙 root의 symlink는 거부하며 명시 vault 재연결은 flat 방식으로 한다.
+
+init은 helper 계산 → 사용자 승인 → mkdir → 같은 helper 재검증·플러그인 소스 검사 → 현재
+`configDir` 에 `.work-log.json` 작성 순서로 진행하고 global 설정은 그대로 둔다.
+중앙 absolute config는 개인 유지를 권장하며 `.gitignore` 변경·커밋은 별도 승인이 필요하다.
+기존 flat 이력은 자동 이동하지 않는다. 새 프로젝트 검색에 옛 이력이 안 나오는 것은 정상이며,
+필요하면 명시적으로 기존 flat root를 선택한다. 상위 중앙 vault로 자동 검색 확장하지 않는다.
+문서 파일명 `YYYYMMDD-<kebab-case-이름>-<type>.md` 규약은 유지한다.
+
+해석 우선순위 (매 호출마다 재해석 — env·MCP 실행 환경 변경은 재시작 필요):
 
 1. `WORK_LOG_ROOT` 환경변수 (절대경로일 때만)
 2. cwd 에서 위로 `.work-log.json` 탐색 (`.git` 경계까지)
@@ -45,6 +78,49 @@
 Codex 번들 MCP는 플러그인 디렉토리에서 시작한다. 따라서 프로젝트 `.work-log.json` 이 자동으로
 발견되지 않으면 `WORK_LOG_ROOT="<vault 절대경로>" codex` 로 프로젝트 세션을 시작한다.
 manifest가 이 환경변수와 XDG 설정·캐시 경로를 MCP 프로세스에 전달한다.
+Claude Code도 MCP cwd가 프로젝트와 다르면 프로젝트 MCP 설정의 env fallback을 안내한다.
+`WORK_LOG_ROOT` 는 중앙 base가 아닌 **최종 프로젝트 root** 다. 한 프로젝트로 고정한 env는
+다른 프로젝트로 전환할 때 바꾸고 클라이언트/MCP를 재시작한다. 실제 프로젝트에서 해석한
+`cfg.root`·의도한 checkout 설정 root와 `wiki_status.root` 가 일치하기 전에는 검색·쓰기·sync나
+설정 완료를 선언하지 않는다(root 비교는 canonical realpath 기준). env fallback의
+`scope: global` 표시만으로 실패로 보지 않는다.
+edit의 중복 검색에서 `INDEX_MISSING` 이면 같은 root를 sync한 뒤 다시 검색한다.
+
+## 분류형 vault 읽기·쓰기
+
+```text
+<vault>/
+  projects/<project>/{history,data,docs}/
+  projects/<NN_bucket>/<project>/{history,data,docs}/   # 예: 90_personal, 99_no-more-use
+  _shared/{history,data,docs}/
+  _unclassified/{history,data,docs}/
+```
+
+root는 `<vault>` 그대로다. plan/report/note/meeting/decision은 `history`, design/spec은 `docs`,
+명시적인 자료 정리 Markdown은 `data`를 기본값으로 하며 실제 성격·기존 관례·명시 경로가 우선한다.
+여러 프로젝트 공통 자료는 `_shared`, 소유를 확인하지 못한 자료는 `_unclassified`에 둔다.
+프로젝트 키는 작업 범위와 기존 폴더로 확인한다. MCP cwd·clone 이름만으로 새 프로젝트를 만들지 않는다.
+
+`wiki_resolve`의 선택적 `project`와 `category` 필터는 정확한 분류 키를 찾는다. 공유는 `_shared`,
+미분류는 `_unclassified`, category는 history/data/docs다. 생략하면 현재 root 전체를 검색한다.
+후보와 `wiki_read`는 파생 project/category를 반환하며, 경로가 구조화되어 있으면 경로를 우선한다.
+flat 문서의 실제 문자열 Properties는 보조 근거지만 숫자·불리언·객체를 프로젝트 이름으로 오인하지 않는다.
+HTML 단독 후보도 경로에서 분류하며 twin 병합은 유지한다.
+
+`wiki_write`의 path는 여전히 필수다. 신규 create만 경로의 project/category를 Properties 기본값으로
+넣으며 별도 인자·본문 frontmatter의 명시 값이 경로와 다르면 저장 전에 거부한다. 기존 overwrite/append는
+자동 재배치·분류 Properties 주입을 하지 않고 모르는 키와 값·타입을 보존한다. 원시 JSON·SQL·CSV와
+첨부는 MCP 쓰기 대상이 아니며 필요하면 실제 경로를 파일 읽기 도구로 읽고 실행하지 않는다.
+
+### 0.3.2 적용 확인
+
+index v3는 구캐시를 재생성해야 한다. 같은 vault의 0.3.1 서버를 종료하고 새 설치본으로 재시작한 뒤
+`wiki_status.server`가 0.3.2이고 의도한 root와 일치하는지 확인하고 그 root를 `wiki_sync`한다.
+서로 다른 버전이 같은 cache를 번갈아 재생성하는 혼합 실행을 하지 않는다.
+GitHub marketplace의 `plugin update`는 미커밋 로컬 소스를 배포하지 않는다. 로컬 개발본은 Claude의
+`claude --plugin-dir /workspace/harness-plugins/work-log`처럼 실제 소스 경로로 새 세션을 실행한다.
+cache를 수동 덮어쓰거나 다른 marketplace 등록을 변경하지 않는다. Codex도 지원되는 소스 설치/연결을
+확인해야 하며, 재시작 후 실제 버전 확인 전에는 현재 세션에 적용됐다고 보고하지 않는다.
 
 ## 스킬
 
@@ -53,6 +129,7 @@ manifest가 이 환경변수와 XDG 설정·캐시 경로를 MCP 프로세스에
 | search | `/work-log:search` / `$work-log:search` | 후보 랭킹 → 문서 하나만 읽기 |
 | sync | `/work-log:sync` / `$work-log:sync` | 재스캔 + 인덱스 갱신 + drift 리포트 |
 | edit | `/work-log:edit` / `$work-log:edit` | 문서 작성 · 수정 |
+| stt-fix | `/work-log:stt-fix` / `$work-log:stt-fix` | 회의록 STT 전사 오인식 보정 — 단어장 기준 치환, 애매한 항목 질문, 보정본(.md)·정리본(.txt) 생성, 단어장 신설·증분 반영 |
 | init | `/work-log:init` / `$work-log:init` | 스코프 설정 |
 | doctor | `/work-log:doctor` / `$work-log:doctor` | 연결 · 설정 · 인덱스 진단 |
 
@@ -143,8 +220,9 @@ updated: 2026-08-21
 ---
 ```
 
-문서 간 참조는 Obsidian 호환 `[[상대경로]]` 를 쓴다. Obsidian 에서 그대로 열리고
-인덱서가 backlink 로 수집한다.
+문서 간 참조는 `wiki_resolve`가 반환한 실제 vault 상대 경로를 써서
+`[[projects/ocs/history/20260820-이전-작업-plan]]`처럼 연결한다. Obsidian에서 그대로 열리고
+인덱서가 backlink로 수집한다. filename-only 참조나 추측한 이전 경로를 새 기본값으로 쓰지 않는다.
 
 ## 계측 도구
 
