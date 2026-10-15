@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fork } from 'node:child_process';
 import { once } from 'node:events';
-import { buildIndex, sha1, splitFrontmatter, writeDoc } from '../mcp/lib/vault.js';
+import { buildIndex, documentClassification, sha1, splitFrontmatter, writeDoc } from '../mcp/lib/vault.js';
 import { rank } from '../mcp/lib/search.js';
 
 function fixture(t) {
@@ -13,6 +13,102 @@ function fixture(t) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   return { root, excludes: [] };
 }
+
+test('구조 경로 우선 분류와 raw YAML 문자열만의 flat 분류', () => {
+  assert.deepEqual(documentClassification('projects/한글/docs/file.md', 'project: other\ncategory: data\n'), { project: '한글', category: 'docs' });
+  for (const owner of ['_shared', '_unclassified']) {
+    assert.deepEqual(documentClassification(`${owner}/data/file.html`), { project: owner, category: 'data' });
+    assert.deepEqual(documentClassification(`${owner}/data`), { project: null, category: null });
+  }
+  assert.deepEqual(documentClassification('projects/owner/docs'), { project: null, category: null });
+  assert.deepEqual(documentClassification('projects/owner/docs/'), { project: null, category: null });
+  assert.deepEqual(documentClassification('projects/90_personal/frame/history/x.md'), { project: 'frame', category: 'history' });
+  assert.deepEqual(documentClassification('projects/99_no-more-use/fitlog/history/x.md', 'project: other\n'), { project: 'fitlog', category: 'history' });
+  assert.deepEqual(documentClassification('projects/90_personal/x.md', 'project: owner\n'), { project: 'owner', category: null });
+  assert.deepEqual(documentClassification('projects/90_personal/frame/history/'), { project: null, category: null });
+  assert.deepEqual(documentClassification('projects/personal/frame/history/x.md'), { project: null, category: null });
+  assert.deepEqual(documentClassification('projects/내신인강/docs/내신인강/x.md'), { project: '내신인강', category: 'docs' });
+  for (const value of ['123', 'true', 'null', '{a: b}', '[a]', '\n  nested: yes', '\n- list', '0o12', '-0x1f', '+0b10', '1:20', '&anchor owner', '*alias']) {
+    assert.deepEqual(documentClassification('flat.md', `project: ${value}\ncategory: docs\n`), { project: null, category: 'docs' }, value);
+  }
+  assert.deepEqual(documentClassification('flat.md', 'project: "123"\ncategory: "docs" # comment\n'), { project: '123', category: 'docs' });
+  assert.deepEqual(documentClassification('flat.md', 'project: owner\ncategory: other\n'), { project: 'owner', category: null });
+});
+
+test('YAML quoted 문자열 escape를 분류하고 inline create와 exact 검색에 사용한다', async (t) => {
+  const cfg = fixture(t);
+  for (const [value, expected] of [
+    [String.raw`"own\x65r"`, 'owner'],
+    [String.raw`"한글"`, '한글'],
+    [String.raw`"\U00020000"`, '𠀀'],
+    [String.raw`"own\\x65r"`, String.raw`own\x65r`],
+    [String.raw`"a\ b\_c\Nd\Le\Pf"`, 'a b\xa0c\x85d e f'],
+    [String.raw`"a\0\a\v\e"`, 'a\0\x07\v\x1b'],
+    [String.raw`"bad\q"`, null],
+    [String.raw`"bad\x0"`, null],
+    [String.raw`"bad\UFFFFFFFF"`, null],
+  ]) {
+    assert.equal(documentClassification('flat.md', `project: ${value}\n`).project, expected, value);
+  }
+  const raw = String.raw`project: "own\x65r"` + '\n' + String.raw`category: "d\x6fcs"` + '\n';
+  assert.deepEqual(documentClassification('flat.md', raw), { project: 'owner', category: 'docs' });
+  fs.writeFileSync(path.join(cfg.root, 'flat.md'), `---\n${raw}---\n# needle`);
+  assert.equal(rank(buildIndex(cfg), { query: 'needle', project: 'owner', category: 'docs' }).candidates[0].path, 'flat.md');
+  const relPath = 'projects/owner/docs/new.md';
+  await writeDoc(cfg, { relPath, content: `---\n${raw}---\n# needle` });
+  assert.ok(fs.readFileSync(path.join(cfg.root, relPath), 'utf8').includes(raw));
+});
+
+test('신규 structured Properties는 정규화 경로를 사용하고 양쪽 명시 충돌을 거부한다', async (t) => {
+  const cfg = fixture(t);
+  const relPath = 'projects/owner/history/../docs/new.md';
+  const result = await writeDoc(cfg, { relPath, content: '# New' });
+  assert.equal(result.path, 'projects/owner/docs/new.md');
+  assert.deepEqual(documentClassification('flat.md', splitFrontmatter(fs.readFileSync(path.join(cfg.root, result.path), 'utf8')).raw), { project: 'owner', category: 'docs' });
+  for (const [i, args] of [
+    { frontmatter: { project: 'wrong' }, content: '# Body' },
+    { frontmatter: { category: 'data' }, content: '# Body' },
+    { frontmatter: { project: 'owner' }, content: '---\nproject: wrong\n---\nBody' },
+    { frontmatter: { project: 'wrong' }, content: '---\nproject: owner\n---\nBody' },
+    { content: '---\nproject: {owner: yes}\n---\nBody' },
+    { content: '---\ncategory: true\n---\nBody' },
+  ].entries()) {
+    const target = `projects/owner/docs/bad-${i}.md`;
+    await assert.rejects(writeDoc(cfg, { relPath: target, ...args }), /저장 경로/);
+    assert.equal(fs.existsSync(path.join(cfg.root, target)), false);
+  }
+  await assert.rejects(writeDoc(cfg, { relPath: '../escape.md', content: '# Nope' }), /vault 밖/);
+  for (const owner of ['_shared', '_unclassified']) {
+    await writeDoc(cfg, { relPath: `${owner}/data/new.md`, content: '# Data' });
+    const fm = splitFrontmatter(fs.readFileSync(path.join(cfg.root, `${owner}/data/new.md`), 'utf8')).frontmatter;
+    assert.equal(fm.project, owner);
+    assert.equal(fm.category, 'data');
+  }
+});
+
+test('inline 신규 raw 키 및 기존 복합 Properties와 noFM overwrite/append를 보존한다', async (t) => {
+  const cfg = fixture(t);
+  const relPath = 'projects/owner/docs/doc.md';
+  const custom = 'custom:\n  nested: [one, two]\nblock: |\n  first\n  second\n';
+  await writeDoc(cfg, { relPath, content: `---\nproject: owner\n${custom}---\nBody`, frontmatter: { title: 'Explicit' } });
+  let text = fs.readFileSync(path.join(cfg.root, relPath), 'utf8');
+  assert.ok(text.includes(custom));
+  assert.equal(splitFrontmatter(text).frontmatter.category, 'docs');
+  assert.equal(splitFrontmatter(text).frontmatter.title, 'Explicit');
+  const complex = 'project:\n  owner: original\ncategory: [custom, other]\n'+custom;
+  fs.writeFileSync(path.join(cfg.root, relPath), `---\n${complex}---\nOld`);
+  await writeDoc(cfg, { relPath, content: 'New', mode: 'overwrite' });
+  text = fs.readFileSync(path.join(cfg.root, relPath), 'utf8');
+  assert.ok(text.includes(complex));
+  const metadata = splitFrontmatter(text).raw;
+  await writeDoc(cfg, { relPath, content: 'Append', mode: 'append', expectedHash: sha1(Buffer.from(text)) });
+  assert.equal(splitFrontmatter(fs.readFileSync(path.join(cfg.root, relPath), 'utf8')).raw, metadata);
+  assert.equal(buildIndex(cfg).status, 'OK');
+  fs.writeFileSync(path.join(cfg.root, relPath), '# Plain');
+  await writeDoc(cfg, { relPath, content: 'Replaced', mode: 'overwrite' });
+  await writeDoc(cfg, { relPath, content: 'Appended', mode: 'append' });
+  assert.equal(fs.readFileSync(path.join(cfg.root, relPath), 'utf8'), 'Replaced\n\nAppended');
+});
 
 async function writers(t, cfg, count = 2) {
   const children = Array.from({ length: count }, (_, i) => fork(new URL('./helpers/write-worker.mjs', import.meta.url), [], {

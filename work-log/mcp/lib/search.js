@@ -34,7 +34,7 @@ function fieldText(doc, field) {
  * 본문 없이 후보를 랭킹한다. 형태소 분석 없이 부분 문자열 포함으로 처리한다
  * (교착어인 한국어에서 어간 매칭이 자연히 걸린다).
  */
-export function rank(index, { query, type, tags, limit = 5 }) {
+export function rank(index, { query, type, tags, project, category, limit = 5 }) {
   const terms = tokenize(query);
   if (!terms.length) return { candidates: [], emptyResult: true, reason: '쿼리가 비어 있습니다' };
 
@@ -43,6 +43,8 @@ export function rank(index, { query, type, tags, limit = 5 }) {
 
   for (const doc of index.docs) {
     if (type && doc.type !== type) continue;
+    if (project !== undefined && doc.project !== nfc(project)) continue;
+    if (category !== undefined && doc.category !== category) continue;
     if (wantTags.length) {
       const docTags = (doc.tags ?? []).map(norm);
       if (!wantTags.every((t) => docTags.some((d) => d.includes(t)))) continue;
@@ -83,6 +85,8 @@ export function rank(index, { query, type, tags, limit = 5 }) {
     path: doc.path,
     title: doc.title,
     type: doc.type,
+    project: doc.project ?? null,
+    category: doc.category ?? null,
     kind: doc.kind,
     tags: doc.tags,
     created: doc.created,

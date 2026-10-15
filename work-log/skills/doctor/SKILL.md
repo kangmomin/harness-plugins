@@ -34,7 +34,8 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
 
 | 필드 | 점검 |
 |------|------|
-| `scope` / `root` | 의도한 vault 를 가리키는가 |
+| `scope` / `root` | 의도한 vault를 가리키는가. 구조화된 전역 vault는 전체 root를 유지하는가 |
+| `server` | 새 project/category 기능은 0.3.2부터 지원. 소스 수정만으로 설치본이 갱신됐다고 판단하지 않는다 |
 | `configSource` | 어느 설정이 이겼는가 — 환경변수 / 프로젝트 / XDG 전역 / legacy 설정 |
 | `cwd` | MCP 서버의 작업 디렉토리. 프로젝트 스코프 자동 탐지가 되는지 판단하는 근거 |
 | `indexExists` | false 면 sync 스킬 필요 |
@@ -49,9 +50,14 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
 `configSource` 가 `.work-log.json` 경로면 walk-up 탐지가 **동작 중**이다.
 `cwd` 가 현재 프로젝트와 무관한 경로인데 프로젝트 스코프를 쓰고 싶다면 다음처럼 처리한다.
 
-- Claude Code: 프로젝트 `.mcp.json` 의 `WORK_LOG_ROOT` 에 vault 절대경로를 넣는다.
-- Codex: `WORK_LOG_ROOT="<vault 절대경로>" codex` 로 실행해 번들 MCP에 환경변수를 전달한다.
-- 두 클라이언트에서 항상 같은 vault를 쓸 경우 중립 전역 설정을 사용한다.
+- 실제 프로젝트 절대경로를 먼저 확인한다. 미등록 checkout/worktree는 최초 init을 안내한다.
+- Claude Code: 프로젝트 `.mcp.json` 의 `WORK_LOG_ROOT` 에 **최종 프로젝트 root** 절대경로를 넣도록 안내한다(중앙 base가 아님).
+- Codex: `WORK_LOG_ROOT="<최종 프로젝트 root 절대경로>" codex` 로 실행해 번들 MCP에 전달한다.
+- env가 프로젝트 config보다 우선한다. 기존 env가 다른 root면 변경/해제를 승인받아 안내하고, 프로젝트 전환 시에도 root를 바꾸고 재시작한다.
+- 재시작 후 `wiki_status.root` 가 의도한 root와 일치하기 전까지 미완료다. 검색·쓰기·sync를 실행하지 않는다.
+- 기존 flat root로의 전환을 명시적으로 승인받았다면 CLI에도 같은 `WORK_LOG_ROOT` 를 전달하고, `cfg.root`·`wiki_status.root`·승인한 root가 같을 때 기존 checkout 설정과의 차이를 허용한다. 승인 없는 env 불일치는 허용하지 않는다.
+- 같은 분류형 전역 vault 또는 기존 flat vault를 함께 읽는 경우에는 중립 전역 설정을 사용한다.
+  분류형 전역 root를 프로젝트 하위 폴더로 바꾸면 공유·다른 프로젝트 자료가 가려진다.
 
 ## Step 3: 스킬 관점 점검 (Bash)
 
@@ -61,8 +67,23 @@ node "<plugin-root>/mcp/lib/config.js"
 
 `<plugin-root>` 는 이 `SKILL.md` 의 `../..` 설치 경로다. 클라이언트가 `PLUGIN_ROOT` 또는
 `CLAUDE_PLUGIN_ROOT` 를 제공하면 그 값을 쓸 수 있다.
-스킬이 보는 스코프와 MCP 가 보는 스코프가 **같아야 한다**. 다르면 cwd 차이가 원인이다.
-같은 모듈을 쓰므로 값이 다르다면 실행 위치가 다른 것이다.
+위 명령은 확인한 **실제 프로젝트 디렉토리**에서 실행한다. `cfg.root` 와 MCP의
+`wiki_status.root` 가 **같아야 한다**. 스코프 라벨보다 실제 root의 canonical realpath를 비교하며,
+fallback이 `scope: global` 로 표시된다는 이유만으로 실패로 보지 않는다. 다르면 cwd 차이뿐
+아니라 env 우선순위·설정 출처·재시작 여부도 점검한다. env가 의도와 다른 프로젝트로 고정되어
+있으면 root 일치만으로 정상이라 하지 말고 실제 checkout `.work-log.json` 의 root도 확인한다.
+중앙 모드의 예상 경로는 init의 `--project-vault`·`--project-dir` read-only helper로 확인한다.
+상위 중앙 vault로 자동 검색 확장하거나 기존 flat 이력을 자동 이동하지 않는다.
+옛 이력이 새 프로젝트 검색에 안 나오는 것은 정상이며 필요하면 명시적으로 flat root를 선택한다.
+
+### 분류형 vault · 버전 확인
+
+전역 분류형 구조는 root를 유지한 채 project/category 필터로 검색한다. 기존 독립 프로젝트 root에
+현재 전역 root를 자동 덮어쓰지 않는다. `wiki_status.server`가 0.3.1이면 새 필터·Properties 기본값은
+미적용이다. 소스 버전과 실행 버전을 구분한다. GitHub marketplace의 update는 미커밋 로컬 소스를
+배포하지 않으며 cache 수동 편집은 금지한다. Claude 로컬 개발본은 지원되는 `--plugin-dir`로
+새 세션을 시작하고, 같은 vault의 구버전 서버를 종료한 뒤 버전·root 확인과 sync를 수행한다.
+Codex는 지원되는 소스 설치/연결 절차를 확인하고 재시작을 안내한다. 확인 전에는 완료로 보고하지 않는다.
 
 ## Step 4: MCP 미연결 시
 

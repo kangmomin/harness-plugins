@@ -13,12 +13,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { resolveConfig, ConfigError } from './lib/config.js';
 import {
-  syncIndex, readIndexState, safeResolve, splitFrontmatter, writeDoc, indexPaths,
+  syncIndex, readIndexState, safeResolve, splitFrontmatter, writeDoc, indexPaths, documentClassification,
 } from './lib/vault.js';
 import { rank, extractSection, applyBudget } from './lib/search.js';
 import { ioCapability } from './lib/io.js';
 
-const SERVER_INFO = { name: 'work-log', version: '0.3.1' };
+const SERVER_INFO = { name: 'work-log', version: '0.3.2' };
 const SUPPORTED_PROTOCOLS = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
 const log = (...a) => process.stderr.write(`[work-log] ${a.join(' ')}\n`);
@@ -40,8 +40,8 @@ const TOOLS = [
   {
     name: 'wiki_resolve',
     description:
-      'work-log 인덱스에서 문서 후보를 점수순으로 반환한다. 본문은 주지 않고 후보마다 path, title, type, kind(md/html), tags, created, ' +
-      'summary(본문 앞 200자), snippet, companions(같은 폴더·같은 이름의 .html 경로), score 를, total 에 일치 문서 수를 준다. ' +
+      'work-log 인덱스에서 문서 후보를 점수순으로 반환한다. 본문은 주지 않고 후보마다 path, title, type, project, category(nullable), kind(md/html), tags, created,' +
+      ' summary(본문 앞 200자), snippet, companions(같은 폴더·같은 이름의 .html 경로), score 를, total 에 일치 문서 수를 준다. ' +
       'query 를 공백으로 나눈 단어마다 title·tags·headings·경로·본문 앞부분(코드 블록 제외)에서 대소문자를 무시한 부분 문자열로 찾아 ' +
       '가중 합산하고, 모든 단어가 맞는 문서에 가산점을 준다(형태소 분석 없음, 동점은 최근 수정순). ' +
       '일치가 없으면 candidates: [], emptyResult: true 와 vault 상위 태그 hintTags 를 반환한다. ' +
@@ -54,6 +54,8 @@ const TOOLS = [
       properties: {
         query: { type: 'string', description: '검색어. 공백으로 나눈 단어를 각각 찾는다(모든 단어가 맞는 문서에 가산점)' },
         type: { type: 'string', enum: TYPE_ENUM, description: '문서 종류 필터. frontmatter type, 없으면 파일명 접미사(-plan 등)나 최상위 폴더로 추론한 종류와 정확히 같아야 한다' },
+        project: { type: 'string', description: '소유 프로젝트 exact 필터(NFC). _shared/_unclassified 포함. 생략하면 전체 검색' },
+        category: { type: 'string', enum: ['history', 'data', 'docs'], description: '문서 분류 exact 필터. 생략하면 전체 검색' },
         tags: { type: 'array', items: { type: 'string' }, description: '태그 필터. 넘긴 태그마다 문서 태그 하나에 부분 문자열로 포함돼야 한다(모두 만족, 대소문자 무시)' },
         limit: { type: 'integer', minimum: 1, maximum: 20, default: 5, description: '반환할 후보 수 (기본 5, 최대 20)' },
       },
@@ -63,8 +65,8 @@ const TOOLS = [
     name: 'wiki_read',
     description:
       'work-log 문서 하나를 인덱스 없이 파일에서 직접 읽는다. .md 는 { path, citation, frontmatter(없으면 null), body(frontmatter 제외), ' +
-      'matchedHeading, sectionNotFound, truncated, approximateBudget, chars } 를 반환한다. .html 은 본문 없이 ' +
-      '{ path, kind: "html", note, absolutePath } 만 반환하므로 absolutePath 를 파일 읽기 도구로 연다. 파일 hash 는 반환하지 않는다.',
+      'project, category(nullable), matchedHeading, sectionNotFound, truncated, approximateBudget, chars } 를 반환한다. .html 은 본문 없이' +
+      ' { path, kind: "html", project, category, note, absolutePath } 만 반환하므로 absolutePath 를 파일 읽기 도구로 연다. 파일 hash 는 반환하지 않는다.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -199,13 +201,14 @@ const HANDLERS = {
       return text({
         path: rel,
         kind: 'html',
+        ...documentClassification(rel),
         note: 'html 문서의 본문은 인덱싱하지 않습니다. 브라우저나 Read 도구로 여세요.',
         absolutePath: abs,
       });
     }
 
     const raw = fs.readFileSync(abs, 'utf8');
-    const { frontmatter, body } = splitFrontmatter(raw);
+    const { frontmatter, body, raw: metadata } = splitFrontmatter(raw);
     const section = extractSection(body, args.section);
     const budget = applyBudget(section.text, args.token_budget);
 
@@ -213,6 +216,7 @@ const HANDLERS = {
       path: rel,
       citation: `work-log:${rel}`,
       frontmatter,
+      ...documentClassification(rel, metadata),
       matchedHeading: section.matchedHeading,
       sectionNotFound: section.sectionNotFound ?? false,
       truncated: budget.truncated,

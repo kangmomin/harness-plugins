@@ -17,6 +17,7 @@ import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import { spawnSync } from 'node:child_process';
 
 export const CONFIG_BASENAME = '.work-log.json';
 export const DEFAULT_EXCLUDES = ['.obsidian', '.trash', '.git', 'node_modules', '.wiki'];
@@ -189,6 +190,73 @@ export function resolveConfig({ cwd = process.cwd(), env = process.env, home = o
   };
 }
 
+export function projectVaultPath({ baseRoot, projectDir }) {
+  if (typeof baseRoot !== 'string' || !path.isAbsolute(baseRoot) ||
+      typeof projectDir !== 'string' || !path.isAbsolute(projectDir)) {
+    throw new ConfigError('중앙 base와 프로젝트 디렉토리는 절대경로여야 합니다', 'project-vault');
+  }
+  const base = fs.realpathSync(validateRoot(baseRoot, 'project-vault'));
+  const project = fs.realpathSync(projectDir);
+  if (!fs.statSync(project).isDirectory()) {
+    throw new ConfigError('프로젝트 경로는 디렉토리여야 합니다', 'project-vault');
+  }
+
+  let gitRoot = null;
+  for (let dir = project; ;) {
+    try {
+      fs.lstatSync(path.join(dir, '.git'));
+      gitRoot = dir;
+      break;
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+
+  let identity = project;
+  let configDir = project;
+  if (gitRoot) {
+    const gitEnv = { ...process.env };
+    for (const key of Object.keys(gitEnv)) {
+      if (key.startsWith('GIT_')) delete gitEnv[key];
+    }
+    const gitPath = (flag) => {
+      const result = spawnSync('git', ['-C', project, 'rev-parse', '--path-format=absolute', flag], {
+        encoding: 'utf8', timeout: 5000, env: gitEnv,
+      });
+      if (result.error || result.status !== 0) {
+        throw new ConfigError(`Git 프로젝트 식별 실패: ${result.error?.message || result.stderr.trim()}`, 'project-vault');
+      }
+      return fs.realpathSync(result.stdout.replace(/\r?\n$/, ''));
+    };
+    identity = gitPath('--git-common-dir');
+    configDir = gitPath('--show-toplevel');
+  }
+
+  const name = path.basename(identity) === '.git'
+    ? path.basename(path.dirname(identity))
+    : path.basename(identity);
+  const slug = name.normalize('NFC').replace(/[^\p{L}\p{N}_-]+/gu, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'project';
+  const hash = crypto.createHash('sha256').update(identity).digest('hex').slice(0, 16);
+  const projectKey = `${slug}-${hash}`;
+  const root = path.join(base, projectKey);
+  let existing = null;
+  try {
+    existing = fs.lstatSync(root);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  if (existing) {
+    if (existing.isSymbolicLink()) {
+      throw new ConfigError(`프로젝트 vault에 심볼릭 링크를 사용할 수 없습니다: ${root}`, 'project-vault');
+    }
+    validateRoot(root, 'project-vault');
+  }
+  return { root, baseRoot: base, projectDir: project, projectKey, identity, configDir };
+}
+
 /** vault 별 인덱스 캐시 디렉토리. vault 안에는 아무것도 쓰지 않는다. */
 export function cacheDirFor(vaultRoot, { env = process.env, home = os.homedir() } = {}) {
   let real = vaultRoot;
@@ -208,7 +276,19 @@ export function cacheDirFor(vaultRoot, { env = process.env, home = os.homedir() 
 // CLI 진입점 — 스킬이 `node config.js` 로 호출한다.
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   try {
-    const cfg = resolveConfig();
+    const args = process.argv.slice(2);
+    let cfg;
+    if (args.length) {
+      if (args.length !== 4 ||
+          !['--project-vault', '--project-dir'].includes(args[0]) ||
+          !['--project-vault', '--project-dir'].includes(args[2]) || args[0] === args[2]) {
+        throw new ConfigError('사용법: config.js --project-vault <중앙 base 절대경로> --project-dir <프로젝트 절대경로>', 'cli');
+      }
+      const options = { [args[0]]: args[1], [args[2]]: args[3] };
+      cfg = projectVaultPath({ baseRoot: options['--project-vault'], projectDir: options['--project-dir'] });
+    } else {
+      cfg = resolveConfig();
+    }
     if (cfg.root) cfg.cacheDir = cacheDirFor(cfg.root).dir;
     process.stdout.write(JSON.stringify(cfg, null, 2) + '\n');
   } catch (e) {

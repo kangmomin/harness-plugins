@@ -10,6 +10,7 @@ import {
   ConfigError,
   DEFAULT_EXCLUDES,
   globalConfigPaths,
+  projectVaultPath,
   resolveConfig,
 } from '../mcp/lib/config.js';
 
@@ -55,6 +56,21 @@ test('WORK_LOG_ROOT가 project와 global 설정보다 우선한다', (t) => {
 
   assert.equal(result.root, f.vaults.env);
   assert.equal(result.configSource, 'env:WORK_LOG_ROOT');
+});
+
+test('명시적인 flat root 전환은 기존 프로젝트 설정을 보존하고 CLI에도 같은 root를 전달한다', (t) => {
+  const f = fixture(t);
+  const projectConfig = path.join(f.root, 'repo', '.work-log.json');
+  writeJson(projectConfig, { scope: 'project', root: f.vaults.project });
+  const original = fs.readFileSync(projectConfig, 'utf8');
+  const env = { ...process.env, ...f.env, WORK_LOG_ROOT: f.vaults.global };
+  const cli = fileURLToPath(new URL('../mcp/lib/config.js', import.meta.url));
+  const result = spawnSync(process.execPath, [cli], { encoding: 'utf8', cwd: f.cwd, env });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.equal(JSON.parse(result.stdout).root, f.vaults.global);
+  assert.equal(resolveConfig({ cwd: f.cwd, home: f.home, env }).root, f.vaults.global);
+  assert.equal(fs.readFileSync(projectConfig, 'utf8'), original);
+  assert.equal(resolveConfig({ cwd: f.cwd, home: f.home, env: f.env }).root, f.vaults.project);
 });
 
 test('project 설정이 XDG와 legacy 설정보다 우선한다', (t) => {
@@ -164,4 +180,129 @@ test('설정 CLI가 공백·한글·URL 예약 문자가 있는 경로에서도 
     assert.equal(result.status, 0, result.stderr);
     assert.equal(JSON.parse(result.stdout).root, f.vaults.env, name);
   }
+});
+
+function git(cwd, args, options = {}) {
+  const result = spawnSync('git', ['-C', cwd, ...args], { encoding: 'utf8', ...options });
+  assert.equal(result.status, 0, result.error?.message || result.stderr);
+  return result.stdout.trim();
+}
+
+function gitFixture(t) {
+  const f = fixture(t);
+  const repo = path.join(f.root, 'repo');
+  git(repo, ['init']);
+  return { ...f, repo };
+}
+
+test('중앙 프로젝트 경로 계산은 동명 저장소를 분리하고 파일을 만들지 않는다', (t) => {
+  const f = gitFixture(t);
+  const other = path.join(f.root, 'other', 'repo');
+  fs.mkdirSync(other, { recursive: true });
+  git(other, ['init']);
+  const a = projectVaultPath({ baseRoot: f.vaults.global, projectDir: f.cwd });
+  const b = projectVaultPath({ baseRoot: f.vaults.global, projectDir: other });
+
+  assert.notEqual(a.root, b.root);
+  assert.equal(a.configDir, fs.realpathSync(f.repo));
+  assert.equal(a.identity, fs.realpathSync(path.join(f.repo, '.git')));
+  assert.match(a.projectKey, /^repo-[a-f0-9]{16}$/);
+  assert.deepEqual(fs.readdirSync(f.vaults.global), []);
+  assert.equal(resolveConfig({ cwd: f.cwd, home: f.home, env: f.env }).needsInit, true);
+});
+
+test('상속된 Git 환경변수로 다른 저장소의 vault나 설정 위치를 선택하지 않는다', (t) => {
+  const f = gitFixture(t);
+  const other = path.join(f.root, 'other');
+  fs.mkdirSync(other);
+  git(other, ['init']);
+  const expected = projectVaultPath({ baseRoot: f.vaults.global, projectDir: f.cwd });
+  const cli = fileURLToPath(new URL('../mcp/lib/config.js', import.meta.url));
+  const result = spawnSync(process.execPath, [cli, '--project-vault', f.vaults.global, '--project-dir', f.cwd], {
+    encoding: 'utf8',
+    env: {
+      ...process.env,
+      GIT_DIR: path.join(other, '.git'),
+      GIT_WORK_TREE: other,
+      GIT_COMMON_DIR: path.join(other, '.git'),
+      GIT_CEILING_DIRECTORIES: f.repo,
+    },
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const actual = JSON.parse(result.stdout);
+  assert.equal(actual.root, expected.root);
+  assert.equal(actual.configDir, expected.configDir);
+  assert.equal(actual.identity, expected.identity);
+});
+
+test('하위 디렉토리·심볼릭 별칭·이름이 다른 worktree는 같은 중앙 경로를 선택한다', (t) => {
+  const f = gitFixture(t);
+  const tree = git(f.repo, ['mktree'], { input: '' });
+  const commit = git(f.repo, ['-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+    'commit-tree', tree], { input: 'fixture\n' });
+  const worktree = path.join(f.root, 'different-worktree-name');
+  git(f.repo, ['worktree', 'add', '--detach', worktree, commit]);
+  const alias = path.join(f.root, 'alias');
+  fs.symlinkSync(f.repo, alias);
+  const select = (projectDir) => projectVaultPath({ baseRoot: f.vaults.global, projectDir });
+  const expected = select(f.repo);
+
+  assert.equal(select(f.cwd).root, expected.root);
+  assert.equal(select(alias).root, expected.root);
+  assert.equal(select(worktree).root, expected.root);
+  assert.equal(select(worktree).configDir, fs.realpathSync(worktree));
+});
+
+test('비Git 프로젝트와 한글·공백 이름을 안전한 단일 폴더명으로 계산한다', (t) => {
+  const f = fixture(t);
+  for (const name of ['한글 프로젝트', '---', 'a'.repeat(80)]) {
+    const projectDir = path.join(f.root, name);
+    fs.mkdirSync(projectDir);
+    const selected = projectVaultPath({ baseRoot: f.vaults.global, projectDir });
+    assert.equal(selected.identity, fs.realpathSync(projectDir));
+    assert.equal(selected.configDir, fs.realpathSync(projectDir));
+    assert.equal(path.dirname(selected.root), fs.realpathSync(f.vaults.global));
+    assert.ok(selected.projectKey.length <= 65);
+    assert.match(selected.projectKey, /^[\p{L}\p{N}_-]+-[a-f0-9]{16}$/u);
+  }
+});
+
+test('중앙 base 별칭은 허용하되 프로젝트 폴더 symlink·파일·플러그인 소스는 거부한다', (t) => {
+  const f = fixture(t);
+  const baseAlias = path.join(f.root, 'base-alias');
+  fs.symlinkSync(f.vaults.global, baseAlias);
+  const selected = projectVaultPath({ baseRoot: baseAlias, projectDir: f.cwd });
+  assert.equal(selected.baseRoot, fs.realpathSync(f.vaults.global));
+  fs.symlinkSync(f.vaults.env, selected.root);
+  assert.throws(() => projectVaultPath({ baseRoot: baseAlias, projectDir: f.cwd }), /심볼릭 링크/);
+  fs.unlinkSync(selected.root);
+  fs.writeFileSync(selected.root, 'file');
+  assert.throws(() => projectVaultPath({ baseRoot: baseAlias, projectDir: f.cwd }), /디렉토리/);
+  fs.unlinkSync(selected.root);
+  fs.mkdirSync(selected.root);
+  fs.mkdirSync(path.join(selected.root, '.claude-plugin'));
+  assert.throws(() => projectVaultPath({ baseRoot: baseAlias, projectDir: f.cwd }), /플러그인 소스/);
+  assert.throws(() => projectVaultPath({ baseRoot: 'relative', projectDir: f.cwd }), /절대경로/);
+  assert.throws(() => projectVaultPath({ baseRoot: f.vaults.global, projectDir: path.join(f.root, 'missing') }));
+});
+
+test('손상된 Git 메타데이터를 비Git 프로젝트로 fallback하지 않는다', (t) => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.root, 'repo', '.git'), 'gitdir: missing-git-dir\n');
+  assert.throws(() => projectVaultPath({ baseRoot: f.vaults.global, projectDir: f.cwd }), /Git 프로젝트 식별 실패/);
+});
+
+test('프로젝트 경로 CLI는 계산만 수행하고 잘못된 옵션을 거부한다', (t) => {
+  const f = fixture(t);
+  const cli = fileURLToPath(new URL('../mcp/lib/config.js', import.meta.url));
+  const result = spawnSync(process.execPath, [cli, '--project-vault', f.vaults.global, '--project-dir', f.cwd], {
+    encoding: 'utf8', cwd: f.cwd,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const selected = JSON.parse(result.stdout);
+  assert.equal(selected.root, projectVaultPath({ baseRoot: f.vaults.global, projectDir: f.cwd }).root);
+  assert.equal(fs.existsSync(selected.root), false);
+  const bad = spawnSync(process.execPath, [cli, '--project-vault', f.vaults.global], { encoding: 'utf8' });
+  assert.equal(bad.status, 1);
+  assert.match(JSON.parse(bad.stdout).error, /사용법/);
 });

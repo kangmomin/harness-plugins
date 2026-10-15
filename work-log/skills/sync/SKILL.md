@@ -23,9 +23,28 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
 - 기존 문서에 frontmatter 를 주입하지 않는다. 없는 문서는 제목·경로에서 메타를 **추론**해 인덱스에만 기록한다
 - 기본 제외 목록은 `.obsidian`·`.trash`·`.git`·`node_modules`·`.wiki`다. 설정의 비어 있지 않은 `excludes` 배열은 기본 목록을 대체하고, 생략/빈 배열은 기본 목록을 사용한다
 
-## Step 1: 동기화 실행
+## Step 1: 실제 root 확인 · 동기화 실행
 
-기본 이름이 `wiki_sync` 인 MCP 툴을 호출한다 (인자 없음).
+MCP의 cwd가 아닌 실제 프로젝트 절대경로를 확인한다. 그 디렉토리에서
+`node "<plugin-root>/mcp/lib/config.js"` 로 해석한 `cfg.root` 와 `wiki_status.root` 가
+canonical realpath 기준으로 일치하기 전에는 sync를 실행하지 않는다. env가 다른 프로젝트로 고정되어 있지 않은지
+실제 checkout `.work-log.json` root와도 비교한다. `<plugin-root>` 는 이 `SKILL.md` 의 `../..` 설치 경로다.
+불일치하면 doctor/init으로 env 우선순위·MCP cwd(플러그인 경로일 수 있음)를 진단하고,
+최종 프로젝트 root의 `WORK_LOG_ROOT` fallback 및 재시작 후 확인을 안내한다.
+사용자가 기존 flat root로의 전환을 명시적으로 승인했다면 그 root를 `WORK_LOG_ROOT` 로 CLI에도
+동일하게 전달하고, `cfg.root`·`wiki_status.root`·승인한 root의 일치를 확인한다. 이 경우에만 기존
+checkout 설정과의 차이를 허용하며, 승인 없는 env 불일치는 sync를 중단한다.
+`scope: global` 표시만으로 실패로 보지 않는다. 독립 프로젝트 모드의 미등록 checkout/worktree는
+최초 init이 필요하다. 분류형 전역 모드는 확인한 공유 root 전체를 동기화한다.
+상위 중앙 vault로 스캔·검색을 자동 확장하거나 기존 flat 이력을 자동 이동하지 않는다.
+옛 이력이 필요하면 명시적으로 기존 flat root를 선택한다.
+
+구조화된 전역 vault는 root를 프로젝트 하위 폴더로 축소하지 않는다. `projects/`, `_shared/`,
+`_unclassified/`와 유지된 기존 문서를 함께 스캔하며 분류 메타는 인덱스에만 반영한다.
+0.3.2의 index v3는 구캐시 재생성이 필요하다. 설치본 재시작 뒤 `wiki_status.server`와 실제 root를
+확인하고 같은 root를 sync한다. 아직 살아 있는 0.3.1 서버의 sync는 v3 적용 확인을 대신하지 않는다.
+
+일치가 확인된 같은 root에 기본 이름이 `wiki_sync` 인 MCP 툴을 호출한다 (인자 없음).
 
 
 전체 스캔 + 전체 해시 방식이다. 응답의 `scan.filesRead`·`bytesRead`·`durationMs`로 실제 비용을 확인한다.

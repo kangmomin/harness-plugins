@@ -22,7 +22,8 @@ const ATTACHMENT_EXT = new Set([
   '.zip', '.xlsx', '.pptx', '.docx',
 ]);
 const HTML = '.html';
-export const INDEX_VERSION = 2;
+export const INDEX_VERSION = 3;
+const CATEGORIES = ['history', 'data', 'docs'];
 
 const TYPE_SUFFIXES = ['plan', 'report', 'design', 'note', 'spec', 'meeting', 'decision'];
 const FOLDER_TYPE = {
@@ -217,10 +218,47 @@ function inferType(rel, fm) {
   return FOLDER_TYPE[top] ?? 'note';
 }
 
-function inferTags(rel) {
+function classificationString(block) {
+  const value = yamlValue(block.value);
+  if (!value || nonStringYaml(value) || /^[!&*|>]/.test(value) ||
+      /^(?:yes|no|on|off|[-+]?0(?:o[0-7_]+|b[01_]+|x[0-9a-f_]+)|[-+]?\d[\d_]*(?::[0-5]?\d)+(?:\.\d*)?|\d{4}-\d{2}-\d{2}(?:[Tt ].*)?)$/i.test(value) ||
+      block.raw.split('\n').slice(1).some((line) => line.trim() && !line.trim().startsWith('#'))) return null;
+  const escapes = { 0: '\0', a: '\x07', v: '\v', e: '\x1b', N: '\x85', _: '\xa0', L: ' ', P: ' ', ' ': ' ' };
+  try {
+    const parsed = value.startsWith('"') ? JSON.parse(value.replace(/\\(?:x[0-9a-fA-F]{2}|U[0-9a-fA-F]{8}|.)/g, (escape) => {
+      const token = escape.slice(1);
+      if (Object.hasOwn(escapes, token)) return JSON.stringify(escapes[token]).slice(1, -1);
+      if (token.length > 1) return JSON.stringify(String.fromCodePoint(parseInt(token.slice(1), 16))).slice(1, -1);
+      return escape;
+    })) : yamlString(value);
+    return typeof parsed === 'string' ? nfc(parsed) : null;
+  } catch { return null; }
+}
+
+export function documentClassification(rel, raw = '') {
+  const parts = nfc(rel).split(path.sep);
+  if (parts[0] === 'projects' && parts[1] && CATEGORIES.includes(parts[2]) &&
+      parts.length >= 4 && parts.at(-1)) return { project: parts[1], category: parts[2] };
+  if (['_shared', '_unclassified'].includes(parts[0]) && CATEGORIES.includes(parts[1]) &&
+      parts.length >= 3 && parts.at(-1)) return { project: parts[0], category: parts[1] };
+  // 숫자 접두 버킷(90_personal, 99_no-more-use)은 한 단계 아래가 프로젝트다
+  if (parts[0] === 'projects' && /^\d{2}_/.test(parts[1] ?? '') && parts[2] && CATEGORIES.includes(parts[3]) &&
+      parts.length >= 5 && parts.at(-1)) return { project: parts[2], category: parts[3] };
+  const result = { project: null, category: null };
+  for (const key of Object.keys(result)) {
+    const blocks = frontmatterBlocks(raw).filter((block) => block.key === key);
+    if (blocks.length === 1) result[key] = classificationString(blocks[0]);
+  }
+  if (!CATEGORIES.includes(result.category)) result.category = null;
+  return result;
+}
+
+function inferTags(rel, raw = '') {
   const segs = rel.split(path.sep);
   const tags = new Set();
-  if (segs.length > 1) tags.add(nfc(segs[0]));
+  const { project } = documentClassification(rel, raw);
+  if (project) tags.add(project);
+  else if (segs.length > 1 && segs[0] !== 'projects') tags.add(nfc(segs[0]));
   const stem = path.basename(rel, path.extname(rel)).replace(/^\d{8}-/, '');
   // 하이픈·언더스코어·공백을 모두 토큰 경계로 본다 ("02_기능정의서" -> "기능정의서")
   for (const tok of stem.split(/[-_\s]+/)) {
@@ -278,7 +316,8 @@ function parseMarkdown(rel, text, stat) {
   return {
     title,
     type: inferType(rel, frontmatter),
-    tags: tags.length ? tags : inferTags(rel),
+    tags: tags.length ? tags : inferTags(rel, raw),
+    ...documentClassification(rel, raw),
     status: frontmatter?.status || 'active',
     summary: plain.slice(0, 200),
     excerpt: plain.slice(0, 1500),
@@ -411,6 +450,7 @@ export function buildIndex(cfg, { previous = null } = {}) {
         title: parseHtmlTitle(h.path, h.text),
         type: inferType(h.path, null),
         tags: inferTags(h.path),
+        ...documentClassification(h.path),
         status: 'active',
         summary: '', excerpt: '', headings: [], links: [],
         created: inferCreated(h.path, h.stat.mtimeMs),
@@ -534,6 +574,8 @@ function parseIndexState(vaultRoot, raw) {
         !Array.isArray(index.keyCollisions) || !Array.isArray(index.docs) || !index.docs.every((d) => d &&
         ['path', 'key', 'title', 'type', 'hash', 'summary', 'excerpt', 'created', 'status'].every((k) => typeof d[k] === 'string') &&
         d.path && !path.isAbsolute(d.path) && !d.path.split(path.sep).includes('..') && d.key === nfc(d.path) &&
+        (d.project === null || typeof d.project === 'string') &&
+        (d.category === null || CATEGORIES.includes(d.category)) &&
         ['md', 'html'].includes(d.kind) && numbers(d, ['mtime', 'size']) &&
         ['tags', 'headings', 'links'].every((k) => strings(d[k])) &&
         Array.isArray(d.companions) && d.companions.every((c) => c && typeof c.path === 'string' && typeof c.hash === 'string'))) {
@@ -647,7 +689,19 @@ function renderDocument(existing, rel, { content, frontmatter, mode = 'create', 
   } else if (existing === null) {
     // 신규 문서 — frontmatter 를 부여한다
     const today = new Date().toISOString().slice(0, 10);
-    const fm = contentStartsFm
+    const incoming = splitFrontmatter(content);
+    const defaults = {};
+    for (const [key, value] of Object.entries(documentClassification(rel))) {
+      if (value === null) continue;
+      const blocks = frontmatterBlocks(incoming.raw).filter((block) => block.key === key);
+      if ((Object.hasOwn(frontmatter ?? {}, key) &&
+          (typeof frontmatter[key] !== 'string' || nfc(frontmatter[key]) !== value)) ||
+          blocks.some((block) => classificationString(block) !== value)) {
+        throw new Error(`frontmatter.${key} 와 저장 경로가 일치하지 않습니다: ${rel}`);
+      }
+      if (!blocks.length && !Object.hasOwn(frontmatter ?? {}, key)) defaults[key] = value;
+    }
+    const fm = incoming.frontmatter
       ? null
       : {
           title: frontmatter?.title || stemToTitle(rel),
@@ -656,13 +710,15 @@ function renderDocument(existing, rel, { content, frontmatter, mode = 'create', 
           status: frontmatter?.status || 'draft',
           created: frontmatter?.created || today,
           updated: today,
+          ...defaults,
           ...Object.fromEntries(
             Object.entries(frontmatter ?? {}).filter(
               ([k]) => !['title', 'type', 'tags', 'status', 'created', 'updated'].includes(k)
             )
           ),
         };
-    final = fm ? renderFrontmatter(fm) + content.replace(/^\s+/, '') : content;
+    final = fm ? renderFrontmatter(fm) + content.replace(/^\s+/, '')
+      : mergeFrontmatter(incoming.raw, '', { ...defaults, ...(frontmatter ?? {}) }) + incoming.body.replace(/^\s+/, '');
   } else {
     // overwrite — 기존 frontmatter 가 있으면 모르는 키를 보존하고 병합
     const bodyOnly = splitFrontmatter(content).frontmatter

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { buildIndex, indexPaths, readIndex, syncIndex, writeDoc } from '../mcp/lib/vault.js';
+import { buildIndex, indexPaths, readIndex, readIndexState, syncIndex, writeDoc } from '../mcp/lib/vault.js';
 
 function fixture(t) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'work-log-index-'));
@@ -18,6 +18,24 @@ function fixture(t) {
   });
   return { root };
 }
+
+test('v3 캐시는 nullable 분류 schema를 검증하고 v2는 명시 sync가 필요하다', async (t) => {
+  const cfg = fixture(t);
+  fs.writeFileSync(path.join(cfg.root, 'doc.md'), '# Document');
+  const { index } = await syncIndex(cfg);
+  assert.equal(index.version, 3);
+  assert.equal(index.docs[0].project, null);
+  assert.equal(index.docs[0].category, null);
+  const { file } = indexPaths(cfg.root);
+  fs.writeFileSync(file, JSON.stringify({ ...index, version: 2 }));
+  assert.equal(readIndexState(cfg.root).reason, 'INDEX_VERSION');
+  for (const fields of [{ project: undefined }, { category: undefined }, { project: 3 }, { project: {} }, { category: false }, { category: 'other' }]) {
+    fs.writeFileSync(file, JSON.stringify({ ...index, docs: [{ ...index.docs[0], ...fields }] }));
+    assert.equal(readIndexState(cfg.root).reason, 'INDEX_SCHEMA');
+  }
+  await syncIndex(cfg);
+  assert.equal(readIndexState(cfg.root).reason, null);
+});
 
 test('잘못된 frontmatter 타입은 파일 생성 전에 거부한다', async (t) => {
   const cfg = fixture(t);
