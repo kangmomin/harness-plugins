@@ -54,6 +54,12 @@
 
 워크플로우 외 스킬(`request`, `e2e-test`, `convention-check`, `doctor`, `init` 등)은 하네스를 직접 지정해 호출한다: `/be-harness:request`, `/fe-harness:component`.
 
+### 구현 준비
+
+| 스킬 | 호출 | 설명 |
+|------|------|------|
+| **ready-for-impl** | `/common:ready-for-impl` | 구현 전에 주제별 인터뷰 라운드(목표·범위 → 동작·인터페이스 → 데이터·상태 → 예외·권한 → 비기능 → 완료·검증)로 요구사항을 확정하고, 작업 계약과 `AC`/`EC`/`RC`(풀스택 `F`) 추적 ID를 갖춘 Spec md를 저장. 코드를 수정하지 않으며 결과 Spec은 `start-workflow` Phase 1의 상세 Spec 분기로 그대로 인계 |
+
 ### 하네스 무관 스킬
 
 동작이 하네스와 무관해 common 이 직접 구현하는 스킬. 대상 플래그는 동작을 바꾸지 않고 **범위를 좁히는 필터**로만 쓰인다.
@@ -98,6 +104,10 @@
 /common:sync-base      # base 자동 결정
 /common:sync-base dev  # base 명시
 
+# 구현 전에 인터뷰로 Spec만 확정 (코드 수정 없음)
+/common:ready-for-impl "주문 취소 기능 추가"
+/common:ready-for-impl --be --out ./specs "정산 배치 API 추가"
+
 # 워크플로우 시작 (도메인 자동 판정 후 확인)
 /common:start-workflow "주문 취소 기능 추가"
 
@@ -124,5 +134,6 @@
     ├── merge.md                    # /common:merge 오버라이드
     ├── sync-base.md                # /common:sync-base 오버라이드 (swaggerVersionFiles 선언)
     ├── resolve-assumption.md       # /common:resolve-assumption 오버라이드
+    ├── ready-for-impl.md           # /common:ready-for-impl 오버라이드 (specDir 선언)
     └── start-workflow.md           # /common:start-workflow 오버라이드
 ```
