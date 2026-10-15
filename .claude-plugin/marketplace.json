@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "common",
-      "description": "워크플로우 단일 진입점(start-workflow — 도메인 판정 + 풀스택 오케스트레이션)과 커밋/PR/문서 스킬 모음. 다른 하네스를 설치하기 전에 먼저 설치해야 한다.",
+      "description": "워크플로우 단일 진입점(start-workflow — 도메인 판정 + 풀스택 오케스트레이션), 구현 전 요구사항 인터뷰(ready-for-impl)와 커밋/PR/문서 스킬 모음. 다른 하네스를 설치하기 전에 먼저 설치해야 한다.",
       "source": "./common"
     },
     {

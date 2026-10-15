@@ -8,6 +8,10 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-10-16 구현 전 요구사항 인터뷰 (ready-for-impl)
+
+common 0.16.0. `/common:ready-for-impl`을 추가했다. `start-workflow`에 주듯 기능 설명을 받되 구현하지 않고, 코드·문서로 확정되는 항목은 근거와 함께 건너뛰면서 미결 사항만 주제별 라운드(최대 8회, 라운드당 1~4문항)로 묻는다. 답변은 결정 원장(확정/추론/미결)에 쌓이고, 나중 답이 이전 결정을 바꾸면 의존 항목을 다시 점검한다. 준비도 기준(작업 계약·관측 가능한 AC·권한 조건·RC 기대값·FE 레이아웃·풀스택 Feature Matrix)을 통과하면 `구현 준비 완료`, 아니면 `초안`으로 Spec md를 저장한다. 저장은 `--out` → override `specDir` → `work-log:edit` 위임 → 경로 질문 순이며 기존 파일을 덮어쓰지 않는다. 결과 Spec은 `start-workflow` Phase 1의 "이미 상세 Spec이 제공된 경우" 분기로 인계한다.
+
 ## 2026-10-07 OCR delegation 리뷰 보조 입력
 
 OpenCodeReview(OCR)의 delegation으로 파일별 리뷰 규칙을 수집하여 기존 BE/FE/common 품질 판단자와 minmos 추가 품질 리뷰에 전달한다. 기존 리뷰어가 실제 finding·판정을 담당하며 새 LLM 리뷰·API key·provider 설정·Phase를 추가하지 않는다. hyeondongs는 FE 변경을 상속한다. OCR 제외·누락은 기존 scope·두 diff 검토를 줄이지 않고, 미설치·수집 실패는 진단을 남긴 뒤 기존 리뷰로 진행한다. quick에서 생략된 품질 리뷰·OCR 수집을 추가하지 않으며 Plan·Spec-only scope·a11y·격리 Read-back 역할도 확대하지 않는다.
@@ -98,7 +102,7 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 
 | 플러그인 | 유형 | 설명 |
 |---------|------|------|
-| **common** | 진입점 | 워크플로우 단일 진입점(`start-workflow` — 도메인 판정 + 풀스택 오케스트레이션), 커밋/Push/PR(`commit`, `commit-push`, `commit-pr`, `commit-hard-push`, `merge`), base 최신화 + 버전 범프(`sync-base`), 추론 태그 해소(`resolve-assumption`), 문서 생성(`doc-gen`) |
+| **common** | 진입점 | 워크플로우 단일 진입점(`start-workflow` — 도메인 판정 + 풀스택 오케스트레이션), 커밋/Push/PR(`commit`, `commit-push`, `commit-pr`, `commit-hard-push`, `merge`), base 최신화 + 버전 범프(`sync-base`), 추론 태그 해소(`resolve-assumption`), 구현 전 요구사항 인터뷰(`ready-for-impl`), 문서 생성(`doc-gen`) |
 | **be-harness** | 베이스 | 범용 백엔드. Go/Node 프리셋과 project profile 기반의 Spec→Plan→Red→Green→품질 루프→PR |
 | **fe-harness** | 베이스 | 범용 프론트엔드. React/Next.js 중심 컴포넌트 생성, lint/a11y, 단위/E2E 테스트, PR |
 | **minmos-harness** | be 오버레이 | Post-Math 백엔드 — Apidog 문서 동기화, gRPC/PubSub E2E, PostgreSQL MCP DB 안전 규칙, Post-Math 컨벤션 |
