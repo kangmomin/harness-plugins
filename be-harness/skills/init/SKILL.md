@@ -139,7 +139,7 @@ projectConventions: {projectConventions}
 
 ## Step 6: convention-check 설정
 
-- `.convention-check.json`이 없으면 생성 여부를 묻는다.
+- `.conventions.json`이 없으면 생성 여부를 묻는다.
 - 기본값:
 
   ```json

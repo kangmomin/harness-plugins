@@ -14,7 +14,7 @@ user-invocable: true
 ## Prerequisites
 
 ### 설정 파일
-- **`.convention-check.json`** (프로젝트 루트): 적용할 컨벤션 목록을 저장한다.
+- **`.conventions.json`** (프로젝트 루트): 적용할 컨벤션 목록을 저장한다.
 - 이 파일이 없으면 기본값 (`default-conventions` + profile의 `projectConventions`)으로 동작한다.
 
 ### `--init` (컨벤션 선택)
@@ -36,7 +36,7 @@ user-invocable: true
 
 2. **유저 선택 수집**: `AskUserQuestion`으로 선택을 받는다.
 
-3. **설정 파일 생성**: 선택 결과를 `.convention-check.json`으로 저장한다.
+3. **설정 파일 생성**: 선택 결과를 `.conventions.json`으로 저장한다.
    ```json
    {
      "conventions": [
@@ -47,7 +47,7 @@ user-invocable: true
    ```
 
 4. **결과 보고**:
-   > "`.convention-check.json` 생성 완료. 적용 컨벤션: [선택 목록]"
+   > "`.conventions.json` 생성 완료. 적용 컨벤션: [선택 목록]"
 
 ### `--doctor` (상태 진단)
 
@@ -58,7 +58,7 @@ user-invocable: true
 
 | 항목 | 상태 | 비고 |
 |------|------|------|
-| .convention-check.json | OK / MISSING | 없으면 기본값 사용 |
+| .conventions.json | OK / MISSING | 없으면 기본값 사용 |
 | default-conventions 스킬 | OK / MISSING | 플러그인 스킬 확인 |
 | 프로젝트 컨벤션 파일 | 파일별 OK / MISSING | projectConventions 각 항목 |
 | 적용 컨벤션 목록 | [목록] | 현재 설정 표시 |
@@ -74,7 +74,7 @@ user-invocable: true
 
 ### 설정 파일 로드
 
-1. 프로젝트 루트에서 `.convention-check.json`을 읽는다.
+1. 프로젝트 루트에서 `.conventions.json`을 읽는다.
 2. 없으면 기본값으로 진행: `default-conventions` + profile의 `projectConventions` 파일들.
 
 ### 컨벤션 검사

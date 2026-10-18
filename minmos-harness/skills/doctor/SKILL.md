@@ -41,7 +41,7 @@ user-invocable: true
 |------|----------|----------|
 | secret/.env | 파일 존재 확인 | e2e-test |
 | CLAUDE.md | 파일 존재 확인 | convention-check |
-| .convention-check.json | 파일 존재 확인 | convention-check |
+| .conventions.json | 파일 존재 확인 | convention-check |
 | infra/flyway/migrations/ | 디렉토리 존재 확인 | db-gen-committed |
 
 ### 4. 외부 플러그인
@@ -116,7 +116,7 @@ OCR은 비필수 실행 의존성이다. `shutil.which('ocr')`로 존재만 확�
 |------|------|------|
 | secret/.env | OK / MISSING | |
 | CLAUDE.md | OK / MISSING | |
-| .convention-check.json | OK / DEFAULT | 없으면 기본값 사용 |
+| .conventions.json | OK / DEFAULT | 없으면 기본값 사용 |
 | infra/flyway/migrations/ | OK / MISSING | |
 
 ### 외부 플러그인
@@ -170,7 +170,7 @@ OCR은 비필수 실행 의존성이다. `shutil.which('ocr')`로 존재만 확�
 | APIDOG_PROJECT_ID | 선택 | Push 기능 전용 |
 | Codex | 선택 | codexMode mix/max에서 사용, 없으면 Claude 패널 폴백 |
 | Codex providers | 선택 | codexModels에 외부 provider가 있을 때만 점검, WARN이면 해당 범위 Claude 패널 폴백 |
-| .convention-check.json | 선택 | 없으면 기본값 사용 |
+| .conventions.json | 선택 | 없으면 기본값 사용 |
 | grpcurl | 선택 | gRPC E2E 테스트 전용 |
 | GRPC_PORT | 선택 | gRPC E2E 테스트 전용 |
 | uv | 선택 | Dev PubSub 설치/실행 전제 |

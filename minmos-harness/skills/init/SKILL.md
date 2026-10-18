@@ -41,7 +41,7 @@ user-invocable: true
 - 환경 변수 확인 → `APIDOG_ACCESS_TOKEN`, `APIDOG_PROJECT_ID`
 - `secret/.env` 존재 여부 → DB 접속 정보 추출 가능 여부
 - db-tools 플러그인 설치 여부
-- `.convention-check.json` 존재 여부
+- `.conventions.json` 존재 여부
 - `dev-pubsub-cli` 설치 여부 → `which dev-pubsub-cli` 또는 `uv tool list` 확인
 - Worktree 자동 복사 hook 설치 여부 → `assets/worktree_init.py inspect --settings "$HOME/.claude/settings.json"`의 실제 등록 command/bundle 검증 + `~/.claude/settings.json`의 `hooks.SessionStart`에 등록되었는지 (Claude Code 전용)
 
@@ -93,7 +93,7 @@ user-invocable: true
 | 4 | PostgreSQL MCP | DATABASE_URL을 현재 MCP 클라이언트에 등록. `secret/.env`에서 자동 추출 가능 |
 | 5 | secret/.env | 프로젝트 담당자에게 요청하거나 `secret/.env.example`에서 복사 |
 | 6 | db-tools 플러그인 | `/plugin marketplace add postmath-plugins/db-tools` 실행 |
-| 7 | 컨벤션 설정 | 적용할 컨벤션을 선택하여 `.convention-check.json` 생성 |
+| 7 | 컨벤션 설정 | 적용할 컨벤션을 선택하여 `.conventions.json` 생성 |
 | 8 | grpcurl | `grpcurl --version` 확인. 없으면 설치 안내 |
 | 9 | Dev PubSub CLI | `dev-pubsub-cli --help` 확인. 없으면 global/local 설치 안내 |
 | 10 | Worktree 자동 복사 hook | git 워크트리 생성 시 메인의 `.mcp.json`/`.env`를 자동 복사하는 SessionStart hook 설치 (Claude Code 전용) |
@@ -263,7 +263,7 @@ settings 부재는 빈 객체로 시작하고 기존 사용자 hook/설정/권�
 >
 > 예: `1,2,3` (전체)
 
-선택에 따라 `.convention-check.json`을 생성한다.
+선택에 따라 `.conventions.json`을 생성한다.
 
 #### 3.9 be-harness 오버레이 설치 (경로 B, 선택)
 

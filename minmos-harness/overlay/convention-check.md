@@ -8,7 +8,7 @@
 
 | 앵커 | 대체 절차 |
 |------|----------|
-| 기본 컨벤션 목록 (`.convention-check.json` 부재 시의 기본값) | `default-conventions` + `pagenation` + profile의 `projectConventions` |
+| 기본 컨벤션 목록 (`.conventions.json` 부재 시의 기본값) | `default-conventions` + `pagenation` + profile의 `projectConventions` |
 | `--init` 의 "플러그인 내장" 후보 목록 | 아래 §컨벤션 후보로 치환 |
 
 ## 컨벤션 후보
@@ -22,7 +22,7 @@
 > **프로젝트:**
 > 3. `CLAUDE.md` — 프로젝트 아키텍처 및 레이어 컨벤션
 
-생성되는 `.convention-check.json` 의 `skill` 필드는 오버레이 기준으로 적는다:
+생성되는 `.conventions.json` 의 `skill` 필드는 오버레이 기준으로 적는다:
 
 ```json
 {
