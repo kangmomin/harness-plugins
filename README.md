@@ -8,6 +8,10 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-10-19 컨벤션 설정 파일명 변경과 OCR 인계 반영
+
+BE 1.7.2 / FE 1.6.2 / minmos 2.6.2. convention-check 설정 파일을 `.convention-check.json`에서 `.conventions.json`으로 바꿨다. 기존 `.convention-check.json`은 더 이상 읽지 않으므로 파일명을 바꾸거나 `--init`으로 다시 만든다. `be-harness:default-conventions`는 사내 공통이 아닌 메인테이너 개인 컨벤션으로 표기를 정정했다(동작 변화 없음). 2026-10-07 OCR delegation 리뷰 보조 입력도 이 버전부터 BE/FE 설치본에 포함된다.
+
 ## 2026-10-16 구현 전 요구사항 인터뷰 (ready-for-impl)
 
 common 0.16.0. `/common:ready-for-impl`을 추가했다. `start-workflow`에 주듯 기능 설명을 받되 구현하지 않고, 코드·문서로 확정되는 항목은 근거와 함께 건너뛰면서 미결 사항만 주제별 라운드(최대 8회, 라운드당 1~4문항)로 묻는다. 답변은 결정 원장(확정/추론/미결)에 쌓이고, 나중 답이 이전 결정을 바꾸면 의존 항목을 다시 점검한다. 준비도 기준(작업 계약·관측 가능한 AC·권한 조건·RC 기대값·FE 레이아웃·풀스택 Feature Matrix)을 통과하면 `구현 준비 완료`, 아니면 `초안`으로 Spec md를 저장한다. 저장은 `--out` → override `specDir` → `work-log:edit` 위임 → 경로 질문 순이며 기존 파일을 덮어쓰지 않는다. 결과 Spec은 `start-workflow` Phase 1의 "이미 상세 Spec이 제공된 경우" 분기로 인계한다.
