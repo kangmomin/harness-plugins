@@ -1,6 +1,6 @@
 ---
 name: default-conventions
-description: "be-harness 범용 개발 가이드라인 (컨벤션 참조 문서). convention-check가 검사 기준으로 로드하며, 코드 작성 원칙이 궁금할 때도 사용. 프로젝트별 세부 컨벤션은 CLAUDE.md 또는 profile의 projectConventions에서 로드한다."
+description: "be-harness 메인테이너 개인 개발 컨벤션 (사내 공통 컨벤션 아님, 컨벤션 참조 문서). convention-check가 검사 기준으로 로드하며, 코드 작성 원칙이 궁금할 때도 사용. 프로젝트별 세부 컨벤션은 CLAUDE.md 또는 profile의 projectConventions에서 로드한다."
 user-invocable: true
 ---
 
@@ -8,9 +8,9 @@ user-invocable: true
 > 존재하면 추가 규칙/예외로 흡수하고 충돌 시 오버라이드가 우선한다. 상세 규약: 플러그인 루트 `OVERRIDES.md`.
 
 
-# be-harness 범용 개발 가이드라인
+# be-harness 개인 개발 컨벤션
 
-be-harness는 **언어/프레임워크에 중립적**이다. 이 문서는 어느 프로젝트에도 통용되는 최소한의 가이드라인만 정의한다.
+be-harness는 **언어/프레임워크에 중립적**이다. 이 문서는 플러그인 메인테이너가 정리한 **개인 컨벤션**이며, 사내 공통 컨벤션이 아니다. 어느 프로젝트에도 적용할 수 있는 최소한의 원칙만 정의한다.
 
 프로젝트 특화 컨벤션(에러 처리, ORM 패턴, DI 등)은 **프로젝트 루트의 `CLAUDE.md`** 또는 profile의 `projectConventions`에 선언된 문서를 따른다.
 

@@ -1,5 +1,5 @@
 > 이 문서는 `minmos-harness` 오버레이의 `overlay/default-conventions.md`·`overlay/convention-check.md` 에서 로드된다. 단독 실행 금지.
-> `/be-harness:default-conventions` 의 범용 가이드라인에 더해 적용되는 **Post-Math 고유 컨벤션**이다.
+> `/be-harness:default-conventions` 의 개인 개발 컨벤션에 더해 적용되는 **Post-Math 고유 컨벤션**이다.
 
 # Post-Math 백엔드 프로젝트 개발 및 리뷰 가이드라인 (Local Convention)
 

@@ -26,7 +26,7 @@ user-invocable: true
    > "어떤 컨벤션을 적용할까요? (복수 선택 가능, 쉼표 구분)"
    >
    > **플러그인 내장:**
-   > 1. `default-conventions` — 범용 개발 가이드라인 (변경 범위, Assumption, 에러 일관성 등)
+   > 1. `default-conventions` — 개인 개발 컨벤션 (변경 범위, Assumption, 에러 일관성 등)
    >
    > **프로젝트:**
    > 2. `CLAUDE.md` — 프로젝트 아키텍처/레이어/에러 처리 컨벤션 (존재 시)

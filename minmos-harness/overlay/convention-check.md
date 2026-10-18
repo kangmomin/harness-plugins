@@ -16,7 +16,7 @@
 `--init` 실행 시 제시하는 목록에 아래를 포함한다:
 
 > **플러그인 내장:**
-> 1. `default-conventions` — 범용 개발 가이드라인 + Post-Math 고유 컨벤션(에러 처리, VO 패턴, 트랜잭션)
+> 1. `default-conventions` — 개인 개발 컨벤션 + Post-Math 고유 컨벤션(에러 처리, VO 패턴, 트랜잭션)
 > 2. `pagenation` — 커서 기반 페이지네이션
 >
 > **프로젝트:**

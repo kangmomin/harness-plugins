@@ -60,7 +60,7 @@ commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 �
 
 | 스킬 | 설명 |
 |------|------|
-| **default-conventions** | 언어/프레임워크 독립적 개발 가이드라인. 프로젝트 특화는 `CLAUDE.md` 또는 profile의 `projectConventions`에서 로드. |
+| **default-conventions** | 메인테이너 개인 컨벤션(사내 공통 아님). 언어/프레임워크 독립적. 프로젝트 특화는 `CLAUDE.md` 또는 profile의 `projectConventions`에서 로드. |
 
 ### 에이전트
 
