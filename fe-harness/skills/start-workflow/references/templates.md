@@ -13,7 +13,7 @@ START_SHA=$(git rev-parse HEAD 2>/dev/null || echo 없음)
 
 Write tool로 `{STATE_FILE}`을 생성한다:
 
-```markdown
+````markdown
 # Workflow State
 
 ## Run
@@ -63,6 +63,9 @@ Write tool로 `{STATE_FILE}`을 생성한다:
 ## Related E2E Specs
 [Plan 3.1의 "관련 E2E spec 파일 경로 목록"을 그대로 복사. 없으면 `없음`. light의 `test-loop --smoke`가 이 목록만 실행한다 — 파일이 하나라도 없으면 test-loop이 전체 실행으로 폴백한다]
 
+## Global Impact Paths
+[Plan 3.1의 "전역 영향 경로"(계약 스냅샷 교체 · BFF·프록시·인증 흐름 · 전역 레이아웃·셸 · E2E 데이터 준비 파일·glob)를 그대로 복사. 없으면 `없음`. 5.2 중간 E2E 트리거와 test-loop 재실행 축소의 기준이다]
+
 ## Codex Runtime
 - 상태: {active | fallback({global:{사유} | provider:{id}:{사유} | slot:{슬롯}:{사유}, …})} — 생성 시 `$CODEX_RUNTIME` 값 그대로 (`references/codex-mode.md` §7 직렬화). `CODEX: none`이면 `N/A`
 
@@ -110,9 +113,14 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 - 커밋: {SHA}   |   수집 Phase: 4 (자율 실행 진입 전)   |   **불변 — 이후 갱신하지 않는다**
 
+단위 명령 (정본):
+```sh
+{Phase 4에서 확정한 단위 명령 원문 — references/tdd.md "단위 명령 정본 확정"}
+```
+
 | suite | 명령 | 러너 완주 | 통과 | 실패 | 실패 목록 (식별자 :: 정규화 시그니처) |
 |-------|------|----------|------|------|--------------------------------------|
-| unit | {testCommand} | Y | 88 | 1 | `ProductList > 빈 목록` :: `unable to find role=list` |
+| unit | {단위 명령 — 표시용, `\|` escape} | Y | 88 | 1 | `vitest::src/ProductList.test.tsx::ProductList › 빈 목록` :: `unable to find role=list` |
 
 **Tombstone** (Spec이 승인한 테스트 이름 변경·삭제만 기록):
 - `{구 식별자}` → `{신 식별자}` 또는 `삭제({근거})`
@@ -121,10 +129,12 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 [Phase 5.1에서 기록. Phase 7 회귀 대조와 Phase 11 보고서의 기준]
 > **Phase 7.7 read-back 에이전트에 이 표를 전달하지 않는다** — Spec 역추론으로 격리가 무너진다.
 
+`테스트` 열은 러너 네이티브 정확 ID(`{runner}::{file}::{describe › it}`)다 — 기대 파일(`--expect`)이 이 값으로 만들어진다. 이전 형식(표시명)을 재개해 복원한 대응은 별도 섹션 `## TDD Test Map ID 대응`(`| 구 표시명 | 정확 ID |`)에 append한다 (`references/tdd.md` Phase 7).
+
 | Spec ID | 테스트 | 파일 | Red | Green |
 |---------|--------|------|-----|-------|
-| AC-01 | 목록 렌더 | ProductList.test.tsx:12 | red_assertion | PASS |
-| EC-01 | 빈 목록 EmptyState | ProductList.test.tsx:40 | already_satisfied | PASS |
+| AC-01 | `vitest::src/ProductList.test.tsx::ProductList › 목록 렌더` | ProductList.test.tsx:12 | red_assertion | PASS |
+| EC-01 | `vitest::src/ProductList.test.tsx::ProductList › 빈 목록 EmptyState` | ProductList.test.tsx:40 | already_satisfied | PASS |
 
 ## Quick Test Evidence
 [quick + TDD 활성이면 Phase 5.2 직후 기록(빈 반환도 빈 표로 기록)하고, 7.5 보완 위임의 신규 테스트는 append. `## TDD Test Map`과 별개의 최상위 섹션이며 회귀 분류에 쓰지 않는다 (`references/verification-tier.md` §4.1). 승격·재개 후에도 보존한다. 그 외는 `해당 없음`(= Evidence 없음)]
@@ -134,6 +144,12 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | AC-01 | vitest::src/ProductList.test.tsx::ProductList › status 필터 적용 | ProductList.test.tsx:30 |
 | EC-09 | vitest::src/ProductList.test.tsx::ProductList › 필터 없음이면 기존 목록과 동일 | ProductList.test.tsx:58 |
 
+## Phase 5.2 Units
+[Plan 커밋 단위 표가 있을 때 오케스트레이터만 기록 — 위임 결과·재개 시 `Workflow-Unit: {RUN_ID}/{단위 ID}` trailer로 보충 (`references/tdd.md` "위임 묶음·커밋별 검증"). 없으면 `해당 없음`]
+
+| 단위 ID | SHA | 커밋별 검증 |
+|---------|-----|-------------|
+
 ## Plan
 [확정된 Plan 전문 그대로 복사]
 
@@ -142,6 +158,9 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 ## Plan Verification Log
 [Phase 3.3 검증 루프의 Iteration Diff Log — Phase 4 ①에서 복사]
+
+| Iteration | Verdict | High·Medium·Low | 반영 | 기각+사유 | Plan 변경 요약 | 수렴 근거 |
+|-----------|---------|-----------------|------|-----------|----------------|-----------|
 
 ## Readback Diff
 [Phase 7.7 결과. Phase 7.7 실행 전에는 `미실행`, light면 `SKIPPED:TIER_LIGHT`, quick이면 `SKIPPED:TIER_QUICK`]
@@ -161,7 +180,7 @@ Phase 4 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 | Phase | Status | 결과 요약 | 진단 |
 |-------|--------|----------|------|
-```
+````
 
 `--reflect` 미지정 시(기본): 생성 시점에 Phase 10 행의 Status를 `SKIPPED:REFLECT_NOT_REQUESTED`로 기록하고, `Remaining Phases`에서 "Phase 10: 성찰"을 제외한다.
 light·quick 티어: 생략 단계(`SKIPPED:TIER_LIGHT`·`SKIPPED:TIER_QUICK`)를 `Phase Results`·Phase Assignments에 미리 기록하지 않는다 — 승격으로 실행될 수 있으므로 해당 단계 도달 시점에 기록한다. 3.2·3.3의 `SKIPPED:PLAN_QUICK`은 3.4 확정 뒤 이 상태 파일을 만들 때 기록한다.
@@ -207,7 +226,7 @@ light·quick 티어: 생략 단계(`SKIPPED:TIER_LIGHT`·`SKIPPED:TIER_QUICK`)�
    Phase 10이 `SKIPPED:*`면 이 단계를 건너뛰고 보고서 §6에 **실제 상태 코드**로 스킵 사유를 기입한다 (`REFLECT_NOT_REQUESTED`: "`--reflect`로 주기 실행 권장(워크플로우 5~10회마다 1회)").
 
    2~4의 각 결정은 받는 즉시 상태 파일 `## Final Decisions`에 한 줄 append한다 (항목 / 결정 / 시각). 컨텍스트 요약·재개 후에는 기록된 항목을 다시 묻지 않는다.
-5. **재검증·반영 + 정리 + md 아카이브**: 먼저 `finalization.md`를 Read하여 승인 수정 → 관련 검증 → 기존 브랜치 commit/push → 보고서 갱신을 완료한다. 미해결 항목이 없을 때만 상태를 마감하고 아래 "md 아카이브"를 실행한다.
+5. **재검증·반영 + 정리 + md 아카이브**: 먼저 `finalization.md`를 Read하여 승인 수정 → 관련 검증 → 기존 브랜치 commit/push → 보고서 갱신을 완료한다. Test Map이 있으면 단위 재검증은 단위 명령 정본 전체 + `--expect expect-final.txt`다(`references/tdd.md` Phase 7). 미해결 항목이 없을 때만 상태를 마감하고 아래 "md 아카이브"를 실행한다.
    기본은 상태 파일과 라이브 노트를 **보관**. 사용자가 정리를 요청한 경우에만 `rm -f {STATE_FILE} {IMPL_NOTES} {WORK_REPORT}`. 아카이브 산출물(`*-workflow-report.md`)은 자동 삭제하지 않는다.
 
 ## Phase 11: md 아카이브

@@ -43,10 +43,11 @@ Agent tool:
     (TDD 활성 시 테스트가 그런 동작을 요구하면 TDD 규칙의 [TestConflict]로 보고하세요.)
 
     [커밋 단위 규칙]
-    컴포넌트 1개 = 커밋 1개를 원칙으로 합니다.
+    컴포넌트 1개 = 커밋 1개를 원칙으로 합니다. (위임 묶음 블록이 있으면 그 단위별로 커밋합니다.)
     관련 없는 컴포넌트 변경을 하나의 커밋에 묶지 마세요.
 
     {TDD 활성 시: 아래 "TDD 규칙" 블록을 여기에 삽입 — quick이면 대신 `references/tdd.md`의 "quick 테스트 동반 모드" 블록}
+    {Plan 커밋 단위 표가 있으면: 아래 "위임 묶음 블록"}
 
     구현 완료 후 변경 파일 목록, 커밋 수, Plan 대비 차이점, [Assumption]·[TestConflict] 목록을 보고하세요.
 ```
@@ -63,9 +64,45 @@ Agent tool:
     - Phase 5.1이 만든 스텁 컴포넌트를 실제 구현으로 채우세요.
     - 통과 기준: 상태 파일 `## TDD Test Map`의 모든 테스트 통과
       AND `## Test Baseline` 대비 신규 실패 0건
+      (위임 묶음 블록이 있으면 그 블록의 묶음 통과 기준이 대신합니다)
 ```
 
 Phase 5.1이 `SKIPPED:TIER_QUICK`이면(quick + TDD 활성) 위 블록 대신 `references/tdd.md`의 "quick 테스트 동반 모드" 블록을 넣고, 반환 표를 `## Quick Test Evidence`에 기록한다 (`references/verification-tier.md` §4.1).
+
+### 위임 묶음 (Plan 커밋 단위 표가 있을 때)
+
+위임 단위 = Plan 커밋 단위 표의 `위임 묶음` 열. 작은 커밋 2~3개를 구현 에이전트 1개에 맡기고(커밋은 단위별), 계약·스냅샷 교체, BFF·프록시·전역 레이아웃·셸, 가장 큰 화면은 단독 위임한다. 커밋 1개마다 에이전트를 띄우지 않는다. 묶음은 Plan 순서대로 위임하고, 각 결과의 `## Phase 5.2 Result (묶음 {n}/{N})`·`## Phase 5.2 Units`·`Phase Results` 행은 오케스트레이터가 기록한다. 기대 파일·검증 기준·재개: `references/tdd.md` "위임 묶음·커밋별 검증". `{TEST_FAILURES}` = 설치된 `skills/start-workflow/assets/test_failures.py` 절대 경로.
+
+```
+    ## 위임 묶음 {n}/{N}
+    - 단위: {단위 ID | 파일 | Spec ID} 목록 — 단위마다 커밋 1개, 메시지 끝 trailer 블록에
+      `Workflow-Unit: {RUN_ID}/{단위 ID}`를 추가하세요.
+    - 커밋마다 검증: 설정된 lint·typecheck·build + 테스트({관련 테스트 명령 | 단위 명령 정본 원문 전체})
+      → `python3 {TEST_FAILURES} --runner auto --exit-code $EXIT --suite unit --baseline {STATE_FILE} --expect {RUN_DIR}/expect-{단위 ID}.txt [--partial] {로그}`.
+      관련 테스트만 실행했으면 `--partial`을 붙이고 regression 0만 확인하세요.
+    - 위임 끝 1회: Bash 첫 줄 `unset RED_MODE` 후 단위 명령 정본 전체 + `--expect {RUN_DIR}/expect-{마지막 단위 ID}.txt`.
+      통과 = 요약에 `PASS 판정 불가`가 없고 regression 0 (red 기대 테스트의 조기 PASS는 보고하세요).
+    - 상태 파일에 쓰지 마세요. 결과에 `| 단위 ID | SHA | 커밋별 검증 |` 표를 반환하세요.
+    - pre-commit 훅이 단위 커밋을 거부하면 커밋하지 말고 같은 검증을 미커밋 상태로 수행해 표(SHA `-`)로 반환하세요.
+```
+
+TDD가 비활성이면 테스트·`--expect` 줄 없이 lint·typecheck·build만 둔다. Phase 4 "실패 대조만" 수용이면 `--expect`를 빼고 통과 기준을 `references/tdd.md` "위임 묶음·커밋별 검증"의 실패 대조 기준(완료 단위의 Test Map 테스트가 실패 목록에 없음)으로 바꿔 넣는다.
+
+### 중간 E2E (5.2 — 전역 영향 위임 뒤)
+
+유효 티어가 quick이 아니고 위임의 커밋이 `## Global Impact Paths`에 해당할 때만(값 `없음`이면 중간 E2E 없음) 그 위임 뒤 오케스트레이터가 실행한다. 범위 = `## Related E2E Specs`(`없음`이면 full). 화면 커밋 사이에는 실행하지 않는다. 절차 = test-loop Step 2의 run-context·락·명령 선택·`e2eResetCommand`(실행·분류만, 수정 없음).
+- **진단 이력**: `Phase Results`에 `5.2 중간 E2E {SHA7}` 행을 남기고 RESULTS_FILE에는 기록하지 않는다. 최종 판정은 7.4의 현재 트리 실행뿐이다(5.2 끝 별도 full 없음).
+- **분류**: test-loop "frozen 모드"의 E2E 규칙 — e2e baseline 행이 완주 Y면 `test_failures.py --runner playwright --suite e2e --baseline`, `SKIPPED:*`·미수집이면 변경 귀속이 확인된 실패만 수정 대상.
+- **인계**: 실패는 진행 중 위임의 종료 배리어 뒤 커밋된 HEAD·clean 트리에서 해당 spec만 재확인하고(재확인 SHA를 행에 기록) `regression`·`new_red`만 다음 위임(없으면 5.2 끝 수정 위임)에 frozen·`[TestConflict]` 규칙과 함께 전달한다. `pre_existing`·`flaky`·판정 불가는 기존 처리.
+- **회수**: 5.2 종료 전 모든 중간 E2E를 회수한다 — 미회수로 Phase 6에 들어가지 않는다.
+- **pre-commit 폴백**(단위 커밋 없음): 트리거는 위임 전후 변경 파일로 판단하고 위임 종료 후 in-place로 실행한다. 실패 귀속·재확인은 SHA 대신 실행 전후 같은 result-contract `tested_tree` 지문으로 한다.
+
+**`e2eIsolatedWorktree: true`** (중간 E2E 전용 — 커밋된 SHA를 다음 위임과 병행). 아래 확인이 하나라도 실패·불명이면 in-place 순차로 실행한다.
+- 확인: `mktemp -d "{RUN_DIR}/e2e-wt.XXXXXXXX"`(= `{WT}`)의 실제 경로가 저장소 밖 / `package.json` `workspaces`·`pnpm-workspace.yaml` 없음 / 의존성에 `file:`·`link:`·`workspace:` 프로토콜 없음 / `serverUrl` 포트에 응답하는 서버 없음 / profile에 설정된 `e2eCommand`·`e2eResetCommand` 원문에 부모 저장소 절대 경로·절대 경로 `cd`·`--prefix`·`-C`·`--dir`·`--cwd` 없음(runner fallback은 아래 상대 명령을 쓴다).
+- 의존성 배리어: 미회수 격리 E2E가 있는 동안 후속 dispatch·재개의 위임이 의존성 파일(package.json·lockfile)을 바꿀 수 있으면 그 E2E의 실제 종료를 확인한 뒤 dispatch한다.
+- 실행: 다음 위임 dispatch 전에 `git worktree add --detach "{WT}/tree" {SHA}` + 루트 `node_modules` 심볼릭 링크 → `buildCommand`가 있으면 `profile.py run --domain fe --cwd "{CWD}" --exec-cwd "{WT}/tree" --key buildCommand`(gitignore된 빌드 산출물이 없다 — 실패 시 폴백) → 락 획득 → `profile.py run … --exec-cwd "{WT}/tree" --key e2eResetCommand --timeout 540` → `profile.py resolve --domain fe --cwd "{CWD}"`의 `e2eCommand`(runner fallback이면 test-loop Step 2의 runner별 상대 명령 — playwright `node_modules/.bin/playwright test --reporter=list {범위}`, cypress `node_modules/.bin/cypress run --spec {범위}`)를 `cd "{WT}/tree" && …`로 Bash 백그라운드 실행하고 다음 위임과 병행한다(리포터 출력이 래퍼 JSON과 섞이지 않게 직접 실행). 행에 SHA·작업 핸들·E2E 토큰·로그 경로를 기록하고 락은 회수 때 해제한다.
+- 폴백: 준비·기동 실패면 그 E2E 프로세스와 진행 중 위임의 종료를 확인한 뒤 in-place로 1회 실행하고 그 시점 트리에 귀속하며 진단 셀에 사유를 남긴다. 리셋 실패는 폴백 사유가 아니다(`BLOCKED:E2E_RESET_FAILED`).
+- 정리: 소유 프로세스 종료·로그 회수 후 `git worktree remove "{WT}/tree"`(강제 금지). 실패하면 경로를 보고·보존하고 재사용하지 않는다. 7.4·baseline은 항상 in-place다. 공유 쓰기 캐시(`node_modules/.vite`·`.cache` 등)의 독립성은 opt-in 전제(PROFILE.md)다.
 
 완료 후 유저에게 간략 보고: "Phase 5.2 완료: [변경 파일 수]개 파일, [커밋 수]개 커밋"
 
@@ -150,6 +187,9 @@ Agent tool:
     `[TestConflict]` 태그로 보고만 하세요.
     실패는 `## Test Baseline` 과 대조해 regression / pre_existing / new_red / flaky 로 분류해
     보고하세요. `pre_existing` 은 이번 범위 밖이므로 손대지 마세요.
+    단위 실행은 상태 파일 `## Test Baseline`의 `단위 명령 (정본):` 블록 명령을 쓰고 Bash 첫 줄은 `unset RED_MODE`입니다.
+    Test Map이 있으면 단위 판정 실행은 전체 단위 + `--expect {RUN_DIR}/expect-final.txt`입니다
+    (`references/tdd.md` Phase 7 — 미관측·중복·skip은 판정 불가).
 
     {`## Quick Test Evidence`가 있으면}
     Evidence 테스트는 5.2에서 고정됐으므로 test-loop을 **frozen 모드**로 실행하세요 (Test Map이 비어 있어도 동일).
@@ -165,6 +205,7 @@ Agent tool:
 ```
 
 - `E2E 실행 수준`·최종 상태를 `Phase Results` 7.4 행에 기록한다. 승격 ③은 **관측 누적**(수정 전 실행 포함 — 수정으로 해결된 regression도 발화), ⑥은 light의 `UNRESOLVED`에 E2E 실패 잔존으로 판정한다 (`references/verification-tier.md` §5 — 종료 조건 평가 전에 적용).
+- Test Map이 있으면 오케스트레이터가 dispatch 전에 `{RUN_DIR}/expect-final.txt`(Test Map 단위 테스트 전체 = `pass`, `cannot_compile`·`deferred_e2e` 제외)를 만든다. Phase 4 "실패 대조만" 수용이면 이 줄과 프롬프트의 `--expect` 지시를 뺀다.
 - 테스트 판정과 RESULTS_FILE `kind:unit`의 `regression_count`는 **최종 분류**(최종 트리의 마지막 실행)로 기록한다. Evidence PASS 증거 미충족이나 필수 ID의 Evidence 누락이면 `kind:unit` 결과를 `INCONCLUSIVE`로 기록한다 (`references/verification-tier.md` §4.1 — 승격 ③의 판정 불가가 아니다).
 
 ### Phase 7.5: Scope Review
