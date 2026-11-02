@@ -1,0 +1,28 @@
+
+Running 3 tests using 1 worker
+
+  ✘  1 tests/c.spec.mjs:2:1 › one (8ms)
+Testing stopped early after 1 maximum allowed failures.
+
+
+  1) tests/c.spec.mjs:2:1 › one ────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+      1 | import { test, expect } from '@playwright/test';
+    > 2 | test('one', async () => { expect(1).toBe(2); });
+        |                                     ^
+      3 | test('two', async () => { expect(1).toBe(1); });
+      4 | test('three', async () => { expect(1).toBe(1); });
+      5 |
+        at /repo/tests/c.spec.mjs:2:37
+
+    Error Context: test-results/c-one/error-context.md
+
+  1 failed
+    tests/c.spec.mjs:2:1 › one ─────────────────────────────────────────────────────────────────────
+  2 did not run
+  1 error was not a part of any test, see above for details

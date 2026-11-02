@@ -1,0 +1,1072 @@
+{
+  "config": {
+    "argv": [
+      "node",
+      "/repo/node_modules/.bin/playwright",
+      "test",
+      "--reporter=json"
+    ],
+    "configFile": "/repo/playwright.config.mjs",
+    "rootDir": "/repo/tests",
+    "failOnFlakyTests": false,
+    "forbidOnly": false,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 1
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/repo/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "id": "",
+        "name": "",
+        "testDir": "/repo/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/repo/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "",
+        "testDir": "/repo/tests",
+        "snapshotDir": "/repo/tests",
+        "testIgnore": [],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 30000,
+        "use": {},
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": ""
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.64.0",
+    "workers": 1,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "a.spec.mjs",
+      "file": "a.spec.mjs",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "form",
+          "file": "a.spec.mjs",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "passes",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-02T10:55:40.080Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f10c3055afda6889ad03-8983d04549f6dd94de60",
+              "file": "a.spec.mjs",
+              "line": 4,
+              "column": 3
+            },
+            {
+              "title": "fails",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 3,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n    at /repo/tests/a.spec.mjs:5:41",
+                        "location": {
+                          "file": "/repo/tests/a.spec.mjs",
+                          "column": 41,
+                          "line": 5
+                        },
+                        "snippet": "  3 | test.describe('form', () => {\n  4 |   test('passes', async () => { expect(1).toBe(1); });\n> 5 |   test('fails', async () => { expect(1).toBe(2); });\n    |                                         ^\n  6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n  8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "column": 41,
+                            "line": 5
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n\n  3 | test.describe('form', () => {\n  4 |   test('passes', async () => { expect(1).toBe(1); });\n> 5 |   test('fails', async () => { expect(1).toBe(2); });\n    |                                         ^\n  6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n  8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n    at /repo/tests/a.spec.mjs:5:41"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-02T10:55:40.128Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/repo/test-results/a-form-fails/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/repo/tests/a.spec.mjs",
+                        "column": 41,
+                        "line": 5
+                      }
+                    },
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 8,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n    at /repo/tests/a.spec.mjs:5:41",
+                        "location": {
+                          "file": "/repo/tests/a.spec.mjs",
+                          "column": 41,
+                          "line": 5
+                        },
+                        "snippet": "  3 | test.describe('form', () => {\n  4 |   test('passes', async () => { expect(1).toBe(1); });\n> 5 |   test('fails', async () => { expect(1).toBe(2); });\n    |                                         ^\n  6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n  8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "column": 41,
+                            "line": 5
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n\n  3 | test.describe('form', () => {\n  4 |   test('passes', async () => { expect(1).toBe(1); });\n> 5 |   test('fails', async () => { expect(1).toBe(2); });\n    |                                         ^\n  6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n  8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n    at /repo/tests/a.spec.mjs:5:41"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-11-02T10:55:40.884Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/repo/test-results/a-form-fails-retry1/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/repo/tests/a.spec.mjs",
+                        "column": 41,
+                        "line": 5
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "f10c3055afda6889ad03-4c0ed0cf1b1a0ccb17b0",
+              "file": "a.spec.mjs",
+              "line": 5,
+              "column": 3
+            },
+            {
+              "title": "flaky",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 8,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m0\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m0\u001b[39m\n    at /repo/tests/a.spec.mjs:6:58",
+                        "location": {
+                          "file": "/repo/tests/a.spec.mjs",
+                          "column": 58,
+                          "line": 6
+                        },
+                        "snippet": "  4 |   test('passes', async () => { expect(1).toBe(1); });\n  5 |   test('fails', async () => { expect(1).toBe(2); });\n> 6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n    |                                                          ^\n  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n  8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n  9 |   test('submit @new', async () => { expect(1).toBe(1); });"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "column": 58,
+                            "line": 6
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m1\u001b[39m\nReceived: \u001b[31m0\u001b[39m\n\n  4 |   test('passes', async () => { expect(1).toBe(1); });\n  5 |   test('fails', async () => { expect(1).toBe(2); });\n> 6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n    |                                                          ^\n  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n  8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n  9 |   test('submit @new', async () => { expect(1).toBe(1); });\n    at /repo/tests/a.spec.mjs:6:58"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-02T10:55:41.716Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/repo/test-results/a-form-flaky/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/repo/tests/a.spec.mjs",
+                        "column": 58,
+                        "line": 6
+                      }
+                    },
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-11-02T10:55:42.520Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "flaky"
+                }
+              ],
+              "id": "f10c3055afda6889ad03-693ccc8c725e95b32704",
+              "file": "a.spec.mjs",
+              "line": 6,
+              "column": 3
+            },
+            {
+              "title": "soft two errors",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 5,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n    at /repo/tests/a.spec.mjs:7:56",
+                        "location": {
+                          "file": "/repo/tests/a.spec.mjs",
+                          "column": 56,
+                          "line": 7
+                        },
+                        "snippet": "   5 |   test('fails', async () => { expect(1).toBe(2); });\n   6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n>  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n     |                                                        ^\n   8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n   9 |   test('submit @new', async () => { expect(1).toBe(1); });\n  10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "column": 56,
+                            "line": 7
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n\n   5 |   test('fails', async () => { expect(1).toBe(2); });\n   6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n>  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n     |                                                        ^\n   8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n   9 |   test('submit @new', async () => { expect(1).toBe(1); });\n  10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });\n    at /repo/tests/a.spec.mjs:7:56"
+                        },
+                        {
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "column": 82,
+                            "line": 7
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"b\"\u001b[39m\nReceived: \u001b[31m\"a\"\u001b[39m\n\n   5 |   test('fails', async () => { expect(1).toBe(2); });\n   6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n>  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n     |                                                                                  ^\n   8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n   9 |   test('submit @new', async () => { expect(1).toBe(1); });\n  10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });\n    at /repo/tests/a.spec.mjs:7:82"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-02T10:55:42.573Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/repo/test-results/a-form-soft-two-errors/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/repo/tests/a.spec.mjs",
+                        "column": 56,
+                        "line": 7
+                      }
+                    },
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 11,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n    at /repo/tests/a.spec.mjs:7:56",
+                        "location": {
+                          "file": "/repo/tests/a.spec.mjs",
+                          "column": 56,
+                          "line": 7
+                        },
+                        "snippet": "   5 |   test('fails', async () => { expect(1).toBe(2); });\n   6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n>  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n     |                                                        ^\n   8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n   9 |   test('submit @new', async () => { expect(1).toBe(1); });\n  10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "column": 56,
+                            "line": 7
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n\n   5 |   test('fails', async () => { expect(1).toBe(2); });\n   6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n>  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n     |                                                        ^\n   8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n   9 |   test('submit @new', async () => { expect(1).toBe(1); });\n  10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });\n    at /repo/tests/a.spec.mjs:7:56"
+                        },
+                        {
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "column": 82,
+                            "line": 7
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m\"b\"\u001b[39m\nReceived: \u001b[31m\"a\"\u001b[39m\n\n   5 |   test('fails', async () => { expect(1).toBe(2); });\n   6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n>  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n     |                                                                                  ^\n   8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n   9 |   test('submit @new', async () => { expect(1).toBe(1); });\n  10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });\n    at /repo/tests/a.spec.mjs:7:82"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-11-02T10:55:43.306Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/repo/test-results/a-form-soft-two-errors-retry1/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/repo/tests/a.spec.mjs",
+                        "column": 56,
+                        "line": 7
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "f10c3055afda6889ad03-4b118d0e38c579a1ef51",
+              "file": "a.spec.mjs",
+              "line": 7,
+              "column": 3
+            },
+            {
+              "title": "step fail",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 10,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m3\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m3\u001b[39m\n    at /repo/tests/a.spec.mjs:8:92\n    at /repo/tests/a.spec.mjs:8:35",
+                        "location": {
+                          "file": "/repo/tests/a.spec.mjs",
+                          "column": 92,
+                          "line": 8
+                        },
+                        "snippet": "   6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n   7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n>  8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n     |                                                                                            ^\n   9 |   test('submit @new', async () => { expect(1).toBe(1); });\n  10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });\n  11 |   test.skip('skipped', async () => {});"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "column": 92,
+                            "line": 8
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m3\u001b[39m\n\n   6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n   7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n>  8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n     |                                                                                            ^\n   9 |   test('submit @new', async () => { expect(1).toBe(1); });\n  10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });\n  11 |   test.skip('skipped', async () => {});\n    at /repo/tests/a.spec.mjs:8:92\n    at /repo/tests/a.spec.mjs:8:35"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "steps": [
+                        {
+                          "title": "checkout step",
+                          "duration": 7,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m3\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m3\u001b[39m\n    at /repo/tests/a.spec.mjs:8:92\n    at /repo/tests/a.spec.mjs:8:35",
+                            "location": {
+                              "file": "/repo/tests/a.spec.mjs",
+                              "column": 92,
+                              "line": 8
+                            },
+                            "snippet": "   6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n   7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n>  8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n     |                                                                                            ^\n   9 |   test('submit @new', async () => { expect(1).toBe(1); });\n  10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });\n  11 |   test.skip('skipped', async () => {});"
+                          }
+                        }
+                      ],
+                      "startTime": "2026-11-02T10:55:44.110Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/repo/test-results/a-form-step-fail/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/repo/tests/a.spec.mjs",
+                        "column": 92,
+                        "line": 8
+                      }
+                    },
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 10,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m3\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m3\u001b[39m\n    at /repo/tests/a.spec.mjs:8:92\n    at /repo/tests/a.spec.mjs:8:35",
+                        "location": {
+                          "file": "/repo/tests/a.spec.mjs",
+                          "column": 92,
+                          "line": 8
+                        },
+                        "snippet": "   6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n   7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n>  8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n     |                                                                                            ^\n   9 |   test('submit @new', async () => { expect(1).toBe(1); });\n  10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });\n  11 |   test.skip('skipped', async () => {});"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "column": 92,
+                            "line": 8
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m3\u001b[39m\n\n   6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n   7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n>  8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n     |                                                                                            ^\n   9 |   test('submit @new', async () => { expect(1).toBe(1); });\n  10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });\n  11 |   test.skip('skipped', async () => {});\n    at /repo/tests/a.spec.mjs:8:92\n    at /repo/tests/a.spec.mjs:8:35"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "steps": [
+                        {
+                          "title": "checkout step",
+                          "duration": 7,
+                          "error": {
+                            "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m3\u001b[39m",
+                            "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m4\u001b[39m\nReceived: \u001b[31m3\u001b[39m\n    at /repo/tests/a.spec.mjs:8:92\n    at /repo/tests/a.spec.mjs:8:35",
+                            "location": {
+                              "file": "/repo/tests/a.spec.mjs",
+                              "column": 92,
+                              "line": 8
+                            },
+                            "snippet": "   6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });\n   7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });\n>  8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });\n     |                                                                                            ^\n   9 |   test('submit @new', async () => { expect(1).toBe(1); });\n  10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });\n  11 |   test.skip('skipped', async () => {});"
+                          }
+                        }
+                      ],
+                      "startTime": "2026-11-02T10:55:44.904Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/repo/test-results/a-form-step-fail-retry1/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/repo/tests/a.spec.mjs",
+                        "column": 92,
+                        "line": 8
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "f10c3055afda6889ad03-2cfd7405f2be048f15ac",
+              "file": "a.spec.mjs",
+              "line": 8,
+              "column": 3
+            },
+            {
+              "title": "submit @new",
+              "ok": true,
+              "tags": [
+                "new"
+              ],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-02T10:55:45.721Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f10c3055afda6889ad03-183c0553f467fb4f8ba3",
+              "file": "a.spec.mjs",
+              "line": 9,
+              "column": 3
+            },
+            {
+              "title": "tagged",
+              "ok": true,
+              "tags": [
+                "smoke"
+              ],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-02T10:55:45.774Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f10c3055afda6889ad03-a4b801299d32f6513102",
+              "file": "a.spec.mjs",
+              "line": 10,
+              "column": 3
+            },
+            {
+              "title": "skipped",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/repo/tests/a.spec.mjs",
+                        "line": 11,
+                        "column": 8
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 0,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-02T10:55:45.788Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "line": 11,
+                            "column": 8
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "f10c3055afda6889ad03-c52280e597992164ed37",
+              "file": "a.spec.mjs",
+              "line": 11,
+              "column": 8
+            },
+            {
+              "title": "expected fail",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "location": {
+                        "file": "/repo/tests/a.spec.mjs",
+                        "line": 12,
+                        "column": 44
+                      }
+                    }
+                  ],
+                  "expectedStatus": "failed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 3,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n    at /repo/tests/a.spec.mjs:12:62",
+                        "location": {
+                          "file": "/repo/tests/a.spec.mjs",
+                          "column": 62,
+                          "line": 12
+                        },
+                        "snippet": "  10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });\n  11 |   test.skip('skipped', async () => {});\n> 12 |   test('expected fail', async () => { test.fail(); expect(1).toBe(2); });\n     |                                                              ^\n  13 |   test('unexpected pass', async () => { test.fail(); expect(1).toBe(1); });\n  14 |   test('throw no message', async () => { throw new Error(); });\n  15 |   test('fail then skip', async ({}, info) => { if (info.retry === 1) test.skip(); expect(1).toBe(2); });"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "column": 62,
+                            "line": 12
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n\n  10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });\n  11 |   test.skip('skipped', async () => {});\n> 12 |   test('expected fail', async () => { test.fail(); expect(1).toBe(2); });\n     |                                                              ^\n  13 |   test('unexpected pass', async () => { test.fail(); expect(1).toBe(1); });\n  14 |   test('throw no message', async () => { throw new Error(); });\n  15 |   test('fail then skip', async ({}, info) => { if (info.retry === 1) test.skip(); expect(1).toBe(2); });\n    at /repo/tests/a.spec.mjs:12:62"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-02T10:55:45.788Z",
+                      "annotations": [
+                        {
+                          "type": "fail",
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "line": 12,
+                            "column": 44
+                          }
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/repo/test-results/a-form-expected-fail/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/repo/tests/a.spec.mjs",
+                        "column": 62,
+                        "line": 12
+                      }
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f10c3055afda6889ad03-eadfdd474098b09feecd",
+              "file": "a.spec.mjs",
+              "line": 12,
+              "column": 3
+            },
+            {
+              "title": "unexpected pass",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "fail",
+                      "location": {
+                        "file": "/repo/tests/a.spec.mjs",
+                        "line": 13,
+                        "column": 46
+                      }
+                    }
+                  ],
+                  "expectedStatus": "failed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-02T10:55:45.807Z",
+                      "annotations": [
+                        {
+                          "type": "fail",
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "line": 13,
+                            "column": 46
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    },
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-11-02T10:55:46.584Z",
+                      "annotations": [
+                        {
+                          "type": "fail",
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "line": 13,
+                            "column": 46
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "f10c3055afda6889ad03-e12b561b0d9080c9ba97",
+              "file": "a.spec.mjs",
+              "line": 13,
+              "column": 3
+            },
+            {
+              "title": "throw no message",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 3,
+                      "error": {
+                        "message": "Error: ",
+                        "stack": "Error: \n    at /repo/tests/a.spec.mjs:14:48",
+                        "location": {
+                          "file": "/repo/tests/a.spec.mjs",
+                          "column": 48,
+                          "line": 14
+                        },
+                        "snippet": "  12 |   test('expected fail', async () => { test.fail(); expect(1).toBe(2); });\n  13 |   test('unexpected pass', async () => { test.fail(); expect(1).toBe(1); });\n> 14 |   test('throw no message', async () => { throw new Error(); });\n     |                                                ^\n  15 |   test('fail then skip', async ({}, info) => { if (info.retry === 1) test.skip(); expect(1).toBe(2); });\n  16 | });\n  17 |"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "column": 48,
+                            "line": 14
+                          },
+                          "message": "Error: \n\n  12 |   test('expected fail', async () => { test.fail(); expect(1).toBe(2); });\n  13 |   test('unexpected pass', async () => { test.fail(); expect(1).toBe(1); });\n> 14 |   test('throw no message', async () => { throw new Error(); });\n     |                                                ^\n  15 |   test('fail then skip', async ({}, info) => { if (info.retry === 1) test.skip(); expect(1).toBe(2); });\n  16 | });\n  17 |\n    at /repo/tests/a.spec.mjs:14:48"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-02T10:55:47.382Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/repo/test-results/a-form-throw-no-message/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/repo/tests/a.spec.mjs",
+                        "column": 48,
+                        "line": 14
+                      }
+                    },
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 2,
+                      "error": {
+                        "message": "Error: ",
+                        "stack": "Error: \n    at /repo/tests/a.spec.mjs:14:48",
+                        "location": {
+                          "file": "/repo/tests/a.spec.mjs",
+                          "column": 48,
+                          "line": 14
+                        },
+                        "snippet": "  12 |   test('expected fail', async () => { test.fail(); expect(1).toBe(2); });\n  13 |   test('unexpected pass', async () => { test.fail(); expect(1).toBe(1); });\n> 14 |   test('throw no message', async () => { throw new Error(); });\n     |                                                ^\n  15 |   test('fail then skip', async ({}, info) => { if (info.retry === 1) test.skip(); expect(1).toBe(2); });\n  16 | });\n  17 |"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "column": 48,
+                            "line": 14
+                          },
+                          "message": "Error: \n\n  12 |   test('expected fail', async () => { test.fail(); expect(1).toBe(2); });\n  13 |   test('unexpected pass', async () => { test.fail(); expect(1).toBe(1); });\n> 14 |   test('throw no message', async () => { throw new Error(); });\n     |                                                ^\n  15 |   test('fail then skip', async ({}, info) => { if (info.retry === 1) test.skip(); expect(1).toBe(2); });\n  16 | });\n  17 |\n    at /repo/tests/a.spec.mjs:14:48"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-11-02T10:55:48.174Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/repo/test-results/a-form-throw-no-message-retry1/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/repo/tests/a.spec.mjs",
+                        "column": 48,
+                        "line": 14
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "f10c3055afda6889ad03-fee6e759c6d243f685bf",
+              "file": "a.spec.mjs",
+              "line": 14,
+              "column": 3
+            },
+            {
+              "title": "fail then skip",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [
+                    {
+                      "type": "skip",
+                      "location": {
+                        "file": "/repo/tests/a.spec.mjs",
+                        "line": 15,
+                        "column": 75
+                      }
+                    }
+                  ],
+                  "expectedStatus": "skipped",
+                  "projectId": "",
+                  "projectName": "",
+                  "results": [
+                    {
+                      "workerIndex": 11,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 8,
+                      "error": {
+                        "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m",
+                        "stack": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n    at /repo/tests/a.spec.mjs:15:93",
+                        "location": {
+                          "file": "/repo/tests/a.spec.mjs",
+                          "column": 93,
+                          "line": 15
+                        },
+                        "snippet": "  13 |   test('unexpected pass', async () => { test.fail(); expect(1).toBe(1); });\n  14 |   test('throw no message', async () => { throw new Error(); });\n> 15 |   test('fail then skip', async ({}, info) => { if (info.retry === 1) test.skip(); expect(1).toBe(2); });\n     |                                                                                             ^\n  16 | });\n  17 |"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "column": 93,
+                            "line": 15
+                          },
+                          "message": "Error: \u001b[2mexpect(\u001b[22m\u001b[31mreceived\u001b[39m\u001b[2m).\u001b[22mtoBe\u001b[2m(\u001b[22m\u001b[32mexpected\u001b[39m\u001b[2m) // Object.is equality\u001b[22m\n\nExpected: \u001b[32m2\u001b[39m\nReceived: \u001b[31m1\u001b[39m\n\n  13 |   test('unexpected pass', async () => { test.fail(); expect(1).toBe(1); });\n  14 |   test('throw no message', async () => { throw new Error(); });\n> 15 |   test('fail then skip', async ({}, info) => { if (info.retry === 1) test.skip(); expect(1).toBe(2); });\n     |                                                                                             ^\n  16 | });\n  17 |\n    at /repo/tests/a.spec.mjs:15:93"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-02T10:55:48.972Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/repo/test-results/a-form-fail-then-skip/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/repo/tests/a.spec.mjs",
+                        "column": 93,
+                        "line": 15
+                      }
+                    },
+                    {
+                      "workerIndex": 12,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 2,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 1,
+                      "startTime": "2026-11-02T10:55:49.764Z",
+                      "annotations": [
+                        {
+                          "type": "skip",
+                          "location": {
+                            "file": "/repo/tests/a.spec.mjs",
+                            "line": 15,
+                            "column": 75
+                          }
+                        }
+                      ],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "flaky"
+                }
+              ],
+              "id": "f10c3055afda6889ad03-3cc7bf79003460ee5e97",
+              "file": "a.spec.mjs",
+              "line": 15,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-11-02T10:55:39.315Z",
+    "duration": 10515.921999999999,
+    "expected": 4,
+    "skipped": 1,
+    "unexpected": 5,
+    "flaky": 2
+  }
+}
