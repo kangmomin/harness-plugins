@@ -11,20 +11,33 @@ r"""workflow_archive.py — Phase 12(fe 11 / 풀스택 11): 슬림 Workflow Repo
           + 보고서 본문(sentinel 이하 제거 후) + `## 부록 A: 실행 요약` + `## 부록 B: 상태 파일 전문`(헤딩 1단계 강등) + `## 부록 C: Implementation Notes`.
   재사용: report-dir의 같은 run_id 파일을 날짜/task와 무관하게 찾고 저장된 archive_status를 보존한다. 기존 파일 frontmatter `run_id`가 인자와 같으면 재생성하지 않고 그 경로를 출력(동일 실행 재시도). 다르면 `-2`, `-3` 접미로 새로 생성.
   쓰기:   임시 파일 작성 → 배타적 링크; 미지원 시 exit2, replace 폴백 없음 (덮어쓰기 없음, 생성 후 수정 없음).
+  잠금:   report-dir의 `.workflow-archive.lock`을 fcntl.flock(POSIX) 또는 msvcrt.locking(Windows)으로 배타 잠금한 뒤 run_id를 찾고 쓴다.
+          잠금 모듈이 없거나 획득에 실패하면 쓰지 않고 exit 2(무잠금 진행 없음). symlink 잠금 경로는 거부한다
+          (O_NOFOLLOW가 없으면 최초 생성은 O_EXCL, 기존 경로는 lstat 정규 파일 확인 + 열기 전후 inode 대조).
   검증:   --require-headings 의 각 항목이 본문 헤딩(#… 텍스트가 항목으로 시작)에 없으면 `### {항목} (INCOMPLETE)` 삽입 + DEGRADED(머리글 누락).
           impl-notes 4 머리글(설계 결정/편차/트레이드오프/미결 질문) 누락 → 플레이스홀더 + DEGRADED.
   touched_paths: --start-sha(없으면 상태 파일 `시작 커밋`/`START_SHA`) 기준 `git diff --name-only SHA` ∪ untracked, 제외 패턴은 verification-tier.md ②의 정적 패턴과 동일(profile `{apiDocsPath}`·root `VERSION` 제외는 티어 집계 전용 — 기록에는 포함).
 """
 import argparse
+import contextlib
 import datetime as _dt
 import fnmatch
-import fcntl
 import json
 from pathlib import Path
 import os
 import re
+import stat
 import subprocess
 import sys
+
+try:
+    import fcntl
+except ImportError:  # Windows
+    fcntl = None
+try:
+    import msvcrt
+except ImportError:  # POSIX
+    msvcrt = None
 
 sys.dont_write_bytecode = True
 from workflow_results import load as load_results, latest, publish_text
@@ -33,6 +46,49 @@ SENTINEL = "<!-- workflow-archive: appendix -->"
 IMPL_HEADINGS = ["설계 결정", "편차", "트레이드오프", "미결 질문"]
 EXCLUDE_GLOBS = ["*_test.go", "*.test.*", "*.spec.*", "__tests__/*", "*/__tests__/*", "testdata/*", "*/testdata/*", "e2e/*", "*/e2e/*",
                  "vendor/*", "*/vendor/*", "node_modules/*", "*/node_modules/*", "*.pb.go", "*.gen.*", "mocks/*", "*/mocks/*", "__pycache__/*", "*/__pycache__/*", "*.pyc", "*.md", "docs/*", "*/docs/*"]
+
+
+def open_lock(path):
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    if nofollow:
+        return os.open(path, os.O_RDWR | os.O_CREAT | nofollow, 0o600)
+    try:
+        return os.open(path, os.O_RDWR | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        pass
+    before = os.lstat(path)
+    if not stat.S_ISREG(before.st_mode):
+        raise OSError("잠금 경로가 정규 파일이 아님(symlink 포함): %s" % path)
+    fd = os.open(path, os.O_RDWR)
+    after = os.fstat(fd)
+    if (after.st_dev, after.st_ino) != (before.st_dev, before.st_ino):
+        os.close(fd)
+        raise OSError("잠금 파일이 검사 후 바뀜: %s" % path)
+    return fd
+
+
+@contextlib.contextmanager
+def exclusive_lock(owner):
+    if fcntl is not None:
+        fcntl.flock(owner, fcntl.LOCK_EX)
+        yield  # 파일을 닫으면 해제된다.
+        return
+    if msvcrt is None:
+        raise OSError("배타 잠금 모듈(fcntl·msvcrt) 없음 — 같은 run_id 중복 방지를 보장할 수 없어 쓰지 않음")
+    fd = owner.fileno()
+    for attempt in range(6):  # LK_LOCK은 자체로 약 10초 재시도한다 → 최대 약 60초.
+        try:
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_LOCK, 1)
+            break
+        except OSError:
+            if attempt == 5:
+                raise
+    try:
+        yield
+    finally:
+        os.lseek(fd, 0, os.SEEK_SET)
+        msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
 
 
 def slug(s):
@@ -299,9 +355,8 @@ def archive_main():
     # Run identity survives date/task changes. Reused completeness is never upgraded.
     directory = Path(args.report_dir)
     directory.mkdir(parents=True, exist_ok=True)
-    lock_fd = os.open(directory / ".workflow-archive.lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
-    with os.fdopen(lock_fd, "a+b") as owner:
-        fcntl.flock(owner, fcntl.LOCK_EX)
+    lock_fd = open_lock(directory / ".workflow-archive.lock")
+    with os.fdopen(lock_fd, "a+b") as owner, exclusive_lock(owner):
         if directory.exists():
             for candidate in sorted(directory.glob("*-workflow-report*.md")):
                 if candidate.is_symlink():
