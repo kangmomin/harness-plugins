@@ -45,6 +45,7 @@ frozen 모드에서는 테스트 파일(케이스·단언·fixture·스냅샷)�
 
 - 수정 우선순위: `regression` → `new_red`. **`pre_existing` 은 이번 범위 밖이므로 손대지 않는다.**
 - `flaky`는 수정 대상이 아니며 보고만 한다.
+- E2E 실패는 상태 파일에 FE 형식 `## Test Baseline`의 e2e 행이 **러너 완주 `Y`로 수집**돼 있을 때만 `${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/test_failures.py --runner {playwright|auto} --suite e2e --baseline {STATE_FILE}`로 위 표대로 분류한다. baseline과 같은 리포터·같은 cwd로 실행한다(playwright list는 cwd 기준, JSON은 rootDir 기준 경로라 섞어 대조하지 않는다). e2e 행이 수집 실패·완주 `N`이거나 섹션이 없으면(풀스택 `## Test Baseline (도메인별)`·단독 호출) 기존처럼 로그를 직접 읽어 분류한다.
 - `## Test Baseline`의 e2e 행이 `SKIPPED:*`면(E2E baseline 없음 — start-workflow quick 출신 승격) E2E 실패에 4행을 적용하지 않는다. 이번 변경이 원인으로 확인된 실패만 근거와 함께 `regression`으로 수정하고, 나머지는 수정하지 않고 `unparsed(E2E baseline 없음)`로 보고한다. 사후 실행 결과를 baseline으로 쓰지 않는다.
 - 분류는 두 값으로 보고한다. **관측 누적** = 이번 호출의 모든 실행(수정 전 실행 포함)에서 확정된 `regression`·판정 불가(`unparsed`·러너 완주 N) — flaky는 기존대로 수정 전 동일 트리 재실행으로 가려 제외한다. **최종 분류** = 최종 트리의 마지막 실행 결과. 수정으로 해결된 `regression`은 관측 누적에만 남는다.
 
@@ -79,10 +80,11 @@ for iteration in 1..5:
 
 ### Step 1: 단위 테스트 실행
 
-profile의 `testCommand` 를 우선 사용:
+전달받은 FE 상태 파일의 `## Test Baseline`에 `단위 명령 (정본):` 다음 `sh` 펜스 블록이 있으면 그 원문(start-workflow Phase 4 확정 명령)을, 없으면 profile의 `testCommand`를 우선 사용한다. 첫 줄 `unset RED_MODE`는 상위 셸의 Red 빠른 실패 설정 상속을 막는다(`/fe-harness:unit-test` "빠른 실패"):
 
 ```bash
-{testCommand}
+unset RED_MODE
+{단위 명령}
 ```
 
 `testCommand` 가 비어있으면 `testRunner` 값에 따라 설치된 로컬 runner로 fallback한다 (runner를 내려받을 수 있는 `npx`는 쓰지 않는다 — 로컬 실행 파일이 없으면 `SKIPPED`):
@@ -117,6 +119,14 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" release "{E2E_RE
 
 수정 단계에서는 락을 놓아 다른 에이전트가 순번을 가져갈 수 있게 한다.
 
+**E2E 리셋** (profile `e2eResetCommand`가 있을 때만): 락 획득 뒤, 아래에서 확정한 최종 E2E 명령 직전에 매 iteration 실행한다(E2E가 `SKIPPED:*`면 실행하지 않는다). 이 Bash 호출은 `timeout: 600000`으로 실행한다.
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/config/assets/profile.py" run --domain fe --cwd "{CWD}" --key e2eResetCommand --timeout 540
+```
+
+출력 `status`가 `PASS`·`SKIPPED`(미설정)면 E2E로 진행한다. 그 외(`FAIL`·`TIMEOUT`·`INTERRUPTED`·exit 2)면 이 iteration의 E2E를 실행하지 않고 `BLOCKED:E2E_RESET_FAILED`로 기록한다(단위 테스트 결과는 유효). 락 해제는 이 명령이 반환된 뒤에만 한다 — `--timeout`은 자식 프로세스 그룹 종료를 확인하고 반환한다. 환경 종료(컨테이너 down 등)는 프로젝트가 관리한다.
+
 아래 명령은 후보이며, **실행 전에 `--smoke` 표까지 판정한 뒤 최종 명령 하나만 실행**한다. profile의 `e2eCommand`를 우선 선택:
 
 ```bash
@@ -138,6 +148,9 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" release "{E2E_RE
 
 어떤 경우에도 E2E를 조용히 건너뛰지 않는다 — `--smoke`가 범위를 줄일 수 없으면 전체를 실행하고 사유를 남긴다. `--smoke`가 없으면 실행 수준은 `full`.
 
+**재실행 축소** (`--smoke`·`--unit-only` 없음 ∧ `e2eCommand` 비어 runner fallback ∧ 전달받은 상태 파일에 `## Global Impact Paths` 있음 — 단독·풀스택 호출은 섹션이 없어 미적용): 2번째 이후 iteration에서 마지막 full E2E 이후 이 루프가 수정한 파일이 모두 `## Global Impact Paths` 밖이면(값 `없음` = 전역 영향 경로 없음) `직전 실패 spec 파일 ∪ ## Related E2E Specs`(존재하는 파일만)만 위 smoke 명령 형식으로 실행한다. 축소 실행은 중간 실행이다 — 관측 누적에는 넣고 최종 분류 근거로 쓰지 않는다.
+**탈출 직전 보장**: `modified == false`인 iteration의 E2E가 축소 실행이었으면 같은 트리에서 full을 1회 더 실행해 그 결과로 판정한다(실패 → 수정 가능하면 `modified = true`로 다음 iteration, 상한이면 `UNRESOLVED`). `E2E 실행 수준`은 최종 판정 실행의 수준이다.
+
 실패 시:
 1. 에러 메시지를 분석한다.
 2. **기본 모드**: 테스트 코드 또는 소스 코드를 수정한다. **frozen 모드**: 소스 코드만 수정한다. (상위 워크플로우가 `codexMode: max` 위임 계약 포인터를 전달했으면 수정은 그 계약대로 — Codex `write` 슬롯/workspace-write)
@@ -147,7 +160,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" release "{E2E_RE
 
 - `modified == false` → 루프 탈출. 실행한 테스트의 실제 결과로 판정하며 E2E SKIP/BLOCKED가 있으면 전체 `ALL PASS`로 표시하지 않는다 (`SKIPPED:UNIT_ONLY`는 호출자가 요청한 범위이므로 예외 — 단위 테스트 결과로 판정)
 - `modified == true` → 수정사항 있음, 다음 iteration
-- 5회 도달 → 미해결 사항 보고 후 강제 탈출
+- 5회 도달 → 미해결 사항 보고 후 강제 탈출 (마지막 E2E가 축소 실행이면 `E2E 실행 수준: reduced` — 최종 트리의 full 결과가 없으므로 `ALL PASS` 금지)
 
 ---
 
@@ -161,7 +174,7 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" release "{E2E_RE
 - **단위 테스트 수정**: M건
 - **E2E 테스트 수정**: K건
 - **최종 상태**: ALL PASS / SKIPPED:{사유} / BLOCKED:{사유} / UNRESOLVED ([미해결 목록])
-- **E2E 실행 수준**: smoke / full / full(smoke 미적용: {사유}) / full-command / SKIPPED:{사유}
+- **E2E 실행 수준**: smoke / full / full(smoke 미적용: {사유}) / full-command / reduced / SKIPPED:{사유} / BLOCKED:{사유}
 
 ### frozen 모드일 때 추가
 - **관측 누적**: regression [n]건 / 판정 불가 [n]건 (수정 전 실행 포함)

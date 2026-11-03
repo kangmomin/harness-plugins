@@ -117,6 +117,9 @@ Plan 보강(3.2)·검증 루프(3.3)의 깊이다. §2의 같은 사실로 판�
 - **P2의 Q-e**: API 응답 필드를 화면에 표시하는 추가도 기존 요소·동작이 그대로면 충족으로 본다(P 판정에만 적용 — T의 Q-e·quick 의무는 그대로).
 - **P = min(T, P_calc)** — 선언은 Plan 깊이의 상한이다. P1~P3는 판정표 #1·quick·light 조건의 부분 조건이므로 P_calc ≤ C이고, 미선언이면 P = P_calc다.
 - 깊이: standard = 3.2 3에이전트 × 2배치 · `{PLAN_MAX}` 5 / light = 1에이전트 3관점 · 2 / quick = 3.2·3.3 `SKIPPED:PLAN_QUICK` · 0.
+- **반복 묶음 상한**: 아래를 **모두** 충족하면 3.1·3.4 모두 `P_calc := min(P_calc, light)`로 둔다(3.4는 상한을 적용한 P_calc′로 아래 식을 쓴다). 확인할 수 없으면 부적격이고, 3.4에서 적격을 잃으면 상한 없이 다시 계산한다(상향). P1·승격 ①·⑤가 상한보다 우선하고 T는 바뀌지 않는다.
+  ① Spec 작업 계약에 `묶음: {n/N} · 선행 묶음: {선행 Workflow Report 경로}`(n ≥ 2) ② 선행 보고서 부록 B(상태 파일 전문, 헤딩 1단계 강등)의 `### Spec`이 같은 Spec 원문 경로(작업 계약 `기준`)이고 `Plan Verification Summary`가 PROCEED ③ **구조 대응표**: 이번 Plan의 파일·컴포넌트·상태·API 항목이 모두 선행 Plan(부록 B `### Plan`)의 같은 역할 항목에 대응(대응 없는 새 구조가 1개라도 있으면 부적격) ④ P1 없음 ⑤ 새 `UNKNOWN` 없음, A·B 요소 밴드가 선행 R0 이하.
+  기록: `Plan 깊이` 줄에 `반복 묶음 상한({경로})`, 대응표는 Plan에 첨부한다.
 - 예: 선택 prop 추가(EC 7개, 화면 흐름은 E2E로 확인) → T standard(엣지 케이스 '높음'), P quick(P2) — Plan 리뷰 없이 진행하고 테스트는 standard로 한다.
 - **3.4 재판정**: P′ = max(P, min(T′, P_calc′)) (상향만). P가 quick에서 올랐으면 건너뛴 3.2·3.3을 새 P로 실행한 뒤 3.4로 돌아온다. 이미 실행해 수렴했으면 재사용하고 `미재실행: 3.2`를 기록한다. T만 오르면 3.2·3.3을 다시 실행하지 않는다.
 - **기록**: `SKIPPED:PLAN_QUICK`은 3.4 확정 뒤 Phase 4 상태 파일 생성 때 기록한다(3.4 재판정으로 실행될 수 있으므로). `## Verification Tier`의 `Plan 깊이` 줄에 P·판정 행·3.2 실행·`{PLAN_MAX}`·변경 이력을 적는다.
@@ -203,7 +206,7 @@ TDD SKIP이면 5.2는 구현만 하고 이 절은 적용하지 않는다.
 
 | # | 시점 | 트리거 | 효과 |
 |---|------|--------|------|
-| ① | 3.3 (P light) | 리뷰어 CONCERN/REJECT로 light 상한 2회 소진 (상한 평가 전에 판정 — 승인 전 선언 하향으로 줄어든 상한은 제외, §3) | P·T standard, `{PLAN_MAX}` = 5 복원, 카운터 승계(3회차부터). 3.2 재실행 없음 |
+| ① | 3.3 (P light) | SKILL.md 3.3 ② 수렴 규칙상 미수렴으로 light 상한 2회 소진 — Low만 남은 CONCERN은 수렴이라 미발동 (상한 평가 전에 판정 — 승인 전 선언 하향으로 줄어든 상한은 제외, §3) | P·T standard, `{PLAN_MAX}` = 5 복원, 카운터 승계(3회차부터). 3.2 재실행 없음 |
 | ② | 5.2 완료 직후, Phase 6 전 | 재판정 C′ > T (집계 규칙: 아래) | 새 티어로 Phase 6·7 |
 | ③ | 7.4 회귀 대조 | test-loop **관측 누적**의 `regression` ≥ 1, 또는 판정 불가(러너 완주 N / `unparsed` 잔존을 오케스트레이터도 분류 못 함) | standard, `{QL_MAX}` = 3 복원. 다음 iteration은 standard 단계 전부(7.2 · 7.3 · 7.6 · 7.4 full). 관측된 regression은 수정됐으면 `modified == true`, 남았으면 FAIL이라 다음 iteration이 보장되며, 복원 상한에서도 미PASS면 `BLOCKED:TEST_NOT_GREEN`. 루프 후 7.7·Phase 8(component + a11y) 실행 |
 | ④ | 4 baseline 수집 | R0에 없던 TDD SKIP, 또는 수집 실패(`regression 판정 불가` 선택) | standard. 자율 실행 전이므로 Phase 4의 남은 baseline(E2E 포함)과 5.1(TDD 활성 시)을 새 티어대로 실행한다 |

@@ -234,5 +234,76 @@ class ProfileTests(unittest.TestCase):
             self.assertEqual('runner:eslint', json.loads(fallback.stdout)['source'])
 
 
+    def reset_project(self, directory, command):
+        root = Path(directory)
+        (root / '.claude').mkdir(exist_ok=True)
+        (root / '.claude/fe-harness.local.md').write_bytes(self.edit(b'---\n---\n', {'e2eResetCommand': command}, 'fe'))
+        return [sys.executable, '-B', str(SCRIPT), 'run', '--domain', 'fe', '--cwd', directory, '--key', 'e2eResetCommand']
+
+    def alive(self, pid):
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        stat_path = Path('/proc/%d/stat' % pid)
+        return not (stat_path.exists() and stat_path.read_text().split()[2] == 'Z')
+
+    def test_fe_reset_and_isolation_keys_are_typed(self):
+        for changes in ({'e2eIsolatedWorktree': 'yes'}, {'e2eResetCommand': 1}):
+            with self.assertRaises(profile.ProfileError):
+                self.edit(b'---\n---\n', changes, 'fe')
+        rendered = self.edit(b'---\n---\n', {'e2eIsolatedWorktree': True, 'e2eResetCommand': 'docker compose up -d --wait'}, 'fe')
+        self.assertIn(b'e2eIsolatedWorktree: true', rendered)
+
+    def test_reset_command_missing_success_and_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            argv = [sys.executable, '-B', str(SCRIPT), 'run', '--domain', 'fe', '--cwd', directory, '--key', 'e2eResetCommand']
+            self.assertEqual('SKIPPED', json.loads(subprocess.run(argv, capture_output=True, text=True).stdout)['status'])
+            argv = self.reset_project(directory, 'mkdir -p sub && cd sub && printf ok | cat > ../mark')
+            result = subprocess.run(argv + ['--timeout', '30'], capture_output=True, text=True)
+            self.assertEqual((0, 'PASS'), (result.returncode, json.loads(result.stdout.splitlines()[-1])['status']), result.stderr)
+            self.assertEqual('ok', (Path(directory) / 'mark').read_text())
+            argv = self.reset_project(directory, 'exit 3')
+            result = subprocess.run(argv, capture_output=True, text=True)
+            self.assertEqual((1, 'FAIL', 3), (result.returncode, json.loads(result.stdout)['status'], json.loads(result.stdout)['exit_code']))
+
+    def test_reset_timeout_kills_process_group_even_when_term_is_ignored(self):
+        for command in ('sleep 60 & echo $! > child.pid; wait', "trap '' TERM; sleep 60 & echo $! > child.pid; wait"):
+            with tempfile.TemporaryDirectory() as directory:
+                argv = self.reset_project(directory, command)
+                started = __import__('time').monotonic()
+                result = subprocess.run(argv + ['--timeout', '1'], capture_output=True, text=True, timeout=30)
+                elapsed = __import__('time').monotonic() - started
+                self.assertEqual(1, result.returncode, result.stderr)
+                self.assertEqual('TIMEOUT', json.loads(result.stdout)['status'])
+                self.assertLess(elapsed, 20)
+                self.assertFalse(self.alive(int((Path(directory) / 'child.pid').read_text())))
+
+    def test_parent_sigterm_cleans_reset_process_group(self):
+        import signal
+        import time
+        with tempfile.TemporaryDirectory() as directory:
+            argv = self.reset_project(directory, 'sleep 60 & echo $! > child.pid; wait')
+            parent = subprocess.Popen(argv + ['--timeout', '60'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            pid_file = Path(directory) / 'child.pid'
+            deadline = time.monotonic() + 10
+            while not (pid_file.exists() and pid_file.read_text().strip()) and time.monotonic() < deadline:
+                time.sleep(0.05)
+            parent.send_signal(signal.SIGTERM)
+            stdout, _ = parent.communicate(timeout=30)
+            self.assertEqual(128 + signal.SIGTERM, parent.returncode)
+            self.assertEqual('INTERRUPTED', json.loads(stdout)['status'])
+            self.assertFalse(self.alive(int(pid_file.read_text())))
+
+    def test_exec_cwd_runs_parent_profile_command_elsewhere(self):
+        with tempfile.TemporaryDirectory() as parent, tempfile.TemporaryDirectory() as tree:
+            argv = self.reset_project(parent, 'pwd > "%s/where"' % parent)
+            result = subprocess.run(argv + ['--exec-cwd', tree], capture_output=True, text=True)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual(os.path.realpath(tree), os.path.realpath((Path(parent) / 'where').read_text().strip()))
+            missing = subprocess.run(argv + ['--exec-cwd', str(Path(tree) / 'nope')], capture_output=True, text=True)
+            self.assertEqual(2, missing.returncode)
+
+
 if __name__ == "__main__":
     unittest.main()

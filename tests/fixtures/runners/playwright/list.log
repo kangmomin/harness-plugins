@@ -1,0 +1,246 @@
+
+Running 12 tests using 1 worker
+
+  ✓   1 tests/a.spec.mjs:4:3 › form › passes (6ms)
+  ✘   2 tests/a.spec.mjs:5:3 › form › fails (4ms)
+  ✘   3 tests/a.spec.mjs:5:3 › form › fails (retry #1) (8ms)
+  ✘   4 tests/a.spec.mjs:6:3 › form › flaky (9ms)
+  ✓   5 tests/a.spec.mjs:6:3 › form › flaky (retry #1) (6ms)
+  ✘   6 tests/a.spec.mjs:7:3 › form › soft two errors (6ms)
+  ✘   7 tests/a.spec.mjs:7:3 › form › soft two errors (retry #1) (10ms)
+  ✘   8 tests/a.spec.mjs:8:3 › form › step fail (9ms)
+  ✘   9 tests/a.spec.mjs:8:3 › form › step fail (retry #1) (9ms)
+  ✓  10 tests/a.spec.mjs:9:3 › form › submit @new (6ms)
+  ✓  11 tests/a.spec.mjs:10:3 › form › tagged @smoke (1ms)
+  -  12 tests/a.spec.mjs:11:8 › form › skipped
+  ✘  13 tests/a.spec.mjs:12:3 › form › expected fail (4ms)
+  ✓  14 tests/a.spec.mjs:13:3 › form › unexpected pass (1ms)
+  ✓  15 tests/a.spec.mjs:13:3 › form › unexpected pass (retry #1) (6ms)
+  ✘  16 tests/a.spec.mjs:14:3 › form › throw no message (2ms)
+  ✘  17 tests/a.spec.mjs:14:3 › form › throw no message (retry #1) (2ms)
+  ✘  18 tests/a.spec.mjs:15:3 › form › fail then skip (9ms)
+  -  19 tests/a.spec.mjs:15:3 › form › fail then skip (retry #1)
+
+
+  1) tests/a.spec.mjs:5:3 › form › fails ───────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+      3 | test.describe('form', () => {
+      4 |   test('passes', async () => { expect(1).toBe(1); });
+    > 5 |   test('fails', async () => { expect(1).toBe(2); });
+        |                                         ^
+      6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });
+      7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });
+      8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });
+        at /repo/tests/a.spec.mjs:5:41
+
+    Error Context: test-results/a-form-fails/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+      3 | test.describe('form', () => {
+      4 |   test('passes', async () => { expect(1).toBe(1); });
+    > 5 |   test('fails', async () => { expect(1).toBe(2); });
+        |                                         ^
+      6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });
+      7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });
+      8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });
+        at /repo/tests/a.spec.mjs:5:41
+
+    Error Context: test-results/a-form-fails-retry1/error-context.md
+
+  2) tests/a.spec.mjs:7:3 › form › soft two errors ─────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+       5 |   test('fails', async () => { expect(1).toBe(2); });
+       6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });
+    >  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });
+         |                                                        ^
+       8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });
+       9 |   test('submit @new', async () => { expect(1).toBe(1); });
+      10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });
+        at /repo/tests/a.spec.mjs:7:56
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: "b"
+    Received: "a"
+
+       5 |   test('fails', async () => { expect(1).toBe(2); });
+       6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });
+    >  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });
+         |                                                                                  ^
+       8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });
+       9 |   test('submit @new', async () => { expect(1).toBe(1); });
+      10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });
+        at /repo/tests/a.spec.mjs:7:82
+
+    Error Context: test-results/a-form-soft-two-errors/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+       5 |   test('fails', async () => { expect(1).toBe(2); });
+       6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });
+    >  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });
+         |                                                        ^
+       8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });
+       9 |   test('submit @new', async () => { expect(1).toBe(1); });
+      10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });
+        at /repo/tests/a.spec.mjs:7:56
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: "b"
+    Received: "a"
+
+       5 |   test('fails', async () => { expect(1).toBe(2); });
+       6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });
+    >  7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });
+         |                                                                                  ^
+       8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });
+       9 |   test('submit @new', async () => { expect(1).toBe(1); });
+      10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });
+        at /repo/tests/a.spec.mjs:7:82
+
+    Error Context: test-results/a-form-soft-two-errors-retry1/error-context.md
+
+  3) tests/a.spec.mjs:8:3 › form › step fail › checkout step ───────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 4
+    Received: 3
+
+       6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });
+       7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });
+    >  8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });
+         |                                                                                            ^
+       9 |   test('submit @new', async () => { expect(1).toBe(1); });
+      10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });
+      11 |   test.skip('skipped', async () => {});
+        at /repo/tests/a.spec.mjs:8:92
+        at /repo/tests/a.spec.mjs:8:35
+
+    Error Context: test-results/a-form-step-fail/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 4
+    Received: 3
+
+       6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });
+       7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });
+    >  8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });
+         |                                                                                            ^
+       9 |   test('submit @new', async () => { expect(1).toBe(1); });
+      10 |   test('tagged', { tag: '@smoke' }, async () => { expect(1).toBe(1); });
+      11 |   test.skip('skipped', async () => {});
+        at /repo/tests/a.spec.mjs:8:92
+        at /repo/tests/a.spec.mjs:8:35
+
+    Error Context: test-results/a-form-step-fail-retry1/error-context.md
+
+  4) tests/a.spec.mjs:13:3 › form › unexpected pass ────────────────────────────────────────────────
+
+    Expected to fail, but passed.
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Expected to fail, but passed.
+
+  5) tests/a.spec.mjs:14:3 › form › throw no message ───────────────────────────────────────────────
+
+    Error: 
+
+      12 |   test('expected fail', async () => { test.fail(); expect(1).toBe(2); });
+      13 |   test('unexpected pass', async () => { test.fail(); expect(1).toBe(1); });
+    > 14 |   test('throw no message', async () => { throw new Error(); });
+         |                                                ^
+      15 |   test('fail then skip', async ({}, info) => { if (info.retry === 1) test.skip(); expect(1).toBe(2); });
+      16 | });
+      17 |
+        at /repo/tests/a.spec.mjs:14:48
+
+    Error Context: test-results/a-form-throw-no-message/error-context.md
+
+    Retry #1 ───────────────────────────────────────────────────────────────────────────────────────
+
+    Error: 
+
+      12 |   test('expected fail', async () => { test.fail(); expect(1).toBe(2); });
+      13 |   test('unexpected pass', async () => { test.fail(); expect(1).toBe(1); });
+    > 14 |   test('throw no message', async () => { throw new Error(); });
+         |                                                ^
+      15 |   test('fail then skip', async ({}, info) => { if (info.retry === 1) test.skip(); expect(1).toBe(2); });
+      16 | });
+      17 |
+        at /repo/tests/a.spec.mjs:14:48
+
+    Error Context: test-results/a-form-throw-no-message-retry1/error-context.md
+
+  6) tests/a.spec.mjs:6:3 › form › flaky ───────────────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+      4 |   test('passes', async () => { expect(1).toBe(1); });
+      5 |   test('fails', async () => { expect(1).toBe(2); });
+    > 6 |   test('flaky', async ({}, info) => { expect(info.retry).toBe(1); });
+        |                                                          ^
+      7 |   test('soft two errors', async () => { expect.soft(1).toBe(2); expect.soft('a').toBe('b'); });
+      8 |   test('step fail', async () => { await test.step('checkout step', async () => { expect(3).toBe(4); }); });
+      9 |   test('submit @new', async () => { expect(1).toBe(1); });
+        at /repo/tests/a.spec.mjs:6:58
+
+    Error Context: test-results/a-form-flaky/error-context.md
+
+  7) tests/a.spec.mjs:15:3 › form › fail then skip ─────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: 2
+    Received: 1
+
+      13 |   test('unexpected pass', async () => { test.fail(); expect(1).toBe(1); });
+      14 |   test('throw no message', async () => { throw new Error(); });
+    > 15 |   test('fail then skip', async ({}, info) => { if (info.retry === 1) test.skip(); expect(1).toBe(2); });
+         |                                                                                             ^
+      16 | });
+      17 |
+        at /repo/tests/a.spec.mjs:15:93
+
+    Error Context: test-results/a-form-fail-then-skip/error-context.md
+
+  5 failed
+    tests/a.spec.mjs:5:3 › form › fails ────────────────────────────────────────────────────────────
+    tests/a.spec.mjs:7:3 › form › soft two errors ──────────────────────────────────────────────────
+    tests/a.spec.mjs:8:3 › form › step fail ────────────────────────────────────────────────────────
+    tests/a.spec.mjs:13:3 › form › unexpected pass ─────────────────────────────────────────────────
+    tests/a.spec.mjs:14:3 › form › throw no message ────────────────────────────────────────────────
+  2 flaky
+    tests/a.spec.mjs:6:3 › form › flaky ────────────────────────────────────────────────────────────
+    tests/a.spec.mjs:15:3 › form › fail then skip ──────────────────────────────────────────────────
+  1 skipped
+  4 passed (10.6s)

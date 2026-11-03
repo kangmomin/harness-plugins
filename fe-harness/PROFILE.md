@@ -42,6 +42,8 @@ testCommand:  "pnpm test"
 lintCommand:  "pnpm lint"
 typeCheckCommand: "pnpm typecheck"
 e2eCommand: "pnpm e2e"
+# e2eResetCommand: "pnpm e2e:reset"   # 선택 — 매 E2E 실행 직전 멱등 "기동 보장 + 데이터 초기화"(설정 시 e2eCommand는 테스트만 실행). 실패·540초 초과 → 그 E2E 실행 BLOCKED:E2E_RESET_FAILED. 환경 종료는 프로젝트가 관리
+# e2eIsolatedWorktree: false          # 선택(opt-in) — true면 start-workflow 구현 중간 E2E를 커밋된 SHA의 git worktree에서 다음 구현과 병행. 조건 불충족 시 순차. node_modules 공유 쓰기 캐시(.vite·.cache 등)의 독립성은 프로젝트가 보장
 
 # 로컬 서버
 runServerCommand: "pnpm dev"
@@ -137,6 +139,7 @@ wire_api = "responses"          # Codex는 responses만 지원
 - 명령이 비어있으면 helper의 설치된 로컬 runner fallback을 적용하고, fallback도 없으면 `SKIPPED`로 표기한다.
 - `lintCommand`가 있으면 환경변수·workspace·옵션을 포함한 원문 그대로 실행한다. 비어 있고 package script도 없으면 설치된 로컬 ESLint에만 fallback한다. custom 명령에 임의 파일 인자나 `--fix`를 추가하지 않는다. `typescript:false`이면 typeCheckCommand는 SKIP이다.
 - E2E는 `e2eRunner: none`일 때 SKIP. `e2eCommand`가 비어있어도 runner가 playwright/cypress면 기본 명령을 실행하며, `test-loop --smoke`는 연관 spec 목록으로 범위를 제한한다. custom 명령이 있으면 전체 명령을 실행한다.
+- `e2eResetCommand`가 있으면 E2E 명령을 직접 실행하는 각 경계(test-loop·e2e-test·start-workflow baseline·구현 중간 E2E)에서 락 획득 뒤 `profile.py run --domain fe --key e2eResetCommand --timeout 540`을 먼저 실행한다(Bash 도구 상한 600초 안에서 프로세스 그룹 정리까지 끝나도록). exit ≠ 0·`TIMEOUT`이면 그 E2E 실행은 테스트 없이 `BLOCKED:E2E_RESET_FAILED`(단위 결과는 유효). `run --exec-cwd DIR`은 profile을 `--cwd`에서 고르고 DIR에서 실행한다.
 
 ## profile 생성
 

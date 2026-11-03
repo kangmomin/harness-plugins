@@ -1,0 +1,10 @@
+Error: boom at import
+
+   at d.spec.mjs:2
+
+  1 | import { test } from '@playwright/test';
+> 2 | throw new Error('boom at import');
+    |       ^
+  3 |
+    at /repo/tests/d.spec.mjs:2:7
+

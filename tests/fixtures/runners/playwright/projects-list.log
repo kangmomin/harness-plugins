@@ -1,0 +1,28 @@
+
+Running 4 tests using 1 worker
+
+  ✓  1 [chromium] › tests/b.spec.mjs:2:1 › same title (6ms)
+  ✓  2 [chromium] › tests/b.spec.mjs:3:1 › second (1ms)
+  ✘  3 [mobile] › tests/b.spec.mjs:2:1 › same title (10ms)
+  ✓  4 [mobile] › tests/b.spec.mjs:3:1 › second (6ms)
+
+
+  1) [mobile] › tests/b.spec.mjs:2:1 › same title ──────────────────────────────────────────────────
+
+    Error: expect(received).toBe(expected) // Object.is equality
+
+    Expected: "chromium"
+    Received: "mobile"
+
+      1 | import { test, expect } from '@playwright/test';
+    > 2 | test('same title', async ({}, info) => { expect(info.project.name).toBe('chromium'); });
+        |                                                                    ^
+      3 | test('second', async () => { expect(1).toBe(1); });
+      4 |
+        at /repo/tests/b.spec.mjs:2:68
+
+    Error Context: test-results/b-same-title-mobile/error-context.md
+
+  1 failed
+    [mobile] › tests/b.spec.mjs:2:1 › same title ───────────────────────────────────────────────────
+  3 passed (2.5s)

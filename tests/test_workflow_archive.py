@@ -178,5 +178,65 @@ class ArchiveTest(unittest.TestCase):
         self.assertEqual({path.read_text() for path in paths}, {'RUN %d' % n for n in range(4)})
 
 
+    def portable_argv(self, *, msvcrt=True, nofollow=True):
+        """fcntl을 막고(Windows 모사) 필요하면 실제 flock으로 배타성을 갖는 가짜 msvcrt를 주입해 아카이브를 실행한다."""
+        wrapper = self.root / 'portable.py'
+        unlocks = self.root / 'unlocks.log'
+        wrapper.write_text(f"""
+import os, runpy, subprocess, sys, types  # subprocess는 msvcrt 존재로 Windows를 판별하므로 가짜 주입 전에 로드한다.
+import fcntl as real
+sys.path.insert(0, {str(ASSETS)!r})
+sys.modules['fcntl'] = None
+if {msvcrt!r}:
+    fake = types.ModuleType('msvcrt')
+    fake.LK_LOCK, fake.LK_UNLCK = 1, 0
+    def locking(fd, mode, size):
+        if mode == fake.LK_LOCK:
+            real.flock(fd, real.LOCK_EX)
+        else:
+            real.flock(fd, real.LOCK_UN)
+            with open({str(unlocks)!r}, 'a') as log:
+                log.write('unlock\\n')
+    fake.locking = locking
+    sys.modules['msvcrt'] = fake
+else:
+    sys.modules['msvcrt'] = None
+if not {nofollow!r}:
+    del os.O_NOFOLLOW
+sys.argv = [{str(ARCHIVE)!r}] + sys.argv[1:]
+runpy.run_path({str(ARCHIVE)!r}, run_name='__main__')
+""")
+        return [sys.executable, str(wrapper), *self.argv()[2:]], unlocks
+
+    def test_windows_lock_fallback_keeps_one_archive_and_unlocks(self):
+        argv, unlocks = self.portable_argv()
+        children = [subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, cwd=self.root) for _ in range(4)]
+        replies = [child.communicate(timeout=30) for child in children]
+        self.assertTrue(all(child.returncode == 0 for child in children), replies)
+        self.assertEqual(len(list(self.out.glob('*.md'))), 1)
+        self.assertEqual(unlocks.read_text().count('unlock'), 4)
+
+    def test_missing_lock_modules_refuse_to_write(self):
+        argv, _ = self.portable_argv(msvcrt=False)
+        result = subprocess.run(argv, capture_output=True, text=True, cwd=self.root)
+        self.assertEqual(result.returncode, 2, result.stdout)
+        self.assertIn('배타 잠금 모듈', result.stderr)
+        self.assertEqual(list(self.out.glob('*.md')), [])
+
+    def test_without_nofollow_lock_is_created_reused_and_symlink_is_refused(self):
+        argv, _ = self.portable_argv(nofollow=False)
+        for _ in range(2):
+            result = subprocess.run(argv, capture_output=True, text=True, cwd=self.root)
+            self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(list(self.out.glob('*.md'))), 1)
+        lock = self.out / '.workflow-archive.lock'
+        lock.unlink()
+        lock.symlink_to(self.root / 'elsewhere')
+        result = subprocess.run(argv, capture_output=True, text=True, cwd=self.root)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('정규 파일이 아님', result.stderr)
+        self.assertFalse((self.root / 'elsewhere').exists())
+
+
 if __name__ == '__main__':
     unittest.main()

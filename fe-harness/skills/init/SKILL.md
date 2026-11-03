@@ -195,6 +195,8 @@ testCommand:  "pnpm test"
 lintCommand:  "pnpm lint"
 typeCheckCommand: "pnpm typecheck"
 e2eCommand: "pnpm e2e"
+# e2eResetCommand: ""          # 선택 — 매 E2E 직전 멱등 기동 보장+데이터 초기화 (PROFILE.md)
+# e2eIsolatedWorktree: false   # 선택 — 구현 중간 E2E를 worktree에서 병행 (PROFILE.md)
 
 runServerCommand: "pnpm dev"
 serverUrl: "http://localhost:3000"

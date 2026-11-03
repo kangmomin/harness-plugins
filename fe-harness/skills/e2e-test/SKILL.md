@@ -169,6 +169,14 @@ run-context.md에 따라 실제 bind endpoint를 확인하고, 획득 출력의 
 
 ### Step 3: 테스트 실행
 
+profile `e2eResetCommand`가 있으면 테스트 직전에 먼저 실행한다(이 Bash 호출은 `timeout: 600000`):
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/config/assets/profile.py" run --domain fe --cwd "{CWD}" --key e2eResetCommand --timeout 540
+```
+
+출력 `status`가 `PASS`·`SKIPPED`(미설정)가 아니면(`FAIL`·`TIMEOUT`·`INTERRUPTED`·exit 2) 테스트를 실행하지 않고 `BLOCKED:E2E_RESET_FAILED`로 보고한 뒤 Step 4.5로 락을 해제한다. 해제는 이 명령이 반환된 뒤에만 한다.
+
 ```bash
 npx playwright test {테스트 파일들} --reporter=list
 ```

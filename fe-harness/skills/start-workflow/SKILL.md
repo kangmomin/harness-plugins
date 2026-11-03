@@ -57,7 +57,7 @@ user-invocable: true
 ## 상태 추적
 
 신규 실행의 Phase 4에서만 `{STATE_FILE}`을 만들고 (검증된 재개는 덮어쓰기 금지), Phase 진입/완료 때마다 갱신한다 (템플릿: `references/templates.md`).
-상태 파일은 `Run` / `Flags` / `Current Phase` / `Phase Assignments` / `Remaining Phases` / `Verification Tier` / `Codex Runtime` / `Related E2E Specs` / `Phase Results` 섹션을 항상 포함한다.
+상태 파일은 `Run` / `Flags` / `Current Phase` / `Phase Assignments` / `Remaining Phases` / `Verification Tier` / `Codex Runtime` / `Related E2E Specs` / `Global Impact Paths` / `Phase Results` 섹션을 항상 포함한다.
 
 - 에이전트 생성 전: 해당 Phase를 `IN_PROGRESS`로 갱신
 - 완료 후: `DONE` / `SKIPPED:{사유}` / `BLOCKED:{사유}` 와 결과 기록
@@ -170,8 +170,11 @@ Spec 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 �
 - **최종 코드 구조**: 컴포넌트 분리, 훅 추출, 상태 설계를 Plan 단계에서 확정
 - 의존 관계, 예상 리스크
 - **관련 E2E spec 파일 경로 목록** (없으면 `없음`) — Phase 4가 `## Related E2E Specs`로 복사하고 light의 `test-loop --smoke`가 이 범위만 실행한다
+- **전역 영향 경로** (계약 스냅샷 교체 · BFF·프록시·인증 흐름 · 전역 레이아웃·셸 · E2E 데이터 준비의 파일·glob, 없으면 `없음`) — Phase 4가 `## Global Impact Paths`로 복사, 5.2 중간 E2E·test-loop 재실행 축소의 기준
+- **커밋 단위 표** (`단위 ID | 파일 | Spec ID | 위임 묶음`) — 5.2 위임 단위. 화면 3개 이상이거나 Red를 영역으로 나누면 **이름 계약**(모듈 경로·export·시그니처·props, 쿼리 키, 주요 UI 문구, 테스트 보조 파일 이름)과 **Red 영역 표**(`영역 | Spec ID | 소유 파일` — 비중첩, 공용은 `공용(오케스트레이터)`)도 둔다 (`references/tdd.md` "Red 영역 병렬")
 
 **난이도·티어 판정** (Plan 초안 직후 1회): `references/verification-tier.md` §2로 A/B·종합 난이도(여기서 동결)·계산 티어를 산정하고 §3으로 유효 티어 T를, §2.1로 Plan 깊이 P를 정해 §2 형식으로 출력한다. P가 quick이면 3.2·3.3을 `SKIPPED:PLAN_QUICK`으로 건너뛰고 3.4로 간다.
+종합 난이도 ≥ 9, 화면 7개 이상, 또는 결제성 쓰기와 외부 계약 교체가 함께면 3.4 승인 화면에 `PR 2개 이상 분할 권장` 1줄을 둔다(강제 아님).
 
 ### Phase 3.2: 다관점 Plan 보강 (Claude, 1회)
 
@@ -186,7 +189,7 @@ Spec 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 �
 
 ```
 **Verdict**: APPROVE / CONCERN / REJECT
-**Issues**: [문제 목록 또는 "없음"]
+**Issues**: [지적마다 `[High|Medium|Low]` 태그 — 태그 없는 지적은 High로 본다. 없으면 "없음"]
 **Suggestions**: [개선 제안 또는 "없음"]
 ```
 
@@ -203,21 +206,24 @@ for iteration in 1..{PLAN_MAX}:
      Spec 전문 / Plan vN 전문 / 난이도 산정 근거
      / (N≥2) 이전 iteration Diff 요약 + 기각 피드백·사유
      리뷰 관점: Spec-Plan 추적성, 컴포넌트/훅 책임 경계, 상태 정합성,
-               테스트/검증 누락, 더 단순한 구현 경로
-  ② 판정 처리:
-     APPROVE → 루프 탈출
-     CONCERN → 타당한 항목 반영 (또는 사유 기록 후 기각) → 다음 iteration
-     REJECT  → Plan 수정 → 다음 iteration
+               테스트/검증 누락, 더 단순한 구현 경로 — 출력 형식 = 3.2 블록 (심각도 태그)
+  ② 판정 처리 (입력 = 리뷰어 종합: Claude 패널은 codex-mode.md §6, Codex는 §7 형식 검증), 위에서부터 첫 일치:
+     1. REJECT → 반영 → 다음 iteration
+     2. 기각 불가 High ≥ 1 (APPROVE여도) → 반영 → 다음 iteration (High는 사유 기각으로 집계에서 빼지 않는다)
+     3. High 0 ∧ Medium 0 (사유를 기록해 기각한 Medium·Low 제외) → PROCEED. Low는 반영하거나 기록만 한다
+     4. Claude 패널만: 유효 verdict 3개 ∧ REJECT 0 ∧ APPROVE ≥ 2 ∧ High 0 ∧ Medium ≤ 1 → 그 Medium 반영 후
+        재리뷰 없이 PROCEED (Log에 "반영분 확인 = 구현 단계 단위 테스트")
+     5. 그 외 → 반영 또는 사유 기록 후 기각 → 다음 iteration
   ③ Iteration Diff Log를 상태 파일 `Plan Verification Log`에 append:
-     Verdict / 반영 / 기각+사유 / Plan 변경 요약
+     Verdict / High·Medium·Low 건수 / 반영 / 기각+사유 / Plan 변경 요약 / 수렴 근거(② 규칙 번호)
 ```
 
 | 종료 조건 | 결과 |
 |----------|------|
-| 리뷰어 `APPROVE` | **PROCEED** → Phase 3.4 |
+| ② 3·4 충족 | **PROCEED** → Phase 3.4 |
 | 사용자가 명시적으로 루프 종료 지시 | **USER-INTERRUPTED** → 잔존 이슈 기록 후 진행 |
 | Claude 패널 실패 (유효 verdict 3개 미달 — codex-mode.md §6) | **CODEX-UNAVAILABLE** → 사유를 상태 파일에 기록하고 진행 (P light면 승격 ⑤ → T standard). Codex 호출 실패 자체는 §7대로 패널 폴백이며 이 코드가 아니다 |
-| `{PLAN_MAX}`회 도달, 미APPROVE | **BLOCKED:MAX_ITERATIONS** → 아래 선택지 제시 (P light는 상한 평가 전에 승격 ① → `{PLAN_MAX}` = 5로 계속) |
+| `{PLAN_MAX}`회 도달, 미수렴 | **BLOCKED:MAX_ITERATIONS** → 아래 선택지 제시 (P light는 상한 평가 전에 승격 ① → `{PLAN_MAX}` = 5로 계속) |
 
 `{PLAN_MAX}`회 도달 시 선택지:
 > "Plan 검증 루프가 {PLAN_MAX}회에 도달했습니다. 미해결 이슈: {요약}
@@ -242,13 +248,14 @@ for iteration in 1..{PLAN_MAX}:
 **상태 파일 생성**:
 
 > Phase 4 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고
-> ① "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다. Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, profile 주요 설정, **Phase 3.3의 `Plan Verification Log`**를 복사해 넣고, `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·CODEX_MODELS·RUN_ID·START_SHA)·`## Verification Tier`·`## Codex Runtime`(`$CODEX_RUNTIME` 값 그대로 — `active`로 초기화하지 않음)·`## Related E2E Specs`(Plan 3.1의 목록)를 기록한다 (`CODEX_MODELS` = `$CODEX_MODELS` 확정값 — `tiered`는 Phase 3.1에서 동결한 난이도로 확정).
+> ① "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다. Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, profile 주요 설정, **Phase 3.3의 `Plan Verification Log`**를 복사해 넣고, `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·CODEX_MODELS·RUN_ID·START_SHA)·`## Verification Tier`·`## Codex Runtime`(`$CODEX_RUNTIME` 값 그대로 — `active`로 초기화하지 않음)·`## Related E2E Specs`(Plan 3.1의 목록)·`## Global Impact Paths`(Plan 3.1의 전역 영향 경로)를 기록한다 (`CODEX_MODELS` = `$CODEX_MODELS` 확정값 — `tiered`는 Phase 3.1에서 동결한 난이도로 확정).
 > ② "Implementation Notes 라이브 파일 초기화" 템플릿대로 `{IMPL_NOTES}`를 생성한다 (신규 실행만 생성, 재개 시 보존).
 
 **회귀 Baseline 수집 (TDD 활성 시)**:
 
 > Phase 4 진입 시 MUST: 같은 폴더의 `references/tdd.md`를 Read하고 "TDD 적용 판정"과 "Phase 4: 회귀 Baseline 수집" 절차를 따른다.
 
+baseline 수집 전에 **단위 명령 정본**(PASS를 관측할 수 있는 명령)을 확정해 `## Test Baseline`에 기록한다 — 관측할 수 없는 custom 명령의 질문도 여기서 한다 (`references/tdd.md`).
 여기가 **유저와 대화 가능한 마지막 지점**이다. baseline 수집이 실패하면 자율 실행에 들어가기 전에 선택지를 제시한다. 수집 실패 확정 또는 R0에 없던 TDD SKIP이면 승격 ④로 standard.
 TDD SKIP 판정 시 사유를 `## Test Baseline`에 기록하고, Phase 5는 5.1을 건너뛰고 5.2(구현)만 실행한다. quick은 E2E baseline을 `SKIPPED:TIER_QUICK`으로 건너뛴다 (`references/tdd.md`).
 
@@ -278,11 +285,14 @@ Spec의 추적 ID(`AC-nn`·`EC-nn`)를 근거로 **실패하는 테스트를 먼
 | 전체 ID가 `cannot_compile` | `BLOCKED:NO_VALID_RED` — TDD SKIP 후 Phase 5.2 진행 |
 | baseline에 없던 기존 테스트가 실패 | `BLOCKED:REGRESSION_AT_RED` — 기록 후 Phase 5.2 진행 |
 
+Plan에 이름 계약·Red 영역 표(2~4개)가 있고 병렬 조건을 충족하면 영역 리프를 병렬로 돌리고, 실행·분류 확정·Test Map(정확 ID)·Red 커밋은 오케스트레이터가 배리어에서 한다 (`references/tdd.md` "Red 영역 병렬").
 `BLOCKED:*`여도 자율 실행은 멈추지 않는다. 선택지 제시는 Phase 11로 이연한다.
 
 #### Phase 5.2: 구현 (Green)
 
 `fe-harness:workflow-implementer` 에이전트로 구현 + 커밋 (컴포넌트 1개 = 커밋 1개 원칙). `codexMode: max`: Codex `write` 슬롯(`workspace-write`), 쓰기 안전 = codex-mode.md §5.
+Plan 커밋 단위 표가 있으면 **위임 묶음**대로 위임한다 — 작은 커밋 2~3개를 에이전트 1개에(커밋은 단위별), 계약·스냅샷 교체·BFF·프록시·전역 레이아웃·셸·가장 큰 화면은 단독. 커밋마다·위임 끝 검증(`--expect` 누적 기대)과 `Workflow-Unit` trailer 재개: `references/tdd.md` "위임 묶음·커밋별 검증".
+위임의 커밋이 `## Global Impact Paths`에 해당하면(quick 제외) 그 위임 뒤 중간 E2E를 실행한다 — 진단 이력이며 최종 판정은 7.4, 5.2 종료 전 모두 회수 (`references/agent-prompts.md` "중간 E2E").
 TDD 활성 시 **테스트 파일 수정 금지** 규칙과 `[TestConflict]` 보고 규칙을 프롬프트에 추가한다 (`references/tdd.md`).
 quick + TDD 활성이면 대신 quick 테스트 동반 모드 블록을 추가하고, 반환된 Spec ID ↔ 테스트 ID 목록을 `## Quick Test Evidence`에 기록한다 (`references/verification-tier.md` §4.1).
 완료 직후 T < standard면 **승격 ② 재판정**(`references/verification-tier.md` §5) → 상향 시 기록하고 Phase 6으로.
@@ -323,7 +333,7 @@ for iteration in 1..{QL_MAX}:
 **quick**: 7.2·7.3·7.6·7.7 = `SKIPPED:TIER_QUICK`, 7.4 = `test-loop --unit-only`. `## Quick Test Evidence`가 있으면(승격 후에도 유지) 7.4에 Evidence 종료 증거 게이트, 7.5에 Evidence 대응 확인을 더한다 (`references/verification-tier.md` §4.1).
 `codexMode: max`: 7.5 scope-reviewer는 Codex `judge` 슬롯, 7.7 복원은 `explore` 슬롯, 7.1 수정과 7.2/7.3/7.4/7.6 러너 내부의 수정 리프는 `write` 슬롯으로 위임한다 (러너 프롬프트에 §8 포인터 1줄 — `references/codex-mode.md`).
 
-7.4의 테스트 실패는 `assets/test_failures.py --baseline {STATE_FILE}`로 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (절차·폴백: `references/tdd.md`의 "Phase 7: 회귀 대조"). `unparsed`·러너 완주 N 잔존 시 PASS 불가. test-loop 보고의 **관측 누적**(이번 호출에서 확정된 regression·판정 불가)은 승격 ③에만, **최종 분류**(최종 트리의 마지막 실행)는 아래 테스트 판정·결과 기록에 쓴다.
+7.4의 테스트 실패는 `assets/test_failures.py --baseline {STATE_FILE}`로 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (절차·폴백: `references/tdd.md`의 "Phase 7: 회귀 대조"). `unparsed`·러너 완주 N 잔존 시 PASS 불가. Test Map이 있으면 단위 판정 실행은 전체 단위 + `--expect expect-final.txt`이고 미관측·중복·skip·baseline 실패 미확인도 판정 불가다. test-loop 보고의 **관측 누적**(이번 호출에서 확정된 regression·판정 불가)은 승격 ③에만, **최종 분류**(최종 트리의 마지막 실행)는 아래 테스트 판정·결과 기록에 쓴다.
 
 **테스트 판정**: `PASS` = `regression` 0건 + `new_red` 0건 / `WARN` = `flaky`만 / `FAIL` = 그 외 (Evidence 게이트 `INCONCLUSIVE` 포함)
 

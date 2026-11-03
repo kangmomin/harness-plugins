@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import signal
 import stat
 import subprocess
 import sys
@@ -52,7 +53,8 @@ def schema(domain):
     elif domain == "fe":
         result.update(ENUMS)
         result.update(preset=("node",), typescript="bool", storybook="bool", framework="string",
-                      uiLibrary="string", stateManagement="string", e2eCommand="string")
+                      uiLibrary="string", stateManagement="string", e2eCommand="string",
+                      e2eResetCommand="string", e2eIsolatedWorktree="bool")
     else:
         raise ProfileError("INVALID_DOMAIN")
     return result
@@ -484,6 +486,49 @@ def resolve(cwd, domain):
                 profile_source=source, profile_path=str(profile), writable=source == "profile")
 
 
+class Interrupted(Exception):
+    pass
+
+
+def run_command(command, cwd, timeout):
+    """bash -c 실행. timeout이 있으면 새 세션으로 띄워 초과·부모 신호 시 프로세스 그룹을 TERM → KILL로 정리한다."""
+    if timeout is None:
+        return subprocess.run(["bash", "-c", command], cwd=cwd).returncode, None, None
+    group = hasattr(os, "killpg")
+    proc = subprocess.Popen(["bash", "-c", command], cwd=cwd, start_new_session=group)
+
+    def stop():
+        if not group:
+            proc.kill()
+            proc.wait(5)
+            return "process group kill unavailable: grandchildren may survive"
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            try:
+                os.killpg(proc.pid, sig)
+            except ProcessLookupError:
+                break
+            try:
+                proc.wait(5)
+            except subprocess.TimeoutExpired:
+                pass
+        proc.wait(5)
+        return None
+
+    def on_signal(signum, frame):
+        raise Interrupted(signum)
+
+    previous = {sig: signal.signal(sig, on_signal) for sig in (signal.SIGTERM, signal.SIGINT)}
+    try:
+        return proc.wait(timeout), None, None
+    except subprocess.TimeoutExpired:
+        return None, "TIMEOUT", stop()
+    except Interrupted as interrupted:
+        return 128 + interrupted.args[0], "INTERRUPTED", stop()
+    finally:
+        for sig, handler in previous.items():
+            signal.signal(sig, handler)
+
+
 def apply(path, original, rendered, expected_sha):
     if hashlib.sha256(original).hexdigest() != expected_sha:
         raise ProfileError("STALE_PROFILE: expected hash differs")
@@ -524,7 +569,9 @@ def main():
     parser.add_argument("--changes", default="-", help="Typed JSON object file; - reads stdin")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--expected-sha256")
-    parser.add_argument("--key", choices=("lintCommand", "typeCheckCommand", "buildCommand", "testCommand", "e2eCommand"))
+    parser.add_argument("--key", choices=("lintCommand", "typeCheckCommand", "buildCommand", "testCommand", "e2eCommand", "e2eResetCommand"))
+    parser.add_argument("--exec-cwd", help="run only: execute here; the profile is still resolved from --cwd")
+    parser.add_argument("--timeout", type=float, help="run only: seconds; on expiry the process group is terminated")
     parser.add_argument("--fix", action="store_true", help="Only the built-in ESLint fallback supports this transformation")
     args = parser.parse_args()
     try:
@@ -545,9 +592,19 @@ def main():
                 result = dict(status="SKIPPED", key=args.key, source=selected["source"])
             else:
                 # This action is explicit execution of the user's trusted project command.
-                code = subprocess.run(["bash", "-c", command], cwd=args.cwd).returncode
-                print(json.dumps(dict(status="PASS" if code == 0 else "FAIL", key=args.key, source=selected["source"], exit_code=code)))
-                return 0 if code == 0 else 1
+                exec_cwd = args.exec_cwd or args.cwd
+                if not Path(exec_cwd).is_dir():
+                    raise ProfileError("INVALID_VALUE: exec-cwd is not a directory")
+                if args.timeout is not None and args.timeout <= 0:
+                    raise ProfileError("INVALID_VALUE: timeout must be positive")
+                code, stopped, note = run_command(command, exec_cwd, args.timeout)
+                result = dict(status=stopped or ("PASS" if code == 0 else "FAIL"), key=args.key, source=selected["source"], exit_code=code)
+                if stopped == "TIMEOUT":
+                    result["timeout"] = args.timeout
+                if note:
+                    result["note"] = note
+                print(json.dumps(result))
+                return code if stopped == "INTERRUPTED" else 0 if code == 0 else 1
         else:
             path = Path(args.cwd) / ".claude" / (args.domain + "-harness.local.md")
             if path.is_symlink():

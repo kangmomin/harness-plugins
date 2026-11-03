@@ -107,6 +107,8 @@ user-invocable: true
 
 추가 테스트는 Spec의 별도 조항을 인용할 수 있을 때만 허용한다.
 
+**조합 표**: 상태 × 플래그 × 권한 조합 표는 Plan·이름 계약에 그 판정을 맡은 순수 함수가 있으면 그 함수의 `it.each` 표 테스트로 행마다 검증하고, 화면 테스트는 대표 3~4행만 둔다. 테스트를 위해 순수 함수를 새로 추출하지 않는다(없으면 위 표대로 행당 1개).
+
 **작성 금지**: 커버리지 수치용 테스트, 프레임워크·라이브러리 자체 동작(React가 리렌더하는지 등), 스타일·className 단언, Spec에 없는 방어 로직, props 조합 전수.
 
 **기존 테스트 수정 상한**: 이번 Spec으로 기대 동작이 실제로 바뀐 테스트만 수정한다. 수정 시 `[Breaking]` 태그로 보고한다. 실패는 요구·기준 문서와 대조해 구현 오류 / 테스트 오류 / 환경 문제로 구분한다. 통과 목적의 기대값 완화·테스트 삭제는 금지하며, 테스트 오류 근거는 호출자에게 반환해 기존 `[TestConflict]`·수정 권한 계약으로 처리한다.
@@ -183,9 +185,19 @@ export function useProducts() { throw new Error('not implemented') }  // 훅
 
 Spec이 명시적으로 고정한 시그니처에만 만들고, 스텁이 무관한 기존 테스트를 깨뜨리지 않는지 확인한다.
 
+#### 빠른 실패 (`RED_MODE`)
+
+테스트 setup(runner 설정의 `setupFiles`)에 `RED_MODE` 분기가 **이미 있을 때만**, `--red` 모드에서 Red 테스트 파일만 지정한 반복 실행(스텁 보강·교정 재실행)의 Bash 호출 첫 줄에 `export RED_MODE=1`을 둔다. 종료 분류(`red_assertion`·`already_satisfied`)는 RED_MODE 없는 실행으로만 확정한다 — 짧은 대기 시간이 이미 구현된 비동기 동작을 실패로 오인할 수 있으므로 마지막 실행이 RED_MODE였으면 같은 파일을 1회 더 실행한다. 그 밖의 테스트 실행(기본 모드·호출자의 전체 실행)은 Bash 호출 첫 줄을 `unset RED_MODE`로 시작한다(상위 셸 상속 차단). 분기가 없으면 setup을 추가·수정하지 않고(Spec 외 변경) 결과 보고에 아래 채택 예시만 제안한다.
+
+```ts
+// setupFiles 예시 — 채택 여부는 프로젝트가 정한다
+import { configure } from '@testing-library/react'; // Vue는 '@testing-library/vue'
+if (process.env.RED_MODE) configure({ asyncUtilTimeout: 200 });
+```
+
 ### Step 4: 테스트 실행과 판정
 
-`.claude/fe-harness.local.md`의 `testRunner`에 따라 실행:
+**호출자 명령**: 호출자가 단위 명령(start-workflow `## Test Baseline`의 `단위 명령 (정본):` 블록)을 전달하면 그 명령으로 실행한다 — runner 단일 호출(`vitest run`·`jest` + 옵션)이면 옵션을 보존해 테스트 경로를 인자로 덧붙이고, 그 외 custom 명령이면 원문 그대로(전체) 실행한다. 전달이 없으면 `.claude/fe-harness.local.md`의 `testRunner`에 따라 실행:
 
 - **vitest**: 설치된 로컬 `node_modules/.bin/vitest run --reporter=verbose`에 테스트 경로를 별도 인자로 전달
 - **jest**: 설치된 로컬 `node_modules/.bin/jest --verbose`에 테스트 경로를 별도 인자로 전달
@@ -233,11 +245,12 @@ FE 특유의 함정:
 **Test Basis**: 추적 ID 기반 / 본문 조항 기반 / 변경 기반
 **모드**: 기본 / Red
 
-| Spec ID | 테스트 | 파일 | 분류 | 비고 |
-|---------|--------|------|------|------|
-| AC-01 | 목록 렌더 | ProductList.test.tsx:12 | red_assertion | 미구현 |
-| EC-01 | 빈 목록 EmptyState | ProductList.test.tsx:40 | already_satisfied | 기존 구현이 이미 처리 |
+| Spec ID | 테스트 ID | 파일 | 분류 | 비고 |
+|---------|-----------|------|------|------|
+| AC-01 | `vitest::src/ProductList.test.tsx::ProductList › 목록 렌더` | ProductList.test.tsx:12 | red_assertion | 미구현 |
+| EC-01 | `vitest::src/ProductList.test.tsx::ProductList › 빈 목록 EmptyState` | ProductList.test.tsx:40 | already_satisfied | 기존 구현이 이미 처리 |
 
+> `테스트 ID`는 `start-workflow/assets/test_failures.py` 식별자와 같은 러너 네이티브 정확 ID(`{runner}::{저장소 루트 상대 파일}::{describe › it}`)다. 호출자가 Test Map·기대 파일에 그대로 옮기므로 표시명으로 줄이지 않는다. `deferred_e2e`는 `—`.
 > 변경 기반 모드에서는 `Spec ID` 열 대신 대상 파일명을 적는다.
 
 ### 실패 테스트 (기본 모드)
