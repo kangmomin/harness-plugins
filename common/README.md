@@ -108,6 +108,9 @@
 /common:ready-for-impl "주문 취소 기능 추가"
 /common:ready-for-impl --be --out ./specs "정산 배치 API 추가"
 
+# 선택: Ponytail 원칙으로 최소 범위·재사용 점검 (외부 플러그인 설치 불필요)
+/common:ready-for-impl --ponytail "주문 취소 기능 추가"
+
 # 워크플로우 시작 (도메인 자동 판정 후 확인)
 /common:start-workflow "주문 취소 기능 추가"
 
