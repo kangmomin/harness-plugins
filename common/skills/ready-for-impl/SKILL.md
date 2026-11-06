@@ -3,7 +3,7 @@ name: ready-for-impl
 description: "구현하기 전에 인터뷰로 기능 요구사항을 확정해 start-workflow가 그대로 받을 수 있는 Spec(md)으로 정리한다. 코드는 수정하지 않는다. '구현 준비해줘', '구현 전에 요구사항 정리', '인터뷰로 스펙 잡아줘', '구현하지 말고 무엇을 만들지 정리해줘', 'ready-for-impl' 요청 시 사용. 바로 구현까지 원하면 start-workflow를 쓴다."
 user-invocable: true
 allowed-tools: AskUserQuestion, Read, Glob, Grep, Bash, Agent, Skill, Write
-argument-hint: "[--be|--fe|--fs] [--out <파일|디렉터리>] <구현할 기능 설명>"
+argument-hint: "[--be|--fe|--fs] [--ponytail] [--out <파일|디렉터리>] <구현할 기능 설명>"
 ---
 
 > **Project Overrides**: 실행 전 `.claude/common/common.md`와 `.claude/common/skills/ready-for-impl.md`를 Read.
@@ -27,6 +27,18 @@ argument-hint: "[--be|--fe|--fs] [--out <파일|디렉터리>] <구현할 기능
 |--------|------|
 | `--be` / `--fe` / `--fs` | 도메인을 확정하고 Step 1의 도메인 판정을 생략한다 (하나만 허용, 둘 이상이면 "대상 플래그는 하나만 지정하세요" 후 종료) |
 | `--out <경로>` | 저장 위치. `.md`로 끝나면 파일, 아니면 디렉터리(파일명은 `{SPEC_NAME}`). 상대 경로는 현재 작업 디렉터리 기준 |
+| `--ponytail` | Ponytail 원칙으로 최소 범위·재사용을 추가 점검한다. 기본은 비활성화이며 자연어로 "Ponytail 적용"을 명시해도 활성화한다 |
+
+### Ponytail 선택 적용
+
+[Ponytail](https://github.com/DietrichGebert/ponytail)의 최소 완결 변경 원칙을 **이번 Spec에만** 적용한다. 외부 플러그인을 설치·호출하거나 세션 전체 모드를 바꾸지 않는다. 플러그인 설치 여부만으로 활성화하거나, 미지정을 미결로 취급해 추가 질문하지 않는다.
+
+활성화한 경우에만 다음을 수행한다.
+
+- Step 2 탐색 결과로 `불필요한 기능·옵션 제외 → 기존 코드·프로젝트 패턴 재사용 → 표준 라이브러리·플랫폼 기능 → 설치된 의존성 → 최소 신규 코드` 순서에서 요구를 완전히 충족하는 첫 대안을 찾는다. 프로젝트 고유 컴포넌트·레이어·컨벤션을 우선한다.
+- Step 3에서 과도한 추상화·wrapper·신규 의존성·미래 확장 옵션이 보이면 더 작은 대안과 근거를 기존 범위 질문에 함께 제시한다. 확정된 요구·AC를 임의로 삭제하지 않고, 사용자가 이미 기각한 대안은 새 근거 없이 다시 묻지 않는다.
+- Step 4에서 호출부·테스트·fixture 등 필수 영향 범위가 빠지지 않았는지 확인한다. 보안·접근성·신뢰 경계 검증·데이터 손실 방지 처리와 필수 테스트는 축소 대상에서 제외한다. 준비도 기준과 질문 상한은 그대로 유지한다.
+- Step 5의 Spec에 `구현 원칙 (Ponytail)`을 적어 후속 `start-workflow`에 전달한다. 채택한 최소 대안·재사용 대상·추가하지 않기로 한 요소와 사유를 기록하되, 이 인터뷰의 활성화가 다른 작업의 기본값이나 외부 스킬 자동 실행 승인은 아님을 명시한다.
 
 ## 금지 사항 (모든 Step 공통)
 
