@@ -124,7 +124,13 @@ Agent tool:
     수정 후 빌드가 성공하는지 확인하세요.
 ```
 
-수정 후 커밋: `git add [수정 파일들] && git commit -m "Fix: 빌드 에러 수정 (Phase 6)"`
+수정 후 common:commit 정본의 명시 파일 절차로 커밋한다. `{GIT_ROOT}`를 확정하고 기존 index와 작업 트리의 차이를 확인한다. 사용자 부분 스테이징을 전체 파일로 덮지 않으며, 파일 전체를 포함해도 되는 경우에만 명시 경로를 stage한다. `Fix: 빌드 에러 수정 (Phase 6)` 메시지를 실행별 `{MESSAGE_FILE}`에 작성한다.
+
+```bash
+git -C "{GIT_ROOT}" --literal-pathspecs commit --only -F "{MESSAGE_FILE}" -- {관련 파일 인자들}
+```
+
+부분 hunk만 커밋해야 하면 별도 임시 index로 기존 index/working bytes를 보존한다. `--only`는 작업 트리의 파일 전체를 취하므로 같은 파일의 무관한 hunk나 다른 단위의 변경을 포함하지 않는다. 새 커밋의 경로/트리를 계획한 수정 범위와 대조하고 hook이 범위를 바꾸었으면 원격 작업 전에 보고·정리한다.
 
 ## Phase 7: 품질 루프 단계별 프롬프트
 

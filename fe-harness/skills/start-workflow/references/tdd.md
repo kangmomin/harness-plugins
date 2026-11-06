@@ -133,12 +133,13 @@ Plan에 이름 계약과 Red 영역 표가 있고 아래 조건을 **모두** �
 
 ## Red 커밋
 
-Red 검증 통과 후 **오케스트레이터가** 커밋한다.
+Red 검증 통과 후 **오케스트레이터가** common:commit 정본의 명시 파일 절차로 커밋한다. `{GIT_ROOT}`를 확정하고 기존 index와 작업 트리의 차이를 확인한다. 사용자 부분 스테이징을 전체 파일로 덮지 않으며, 파일 전체를 포함해도 되는 경우에만 이번 테스트·스텁의 명시 경로를 stage한다. `Test: {작업 요약} — 실패 테스트 선작성 (Red)` 메시지를 실행별 `{MESSAGE_FILE}`에 작성한다.
 
 ```bash
-git add [테스트 파일 + 스텁]
-git commit -m "Test: {작업 요약} — 실패 테스트 선작성 (Red)"
+git -C "{GIT_ROOT}" --literal-pathspecs commit --only -F "{MESSAGE_FILE}" -- {관련 파일 인자들}
 ```
+
+부분 hunk만 커밋해야 하면 별도 임시 index로 기존 index/working bytes를 보존한다. `--only`는 작업 트리의 파일 전체를 취하므로 같은 파일의 무관한 hunk나 다른 단위의 변경을 포함하지 않는다. 새 커밋의 경로/트리를 계획한 Red 범위와 대조하고 hook이 범위를 바꾸었으면 원격 작업 전에 보고·정리한다.
 
 **폴백**: pre-commit 훅이 테스트를 실행해 커밋이 거부되면 Red 커밋을 생략하고 Phase 5.2 종료 후 단일 커밋으로 합친다.
 고지: "pre-commit 훅이 Red 커밋을 거부했습니다. Red 이력 없이 Green 커밋으로 합칩니다."

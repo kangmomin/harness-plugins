@@ -58,28 +58,23 @@ model: sonnet
 
 커밋 메시지의 설명과 본문은 기본적으로 한국어로 작성하고, Prefix는 영문으로 유지한다.
 
-각 논리적 단위 완료 시:
+각 논리적 단위 완료 시 common:commit 정본의 명시 파일 절차를 따른다:
+
+1. `git rev-parse --show-toplevel`로 `{GIT_ROOT}`를 확정하고 기존 index와 작업 트리의 차이를 확인한다. 해당 단위의 명시 경로만 대상으로 삼고 사용자 부분 스테이징을 전체 파일로 덮지 않는다. 파일 전체를 포함해도 되는 경우에만 `git -C "{GIT_ROOT}" add -- {관련 파일 인자들}`을 사용한다.
+2. 메시지를 실행별 `{MESSAGE_FILE}`에 작성하고 아래 명령으로 대상 파일을 제한한다. 부분 hunk만 커밋해야 하면 별도 임시 index를 사용하여 기존 index/working bytes를 보존한다. `--only`는 작업 트리의 파일 전체를 취하므로 같은 파일의 무관한 hunk나 다른 단위의 변경을 포함하지 않는다.
+3. 새 커밋의 경로/트리가 계획한 단위와 같은지 확인한다. hook이 범위를 바꾸었으면 원격 작업 전에 보고·정리한다.
 
 ```bash
-git add [변경된 파일들]
-git commit -m "$(cat <<'EOF'
-Prefix: 간략한 설명
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-EOF
-)"
+git -C "{GIT_ROOT}" --literal-pathspecs commit --only -F "{MESSAGE_FILE}" -- {관련 파일 인자들}
 ```
+
+profile의 `commitCoAuthor`가 비어있지 않으면 메시지 본문에 `Co-Authored-By: {commitCoAuthor}`를 추가한다. 빈 값이면 이 trailer를 넣지 않는다.
 
 위임 묶음이면 trailer 블록에 `Workflow-Unit: {RUN_ID}/{단위 ID}` 줄을 추가한다 (재개 시 완료 단위 복구 근거).
 
 ### 커밋 Prefix
 
-- Add: 새로운 기능/파일
-- Fix: 버그 수정
-- Refactor: 구조 개선
-- Style: 스타일/레이아웃 변경
-- Test: 테스트 코드
-- Chore: 빌드/설정
+profile의 `commitPrefixes`를 사용한다. 기본값은 `PROFILE.md`의 `[Add, Fix, Del, Refactor, Doc, Test, Chore, WIP]`이다.
 
 ## 빌드 검증
 

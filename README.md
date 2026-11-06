@@ -8,6 +8,10 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-11-06 프롬프트 계약 정합화
+
+BE 1.7.4 / FE 1.7.1 / minmos 2.6.3. 구현·문서 동기화·빌드 수정의 커밋 예시를 common:commit 정본의 명시 파일 절차로 맞췄다. 기존 부분 스테이징과 같은 파일의 무관한 hunk를 보존하며 새 커밋의 실제 범위를 확인한다. FE 구현자는 profile의 `commitPrefixes`와 `commitCoAuthor`를 따르고 빈 co-author는 생략한다. minmos의 Client/Bidirectional Streaming SKIP은 grpcurl의 기능 부재가 아니라 하네스 기본 시나리오 범위임을 명확히 했다.
+
 ## 2026-11-02 FE 큰 묶음 실행 시간 단축
 
 FE 1.7.0 / BE 1.7.3 / common 0.16.1 (minmos·hyeondongs 변경 없음). 화면이 많은 FE 묶음에서 반복되던 대기 시간을 줄였다. Plan 검증 리뷰는 지적마다 `[High|Medium|Low]`를 달고(태그 없음 = High), High·Medium이 남지 않으면 Low만으로 다음 iteration을 열지 않는다. 같은 Spec을 나눈 두 번째 이후 묶음이 선행 Plan과 같은 구조면 Plan 깊이 상한을 light로 둔다. Plan에 이름 계약과 Red 영역 표가 있으면 Red를 영역별로 병렬 작성하고 오케스트레이터가 배리어에서 한 번 실행·분류한다. 구현은 커밋 단위 표의 위임 묶음대로 작은 커밋 2~3개를 에이전트 1개에 맡기고, 커밋마다 `test_failures.py --expect`로 누적 기대를 대조하며 `Workflow-Unit` trailer로 재개한다. 중간 E2E는 계약·BFF·전역 레이아웃·E2E 데이터 같은 전역 영향 경로를 바꾼 위임 뒤에만 돌고, test-loop은 runner fallback E2E에서 전역 영향이 없는 재실행을 실패 spec·관련 spec으로 줄이되 탈출 직전에 full로 확인한다. FE profile에 `e2eResetCommand`(매 E2E 직전 멱등 기동·초기화, 540초 상한)와 `e2eIsolatedWorktree`(중간 E2E를 커밋된 SHA의 worktree에서 병행, opt-in)를 추가했고 `profile.py run`에 `--timeout`·`--exec-cwd`가 생겼다. `test_failures.py`는 Playwright list·JSON 리포터, 메시지 없는 throw의 첫 stack frame 시그니처, ID별 관측 상태(중복·skip은 PASS 증거 아님), baseline 실패 소멸 검출, UTF-8 입출력(Windows cp949 콘솔)을 지원한다. `workflow_archive.py`는 `fcntl`이 없으면 `msvcrt`로 잠그고 둘 다 없으면 쓰지 않고 실패한다. Red 테스트 파일만 도는 반복 실행은 setup에 `RED_MODE` 분기가 있을 때만 쓰고, 다른 테스트 실행은 `unset RED_MODE`로 시작한다. request·ready-for-impl은 화면 7개 이상 등 큰 묶음에 PR 분할 권장 1줄을 둔다. BE 하네스 정책은 바뀌지 않았고 BE·common에는 공유 스크립트 사본만 동기화했다. 풀스택의 test-loop 호출은 전역 영향 섹션이 없어 재실행 축소·E2E 자동 분류를 적용하지 않는다.

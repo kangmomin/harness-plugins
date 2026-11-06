@@ -34,14 +34,14 @@ API 변경 작업인 경우, Apidog 스키마를 동기화한다.
 
 커밋 메시지의 설명과 본문은 기본적으로 한국어로 작성하고, Prefix는 영문으로 유지한다.
 
-```bash
-git add [변경 파일]
-git commit -m "$(cat <<'EOF'
-Doc: API 스키마 동기화
+common:commit 정본의 명시 파일 절차를 따른다:
 
-Co-Authored-By: Claude <noreply@anthropic.com>
-EOF
-)"
+1. `git rev-parse --show-toplevel`로 `{GIT_ROOT}`를 확정하고 기존 index와 작업 트리의 차이를 확인한다. 동기화한 명시 경로만 대상으로 삼고 사용자 부분 스테이징을 전체 파일로 덮지 않는다. 파일 전체를 포함해도 되는 경우에만 `git -C "{GIT_ROOT}" add -- {관련 파일 인자들}`을 사용한다.
+2. `Doc: API 스키마 동기화`와 `Co-Authored-By: Claude <noreply@anthropic.com>` 본문을 실행별 `{MESSAGE_FILE}`에 작성한다. 부분 hunk만 커밋해야 하면 별도 임시 index를 사용하여 기존 index/working bytes를 보존한다. `--only`는 작업 트리의 파일 전체를 취하므로 같은 파일의 무관한 hunk나 다른 단위의 변경을 포함하지 않는다.
+3. 새 커밋의 경로/트리가 계획한 동기화 범위와 같은지 확인한다. hook이 범위를 바꾸었으면 원격 작업 전에 보고·정리한다.
+
+```bash
+git -C "{GIT_ROOT}" --literal-pathspecs commit --only -F "{MESSAGE_FILE}" -- {관련 파일 인자들}
 ```
 
 ## 출력

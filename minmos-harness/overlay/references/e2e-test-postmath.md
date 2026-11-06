@@ -336,7 +336,7 @@ Agent tool:
 | `SKIPPED:POSTGRES_MCP_UNAVAILABLE` | PostgreSQL MCP 연결 불가 |
 | `SKIPPED:REMOTE_DB_BLOCKED` | 원격 DB — 화이트리스트 미승인 |
 | `FAIL:BUILD` | 빌드 실패 — 코드 문제 (SKIP 아님) |
-| `SKIP:STREAMING` | Client/Bidirectional Streaming RPC — grpcurl 미지원 |
+| `SKIP:STREAMING` | Client/Bidirectional Streaming RPC — 하네스 기본 시나리오에서 미실행 (grpcurl 자체는 지원) |
 | `[STATUS_MISMATCH]` / `[GRPC_STATUS_MISMATCH]` | 상태 코드 오분류 발견 |
 | `[FILTER_INEFFECTIVE]` / `[FILTER_BROKEN]` | 필터 미작동/오작동 발견 |
 
