@@ -121,6 +121,13 @@
 
 자세한 동작 흐름은 각 스킬의 `skills/<name>/SKILL.md` 참고.
 
+## 세션 시작 hook
+
+`hooks/hooks.json`의 SessionStart hook이 세션 시작(startup·resume·clear·compact) 때마다 다음 두 규칙을 컨텍스트에 넣는다.
+
+- Always talk in ASD-STE100 Simplified Technical Korean.
+- Always talk to me like I have ADHD.
+
 ## Project Overrides
 
 다른 하네스와 동일한 오버라이드 규약을 따른다. 자세한 내용은 `OVERRIDES.md`.

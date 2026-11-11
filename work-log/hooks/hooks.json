@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "printf '%s\\n' 'Always talk in ASD-STE100 Simplified Technical Korean.' 'Always talk to me like I have ADHD.'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
