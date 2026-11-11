@@ -119,7 +119,7 @@ test('공백이 있는 독립 경로에서 initialize와 tools/list가 동작한
   assert.equal(exitCode, 0, stderr);
 
   const messages = stdout.trim().split('\n').map((line) => JSON.parse(line));
-  assert.equal(messages[0].result.serverInfo.version, '0.4.0');
+  assert.equal(messages[0].result.serverInfo.version, '0.5.0');
   assert.deepEqual(
     messages[1].result.tools.map((tool) => tool.name),
     ['wiki_resolve', 'wiki_read', 'wiki_write', 'wiki_sync', 'wiki_status'],
@@ -171,7 +171,7 @@ test('구조화된 전역 MCP create→resolve→read→overwrite/append→sync 
   assert.equal(results[7].project, '_shared');
   assert.equal(results[7].category, 'docs');
   assert.equal(results[8].total, 2);
-  assert.equal(results[9].server, '0.4.0');
+  assert.equal(results[9].server, '0.5.0');
   assert.equal(JSON.parse(fs.readFileSync(results[9].indexPath, 'utf8')).version, 3);
   assert.match(fs.readFileSync(path.join(root, rel), 'utf8'), /custom:\n  preserved: true\n/);
   for (const message of messages.slice(10)) assert.equal(message.error.code, -32602);

@@ -8,6 +8,15 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-11-11 work-log after-meeting
+
+work-log 0.5.0. 스킬 `stt-fix` 의 이름을 `after-meeting` 으로 바꿨다. 옛 이름은 더 이상 없다. 호출은 `/work-log:after-meeting <원본 .txt>` 이다.
+
+- 산출물은 문서 3개다: 전체 보정본(`…-보정.md`), 사람용 요약(`…-요약.md`), AI용 요약(`…-요약-ai.md`). 원본 `.txt` 는 수정하지 않는다.
+- 요약 2개는 최종 보정 본문을 아젠다별로 나눠서 쓴다. 전체 보정본의 본문 형식은 바뀌지 않았다.
+- 사람용 요약은 세션 시작 hook 의 두 규칙(Simplified Technical Korean, ADHD)을 문체 규칙으로 쓴다. AI용 요약은 안정 ID·근거 시각·확신도를 쓴다.
+- 정리본(`… 보정.txt`)과 `--no-txt` 플래그를 삭제했다. 예전에 만든 정리본 파일은 그대로 남는다.
+
 ## 2026-11-11 세션 시작 커뮤니케이션 규칙
 
 common 0.17.0 / work-log 0.4.0. common과 work-log에 같은 SessionStart hook(`hooks/hooks.json`)을 추가했다. 세션이 시작될 때마다 다음 두 규칙을 컨텍스트에 넣는다.
@@ -128,7 +137,7 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 | **fe-harness** | 베이스 | 범용 프론트엔드. React/Next.js 중심 컴포넌트 생성, lint/a11y, 단위/E2E 테스트, PR |
 | **minmos-harness** | be 오버레이 | Post-Math 백엔드 — Apidog 문서 동기화, gRPC/PubSub E2E, PostgreSQL MCP DB 안전 규칙, Post-Math 컨벤션 |
 | **hyeondongs-harness** | fe 오버레이 | hyeondongs 환경 세팅/진단(`.hyeondong-config.json`), 풀스택 전환 시 minmos 백엔드 연계 |
-| **work-log** | 기록 관리 | [분류형 전역 vault](work-log/README.md)(권장): projects/<project>/{history,data,docs}, 공유·미분류 자료를 함께 검색하고 소유·분류별 작성. 회의록 STT 전사 오인식 보정(`stt-fix` — 단어장 기준 치환·질문·단어장 갱신). 독립 프로젝트 root·기존 flat·저장소 내 방식도 유지 |
+| **work-log** | 기록 관리 | [분류형 전역 vault](work-log/README.md)(권장): projects/<project>/{history,data,docs}, 공유·미분류 자료를 함께 검색하고 소유·분류별 작성. 회의 후 정리(`after-meeting` — STT 전사 오인식 보정·단어장 갱신 뒤 전체 보정본·사람용 요약·AI용 요약 생성). 독립 프로젝트 root·기존 flat·저장소 내 방식도 유지 |
 
 분류형 전역 vault는 전체 root를 유지하고 선택적인 project/category 필터로 조회한다. 소유 프로젝트는
 작업 범위와 기존 폴더로 확인하며 기존 이력의 자동 이동·Properties 일괄 변경은 하지 않는다.
