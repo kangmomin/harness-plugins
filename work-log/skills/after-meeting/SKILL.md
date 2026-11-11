@@ -1,36 +1,38 @@
 ---
-name: stt-fix
-description: "회의록 STT 전사(.txt)의 오인식을 단어장 기준으로 보정해 보정본(.md)과 정리본(.txt)을 만들고, 애매한 항목을 모아 사용자에게 확인한 뒤 결과를 단어장에 반영한다. '회의록 보정해줘', 'STT 오인식 해소', '전사 정리해줘', '회의록 단어장 만들어줘' 요청 시 사용."
+name: after-meeting
+description: "회의가 끝난 뒤 STT 전사(.txt)를 정리한다. 오인식을 단어장 기준으로 보정해 전체 보정본(.md)을 만들고, 애매한 항목을 사용자에게 확인해 단어장에 반영한 뒤, 아젠다별로 나눈 사람용 요약(.md)과 AI용 요약(.md)을 만든다. 원본 .txt 는 수정하지 않는다. '회의 끝났어 정리해줘', '회의록 요약해줘', '회의록 보정해줘', 'STT 오인식 해소', '전사 정리해줘', '회의록 단어장 만들어줘' 요청 시 사용."
 user-invocable: true
 allowed-tools: Bash, Read, Write, Grep, AskUserQuestion
-argument-hint: <원본 .txt 경로|파일명> [--dict <단어장 경로>] [--new-dict [<경로>]] [--project <키>] [--shared-dict <경로>]... [--no-ask] [--no-txt]
+argument-hint: <원본 .txt 경로|파일명> [--dict <단어장 경로>] [--new-dict [<경로>]] [--project <키>] [--shared-dict <경로>]... [--no-ask]
 ---
 
-# 회의록 STT 보정
+# 회의 후 정리 (STT 보정 + 요약)
 
 음성인식(STT) 전사의 오인식을 단어장과 문맥으로 보정한다. 타임스탬프·화자·턴 수는 그대로 두고 **의미가 바뀌는 오인식만** 고치며,
 확신이 없는 항목은 마커로 남겨 사용자에게 모아서 묻고, 그 답을 단어장에 쌓아 다음 보정의 정확도를 올린다.
+
+보정이 끝나면 최종 보정 본문을 아젠다별로 나눠 요약 문서 2개를 만든다. 산출물은 **문서 3개**다: 전체 보정본 · 사람용 요약 · AI용 요약. **원본 `.txt` 는 수정하지 않는다.**
 
 ## Language Rule
 
 유저와의 모든 대화는 **한국어**로 진행한다.
 
-Claude Code에서는 `/work-log:stt-fix`, Codex에서는 `$work-log:stt-fix` 로 명시 호출할 수 있다.
+Claude Code에서는 `/work-log:after-meeting`, Codex에서는 `$work-log:after-meeting` 로 명시 호출할 수 있다.
 MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시작하는 기본 이름을 기준으로 찾는다.
 
 ## 플레이스홀더
 
-- `{HELPER}` = `<plugin-root>/skills/stt-fix/assets/stt_fix.py` (`<plugin-root>` 는 이 SKILL.md 의 `../..`). 항상 `python3 -I -B {HELPER} apply …` 로 실행한다
+- `{HELPER}` = `<plugin-root>/skills/after-meeting/assets/after_meeting.py` (`<plugin-root>` 는 이 SKILL.md 의 `../..`). 항상 `python3 -I -B {HELPER} apply …` 로 실행한다
 - `{SCRATCH}` = 호스트가 제공하는 세션 scratchpad 디렉터리. 없으면 `mktemp -d`. 규칙·결정 JSON, 중간 본문, 조각 파일, 로그를 둔다. **`Write` 도구는 `{SCRATCH}` 전용**이며 vault에는 쓰지 않는다
 - `{ROOT}` = `wiki_status.root` 의 **canonical 절대경로**(`realpath` 로 확인 — `/work-log:edit` Step 0 의 비교 기준과 같다. 헬퍼는 root 를 다시 해석하지 않고 경로의 모든 구성 요소를 심볼릭 링크를 따라가지 않고 열므로, 링크가 섞인 경로를 넘기면 `outside_root` 로 거부된다) · `{LAYOUT}` = `{ROOT}/projects/` 가 있는 분류형 여부
 - `{SRC}` = 원본 전사의 **`{ROOT}` 상대 경로**(Step 1 에서 절대경로를 확정한 뒤 `{ROOT}/` 를 떼어 만든다. 헬퍼에는 항상 `{ROOT}/{SRC}` 로 넘긴다) · `{SRC_SHA}` = `probe.json.source_sha256` 앞 12자리 · `{SRC_STEM}` = 원본 파일명(확장자 제외)
 - `{PROJECT_DIR}` = 분류형에서 원본을 소유한 프로젝트 폴더의 `{ROOT}` 상대 경로 — `{SRC}` 의 상위 중 분류 폴더(`meeting`·`history`·`docs`·`data`) 바로 위(예: `projects/IB-Maker`, `projects/90_personal/frame`) · `{PROJECT}` = 그 폴더 이름(비분류형은 선택) · `{DATE6}` = 원본 파일명 선두 `YYMMDD`(없으면 오늘)
 - `{DICT_MODE}` = `existing | new | none` · `{DICT}` = 단어장 `{ROOT}` 상대 경로. 기본 신설 경로 = `{PROJECT_DIR}/docs/<{PROJECT} 소문자>-stt-단어사전-note.md`
 - `{OUT_MD}` = 프로젝트에 기존 `*-보정.md` 가 있으면 그 폴더, 없으면 `{PROJECT_DIR}/history/` 아래 `{DATE6}-<kebab 회의명>-보정.md`
-- `{OUT_TXT}` = 원본과 같은 폴더의 `{SRC_STEM} 보정.txt`
+- `{OUT_SUM}`(사람용 요약) · `{OUT_AI}`(AI용 요약) = **실제로 생성된** `{OUT_MD}` 와 같은 폴더. 파일명은 `{OUT_MD}` stem 의 마지막 `-보정` 을 `-요약` · `-요약-ai` 로 바꾼 것(`-v2` 같은 접미사는 그대로 따른다). stem 에 `-보정` 이 없으면 stem 뒤에 `-요약` · `-요약-ai` 를 붙인다
 - `{BODY_SHA}` = `final.json.body_sha256` 앞 8자리 (최종 보정 본문의 해시 — 같은 원본에 다른 답을 하면 달라진다)
 - `{DICT_SECTION_ID}` = `{DATE6}-{SRC_SHA}-{BODY_SHA}` (단어장 증분 섹션 제목에 포함. 같은 원본·같은 결정의 재시도는 생략하고, 답이 달라진 재보정은 새 섹션으로 쌓는 멱등 키)
-- `{MAX_RULE_RETRY}` = 3 (Step 4 규칙·Step 7 결정 JSON 재실행 상한) · `{MAX_QA_ROUNDS}` = 20 · `{QA_BATCH}` = 4 (AskUserQuestion 1회 최대 질문 수) · `{MAX_WRITE_RETRY}` = 2 (`wiki_sync` 재시도·단어장 append 해시 충돌·산출물 파일명 충돌·단어장 create 충돌 재시도 상한)
+- `{MAX_RULE_RETRY}` = 3 (Step 4 규칙·Step 7 결정 JSON 재실행 상한) · `{MAX_QA_ROUNDS}` = 20 · `{QA_BATCH}` = 4 (AskUserQuestion 1회 최대 질문 수) · `{MAX_WRITE_RETRY}` = 2 (`wiki_sync` 재시도·단어장 append 해시 충돌·산출물 파일명 충돌·단어장 create 충돌·요약 create 충돌 재시도 상한)
 
 모든 명령의 경로 인자는 공백·한글을 포함할 수 있으므로 **항상 큰따옴표로 감싼다**(`--assemble` 의 두 경로도 하나의 따옴표 인자로).
 
@@ -43,8 +45,7 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
 | `--dict` + `--new-dict` | `BLOCKED:DICT_CONFLICT` → ① `--dict` 유지 ② `--new-dict` 유지 ③ 중단 |
 | `--project <키>` | `{PROJECT}` 명시. 원본 경로에서 추론되지 않을 때 |
 | `--shared-dict <경로>` (반복 가능) | 인명·서비스 코드·도구명 재사용용 타 프로젝트 사전. 미지정이면 Step 2에서 후보를 찾아 사용 여부를 묻는다 |
-| `--no-ask` | Step 6 생략, 마커 전부 유지 → 질문 단계 `SKIPPED:NO_ASK` |
-| `--no-txt` | 정리본 `.txt` 생략 → `SKIPPED:NO_TXT` |
+| `--no-ask` | Step 6 생략, 마커 전부 유지 → 질문 단계 `SKIPPED:NO_ASK`. Step 9 의 아젠다 확인 질문도 생략 |
 
 ## 전제 조건
 
@@ -67,7 +68,7 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
    - `preamble` 이 `[보정본]` 로 시작 → 이미 보정된 파일이다. `BLOCKED:SRC_ALREADY_CORRECTED` → ① 같은 폴더 `backup/{SRC_STEM}.txt.bak` 을 원본으로 ② 그대로 진행 ③ 중단
    - `format_unknown`(타임스탬프 헤더 없음) → ① 전체를 1턴으로 보정(화자 추정 불가 경고를 보정본에 기록) ② 중단
    - `duplicate_times` 가 있으면 보정본 메모에 적고, Step 4의 턴 지정은 반드시 **턴 서수**로 한다
-3. **기존 보정본 중복 검색**: `wiki_resolve "{SRC_STEM}"` 과 `wiki_resolve "{DATE6} 보정"` 결과의 후보 중 `wiki_read token_budget:400` 으로 머리만 읽어 같은 `{SRC}` 또는 `{SRC_SHA}` 가 적힌 문서가 있으면 → ① 기존 보정본 유지(중단) ② 새 버전 파일명(`…-보정-v2.md`)으로 진행 ③ 중단.
+3. **기존 보정본 중복 검색**: `wiki_resolve "{SRC_STEM}"` 과 `wiki_resolve "{DATE6} 보정"` 결과의 후보 중 `wiki_read token_budget:400` 으로 머리만 읽어 같은 `{SRC}` 또는 `{SRC_SHA}` 가 적힌 **보정본**(제목에 '보정본'. 요약 문서는 제외)이 있으면 → ① 기존 보정본 유지(중단) ② 새 버전 파일명(`…-보정-v2.md`)으로 진행 ③ 중단.
    `INDEX_*` 오류는 `/work-log:sync` 또는 `/work-log:doctor` 안내 후 재검색한다. 검색 실패를 중복 없음으로 간주하지 않는다.
 
 ## Step 2: 단어장 결정
@@ -147,19 +148,19 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
    | `status: OK` | 7.2 진행 |
    | `{MAX_RULE_RETRY}` 회 뒤에도 FAIL | `BLOCKED:DECISION_MISMATCH` — 실패 항목 제시 → ① 실패 항목을 `hold` 로 바꿔 진행 ② 중단 |
 2. `memo.md` 의 '확인 결과' 표(원문·1차 보정·확정·결정)를 `decisions-applied.json` 으로 채우고, `header.md` 의 해소 이력·보정 원칙 카운트를 `decisions-applied.json.marker_counts` 로 갱신한다.
-3. 조립·생성(빈 규칙, 파일별 배타적 신규 생성):
+3. 조립·생성(빈 규칙, 배타적 신규 생성):
    ```bash
    python3 -I -B "{HELPER}" apply --root "{ROOT}" --src "{SCRATCH}/body2.txt" \
      --assemble "{SCRATCH}/header.md,{SCRATCH}/memo.md" --write-md "{ROOT}/{OUT_MD}" \
-     --write-txt "{ROOT}/{OUT_TXT}" --expect-turns <probe.json.turns> --log "{SCRATCH}/final.json"
+     --expect-turns <probe.json.turns> --log "{SCRATCH}/final.json"
    ```
-   `--no-txt` 면 `--write-txt` 를 뺀다. 헬퍼는 `{ROOT}` 밖·심볼릭 링크 경로·원본과 같은 파일에는 쓰지 않으며 **기존 파일을 덮어쓰지 않는다**.
-4. `final.json.outputs[]` 를 파일별로 본다. `status: exists` 인 파일만 → ① 다른 이름(`-v2`, `-v3`…)으로 그 파일만 다시 생성(`--write-md` 또는 `--write-txt` 하나만 지정) ② 그 파일 생략. `created` 된 파일은 재생성하지 않는다(부분 성공 보존).
+   헬퍼는 `{ROOT}` 밖·심볼릭 링크 경로·원본과 같은 파일에는 쓰지 않으며 **기존 파일을 덮어쓰지 않는다**.
+4. `final.json.outputs[]` 를 본다. `status: exists` 이면 → ① 다른 이름(`-v2`, `-v3`…)으로 다시 생성 ② 중단.
 
    | 종료 조건 | 결과 |
    |-----------|------|
-   | 모든 출력이 `created` 또는 사용자가 생략 | 7.5 진행 |
-   | 다른 이름 재시도 `{MAX_WRITE_RETRY}` 회 뒤에도 `exists` | `BLOCKED:WRITE_RETRY` → ① 그 파일 생략 ② 경로를 직접 지정해 1회 더 ③ 중단 |
+   | 출력이 `created` | 7.5 진행 |
+   | 다른 이름 재시도 `{MAX_WRITE_RETRY}` 회 뒤에도 `exists` | `BLOCKED:WRITE_RETRY` → ① 경로를 직접 지정해 1회 더 ② 중단 |
 5. `wiki_sync` 를 실행하고 `wiki_resolve "<보정본 제목>"` 으로 `{OUT_MD}` 가 색인됐는지 확인한다(`drift.added` 는 참고 정보). 색인이 확인되지 않으면 `wiki_sync` 만 최대 `{MAX_WRITE_RETRY}` 회 재시도하고, 그래도 안 되면 `BLOCKED:WRITE_RETRY` → ① 파일은 저장됐으므로 색인 미확인으로 보고하고 Step 8 진행 ② `/work-log:doctor` 후 재시도 ③ 중단. `final.json.body_sha256` 앞 8자리를 `{BODY_SHA}` 로 기록한다.
 
 ## Step 8: 단어장 업데이트
@@ -176,24 +177,47 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
 
 `write_state: unknown` 이면 Grep 으로 `{DICT_SECTION_ID}`(또는 신설 파일) 저장 여부를 확인하고 **미저장일 때만** 재시도한다. `written` 뒤 `indexing.status` 가 OK 가 아니면 `wiki_sync` 만 최대 `{MAX_WRITE_RETRY}` 회 재시도하고, 초과 시 `BLOCKED:WRITE_RETRY`(위 선택지와 동일 — 문서는 이미 저장됨).
 
-## Step 9: 보고
+## Step 9: 요약 문서 생성
+
+> Step 9 진입 시 MUST: 같은 폴더의 `references/templates.md` §6·§7 을 Read 한다.
+
+보정본(`{OUT_MD}`)이 `created` 가 아니면 이 단계를 `SKIPPED:NO_SUMMARY` 로 기록하고 Step 10 으로 간다.
+
+1. **입력**: `{SCRATCH}/body2.txt`(최종 보정 본문)를 Read 로 **전체** 읽는다(2000줄 초과 시 `offset` 분할). 참석자 표기는 `header.md` 의 참석자 표를 쓴다. Step 3 에서 읽은 보정 전 원문은 근거로 쓰지 않는다.
+2. **아젠다 분할**: 본문을 주제가 바뀌는 지점에서 나눈다. 아젠다 1개 = 연속한 턴 구간 + 제목 + 시각 구간(시작·끝 턴의 **원본 헤더 표기 그대로**). 모든 턴은 정확히 1개 아젠다에 속하고(인사·잡담은 `기타`), 턴 순서는 바꾸지 않는다.
+   - `probe.json.duplicate_times` 가 있으면 시각 구간에 화자를 함께 적는다
+   - `header_format: format_unknown` 이면 시각 구간을 생략하고, 근거는 시각 대신 짧은 원문 인용(15자 이내)으로 적는다
+3. **아젠다 확인**: 목록(번호·제목·시각 구간)을 1회 보여 주고 묻는다 → ① 승인 · Other = 수정 내용. 수정을 반영한 뒤 다시 묻는 것은 1회까지다. `--no-ask` 면 묻지 않는다.
+4. **작성·저장**: §6(사람용)·§7(AI용) 템플릿과 §6 머리의 '요약 내용 규칙'으로 본문을 쓰고 `wiki_write` `mode:"create"` 로 저장한다. 순서는 **`{OUT_SUM}` → `{OUT_AI}`** 로 고정한다(AI용 `meta.human_summary` 에 실제로 생성된 경로를 적는다). `frontmatter` 는 `{title, type:"meeting", tags}` 만 넘긴다 — `project`·`category` 는 서버가 저장 경로에서 부여하며, 직접 넘긴 값이 경로와 다르면 거부된다.
+5. 이미 있어서 create 가 거부되면(`write_state: not_written`) 그 파일만 `-v2`, `-v3`… 이름으로 다시 시도한다. `write_state: unknown` 과 `indexing.status` 처리는 Step 8 과 같다.
+
+| 종료 조건 | 결과 |
+|-----------|------|
+| 두 문서 모두 저장 | Step 10 진행 |
+| 한 문서의 다른 이름 재시도 `{MAX_WRITE_RETRY}` 회 뒤에도 거부 | `BLOCKED:WRITE_RETRY` → ① 그 요약 본문을 보고서에 첨부하고 Step 10 진행(사용자가 `/work-log:edit` 로 저장) ② 중단 |
+
+요약이 실패해도 보정본·단어장은 되돌리지 않는다. 이 스킬에는 요약만 다시 만드는 경로가 없다.
+
+## Step 10: 보고
 
 아래 `## 출력 형식` 으로 보고한다. 이 스킬은 git 커밋·push 를 하지 않는다.
 
 ## 출력 형식
 
 ```markdown
-## STT 보정 결과: <회의명>
+## 회의 후 정리 결과: <회의명>
 
 | 산출물 | 경로 | 상태 |
 |--------|------|------|
-| 보정본 | {OUT_MD} | DONE / FAIL(<사유>) |
-| 정리본 | {OUT_TXT} | DONE / SKIPPED:NO_TXT / FAIL(<사유>) |
+| 전체 보정본 | {OUT_MD} | DONE / FAIL(<사유>) |
+| 사람용 요약 | {OUT_SUM} | DONE / SKIPPED:NO_SUMMARY / FAIL(<사유>) |
+| AI용 요약 | {OUT_AI} | DONE / SKIPPED:NO_SUMMARY / FAIL(<사유>) |
 | 단어장 | {DICT} | DONE(append {DICT_SECTION_ID}) / DONE(create) / SKIPPED:NO_DICT |
 
-- 원본: `{SRC}` (sha256 `{SRC_SHA}`) · 턴 수 원본 <N> / 보정본 <N> · 헤더 <header_format> · 중복 시각 <duplicate_times 또는 없음>
+- 원본: `{SRC}` (sha256 `{SRC_SHA}`, 수정 없음) · 턴 수 원본 <N> / 보정본 <N> · 헤더 <header_format> · 중복 시각 <duplicate_times 또는 없음>
 - 치환: 무표기 <R>건(규칙 <V>개, 미사용 <u>개) · 잔존 `(?)` <a>건 · `[불명확]` <b>건
 - 질문: 범위 <고위험만/전체/일괄/생략> · 대상 <k>건 — 승인 <x> · 수정 <y> · 복원 <r> · 보류 <z> · 미처리 <w> (또는 SKIPPED:NO_ASK)
+- 요약: 아젠다 <K>개 · 결정 <d>건 · 할 일 <t>건 · 미결 <q>건 · 아젠다 확인 <승인/수정/SKIPPED:NO_ASK>
 - 색인: wiki_sync <OK/재시도 n회> · wiki_resolve 확인 <OK/미확인>
 - 상태: DONE | BLOCKED:<사유> | FAIL
 ```
@@ -202,9 +226,9 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
 
 | 코드 | 의미 |
 |------|------|
-| `DONE` | 보정본 생성 + (정리본·단어장 중 생략되지 않은 것) 완료 |
+| `DONE` | 보정본 생성 + 요약 2개 저장 + (생략되지 않은) 단어장 반영 완료 |
 | `SKIPPED:NO_ASK` | `--no-ask` 로 질문 단계 생략 |
-| `SKIPPED:NO_TXT` | `--no-txt` 또는 충돌 시 사용자가 정리본 생략 선택 |
+| `SKIPPED:NO_SUMMARY` | 보정본이 생성되지 않아 요약 단계 생략 |
 | `SKIPPED:NO_DICT` | `{DICT_MODE}=none` 으로 단어장 단계 생략 |
 | `BLOCKED:MCP_UNAVAILABLE` / `BLOCKED:PYTHON_UNAVAILABLE` | 전제 조건 미충족 |
 | `BLOCKED:SRC_NOT_FOUND` / `BLOCKED:SRC_ALREADY_CORRECTED` | 원본 미발견 / 이미 보정된 파일 |
@@ -212,7 +236,7 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
 | `BLOCKED:RULE_MISMATCH` | 규칙 재실행 상한 도달 |
 | `BLOCKED:MAX_ITERATIONS` | 질문 라운드 상한 도달 |
 | `BLOCKED:DECISION_MISMATCH` | 결정 JSON 재실행 상한 도달 |
-| `BLOCKED:WRITE_RETRY` | `wiki_sync` 재시도·단어장 append 해시 충돌·산출물 파일명 충돌·단어장 create 충돌 재시도 상한 도달 |
+| `BLOCKED:WRITE_RETRY` | `wiki_sync` 재시도·단어장 append 해시 충돌·산출물 파일명 충돌·단어장 create 충돌·요약 create 충돌 재시도 상한 도달 |
 | `FAIL` | 헬퍼 쓰기 실패(`io_error`·`outside_root`), 또는 `wiki_write` `write_state: unknown` 뒤 미저장 확인 |
 
 헬퍼의 `header_format`·`failures[].kind`(`scoped_mismatch`·`exists` 등)는 진단 분류(데이터)이며 결과 표 셀 안에서만 쓴다.
@@ -220,5 +244,5 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
 ## References
 
 - `references/correction-rules.md` — 표기 3단·보존 규칙·규칙 수집 우선순위·위험도·인명 판별·규칙 JSON 작성법·실패 코드 처리·질문 설계 (Step 4·6 에서 MUST Read)
-- `references/templates.md` — 보정본 header/memo 템플릿·단어장 신설/증분 템플릿·질문 문구 (Step 5·6·7·8 에서 MUST Read)
-- `assets/stt_fix.py` — 헬퍼. `apply --root --src [--rules|--decisions] --log [--out-body] [--assemble a,b --write-md] [--write-txt] [--expect-turns]`. `--out-body`·`--log` 는 스크래치 산출물(덮어씀), `--write-md`·`--write-txt` 는 vault 산출물(root 안 새 파일만, 배타적 생성)
+- `references/templates.md` — 보정본 header/memo 템플릿·단어장 신설/증분 템플릿·질문 문구·요약 내용 규칙·사람용/AI용 요약 템플릿 (Step 5·6·7·8·9 에서 MUST Read)
+- `assets/after_meeting.py` — 헬퍼. `apply --root --src [--rules|--decisions] --log [--out-body] [--assemble a,b --write-md] [--expect-turns]`. `--out-body`·`--log` 는 스크래치 산출물(덮어씀), `--write-md` 는 vault 산출물(root 안 새 파일만, 배타적 생성)

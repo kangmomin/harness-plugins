@@ -1,6 +1,6 @@
 # STT 보정 규칙 · 규칙 JSON 작성법
 
-> 이 문서는 `stt-fix` 스킬의 Step 4(치환 규칙 작성)와 Step 6(질문 설계)에서 로드된다. 단독 실행 금지.
+> 이 문서는 `after-meeting` 스킬의 Step 4(치환 규칙 작성)와 Step 6(질문 설계)에서 로드된다. 단독 실행 금지.
 > 플레이스홀더(`{HELPER}`, `{SCRATCH}` 등)는 SKILL.md 상단 정의를 그대로 쓴다.
 
 ## 1. 표기 3단
@@ -20,7 +20,7 @@
 - 말더듬·필러·구어체·반복은 원본대로 둔다. **의미가 바뀌는 오인식만** 고친다.
 - 숫자·날짜·금액은 원문 유지. 문맥이 확실할 때만 `(?)`를 붙여 보정한다.
 - 영어 약어는 대문자 표준화만 한다(`에이피아이`→`API`). 서비스 코드(FPS·OPS·OCS·AGS·MIM·PMS·NMS 등)는 **서로 치환하지 않는다** — 음가가 비슷해도 다른 서비스다.
-- 요약·의역·문장 재배열 금지. 보정본은 전사이지 회의록 요약이 아니다.
+- 요약·의역·문장 재배열 금지. 보정본은 전사이지 회의록 요약이 아니다. (이 규칙은 보정본 본문에만 적용한다. 요약 문서 2개는 Step 9 에서 따로 만든다.)
 
 ## 3. 단어장 규칙 수집 우선순위
 
@@ -87,7 +87,7 @@
 | `structure_changed` | new가 헤더 모양·줄바꿈을 만들었거나 old가 줄바꿈을 포함 | 해당 규칙의 new를 한 줄로, 헤더 모양 금지 |
 | `bad_rules` | JSON 형식·키 범위·빈 old | 메시지의 `reason`대로 수정 |
 | `turns_mismatch` | `--expect-turns`와 결과 턴 수 불일치 | 원본 턴 수(`probe.json.turns`)를 다시 확인 |
-| `exists` | `--write-md`/`--write-txt` 대상이 이미 있음 | 그 파일만 다른 이름으로 다시 생성하거나 생략. 함께 `created`된 파일은 재생성하지 않는다 |
+| `exists` | `--write-md` 대상이 이미 있음 | 다른 이름으로 다시 생성한다 |
 | `outside_root` / `same_as_source` | vault 밖 쓰기, 경로에 심볼릭 링크·`..` 포함, 또는 원본 덮어쓰기 시도 | 경로를 `{ROOT}` 안의 실제 디렉터리 아래 새 파일로 바꾼다 |
 | `unknown_marker` / `phrase_mismatch` / `duplicate_decision` / `invalid_action` | 결정 JSON이 `initial.json.markers`와 맞지 않음 | `marker_id`를 `initial.json`에서 다시 복사. `approve`는 `(?)`에만, `restore`는 `[불명확]`에만 |
 | `overlapping_markers` | 한 턴에서 결정 대상 구간이 겹침 — 결정 JSON의 `marker_id`가 다른 본문(예: 수정 전 `body1.txt`가 아닌 파일)에서 나왔을 때 | `--src`가 `initial.json`을 만든 본문과 같은지 확인하고 ID를 다시 복사 |

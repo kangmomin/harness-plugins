@@ -23,7 +23,7 @@
 |------|-------------|-------|
 | 최초 설정 | `/work-log:init` | `$work-log:init` |
 | 검색 | `/work-log:search <검색어>` | `$work-log:search <검색어>` |
-| 회의록 STT 보정 | `/work-log:stt-fix <원본 .txt>` | `$work-log:stt-fix <원본 .txt>` |
+| 회의 후 정리 (STT 보정 + 요약) | `/work-log:after-meeting <원본 .txt>` | `$work-log:after-meeting <원본 .txt>` |
 
 ## 세션 시작 hook
 
@@ -136,7 +136,7 @@ cache를 수동 덮어쓰거나 다른 marketplace 등록을 변경하지 않는
 | search | `/work-log:search` / `$work-log:search` | 후보 랭킹 → 문서 하나만 읽기 |
 | sync | `/work-log:sync` / `$work-log:sync` | 재스캔 + 인덱스 갱신 + drift 리포트 |
 | edit | `/work-log:edit` / `$work-log:edit` | 문서 작성 · 수정 |
-| stt-fix | `/work-log:stt-fix` / `$work-log:stt-fix` | 회의록 STT 전사 오인식 보정 — 단어장 기준 치환, 애매한 항목 질문, 보정본(.md)·정리본(.txt) 생성, 단어장 신설·증분 반영 |
+| after-meeting | `/work-log:after-meeting` / `$work-log:after-meeting` | 회의 후 정리 — STT 전사 오인식 보정(단어장 기준 치환, 애매한 항목 질문, 단어장 신설·증분 반영) 뒤 문서 3개 생성: 전체 보정본, 아젠다별 사람용 요약, 아젠다별 AI용 요약. 원본 .txt 는 수정하지 않는다 |
 | init | `/work-log:init` / `$work-log:init` | 스코프 설정 |
 | doctor | `/work-log:doctor` / `$work-log:doctor` | 연결 · 설정 · 인덱스 진단 |
 

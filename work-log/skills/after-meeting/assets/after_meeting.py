@@ -2,11 +2,11 @@
 """STT 전사 보정 헬퍼 — 결정적 치환·마커 추출·결정 반영·조립·배타적 신규 생성 (stdlib only).
 
 apply --root <vault root> --src <txt> [--rules <json> | --decisions <json>] --log <json>
-      [--out-body <txt>] [--assemble <header.md>,<memo.md> --write-md <path>] [--write-txt <path>]
+      [--out-body <txt>] [--assemble <header.md>,<memo.md> --write-md <path>]
       [--expect-turns N]
 
---out-body/--log 는 스크래치 산출물이라 덮어쓴다. --write-md/--write-txt 는 vault 산출물이라
-root 안의 새 파일만 배타적으로(os.link) 만들고, 이미 있으면 그 파일만 `exists` 로 보고한다.
+--out-body/--log 는 스크래치 산출물이라 덮어쓴다. --write-md 는 vault 산출물이라
+root 안의 새 파일만 배타적으로(os.link) 만들고, 이미 있으면 `exists` 로 보고한다.
 """
 import argparse
 import hashlib
@@ -339,7 +339,7 @@ def publish(root, source, destination, content):
         if existing is not None:
             return dict(path=str(dst), status='exists')
         data = content.encode('utf-8')
-        temp = '.stt-fix-' + os.urandom(6).hex()
+        temp = '.after-meeting-' + os.urandom(6).hex()
         temp_fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_NOFOLLOW', 0), 0o666 & ~mask, dir_fd=fd)
         try:
             with os.fdopen(temp_fd, 'wb') as handle:
@@ -402,9 +402,6 @@ def run(args):
         if args.write_md:
             header, memo = (Path(p).read_text(encoding='utf-8') for p in args.assemble.split(','))
             targets.append((args.write_md, header.rstrip('\n') + '\n\n## 본문\n\n' + markdown_body(preamble, turns) + '\n' + memo.lstrip('\n')))
-        if args.write_txt:
-            targets.append((args.write_txt, body))
-        # 출력은 파일별로 독립 처리한다: 하나가 실패해도 앞서 생성된 파일은 outputs 에 남는다 (부분 성공 보존).
         for destination, content in targets:
             try:
                 output = publish(args.root, args.src, destination, content)
@@ -425,7 +422,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest='command', required=True)
     apply = sub.add_parser('apply')
-    apply.add_argument('--root', required=True, help='vault root — --write-md/--write-txt 는 이 안의 새 파일만 생성')
+    apply.add_argument('--root', required=True, help='vault root — --write-md 는 이 안의 새 파일만 생성')
     apply.add_argument('--src', required=True)
     apply.add_argument('--rules', help='치환 규칙 JSON. /dev/null 또는 생략 = 빈 규칙')
     apply.add_argument('--decisions', help='마커 결정 JSON (--rules 와 배타)')
@@ -433,7 +430,6 @@ def main(argv=None):
     apply.add_argument('--out-body')
     apply.add_argument('--assemble', help='<header.md>,<memo.md>')
     apply.add_argument('--write-md')
-    apply.add_argument('--write-txt')
     apply.add_argument('--expect-turns', type=int)
     args = parser.parse_args(argv)
     try:

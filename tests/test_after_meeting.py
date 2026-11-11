@@ -12,8 +12,8 @@ import unittest
 import unittest.mock
 
 ROOT = Path(__file__).resolve().parents[1]
-SCRIPT = ROOT / 'work-log/skills/stt-fix/assets/stt_fix.py'
-spec = importlib.util.spec_from_file_location('stt_fix', SCRIPT)
+SCRIPT = ROOT / 'work-log/skills/after-meeting/assets/after_meeting.py'
+spec = importlib.util.spec_from_file_location('after_meeting', SCRIPT)
 stt = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(stt)
 
@@ -46,9 +46,9 @@ def _publish_worker(args):
         return exc.record['kind']
 
 
-class SttFixTests(unittest.TestCase):
+class AfterMeetingTests(unittest.TestCase):
     def setUp(self):
-        self.temp = tempfile.TemporaryDirectory(prefix='stt fix # ')
+        self.temp = tempfile.TemporaryDirectory(prefix='after meeting # ')
         self.addCleanup(self.temp.cleanup)
         # 헬퍼는 --root 를 다시 resolve 하지 않으므로(심볼릭 링크 구성 요소 거부) 테스트도 canonical 경로를 넘긴다 (macOS /var → /private/var).
         self.base = Path(self.temp.name).resolve()
@@ -65,6 +65,12 @@ class SttFixTests(unittest.TestCase):
                                  '--src', str(src or self.src), '--log', str(log), *extra], capture_output=True, text=True)
         self.assertTrue(log.is_file(), 'helper wrote no log: ' + result.stderr)
         return result.returncode, json.loads(log.read_text(encoding='utf-8')), result.stdout
+
+    def md_args(self, path):
+        header, memo = self.scratch / 'header.md', self.scratch / 'memo.md'
+        header.write_text('---\ntitle: t\n---\n# 머리\n', encoding='utf-8')
+        memo.write_text('## 보정 메모\n메모\n', encoding='utf-8')
+        return '--assemble', f'{header},{memo}', '--write-md', str(path)
 
     def write_json(self, name, data):
         path = self.scratch / name
@@ -193,57 +199,50 @@ class SttFixTests(unittest.TestCase):
             self.assertEqual(2, code)
             self.assertEqual(kind, log['failures'][0]['kind'])
 
-    def test_assemble_publishes_md_and_txt_exclusively_and_reports_partial(self):
-        header = self.scratch / 'header.md'
-        header.write_text('---\ntitle: t\n---\n# 머리\n', encoding='utf-8')
-        memo = self.scratch / 'memo.md'
-        memo.write_text('## 보정 메모\n메모\n', encoding='utf-8')
-        out_md, out_txt = self.root / 'docs' / 'out.md', self.root / 'meeting' / '261014 회의 보정.txt'
-        code, log, _ = self.run_apply('--assemble', f'{header},{memo}', '--write-md', str(out_md), '--write-txt', str(out_txt), '--expect-turns', '5')
+    def test_assemble_publishes_md_exclusively(self):
+        out_md = self.root / 'docs' / 'out.md'
+        code, log, _ = self.run_apply(*self.md_args(out_md), '--expect-turns', '5')
         self.assertEqual(0, code, log['failures'])
-        self.assertEqual(['created', 'created'], [o['status'] for o in log['outputs']])
-        self.assertEqual(SAMPLE, out_txt.read_text(encoding='utf-8'))
+        self.assertEqual(['created'], [o['status'] for o in log['outputs']])
         rendered = out_md.read_text(encoding='utf-8')
         self.assertTrue(rendered.startswith('---\ntitle: t\n---\n# 머리\n\n## 본문\n\n**00:19 참석자 1**\n'))
         self.assertIn('**01:00:11**\n빈 라벨 턴\n\n## 보정 메모\n메모\n', rendered)
         self.assertEqual(0o644 & ~os.umask(os.umask(0)), out_md.stat().st_mode & 0o777 & 0o644)
-        code, log, _ = self.run_apply('--assemble', f'{header},{memo}', '--write-md', str(out_md), '--write-txt', str(self.root / 'meeting' / 'other.txt'))
+        self.assertEqual(SAMPLE, self.src.read_text(encoding='utf-8'), 'the source transcript is never modified')
+        code, log, _ = self.run_apply(*self.md_args(out_md))
         self.assertEqual(2, code)
-        self.assertEqual([('exists', str(out_md)), ('created', str(self.root / 'meeting' / 'other.txt'))], [(o['status'], o['path']) for o in log['outputs']])
+        self.assertEqual([('exists', str(out_md))], [(o['status'], o['path']) for o in log['outputs']])
         self.assertEqual([{'kind': 'exists', 'path': str(out_md)}], log['failures'])
-        self.assertIn('# 머리', out_md.read_text(encoding='utf-8'))
-        code, log, _ = self.run_apply('--write-txt', str(out_txt), '--expect-turns', '4')
+        self.assertEqual(rendered, out_md.read_text(encoding='utf-8'))
+        second_md = self.root / 'docs' / 'second.md'
+        code, log, _ = self.run_apply(*self.md_args(second_md), '--expect-turns', '4')
         self.assertEqual(2, code)
         self.assertEqual('turns_mismatch', log['failures'][0]['kind'])
         self.assertEqual([], log['outputs'])
-        second_md = self.root / 'docs' / 'second.md'
-        code, log, _ = self.run_apply('--assemble', f'{header},{memo}', '--write-md', str(second_md), '--write-txt', str(self.base / 'escape.txt'))
-        self.assertEqual(2, code)
-        self.assertEqual([('created', str(second_md))], [(o['status'], o['path']) for o in log['outputs']])
-        self.assertEqual(['outside_root'], [f['kind'] for f in log['failures']])
-        self.assertTrue(second_md.is_file())
-        self.assertFalse((self.base / 'escape.txt').exists())
+        self.assertFalse(second_md.exists())
         self.assertEqual(64, len(log['body_sha256']))
 
     def test_publish_refuses_outside_root_and_source_overwrite(self):
-        code, log, _ = self.run_apply('--write-txt', str(self.base / 'escape.txt'))
+        code, log, _ = self.run_apply(*self.md_args(self.base / 'escape.md'))
         self.assertEqual(2, code)
         self.assertEqual('outside_root', log['failures'][0]['kind'])
-        code, log, _ = self.run_apply('--write-txt', str(self.src))
+        self.assertFalse((self.base / 'escape.md').exists())
+        code, log, _ = self.run_apply(*self.md_args(self.src))
         self.assertEqual(2, code)
         self.assertEqual('same_as_source', log['failures'][0]['kind'])
+        self.assertEqual(SAMPLE, self.src.read_text(encoding='utf-8'))
         outside = self.base / 'outside'
         outside.mkdir()
         (self.root / 'link').symlink_to(outside, target_is_directory=True)
-        code, log, _ = self.run_apply('--write-txt', str(self.root / 'link' / 'x.txt'))
+        code, log, _ = self.run_apply(*self.md_args(self.root / 'link' / 'x.md'))
         self.assertEqual(2, code)
         self.assertEqual('outside_root', log['failures'][0]['kind'])
         self.assertEqual([], list(outside.iterdir()))
         (self.root / 'inner-link').symlink_to(self.root / 'meeting', target_is_directory=True)
-        code, log, _ = self.run_apply('--write-txt', str(self.root / 'inner-link' / 'y.txt'))
+        code, log, _ = self.run_apply(*self.md_args(self.root / 'inner-link' / 'y.md'))
         self.assertEqual(2, code, 'symlinked parent is refused even when it resolves inside root')
         self.assertEqual('outside_root', log['failures'][0]['kind'])
-        code, log, _ = self.run_apply('--write-txt', str(self.root / 'meeting' / '..' / '..' / 'z.txt'))
+        code, log, _ = self.run_apply(*self.md_args(self.root / 'meeting' / '..' / '..' / 'z.md'))
         self.assertEqual(2, code)
         self.assertEqual('outside_root', log['failures'][0]['kind'])
 
@@ -348,7 +347,7 @@ class SttFixTests(unittest.TestCase):
         self.assertEqual(1, statuses.count('created'))
         self.assertEqual(5, statuses.count('exists'))
         self.assertRegex(dst.read_text(encoding='utf-8'), r'^writer \d\n$')
-        self.assertEqual(['race.txt'], sorted(p.name for p in dst.parent.iterdir() if p.name.startswith('race') or p.name.startswith('.stt-fix-')))
+        self.assertEqual(['race.txt'], sorted(p.name for p in dst.parent.iterdir() if p.name.startswith('race') or p.name.startswith('.after-meeting-')))
 
 
 if __name__ == '__main__':
