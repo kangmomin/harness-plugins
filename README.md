@@ -8,6 +8,15 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-11-11 세션 시작 커뮤니케이션 규칙
+
+common 0.17.0 / work-log 0.4.0. common과 work-log에 같은 SessionStart hook(`hooks/hooks.json`)을 추가했다. 세션이 시작될 때마다 다음 두 규칙을 컨텍스트에 넣는다.
+
+- Always talk in ASD-STE100 Simplified Technical Korean.
+- Always talk to me like I have ADHD.
+
+common이나 work-log를 설치한 모든 Claude Code 세션에 적용된다. 둘 다 설치하면 같은 규칙이 두 번 들어간다. work-log의 Codex 클라이언트와 다른 하네스는 바뀌지 않았다.
+
 ## 2026-11-06 프롬프트 계약 정합화
 
 BE 1.7.4 / FE 1.7.1 / minmos 2.6.3. 구현·문서 동기화·빌드 수정의 커밋 예시를 common:commit 정본의 명시 파일 절차로 맞췄다. 기존 부분 스테이징과 같은 파일의 무관한 hunk를 보존하며 새 커밋의 실제 범위를 확인한다. FE 구현자는 profile의 `commitPrefixes`와 `commitCoAuthor`를 따르고 빈 co-author는 생략한다. minmos의 Client/Bidirectional Streaming SKIP은 grpcurl의 기능 부재가 아니라 하네스 기본 시나리오 범위임을 명확히 했다.

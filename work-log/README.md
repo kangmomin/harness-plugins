@@ -25,6 +25,13 @@
 | 검색 | `/work-log:search <검색어>` | `$work-log:search <검색어>` |
 | 회의록 STT 보정 | `/work-log:stt-fix <원본 .txt>` | `$work-log:stt-fix <원본 .txt>` |
 
+## 세션 시작 hook
+
+Claude Code에서는 `hooks/hooks.json`의 SessionStart hook이 세션 시작(startup·resume·clear·compact) 때마다 다음 두 규칙을 컨텍스트에 넣는다. Codex 클라이언트에는 적용되지 않는다.
+
+- Always talk in ASD-STE100 Simplified Technical Korean.
+- Always talk to me like I have ADHD.
+
 ## 스코프
 
 | 모드 | vault 위치 | 설정 파일 |
