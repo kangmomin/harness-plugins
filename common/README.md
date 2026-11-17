@@ -35,7 +35,7 @@
 |------|------|------|
 | **commit** | `/common:commit` | 변경사항을 논리적 단위별로 나눠서 커밋 |
 | **commit-push** | `/common:commit-push` | commit + push (브랜치 컨벤션 검증/생성 포함). 브랜치 모델 오버라이드 선언 시 prefix·base 조합까지 검증. push 전 Assumption Gate로 `[Assumption]` 태그를 사용자 확인 후 전부 제거해야 push 가능 |
-| **commit-pr** | `/common:commit-pr` | commit + push + 브랜치 생성 + PR 오픈(기본 draft, `--ready`로 ready 전환, `--bump-only`로 VERSION 범프 전용 PR). base 브랜치 대조 VERSION 자동 범프, 기존 open PR 본문 동기화 확인 포함. Assumption Gate 승인 항목은 PR 본문 "확정된 결정" 섹션에 기록. PR 본문은 결론 → 리뷰어가 할 일 → 주요 변경 → 검증 순서로, ASD-STE100 Simplified Technical 원칙(짧은 능동문, 한 단어 한 뜻)과 목록·표로 작성(주의가 쉽게 흩어지는 독자 기준) |
+| **commit-pr** | `/common:commit-pr` | commit + push + 브랜치 생성 + PR 오픈(기본 draft, `--ready`로 ready 전환, `--bump-only`로 VERSION 범프 전용 PR). base 브랜치 대조 VERSION 자동 범프, 기존 open PR 본문 동기화 확인 포함. Assumption Gate 승인 항목은 PR 본문 "확정된 결정" 섹션에 기록. PR 본문은 결론 → 리뷰어가 할 일 → 주요 변경 → 남은 한계 순서로 쓰고 검증·확정된 결정 등은 `<details>`로 접으며, ASD-STE100 Simplified Technical 원칙(짧은 능동문, 한 단어 한 뜻)과 목록·표로 작성(주의가 쉽게 흩어지는 독자 기준) |
 | **commit-hard-push** | `/common:commit-hard-push` | 보호 브랜치 제한 없이 commit + push (Assumption Gate 적용) |
 | **merge** | `/common:merge` | PR 을 머지. doc-gen 으로 요약 컨펌 후 머지 방식(일반/스쿼시/리베이스/취소) 선택 |
 | **sync-base** | `/common:sync-base` | `merge` 의 **역방향** — base 를 현재 브랜치로 merge 해 최신화. VERSION 이 있으면 base 대조 조건부 patch 범프, swagger(OpenAPI) version 을 같은 값으로 동기화한 뒤 push. base 결정·버전 계산은 `commit-pr` 규칙과 동일, push 는 `commit-push` 의 Assumption Gate 를 거침. 버전 파일 충돌만 자동 해결하고 그 외 충돌은 merge 진행 상태로 두어 재실행 재개 |

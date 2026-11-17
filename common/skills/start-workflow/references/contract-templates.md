@@ -222,7 +222,7 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 ## Phase 9: PR 본문 순서
 
-섹션 구성은 아래 순서를 쓴다. 문장·목록·표 작성은 `commit-pr`의 「PR 본문 작성 규칙」 문체 규칙 1~10(ASD-STE100 Simplified Technical 원칙)을 따른다. `Feature Summary`는 결론 1~2문장으로 시작하고, 리뷰어가 할 일이 있으면 그 바로 아래에 체크박스 목록으로 둔다.
+섹션 구성은 아래 순서를 쓴다. 문장·목록·표 작성은 `commit-pr`의 「PR 본문 작성 규칙」 문체 규칙 1~10(ASD-STE100 Simplified Technical 원칙)을 따른다. `Feature Summary`는 결론 1~2문장으로 시작하고, 리뷰어가 할 일이 있으면 그 바로 아래에 체크박스 목록으로 둔다. 미검증 항목은 `Feature Summary`에 굵게 쓴다. `Verification`과 `Assumptions`는 `<details>`로 접을 수 있고, `<summary>`에 결과 요약을 쓴다.
 
 ```markdown
 ## Feature Summary
