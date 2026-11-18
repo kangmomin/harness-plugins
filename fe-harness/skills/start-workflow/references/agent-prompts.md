@@ -5,7 +5,7 @@
 > 이 문서는 `start-workflow` 스킬의 Phase 5.2(구현), 6(빌드/타입 체크), 7(품질 루프), 8(리뷰), 9(PR), 10(성찰)에서 로드된다. 단독 실행 금지.
 > Phase 5.1(Red)의 프롬프트는 `references/tdd.md`에 있다.
 > `{STATE_FILE}`, `{buildCommand}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
-> 각 `model:`/`effort:`는 Claude 경로 기본값이다. `## Flags`의 `CODEX: max`면 `references/codex-mode.md`의 플러그인 매핑대로 해당 Agent 호출을 Codex 슬롯(`explore`/`judge` 읽기 · `write` 쓰기) 호출로 치환하고, Skill tool을 실행하는 러너 프롬프트(7.2·7.3·7.4·7.6)에는 §8 포인터 1줄을 추가한다. 쓰기 호출은 §5 쓰기 안전 규칙을 따른다.
+> 각 `model:`/`effort:`는 Claude 경로 기본값이다. `## Flags`의 `CODEX: max`면 `references/codex-mode.md`의 플러그인 매핑대로 해당 Agent 호출을 Codex 슬롯(`explore`/`judge` 읽기 · `write` 쓰기) 호출로 치환하고, Skill tool을 실행하는 러너 프롬프트(7.2·7.3·7.4)에는 §8 포인터 1줄을 추가한다. 쓰기 호출은 §5 쓰기 안전 규칙을 따른다.
 
 # 서브 에이전트 프롬프트 모음
 
@@ -236,7 +236,28 @@ Agent tool:
 
 - Evidence 누락·잘못된 대응 이슈가 있으면 Phase 5.2 프롬프트 형식으로 `fe-harness:workflow-implementer`에 보완을 위임한다 — 구현 지시 대신 `references/tdd.md`의 "quick 테스트 동반 모드" 블록(해당 ID만)을 넣어 **신규 테스트 추가만** 허용한다(기존 테스트 수정 금지). 반환 표를 `## Quick Test Evidence`에 append하고 `modified = true`로 다음 iteration에서 다시 확인한다 (`references/verification-tier.md` §4.1).
 
-### Phase 7.6: Lint Check
+### Phase 7.6: Lint — Bash로 직접 실행 (에이전트 아님)
+
+lint는 결정적 명령이다. 실행에 에이전트를 띄우지 않는다. 타입 검사는 7.1이 이미 실행하므로 여기서 다시 실행하지 않는다 (`/fe-harness:lint-check` 스킬은 단독 실행용으로 유지한다).
+`LINT_LOG`는 `{RUN_DIR}/lint-{N}.log`의 절대 경로다. N은 실행마다 새 값을 쓰고, 이전 로그를 덮지 않는다.
+
+```bash
+python3 -I -B "${CLAUDE_PLUGIN_ROOT}/skills/config/assets/profile.py" run --domain fe --cwd "{CWD}" --key lintCommand > "{LINT_LOG}" 2>&1; LINT_EXIT=$?
+```
+
+helper가 명령을 해석한다 (custom `lintCommand` 원문 → `package.scripts.lint` → 설치된 eslint). 로그의 마지막 줄 JSON `status`로 판정한다.
+
+| status / exit | 처리 | `kind:lint` 기록 |
+|---|---|---|
+| `SKIPPED` (exit 0) | 수정 없음 | `SKIPPED` / `SKIPPED:PROFILE_EMPTY` |
+| `PASS` (exit 0) | 수정 없음 | `PASS` / `DONE` |
+| `FAIL` (exit 1) | 아래 수정 에이전트에 위임 | `FAIL` / `DONE` (범위 밖만 남고 수정 0건이면 `WARN`) |
+| `TIMEOUT` (exit 1) · `INTERRUPTED` (exit 128+) | 수정 없음 — 고칠 lint 출력이 없다. 원문 보고 | `INCONCLUSIVE` / `BLOCKED:LINT_TIMEOUT` · `BLOCKED:INTERRUPTED` |
+| exit 2 (`BLOCKED`) 또는 JSON 없음 | 수정 없음, 원문 보고 | `INCONCLUSIVE` / `BLOCKED:LINT_HELPER` |
+
+오케스트레이터가 실행 직전·직후 `tree` 결과로 `kind:lint` 이벤트를 기록한다 (phase `7.6`, iteration = `kind:lint`의 기존 최대 iteration + 1 — `references/result-contract.md`). `Phase Results` 7.6 행에 status·source·로그 경로를 남긴다.
+
+`FAIL`일 때만 수정 에이전트를 띄운다. 변경 범위는 7.6 직전에 `scope-contract.md` 방식으로 새로 수집한 scope의 `paths`다 (앞 단계 수정 반영):
 
 ```
 Agent tool:
@@ -244,12 +265,16 @@ Agent tool:
   model: [lint 이슈 심각도 기준 선택]
   effort: [lint 이슈 심각도 기준 선택]
   prompt: |
-    프로젝트 루트 {CWD}에서 Skill tool로 /fe-harness:lint-check 를 실행하세요.
-    상태 파일 `{STATE_FILE}`을 읽고 Phase 7.6 상태를 갱신하세요.
+    프로젝트 루트 {CWD}에서 lint 로그 `{LINT_LOG}`의 이슈를 수정하세요.
+    변경 범위(scope paths): {7.6 직전 수집한 scope의 paths}
+    상태 파일 `{STATE_FILE}`은 참고로만 읽으세요 (상태 갱신은 오케스트레이터가 수행).
     배정 model/effort: {model}/{effort}
-    이슈가 있으면 수정하세요.
-    완료 후 "이슈: N건, 수정: Y/N" 형식으로 보고하세요.
+    - 변경 범위 안 파일의 이슈만 수정하세요. 범위 밖 이슈는 수정하지 말고 `pre_existing`으로 보고하세요.
+    - 프로젝트 전체에 `--fix`를 실행하지 마세요.
+    완료 후 "수정: N건, 파일: [목록], 범위 밖: M건" 형식으로 보고하세요.
 ```
+
+수정 1건 이상이면 `modified = true`. 다음 iteration의 7.6이 새 로그로 다시 판정한다.
 
 ## Phase 7.7: Spec 정합 Read-back (루프 밖, 1회)
 

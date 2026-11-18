@@ -57,10 +57,28 @@ PR의 커밋 로그를 분석하여 워크플로우 성찰과 스킬 보완점�
 - "convention-check에서 같은 패턴 반복 → 자동 수정 규칙 추가" → `.claude/be-harness/skills/convention-check.md`
 - "request에서 특정 질문 누락 → 질문 항목 추가" → `.claude/be-harness/skills/request.md`
 - "모든 스킬에서 JIRA 티켓 번호 강제" → `.claude/be-harness/common.md`
+- "implementer가 `fmt.Println` 디버그 출력을 반복해서 남김" → 강제 수단 `lint` → `.golangci.yml`의 `forbidigo` 규칙
+
+### 강제 수단 판정 (lint 우선)
+
+자연어 규칙(오버라이드 문서)은 가장 약한 강제 수단이다. 에이전트가 다음 실행에서 놓치면 같은 실수가 반복된다. 보완점마다 아래 순서로 **가장 강한 수단**을 고른다.
+
+| 순서 | 강제 수단 | 고르는 조건 | 저장 위치 |
+|---|---|---|---|
+| 1 | `lint` | 프로젝트 linter 설정에 규칙 1개로 표현된다 (특정 API·import·구문 금지, 명명, 파일 위치, 복잡도 등) | 프로젝트 lint 설정 파일 |
+| 2 | `script·hook` | linter로 표현되지 않지만 명령으로 판정된다 (커밋 메시지 형식, 매니페스트 diff 등) | 오버라이드 문서 (초안 첨부) |
+| 3 | `문서` | 의미 판단이 필요하다 (Spec 해석, 설계 선택, 질문 누락) | 오버라이드 문서 (기존 방식) |
+
+`lint` 판정 절차 (Read/Glob/Grep만 사용):
+1. Glob으로 `PROJECT_ROOT`의 lint 설정 파일을 찾는다: `.golangci.yml`·`.golangci.yaml`·`.golangci.toml`·`.golangci.json` / `eslint.config.*`·`.eslintrc*`·`biome.json`·`biome.jsonc` / `ruff.toml`·`.ruff.toml`.
+2. 설정 파일을 Read해 형식(flat config·legacy·YAML 키 구조)을 확인하고, 그 형식에 맞는 **추가 조각**만 초안으로 쓴다. 기존 설정을 다시 쓰지 않는다.
+3. 규칙에 설치되지 않은 플러그인·linter가 필요하면 `필요 패키지`에 적는다 (`package.json`·`go.mod`·설정의 enable 목록을 Read로 확인).
+4. 규칙 대상 패턴을 Grep으로 세어 `기존 코드 영향`(새 규칙이 기존 코드에서 낼 위반 후보 수)을 적는다. 셀 수 없으면 `미확인`.
+5. 설정 파일이 없거나 그 linter로 표현할 수 없으면 `문서`로 내리고 사유를 1줄 쓴다.
 
 ## 출력
 
-```
+````
 ## Phase 11 결과: 성찰
 
 ### 성찰
@@ -71,8 +89,23 @@ PR의 커밋 로그를 분석하여 워크플로우 성찰과 스킬 보완점�
 - 시간 분배: [분석]
 
 ### 보완점
-| # | 대상 (스킬/에이전트/공통) | 보완 내용 | 저장 경로 |
-|---|------|----------|----------|
-| 1 | skill:convention-check | ... | `.claude/be-harness/skills/convention-check.md` |
-| 2 | agent:workflow-implementer | ... | `.claude/be-harness/agents/workflow-implementer.md` |
+| # | 대상 (스킬/에이전트/공통) | 보완 내용 | 강제 수단 | 저장 경로 |
+|---|------|----------|----------|----------|
+| 1 | agent:workflow-implementer | ... | lint | `.golangci.yml` |
+| 2 | skill:request | ... | 문서 | `.claude/be-harness/skills/request.md` |
+
+### lint 규칙 초안
+(강제 수단이 `lint`·`script·hook`인 항목마다 작성. 없으면 "없음")
+
+#### #1 — `.golangci.yml`
+- 필요 패키지: 없음 | {패키지}
+- 기존 코드 영향: {N}건 | 미확인
+```yaml
+linters:
+  enable: [forbidigo]
+linters-settings:
+  forbidigo:
+    forbid:
+      - p: ^fmt\.Print.*$
 ```
+````

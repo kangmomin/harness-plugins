@@ -222,7 +222,7 @@ light·quick 티어: 생략 단계(`SKIPPED:TIER_LIGHT`·`SKIPPED:TIER_QUICK`)�
    - 결정에 따른 코드/Spec 수정이 필요하면 적용한 뒤 5의 재검증·commit/push 절차를 따른다. 유저가 승인하기 전에는 수정하지 않는다 (Spec 외 변경 금지 원칙).
    - 유저가 "이번 범위 외"로 판단한 항목은 보고서에 `보류`로 남기고 넘어간다.
 4. **보완점 적용** (Phase 11이 `DONE`일 때만): 반영 방식을 질문한다: ① 로컬에만 저장 (기본) ② 로컬 저장 + `/common:submit-feedback`으로 PR ③ 건너뛰기.
-   적용 절차·append 규칙은 아래 "보완점 적용 상세"를 따른다. 플러그인 원본은 절대 수정하지 않는다.
+   적용 절차·append 규칙은 아래 "보완점 적용 상세"를 따른다. 플러그인 원본은 절대 수정하지 않는다. `강제 수단: lint` 항목은 같은 절의 "lint 설정 반영"을 따른다 (Y 결정만 받고 적용은 5 이후).
    Phase 11이 `SKIPPED:*`면 이 단계를 건너뛰고 보고서 §6에 **실제 상태 코드**로 스킵 사유를 기입한다 (§6 템플릿의 사유별 분기 문구를 따른다).
 
    2~4의 각 결정은 받는 즉시 상태 파일 `## Final Decisions`에 한 줄 append한다 (항목 / 결정 / 시각). 컨텍스트 요약·재개 후에는 기록된 항목을 다시 묻지 않는다.
@@ -303,13 +303,13 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py"
 [성찰 에이전트 결과. Phase 11이 `SKIPPED:*`면 "성찰 생략(`{실제 상태 코드}`)" 한 줄만 기입하고 사유별 안내를 덧붙인다 —
 `REFLECT_NOT_REQUESTED`: "`--reflect`로 주기 실행 권장(워크플로우 5~10회마다 1회)" / 그 외(`BUDGET_PRESERVED`, `AGENT_DIED` 등): "§9 축소 실행 내역 참조"]
 
-### 7. 보완점 (프로젝트 오버라이드로 반영)
+### 7. 보완점 (lint 설정 또는 프로젝트 오버라이드로 반영)
 > Phase 11이 `SKIPPED:*`면 표 대신 "없음 (성찰 생략)"으로 적는다.
 
-| # | 대상 스킬/에이전트 | 보완 내용 | 저장 경로 | 적용 여부 |
-|---|----------|----------|----------|----------|
-| 1 | /be-harness:request | [내용] | `.claude/be-harness/skills/request.md` | Y/N |
-| 2 | be-harness:workflow-implementer | [내용] | `.claude/be-harness/agents/workflow-implementer.md` | Y/N |
+| # | 대상 스킬/에이전트 | 보완 내용 | 강제 수단 | 저장 경로 | 적용 여부 |
+|---|----------|----------|----------|----------|----------|
+| 1 | /be-harness:request | [내용] | 문서 | `.claude/be-harness/skills/request.md` | Y/N |
+| 2 | be-harness:workflow-implementer | [내용] | lint | `.golangci.yml` | Y(lint, 마감 후 적용)/N |
 
 ### 8. Read-back Diff (유저 결정 필요)
 > Phase 8.8이 SKIP이거나 판정이 PASS면 "없음"으로 적고 이 섹션을 비운다.
@@ -351,6 +351,21 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py"
 
 - 옵션 선택 후 각 보완점마다 Y/N 선택.
 - 옵션 2 선택 시 각 보완점에 `generality` 필드(범용 / 특정 조건 / 프로젝트 한정)를 수집. `프로젝트 한정`은 로컬 저장만 하고 PR 대상에서 제외.
+
+### lint 설정 반영 (`강제 수단: lint` 항목)
+
+옵션 1·2에서 Y로 승인된 `lint` 항목은 오버라이드 문서 대신 **프로젝트 lint 설정 파일**(성찰의 `저장 경로`)에 반영한다. 자연어 규칙보다 lint가 같은 실수를 결정적으로 막는다.
+
+- **시점**: 결정 단계 5(`finalization.md` 재검증·commit/push·아카이브)가 모두 끝난 뒤 마지막에 적용한다. 이 변경은 이번 실행의 검증·소유 파일·커밋·push 범위 밖이다 — 먼저 적용하면 tested tree가 바뀌어 기존 검증이 stale이 되고, 반영 Gate가 이 파일을 함께 커밋할 수 있다.
+
+1. 대상 파일의 현재 내용을 `{RUN_DIR}/lint-config-backup/`에 원본 그대로 보관한다.
+2. 성찰의 "lint 규칙 초안"을 그 파일 형식에 맞게 추가한다. 기존 규칙을 지우거나 다시 쓰지 않는다. `필요 패키지`는 설치하지 않고 보고에 적는다 (설치는 유저가 결정).
+3. `{lintCommand}`를 1회 실행해 PASS/FAIL·새 위반 수·로그 경로를 보고한다. 빈 명령이면 `SKIPPED:PROFILE_EMPTY`로 보고한다.
+4. FAIL이면 질문한다: "1. 유지 — 기존 코드 위반은 다음 작업에서 정리 2. 되돌리기 — 보관한 원본으로 복원". 되돌리면 그 항목을 `문서`로 내려 아래 append 규칙으로 저장할지 묻는다.
+5. 커밋하지 않는다 (로컬 변경). 최종 응답에 파일 경로·결과·"미커밋"을 적고, 다음 작업에서 커밋하도록 안내한다.
+6. 옵션 2(PR 제출)에서는 초안을 `proposal` 본문에 그대로 넣는다. 제출 형식은 바꾸지 않는다.
+
+`script·hook` 항목은 자동 설치하지 않는다. 초안을 포함해 아래 append 규칙으로 오버라이드 문서에 저장한다.
 
 ### 옵션 2 세부 흐름
 

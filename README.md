@@ -8,6 +8,17 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-11-18 품질 루프 결정적 검사 전환
+
+BE 1.8.0 / FE 1.8.0 / common 0.17.3. 품질 루프에서 lint·스크립트가 판정할 수 있는 일을 LLM에서 떼어냈다. 원칙: 결정적 도구를 먼저 쓰고, LLM은 의미 판단에만 쓴다.
+
+- FE 7.6 lint는 에이전트 없이 Bash로 직접 실행한다. 실패할 때만 수정 에이전트를 띄운다. 7.1과 겹치던 타입 검사를 다시 실행하지 않는다. 오케스트레이터가 `kind:lint` 결과를 기록한다.
+- BE 8.1이 `lintCommand`를 실행한다. lint 실패는 8.5가 변경 범위 안에서만 수정한다. Phase 7 빌드 게이트와 루프 종료 조건은 그대로다.
+- convention-check에 결정적 사전 검사 `convention_facts.py`(BE/FE 동일)를 추가했다. `[NEW_DEPENDENCY]`(go.mod·package.json), `[SQL_PATTERN]` 단일 리터럴 `IN`, `[COMPONENT_PATH]`를 스크립트가 판정한다. 스크립트가 실패하면 기존 LLM 절차로 폴백한다.
+- FE `[HOOKS_DEPS]` LLM 검사는 `eslint-plugin-react-hooks`가 선언된 프로젝트에서 건너뛴다.
+- 성찰은 보완점마다 강제 수단(lint → script·hook → 문서)을 판정한다. `lint` 항목은 규칙 초안을 내고, 승인하면 마감 뒤 프로젝트 lint 설정에 직접 반영한다 (미커밋, 실패 시 되돌리기 선택).
+- 남은 한계: `IN (?)` 단일 값 여부와 범위·열거 판단은 여전히 LLM이 한다. react-hooks 판정은 플러그인 선언만 보고 ESLint 설정 활성화는 보지 않는다.
+
 ## 2026-11-17 PR 본문 접기와 남은 한계
 
 common 0.17.2. `/common:commit-pr`의 PR 본문을 항상 보이는 부분과 접는 부분(`<details>`)으로 나눴다.

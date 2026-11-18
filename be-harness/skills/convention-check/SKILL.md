@@ -77,6 +77,19 @@ user-invocable: true
 1. 프로젝트 루트에서 `.conventions.json`을 읽는다.
 2. 없으면 기본값으로 진행: `default-conventions` + profile의 `projectConventions` 파일들.
 
+### 결정적 사전 검사 (LLM 검사보다 먼저)
+
+기계적으로 판정되는 항목은 스크립트가 판정한다. LLM은 같은 항목을 다시 검사하지 않는다.
+
+```bash
+python3 -I -B "${CLAUDE_PLUGIN_ROOT}/skills/convention-check/assets/convention_facts.py" \
+  --scope "{SCOPE_JSON}" --checks new-dependency,sql-in-literal
+```
+
+- `{SCOPE_JSON}`은 공통 변경 범위의 scope JSON 파일 경로다. stdout으로만 받았다면 `--scope -`로 stdin에 전달한다. 범위를 다시 계산하지 않는다.
+- exit 0: `findings`를 그대로 보고서에 채택한다 (태그·심각도·`path:line` 유지). `unchecked_manifests`만 아래 LLM 절차로 확인한다.
+- exit 2 (`BLOCKED:CONVENTION_FACTS`): 아래 LLM 절차 전체로 폴백하고, 보고서에 폴백 사유 1줄을 남긴다. 실패를 위반 0건으로 바꾸지 않는다.
+
 ### 컨벤션 검사
 
 설정된 각 컨벤션에 대해 위배 사항을 검사하고 보고한다:
@@ -94,6 +107,8 @@ user-invocable: true
 | `WHERE value <= ?` | **범위 비교**일 때 (e.g. 가격 이하, 날짜 이전, 재고 수량 조건) | 범위가 아닌 열거 비교에 <= 사용 → IN 또는 = 로 변경 권고 |
 | `WHERE id IN (단일값)` | 금지 | `IN (?)`에 단일 값만 전달 → `= ?`로 변경 필수 |
 
+단일 리터럴(`IN ('x')`·`IN (1)`·`IN ($1)`)은 사전 검사가 판정한다. LLM은 그 외만 본다: `IN (?)`에 실제로 단일 값만 전달되는지(sqlx.In·GORM의 슬라이스 확장은 정상), 범위 비교에 `IN`·열거 비교에 `<=`를 쓰는지.
+
 위반 시 `[SQL_PATTERN]` 태그로 보고:
 > "`repository.go:42` — `WHERE price IN (?)` → 범위 비교이므로 `WHERE price <= ?`가 적절합니다."
 
@@ -108,13 +123,10 @@ Spec(Technical Spec 또는 유저 지시)에 명시되지 않은 동작 변경�
 
 #### 외부 패키지 Import 규칙
 
-변경된 파일에 새로운 외부 패키지 import가 추가된 경우, 프로젝트 내 기존 사용 패턴과 일치하는지 자동 검사한다:
+**프로젝트 최초 도입** 판정은 사전 검사가 한다: `go.mod`·`package.json`에 새로 추가된 직접 의존(또는 indirect → 직접 승격)이 `[NEW_DEPENDENCY]`다 (의도적 도입인지 확인 필요). LLM은 아래만 확인한다:
 
-1. 공통 범위의 `patch`·`index_patch`에서 새로 추가된 import 라인을 추출한다.
-2. 표준 라이브러리(`fmt`, `net/http` 등)와 프로젝트 내부 패키지는 제외한다.
-3. 남은 외부 패키지에 대해 `Grep`으로 프로젝트 내 기존 사용 여부를 확인한다:
-   - **기존에 사용 중**: 기존 import 방식(alias 등)과 일치하는지 확인
-   - **프로젝트 최초 도입**: `[NEW_DEPENDENCY]`로 표기하고 위반으로 보고 (의도적 도입인지 확인 필요)
+1. `unchecked_manifests`(스크립트가 파싱하지 않는 매니페스트·파싱 실패)의 새 의존 → `[NEW_DEPENDENCY]`.
+2. 공통 범위의 `patch`·`index_patch`에서 새로 추가된 외부 패키지 import가 기존 import 방식(alias 등)과 일치하는지. 표준 라이브러리와 프로젝트 내부 패키지는 제외한다.
 
 ### 보고 형식
 
