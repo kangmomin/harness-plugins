@@ -72,6 +72,19 @@ user-invocable: true
 1. 프로젝트 루트에서 `.claude/fe-harness.local.md`을 읽는다.
 2. `projectConventions` 배열이 없으면 기본값으로 진행: `default-conventions`
 
+### 결정적 사전 검사 (LLM 검사보다 먼저)
+
+기계적으로 판정되는 항목은 스크립트가 판정한다. LLM은 같은 항목을 다시 검사하지 않는다.
+
+```bash
+python3 -I -B "${CLAUDE_PLUGIN_ROOT}/skills/convention-check/assets/convention_facts.py" \
+  --scope "{SCOPE_JSON}" --checks new-dependency,component-path,hooks-coverage --component-pattern "{componentPattern}"
+```
+
+- `{SCOPE_JSON}`은 공통 변경 범위의 scope JSON 파일 경로다. stdout으로만 받았다면 `--scope -`로 stdin에 전달한다. 범위를 다시 계산하지 않는다. `{componentPattern}`이 profile에 없으면 빈 값으로 전달한다 (`skipped_checks`에 기록됨).
+- exit 0: `findings`를 그대로 보고서에 채택한다 (태그·심각도·경로 유지). `unchecked_manifests`만 아래 LLM 절차로 확인한다. `lint_coverage.react_hooks`는 아래 hooks 검사의 건너뜀 여부를 정한다.
+- exit 2 (`BLOCKED:CONVENTION_FACTS`): 아래 LLM 절차 전체로 폴백하고, 보고서에 폴백 사유 1줄을 남긴다. 실패를 위반 0건으로 바꾸지 않는다.
+
 ### 컨벤션 검사
 
 설정된 각 컨벤션에 대해 위배 사항을 검사하고 보고한다:
@@ -99,15 +112,14 @@ Spec(Technical Spec 또는 유저 지시)에 명시되지 않은 동작 변경�
 
 #### 외부 패키지 Import 규칙
 
-변경된 파일에 새로운 외부 패키지 import가 추가된 경우, 프로젝트 내 기존 사용 패턴과 일치하는지 자동 검사한다:
+**프로젝트 최초 도입** 판정은 사전 검사가 한다: `package.json`(`node_modules` 제외)에 새로 추가된 의존이 `[NEW_DEPENDENCY]`다 (의도적 도입인지 확인 필요). LLM은 아래만 확인한다:
 
-1. 공통 범위의 `patch`·`index_patch`에서 새로 추가된 import 라인을 추출한다.
-2. `react`, `next`, 프로젝트 내부 경로(`@/`, `~/`, `../`)는 제외한다.
-3. 남은 외부 패키지에 대해 `Grep`으로 프로젝트 내 기존 사용 여부를 확인한다:
-   - **기존에 사용 중**: 기존 import 방식(alias 등)과 일치하는지 확인
-   - **프로젝트 최초 도입**: `[NEW_DEPENDENCY]`로 표기하고 위반으로 보고 (의도적 도입인지 확인 필요)
+1. `unchecked_manifests`(스크립트가 파싱하지 않는 매니페스트·파싱 실패)의 새 의존 → `[NEW_DEPENDENCY]`.
+2. 공통 범위의 `patch`·`index_patch`에서 새로 추가된 외부 패키지 import가 기존 import 방식(alias 등)과 일치하는지. `react`, `next`, 프로젝트 내부 경로(`@/`, `~/`, `../`)는 제외한다.
 
 #### useMemo/useCallback 의존성 배열 검사
+
+**건너뜀 조건**: 사전 검사의 `lint_coverage.react_hooks`가 `true`면 이 검사 전체를 건너뛰고 "HOOKS_DEPS: lint(eslint-plugin-react-hooks) 담당 — 건너뜀" 1줄만 보고한다. 같은 규칙을 lint(품질 루프 7.6·`/fe-harness:lint-check`)가 결정적으로 검사하기 때문이다. `false`·`null`(사전 검사 폴백)이면 아래 LLM 검사를 그대로 수행한다.
 
 변경된 파일에서 `useMemo`, `useCallback`, `useEffect`의 의존성 배열을 자동 검사한다:
 
@@ -128,11 +140,12 @@ Spec(Technical Spec 또는 유저 지시)에 명시되지 않은 동작 변경�
 
 #### 컴포넌트 구조 검사
 
-`.claude/fe-harness.local.md`의 `componentPattern`에 따라:
+`.claude/fe-harness.local.md`의 `componentPattern`에 따른 **디렉터리 위치**는 사전 검사가 판정한다 (`[COMPONENT_PATH]` WARN — 새로 추가된 PascalCase `.tsx/.jsx/.vue` 파일 대상, test·stories·`app/`·`pages/` 제외). 이 WARN은 보고만 하고 파일을 옮기지 않는다 (자동 이동은 import 경로를 깨뜨릴 수 있다).
 
-- **feature-based**: 컴포넌트가 올바른 feature 디렉토리에 배치되었는지
-- **atomic**: atoms/molecules/organisms 분류가 적절한지
-- **flat**: components/ 하위에 배치되었는지
+LLM은 아래만 확인한다:
+
+- **atomic**: 위치가 맞는 컴포넌트의 atoms/molecules/organisms 분류가 내용에 비해 적절한지
+- 사전 검사가 폴백(exit 2)한 경우: `componentPattern` 기준 위치를 직접 확인 (`componentPattern` 미설정이면 위치 검사 자체를 건너뛴다 — `skipped_checks`와 같은 처리)
 
 ---
 
