@@ -162,8 +162,8 @@
 | 특화 하네스 품질 리뷰 (`review`) | 해당 없음 (hyeondongs 오버레이는 리뷰 단계를 삽입하지 않음) | — |
 | 탐색·수집 / 이해·요약 (`explore`) | 7.7 Read-back 복원(general-purpose) | — (general-purpose) |
 | 읽기 전용 판정 (`judge`) | 7.5 `scope-reviewer` · 8 `component-reviewer` · 8 `a11y-reviewer` · 10 `workflow-reflection` | `{PLUGIN_ROOT}/agents/{name}.md` |
-| 쓰기 (`write`) | 5.1 Red(러너 내부 리프) · 5.2 `workflow-implementer` · 6 build-fix · 7.2/7.3/7.4/7.6 수정(러너 내부 리프) · 8 Critical 이슈 수정 | `{PLUGIN_ROOT}/agents/{name}.md` (general-purpose는 생략) |
-| 러너 대상 (항상 Claude — `max`면 §8 포인터 1줄) | 5.1 `/fe-harness:unit-test --red` · 7.2 `/fe-harness:simplify-loop` · 7.3 `/fe-harness:convention-check` · 7.4 `/fe-harness:test-loop` · 7.6 `/fe-harness:lint-check` | — |
+| 쓰기 (`write`) | 5.1 Red(러너 내부 리프) · 5.2 `workflow-implementer` · 6 build-fix · 7.6 lint 수정 · 7.2/7.3/7.4 수정(러너 내부 리프) · 8 Critical 이슈 수정 | `{PLUGIN_ROOT}/agents/{name}.md` (general-purpose는 생략) |
+| 러너 대상 (항상 Claude — `max`면 §8 포인터 1줄) | 5.1 `/fe-harness:unit-test --red` · 7.2 `/fe-harness:simplify-loop` · 7.3 `/fe-harness:convention-check` · 7.4 `/fe-harness:test-loop` (7.6 lint는 Bash 직접 실행 — 러너 없음) | — |
 | PR (항상 Claude) | 9 `workflow-pr` | — |
 
 - `max`의 5.1: Codex `write` 슬롯이 `{PLUGIN_ROOT}/skills/unit-test/SKILL.md` 절차를 직접 읽어 수행한다 (`references/tdd.md`). none·mix는 기존 Skill tool 경로.

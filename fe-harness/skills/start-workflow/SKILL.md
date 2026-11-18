@@ -324,14 +324,14 @@ for iteration in 1..{QL_MAX}:
   7.3 convention-check        → general-purpose 에이전트
   7.4 test-loop               → general-purpose 에이전트 (TDD 활성 시 frozen 모드, light는 --smoke, quick은 --unit-only)
   7.5 scope-reviewer          → scope-reviewer 에이전트
-  7.6 lint-check              → general-purpose 에이전트
+  7.6 lint                    → Bash 직접 실행 (실패 시에만 수정 위임, 타입 검사 재실행 없음)
 
 [루프 종료 후 1회] 7.7 Spec 정합 Read-back — 판정만, 코드 수정 없음
 ```
 
 **light**: 7.2 = `SKIPPED:TIER_LIGHT`, 7.4 = `test-loop --smoke`, 7.7 = `SKIPPED:TIER_LIGHT`. 승격 ③·⑥·⑦(회귀 · E2E 실패 잔존 · 재판정)은 `references/verification-tier.md` §5 — 티어 전환은 아래 종료 조건 평가보다 먼저 적용하고, ⑥·⑦은 새 티어 iteration을 최소 1회 추가한다. 각 iteration 종료 시(T < standard) ⑦을 재판정한다.
 **quick**: 7.2·7.3·7.6·7.7 = `SKIPPED:TIER_QUICK`, 7.4 = `test-loop --unit-only`. `## Quick Test Evidence`가 있으면(승격 후에도 유지) 7.4에 Evidence 종료 증거 게이트, 7.5에 Evidence 대응 확인을 더한다 (`references/verification-tier.md` §4.1).
-`codexMode: max`: 7.5 scope-reviewer는 Codex `judge` 슬롯, 7.7 복원은 `explore` 슬롯, 7.1 수정과 7.2/7.3/7.4/7.6 러너 내부의 수정 리프는 `write` 슬롯으로 위임한다 (러너 프롬프트에 §8 포인터 1줄 — `references/codex-mode.md`).
+`codexMode: max`: 7.5 scope-reviewer는 Codex `judge` 슬롯, 7.7 복원은 `explore` 슬롯, 7.1·7.6 수정과 7.2/7.3/7.4 러너 내부의 수정 리프는 `write` 슬롯으로 위임한다 (러너 프롬프트에 §8 포인터 1줄 — `references/codex-mode.md`).
 
 7.4의 테스트 실패는 `assets/test_failures.py --baseline {STATE_FILE}`로 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (절차·폴백: `references/tdd.md`의 "Phase 7: 회귀 대조"). `unparsed`·러너 완주 N 잔존 시 PASS 불가. Test Map이 있으면 단위 판정 실행은 전체 단위 + `--expect expect-final.txt`이고 미관측·중복·skip·baseline 실패 미확인도 판정 불가다. test-loop 보고의 **관측 누적**(이번 호출에서 확정된 regression·판정 불가)은 승격 ③에만, **최종 분류**(최종 트리의 마지막 실행)는 아래 테스트 판정·결과 기록에 쓴다.
 
