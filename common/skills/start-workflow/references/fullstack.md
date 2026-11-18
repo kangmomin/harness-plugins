@@ -246,8 +246,8 @@ TDD 활성 시 **테스트 파일 수정 금지**와 `[TestConflict]` 보고 규
 
 Phase 7 시작 전 `{STATE_FILE}`의 상태를 갱신한다. 각 도메인 루프의 서브 에이전트는 도메인별 실패 심각도에 맞는 model/effort를 명시한다.
 
-- **백엔드 루프**: ① build + `{testCommand}` ② `/be-harness:simplify-loop` ③ `/be-harness:convention-check` ④ `/be-harness:e2e-test-loop` ⑤ API 계약 변경 + `apiDocsPath` 존재 시 문서 동기화
-- **프론트엔드 루프**: ① build + type-check ② `/fe-harness:simplify-loop` ③ `/fe-harness:convention-check` ④ `/fe-harness:test-loop` ⑤ `/fe-harness:lint-check`
+- **백엔드 루프**: ① build + `{lintCommand}` + `{testCommand}` (BE `quality-loop.md` Phase 8.1 — lint 실패는 범위 안 파일만 수정) ② `/be-harness:simplify-loop` ③ `/be-harness:convention-check` ④ `/be-harness:e2e-test-loop` ⑤ API 계약 변경 + `apiDocsPath` 존재 시 문서 동기화
+- **프론트엔드 루프**: ① build + type-check ② `/fe-harness:simplify-loop` ③ `/fe-harness:convention-check` ④ `/fe-harness:test-loop` ⑤ lint — FE `agent-prompts.md` Phase 7.6 절차 (Bash 직접 실행, 실패 시에만 수정 위임)
 
 품질 루프도 공유 index를 사용하므로 BE → FE 순차 실행한다. 빌드/타입 체크는 명령별 exit code를 판정하며 로그 tail 사용 시 Bash `pipefail`을 적용한다.
 MUST: [ocr-review.md](ocr-review.md)를 읽고 실제 Simplify·Convention 호출 직전에 common 오케스트레이터가 writer 종료 후 자기 collector로 최신 scope를 `--ocr` 수집한다. 각 도메인 러너에는 해당 소유 파일·역할의 검증된 groups와 status/uncovered_paths/진단을 전달하고, 러너는 실제 중첩 스킬의 스캔 입력에 인계한다. 수정이 발생하면 다음 리뷰 전에 새 artifact를 수집한다. 적용 group_id·파일·역할 및 미적용 이유를 기존 Phase 근거에 반환·보존한다. 기존 순서·수정 권한·상한은 그대로이며 OCR 실패는 기존 리뷰로 fallback한다.
@@ -319,7 +319,7 @@ Phase 8 완료 후 `assets/workflow_policy.py fullstack`에 최신 `be/fe/contra
 `$REFLECT = false`면 이 Phase 전체를 `SKIPPED:REFLECT_NOT_REQUESTED`로 기록하고 Phase 11로 간다 (보완점은 회고 산출물이므로 함께 생략). 회고는 매 작업이 아니라 주기적으로 `--reflect`를 붙여 실행하기를 권장한다.
 
 1. `workflow-reflection`으로 회고를 남긴다 (변경량 기준 model/effort, 상태 파일 갱신).
-2. 보완점은 **대상 도메인별로** 분류한다: BE → `.claude/be-harness/...`, FE → `.claude/fe-harness/...`, 풀스택 공통(계약·Feature Matrix 등) → `.claude/common/skills/start-workflow.md`. 플러그인 원본은 수정하지 않는다.
+2. 보완점은 **대상 도메인별로** 분류한다: BE → `.claude/be-harness/...`, FE → `.claude/fe-harness/...`, 풀스택 공통(계약·Feature Matrix 등) → `.claude/common/skills/start-workflow.md`. 플러그인 원본은 수정하지 않는다. `강제 수단: lint` 항목은 해당 도메인 `templates.md`의 "lint 설정 반영" 절차를 따른다 (Phase 11 마감 뒤 적용, 미커밋).
 3. 보완점 반영 방식 질문:
    > "1. **로컬에만 저장** (기본값) — 각 도메인의 로컬 오버라이드 파일에 append.
    > 2. **로컬 저장 + 플러그인 레포 PR** — 도메인별 submit-feedback 호출.
