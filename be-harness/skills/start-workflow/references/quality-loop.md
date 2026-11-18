@@ -22,16 +22,18 @@ Phase 8 재진입(승격 ⑦)과 finalization 재검증의 결과 이벤트는 �
 
 > 만약 에이전트가 파일을 수정했다면 해당 변경을 **무시**하고 이슈 목록만 채택한다 (통합 수정 시 기준 상태에서 다시 편집).
 
-### Phase 8.1: 빌드 + 테스트 — Bash로 직접 실행 (에이전트 아님)
+### Phase 8.1: 빌드 + lint + 테스트 — Bash로 직접 실행 (에이전트 아님)
 
-BUILD_LOG와 UNIT_LOG는 Batch A에서 새로 만든 `{RUN_DIR}/scope-{REVIEW_ATTEMPT}` 안의 `build.log`·`unit.log` 절대 경로다. REVIEW_ATTEMPT는 RUN 전체에서 증가하므로 QL 재진입의 iteration 초기화로 이전 로그를 덮지 않는다. 같은 명령을 재실행할 때도 새 미사용 로그 경로를 배정한다.
+BUILD_LOG·LINT_LOG·UNIT_LOG는 Batch A에서 새로 만든 `{RUN_DIR}/scope-{REVIEW_ATTEMPT}` 안의 `build.log`·`lint.log`·`unit.log` 절대 경로다. REVIEW_ATTEMPT는 RUN 전체에서 증가하므로 QL 재진입의 iteration 초기화로 이전 로그를 덮지 않는다. 같은 명령을 재실행할 때도 새 미사용 로그 경로를 배정한다.
 
 ```bash
 {buildCommand} > "{BUILD_LOG}" 2>&1; BUILD_EXIT=$?
+{lintCommand} > "{LINT_LOG}" 2>&1; LINT_EXIT=$?
 {testCommand} > "{UNIT_LOG}" 2>&1; TEST_EXIT=$?
 ```
 
 명령별로 설정된 것만 실행하고 비어 있는 명령은 해당 검사의 SKIPPED:PROFILE_EMPTY로 기록한다. 각 exit·완주·로그·tested_tree를 Batch A 결과에 수집한다. 자동 errexit에 의해 실패 로그 수집이 생략되지 않게 실행하며 파일 수정은 없다.
+lint는 결정적 검사라 LLM 스캐너보다 먼저 신뢰한다. `LINT_EXIT ≠ 0`이면 로그를 8.5의 lint 이슈로 넘긴다. lint 결과는 루프 종료 조건에 넣지 않는다 (Phase 7 빌드 게이트에도 넣지 않는다 — lint 실패로 워크플로우를 멈추지 않고 8.5가 수정한다). `Phase Results` 8.1 행에 lint exit·로그 경로를 함께 기록한다.
 
 **회귀 대조 (TDD 활성 시)**: 테스트 출력을 `assets/test_failures.py`로 파싱해 `{STATE_FILE}`의 `## Test Baseline`과 대조한다. 상세 절차·폴백은 `references/tdd.md`의 "Phase 8: 회귀 대조".
 
@@ -123,7 +125,7 @@ Agent tool:
 
 ## Phase 8.5: 통합 수정
 
-Batch A에서 수집된 이슈(빌드/테스트 에러 + simplify 후보 + convention 위반 + scope 누락)가 하나라도 있으면, **단일 `general-purpose` 에이전트**에 일괄 위임한다. 이슈가 없으면 이 단계를 건너뛴다.
+Batch A에서 수집된 이슈(빌드/테스트 에러 + lint 에러 + simplify 후보 + convention 위반 + scope 누락)가 하나라도 있으면, **단일 `general-purpose` 에이전트**에 일괄 위임한다. 이슈가 없으면 이 단계를 건너뛴다.
 
 ```
 Agent tool:
@@ -147,6 +149,9 @@ Agent tool:
     ## 이슈 목록
     ### 빌드/테스트 에러 (최우선 — regression → new_red 순)
     {build / test 로그 + 회귀 분류}
+
+    ### Lint 에러 (변경 범위 파일만)
+    {LINT_LOG 경로 + 실패 출력 — 범위 밖 파일의 이슈는 수정하지 말고 `pre_existing`으로 보고. 프로젝트 전체 `--fix` 금지}
 
     ### Scope 누락
     {scope-reviewer 보고서}

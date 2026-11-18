@@ -168,7 +168,7 @@ profile 값을 근거로 누락 항목이 있으면 어떤 Phase가 SKIP될 것�
 |----------|----------|-------------|
 | `{buildCommand}` | 비어있지 않음 | Phase 7 빌드 체크 SKIP (위험: 컴파일 에러 조기 차단 불가) |
 | `{testCommand}` | 비어있지 않음 | Phase 6.1 TDD·회귀 baseline SKIP + Phase 8.1 테스트 SKIP (위험: 회귀 탐지 불가) |
-| `{lintCommand}` | 비어있지 않음 | Phase V2 정적 분석 일부 SKIP |
+| `{lintCommand}` | 비어있지 않음 | Phase 8.1 lint SKIP + Phase V2 정적 분석 일부 SKIP (위험: 결정적 규칙 위반을 LLM 스캔에만 의존) |
 | `{e2eEnabled}` & `{runServerCommand}` & `{serverUrl}` | 모두 유효 | Phase 8.6 (e2e-test-loop) SKIP 예정 |
 | `{apiDocsPath}` | 파일 존재 | Phase 9 (문서 동기화) SKIP 예정 |
 | `{makeTestCommand}` | 비어있지 않음 | Phase 8.7 통합 테스트 SKIP |
@@ -387,7 +387,7 @@ quick + TDD 활성이면 대신 quick 테스트 동반 모드 블록을 추가�
 
 ```
 for iteration in 1..{QL_MAX}:
-  [Batch A — 병렬 스캔, 읽기 전용] 8.1 빌드+테스트(Bash) / 8.2+8.3 품질 스캔(통합 1에이전트) / 8.4 scope
+  [Batch A — 병렬 스캔, 읽기 전용] 8.1 빌드+lint+테스트(Bash) / 8.2+8.3 품질 스캔(통합 1에이전트) / 8.4 scope
       → 이슈만 수집, 파일 수정 금지
   [Phase 8.5 — 통합 수정] 수집 이슈를 단일 에이전트가 일괄 수정
   [Batch B — 순차, 서버 점유] 8.6 e2e-test-loop → 8.7 통합 테스트
