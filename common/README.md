@@ -150,6 +150,34 @@ work-log mod 도 같은 블록을 넣는다. 이름이 같으면 한 번만 들�
 - be·fe·풀스택·Analyze·Verify 모두 같은 band 1개로 표시한다. 스킬 문서는 바꾸지 않는다.
 - `tool.call` 은 hook 하지 않는다 (도구의 백그라운드 전환을 끄기 때문). Code Mode 한계: [docs/codeact-review.md](../docs/codeact-review.md).
 
+### 커밋 단위 사용량 측정 (#29)
+
+목적: 어떤 방식(스킬 변경, 설정, 습관)을 적용하기 전과 후를 숫자로 비교한다.
+
+| 명령 | 동작 |
+|------|------|
+| `/harness-metrics` | pane: 현재 구간 · label 별 커밋당 평균 · 최근 커밋 10개 |
+| `/harness-metrics-label <이름>` | 다음 기록부터 label 을 붙인다 (예: `before-tdd`, `after-tdd`). 인자 없으면 해제 → 플러그인 버전(`common@x.y.z`)으로 묶는다 |
+
+- 구간: 마지막 기록부터 다음 커밋까지. 커밋이 들어간 **main turn 이 끝날 때** 기록한다 (그 turn 의 토큰 포함). subagent(workflow-implementer 등)의 커밋도 센다.
+- 커밋 감지: Bash `git commit` 결과의 `[branch abc1234] 제목` 줄. `-q` 커밋은 기록 시점의 HEAD 로 푼다. 실패한 커밋·`--dry-run` 은 세지 않는다. `--amend` 는 토큰만 더하고 커밋 수·변경 줄 수는 다시 세지 않는다. 한 turn 에 커밋이 여러 개면 한 기록에 함께 들어간다 (pane 의 `/N`).
+- 기록에 실패하면(python 없음 등) 구간을 버리지 않고 다음 기록에서 다시 시도한다.
+- 세션이 끝나면 커밋되지 않은 구간도 기록한다 (pane 의 「미커밋 구간」).
+
+| 항목 | 값 |
+|------|-----|
+| 토큰 | `turn.complete` 합계. input · output · cache read · cache write, main/subagent 분리, 모델별 |
+| 비용 | `$.session.usage()` 차이. **추정값** (청구 금액 아님) |
+| 시간 | main turn 활동 시간 합, 구간 wall 시간, turn 수 |
+| 입력 패턴 | 사람이 보낸 프롬프트 수 · 글자 수 · slash command 수 |
+| 수정 요청 (대리 지표) | 구간의 2번째 이후 프롬프트 수(후속), 중단 수, 거부된 tool 호출 수 |
+| 하네스 리뷰 | reviewer/verifier subagent 호출 수, review 계열 Skill 호출 수, `codex` 실행 수, 진행 중 workflow 의 runId·Phase 진행 |
+| git | 전체 sha · 제목 · branch · 변경 파일 수 · +/- 줄 수 (줄당 토큰 계산) |
+
+- 저장: repo 밖 `~/.claude/harness-metrics/<repo>-<hash>/commits.jsonl` (`HARNESS_METRICS_DIR` 로 변경). 같은 repo 의 worktree 는 한 폴더를 쓴다.
+- 정본: `hooks/metrics.py` (`record` · `summary` · `label`). mod 는 세고 표시만 한다. python 이 없으면 pane 에 원인을 표시하고 기록은 건너뛴다.
+- 한계: 중단·API 오류 turn 은 토큰이 없다(엔진이 usage 를 주지 않음). Claude 밖에서 만든 커밋은 기록하지 않는다. "수정 요청"은 의미를 분석하지 않은 대리 지표다. Claude Code 전용 (Codex 호스트 미지원).
+
 ## Project Overrides
 
 다른 하네스와 동일한 오버라이드 규약을 따른다. 자세한 내용은 `OVERRIDES.md`.

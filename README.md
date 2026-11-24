@@ -8,6 +8,15 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-11-24 커밋 단위 사용량 측정 (#29)
+
+common 0.20.0. 변경(git 커밋)과 Claude 사용 데이터를 연결해 기록한다. 목적: 어떤 방식을 적용하기 전과 후를 숫자로 비교한다.
+
+- common mod 가 토큰(main/subagent·모델별)·추정 비용·활동 시간·프롬프트 패턴·후속 프롬프트·중단·거부·리뷰 호출 수를 센다.
+- 커밋이 들어간 main turn 이 끝나면 `hooks/metrics.py` 가 git 정보(sha·제목·변경 줄 수)를 붙여 repo 밖 `~/.claude/harness-metrics/` 에 JSONL 로 저장한다.
+- `/harness-metrics` pane 에서 label 별 커밋당 평균을 비교한다. `/harness-metrics-label <이름>` 으로 전후 구간을 나눈다. label 이 없으면 플러그인 버전으로 묶는다.
+- 남은 한계: 중단 turn 은 토큰이 없다. Claude 밖 커밋은 기록하지 않는다. "수정 요청"은 대리 지표다. 실제 세션에서의 표시는 수동 확인 전이다.
+
 ## 2026-11-24 mods 전체 적용 (#27)
 
 BE 1.10.0 / FE 1.10.0 / common 0.19.0 / minmos 2.7.0 / work-log 0.6.0 / harness-settings 0.2.0. Claude Code mod(hooks 모듈)를 각 플러그인에 넣었다. 스킬 동작은 바뀌지 않는다.
