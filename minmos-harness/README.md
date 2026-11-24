@@ -84,6 +84,20 @@ Post-Math 특화 규칙은 `overlay/` 에 있고, 두 경로로 적용된다 (�
 
 그 외 `scope-reviewer`, `workflow-implementer`, `workflow-pr`, `workflow-reflection`, `code-analyzer`, `code-verifier`, `edge-case-analyzer` 는 [`be-harness`](../be-harness/README.md) 의 것을 사용한다.
 
+## 의존성 상태 mod (Claude Code 전용)
+
+세션 시작 8초 뒤 가벼운 점검을 한 번 한다. 실행·쿼리·네트워크 호출은 하지 않는다.
+
+| 항목 | 점검 |
+|------|------|
+| `APIDOG_ACCESS_TOKEN` · `APIDOG_PROJECT_ID` | 설정 여부만 (값은 표시하지 않음) |
+| `secret/.env` · `.conventions.json` · `infra/flyway/migrations` | 존재 |
+| Apidog MCP · PostgreSQL MCP | 세션 도구 목록에 이름이 있는지 |
+
+- status line: `minmos: ✓` 또는 `minmos: ⚠n`. 누락이 있으면 toast 1회.
+- `/minmos-status` → pane: 항목별 OK/WARN, "다시 점검" 버튼.
+- 정밀 진단(MCP 실제 쿼리·빌드·Codex)은 `/minmos-harness:doctor` 가 정본이다.
+
 ## 워크플로우
 
 ### 전체 자동화 (`/minmos-harness:start-workflow`)

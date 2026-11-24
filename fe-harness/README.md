@@ -81,6 +81,22 @@ commit/push/PR 워크플로우가 common 스킬에 위임되므로 `common`을 �
 
 모든 스킬이 `.claude/fe-harness.local.md` (YAML frontmatter) 에서 framework/testRunner/e2eRunner/packageManager 등을 읽는다.
 
+### profile 편집 mod (Claude Code 전용)
+
+`/fe-harness-profile` → pane 에서 주요 키를 바꾼다. `/harness-settings` pane 의 "FE 프로필 편집" 버튼으로도 연다.
+
+| 항목 | 키 |
+|------|----|
+| Codex 모드 | `codexMode` (none · mix · max) |
+| 대화 언어 | `language` (ko · en) |
+| E2E runner | `e2eRunner` (playwright · cypress · none) |
+| 서버 URL | `serverUrl` |
+
+- 저장은 config 스킬과 같은 경로다: `profile.py edit` preview → `--apply --expected-sha256`. 바뀐 줄만 바뀐다.
+- `.claude/fe-harness.local.md` 가 없으면(레거시 `.hyeondong-config.json` 포함) 편집하지 않는다. `/fe-harness:init` 을 안내한다.
+- `profile.py` 는 POSIX(macOS·Linux·WSL) Python 이 필요하다. Windows 기본 Python 에서는 pane 이 원인을 표시한다.
+- 다른 키는 `/fe-harness:config`. 코드는 `be-harness/hooks/register.tsx` 의 복사본이다 (`tests/test_mods.py` 가 일치를 검사).
+
 ## Project Overrides (로컬 피드백)
 
 플러그인 원본을 수정하지 않고 프로젝트별로 스킬/에이전트 동작을 조정할 수 있다:

@@ -8,6 +8,19 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-11-24 mods 전체 적용 (#27)
+
+BE 1.10.0 / FE 1.10.0 / common 0.19.0 / minmos 2.7.0 / work-log 0.6.0 / harness-settings 0.2.0. Claude Code mod(hooks 모듈)를 각 플러그인에 넣었다. 스킬 동작은 바뀌지 않는다.
+
+- common·work-log: SessionStart `printf` command hook 을 mod 로 교체했다. 같은 `harnessLanguage` 블록이라 둘 다 설치해도 한 번만 들어간다.
+- common: 워크플로우 진행 표시. band `▶ BE · Phase 8 - 품질 루프`, status line, `/harness-progress` pane(Phase 표). `workflow_run.py` 출력과 상태 파일을 읽는다.
+- be/fe: `/be-harness-profile`·`/fe-harness-profile` pane 에서 profile 주요 키 편집 (`profile.py` preview → apply).
+- harness-settings: pane 에 설치된 하네스의 프로필 편집 버튼.
+- minmos: env·파일·MCP 가벼운 점검을 status line·toast 로, `/minmos-status` pane.
+- work-log: `/work-log-status` pane(인덱스 상태·동기화 버튼), 오래된 인덱스 toast.
+- CodeAct(Code Mode) 는 검토만 했다: [docs/codeact-review.md](docs/codeact-review.md). mod 작성 규칙: `docs/skill-authoring.md` §11.
+- 남은 한계: mod 는 Claude Code 전용이다 (Codex 클라이언트에는 규칙 주입도 없다). `profile.py` 가 POSIX 전용이라 Windows 기본 Python 에서는 프로필 pane 이 편집하지 못하고 원인만 표시한다. Code Mode 스크립트 안에서 만든 실행은 band 에 표시되지 않는다. 실제 세션에서의 표시는 수동 확인 전이다.
+
 ## 2026-11-24 공통 설정 파일과 설정 mod (#23)
 
 BE 1.9.0 / FE 1.9.0 / common 0.18.0 / minmos 2.6.4 / harness-settings 0.1.0. be/fe/common이 함께 읽는 설정 파일 `.claude/harness.config.json`을 추가했다.
@@ -254,6 +267,7 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 
 - `docs/skill-authoring.md`: 스킬 작성 표준 (모든 플러그인 SKILL.md의 기준)
 - `docs/overlay.md`: 오버레이 규약 (앵커 기반 Phase 삽입, 두 적용 경로, 승격 기준)
+- `docs/codeact-review.md`: CodeAct(Code Mode) 적용 검토와 mod 영향
 - `common/README.md`: 진입점 + 공용 스킬
 - `be-harness/README.md`: 범용 백엔드 베이스
 - `fe-harness/README.md`: 범용 프론트엔드 베이스
