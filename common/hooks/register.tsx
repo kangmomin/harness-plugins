@@ -13,12 +13,16 @@ const PANE = 'harness-progress'
 const run = atom({ plugin: 'common', key: 'run' } as const, null)
 const progress = atom({ plugin: 'common', key: 'progress' } as const, null)
 
-// 상태 파일을 바꾸지 않는 도구. 이 호출 뒤에는 다시 읽지 않는다.
-const READ_ONLY_TOOLS = new Set(['Read', 'Grep', 'Glob', 'LS', 'WebFetch', 'WebSearch', 'ToolSearch'])
+// tool_use id → workflow_run.py 명령. 결과 행이 올 때까지 기다린다.
+const pending = atom({ plugin: 'common', key: 'pending' } as const, {})
+
+type Block = { readonly type: string; readonly [field: string]: unknown }
+
+const isRunCommand = (command: string) => /workflow_run\.py/.test(command) && /\b(create|resume)\b/.test(command)
 
 // workflow_run.py create/resume 출력(JSON 1개)에서 실행 정보를 꺼낸다. 다른 출력이면 null.
 export function parseRun(command: string, output: string): Run | null {
-  if (!/workflow_run\.py/.test(command) || !/\b(create|resume)\b/.test(command)) return null
+  if (!isRunCommand(command)) return null
   const start = output.indexOf('{')
   const end = output.lastIndexOf('}')
   if (start < 0 || end <= start) return null
@@ -29,6 +33,26 @@ export function parseRun(command: string, output: string): Run | null {
   } catch {
     return null
   }
+}
+
+// assistant 행에서 workflow_run.py create/resume 를 부르는 Bash 호출을 찾는다.
+export function runCalls(content: readonly Block[]): Record<string, string> {
+  const found: Record<string, string> = {}
+  for (const block of content) {
+    if (block.type !== 'tool_use' || block.name !== 'Bash') continue
+    const command = (block.input as { command?: unknown } | undefined)?.command
+    if (typeof block.id === 'string' && typeof command === 'string' && isRunCommand(command)) {
+      found[block.id] = command
+    }
+  }
+  return found
+}
+
+export function resultText(block: Block): string {
+  const content = block.content
+  if (typeof content === 'string') return content
+  if (!Array.isArray(content)) return ''
+  return content.map(part => (part && typeof part === 'object' && typeof part.text === 'string' ? part.text : '')).join('')
 }
 
 function section(text: string, title: string): string[] {
@@ -84,6 +108,26 @@ async function refresh($: EngineInterface): Promise<void> {
   $.ui.status(`wf: ${active.mode.toUpperCase() || 'WF'}${short ? ` P${short}` : ''}`)
 }
 
+async function observe($: EngineInterface, content: readonly Block[]): Promise<void> {
+  const calls = runCalls(content)
+  if (Object.keys(calls).length > 0) await update($, pending, current => ({ ...current, ...calls }))
+  const results = content.filter(block => block.type === 'tool_result')
+  if (results.length === 0) return
+  const waiting = await read($, pending)
+  for (const block of results) {
+    const id = String(block.tool_use_id ?? '')
+    const command = waiting[id]
+    if (command === undefined) continue
+    await update($, pending, current => Object.fromEntries(Object.entries(current).filter(([key]) => key !== id)))
+    const found = block.is_error ? null : parseRun(command, resultText(block))
+    if (found) {
+      await update($, run, () => found)
+      await update($, progress, () => null)
+    }
+  }
+  await refresh($)
+}
+
 async function finish($: EngineInterface): Promise<void> {
   await update($, run, () => null)
   await update($, progress, () => null)
@@ -105,22 +149,16 @@ export const register: Register = on => {
     return next(e)
   })
 
-  on('tool.call', async ($, e, next) => {
-    const result = await next(e)
+  // tool.call 을 hook 하면 그 도구의 백그라운드 전환·실시간 출력이 꺼진다. 그래서 저장되는 행만 읽는다.
+  on('session.append', async ($, e, next) => {
+    const stored = await next(e)
     try {
-      if (e.tool === 'Bash' && 'text' in result && typeof result.text === 'string' && !result.isError) {
-        const found = parseRun(String(e.command ?? ''), result.text)
-        if (found) {
-          await update($, run, () => found)
-          await update($, progress, () => null)
-        }
-      }
-      if (!READ_ONLY_TOOLS.has(String(e.tool))) await refresh($)
+      await observe($, e.message.content as readonly Block[])
     } catch {
-      // 표시는 부가 기능이다. 실패해도 도구 결과는 그대로 돌려준다.
+      // 표시는 부가 기능이다. 실패해도 행 저장에는 영향이 없다.
     }
-    return result
-  }).catch(($, e, next) => next(e)) // 감시만 한다. 실패해도 호출을 막지 않는다(next 는 replay-safe).
+    return stored
+  }).catch(($, e, next) => next(e))
 
   on('command.run', { command: PANE }, async $ => {
     await $.ui.open({ id: PANE, title: 'Workflow progress' })

@@ -13,6 +13,6 @@ export type Progress = {
 
 declare module 'claude-code' {
   interface PluginState {
-    common: { run: Run | null; progress: Progress | null }
+    common: { run: Run | null; progress: Progress | null; pending: Record<string, string> }
   }
 }
