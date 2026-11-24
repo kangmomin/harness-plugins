@@ -146,4 +146,5 @@ wire_api = "responses"          # Codex는 responses만 지원
 ## profile 생성
 
 `/fe-harness:init` 실행 → 자동 감지 + 사용자 확인 → 파일 생성.
+Claude Code 에서는 `/fe-harness-profile` pane(mod)으로 주요 키(`codexMode`·`language` 등)를 바꿀 수 있다. 같은 helper 경로를 쓴다.
 값 하나를 보거나 바꿀 때는 `/fe-harness:config` — `{키}` 조회, `{키}={값} …` 배치 수정 (주석·키 순서 보존, 파일 생성 없음, 레거시 `.hyeondong-config.json`은 조회만).

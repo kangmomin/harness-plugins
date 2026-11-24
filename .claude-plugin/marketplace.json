@@ -6,22 +6,22 @@
   "plugins": [
     {
       "name": "common",
-      "description": "워크플로우 단일 진입점(start-workflow — 도메인 판정 + 풀스택 오케스트레이션), 구현 전 요구사항 인터뷰(ready-for-impl)와 커밋/PR/문서 스킬 모음. 다른 하네스를 설치하기 전에 먼저 설치해야 한다.",
+      "description": "워크플로우 단일 진입점(start-workflow — 도메인 판정 + 풀스택 오케스트레이션), 구현 전 요구사항 인터뷰(ready-for-impl)와 커밋/PR/문서 스킬 모음. 다른 하네스를 설치하기 전에 먼저 설치해야 한다. mod: 커뮤니케이션 규칙 주입, 워크플로우 진행 band·status line·/harness-progress pane.",
       "source": "./common"
     },
     {
       "name": "be-harness",
-      "description": "범용 백엔드 개발 워크플로우 하네스. Technical Spec→Plan→구현→품질 루프→PR. Go/Node 프리셋 내장. 특화 하네스(minmos)의 베이스.",
+      "description": "범용 백엔드 개발 워크플로우 하네스. Technical Spec→Plan→구현→품질 루프→PR. Go/Node 프리셋 내장. 특화 하네스(minmos)의 베이스. mod: /be-harness-profile pane 에서 profile 주요 키 편집.",
       "source": "./be-harness"
     },
     {
       "name": "fe-harness",
-      "description": "범용 프론트엔드 개발 워크플로우 하네스. 컴포넌트 중심 Spec→Plan→구현→품질/접근성/E2E 루프→PR. 특화 하네스(hyeondongs)의 베이스.",
+      "description": "범용 프론트엔드 개발 워크플로우 하네스. 컴포넌트 중심 Spec→Plan→구현→품질/접근성/E2E 루프→PR. 특화 하네스(hyeondongs)의 베이스. mod: /fe-harness-profile pane 에서 profile 주요 키 편집.",
       "source": "./fe-harness"
     },
     {
       "name": "minmos-harness",
-      "description": "be-harness 오버레이. Post-Math 백엔드 특화 — Apidog 문서 동기화, gRPC/PubSub E2E, PostgreSQL MCP DB 안전 규칙, Post-Math 컨벤션. be-harness 선행 설치 필수.",
+      "description": "be-harness 오버레이. Post-Math 백엔드 특화 — Apidog 문서 동기화, gRPC/PubSub E2E, PostgreSQL MCP DB 안전 규칙, Post-Math 컨벤션. be-harness 선행 설치 필수. mod: env·파일·MCP 상태를 status line 과 /minmos-status pane 으로 표시.",
       "source": "./minmos-harness"
     },
     {
@@ -31,12 +31,12 @@
     },
     {
       "name": "work-log",
-      "description": "작업 기록 폴더를 LLM wiki 로 관리한다. 전역 vault 또는 프로젝트별(<repo>/work-log/) 스코프 선택, 조회/동기화/수정 스킬과 npm 패키지 의존성 없이 Node.js·Python 3·POSIX 환경에서 동작하는 MCP 서버 제공. 인덱스를 vault 밖에 두어 기존 문서를 건드리지 않는다.",
+      "description": "작업 기록 폴더를 LLM wiki 로 관리한다. 전역 vault 또는 프로젝트별(<repo>/work-log/) 스코프 선택, 조회/동기화/수정 스킬과 npm 패키지 의존성 없이 Node.js·Python 3·POSIX 환경에서 동작하는 MCP 서버 제공. 인덱스를 vault 밖에 두어 기존 문서를 건드리지 않는다. mod: /work-log-status pane(인덱스 상태·동기화), 커뮤니케이션 규칙 주입.",
       "source": "./work-log"
     },
     {
       "name": "harness-settings",
-      "description": "harness 공통 설정(.claude/harness.config.json) 편집 mod. /harness-settings pane 에서 타 모델 리뷰 on/off·리뷰 지점·엔진(codex/gemini/claude)·Gemini 모델·단계(OCR·E2E·simplify·reflect)를 켜고 끈다. status line 에 현재 값을 표시한다.",
+      "description": "harness 공통 설정(.claude/harness.config.json) 편집 mod. /harness-settings pane 에서 타 모델 리뷰 on/off·리뷰 지점·엔진(codex/gemini/claude)·Gemini 모델·단계(OCR·E2E·simplify·reflect)를 켜고 끈다. status line 에 현재 값을 표시한다. 설치된 하네스의 프로필 편집 pane 으로 가는 버튼.",
       "source": "./harness-settings"
     }
   ]
