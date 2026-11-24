@@ -13,12 +13,14 @@ const PANE = {
 const done = (stdout: object) => ({ value: { exitCode: 0, stdout: JSON.stringify(stdout), stderr: '', isStdoutTruncated: false, isStderrTruncated: false } })
 
 // 엔진 대신 profile.py 를 흉내 낸다. 값은 메모리에 두고, 호출 순서를 기록한다.
-function fakeHelper(on: On, opts: { values?: Record<string, unknown>; writable?: boolean; stderr?: string }) {
+function fakeHelper(on: On, opts: { values?: Record<string, unknown>; writable?: boolean; stderr?: string; python3Broken?: boolean }) {
   const values: Record<string, unknown> = { ...(opts.values ?? {}) }
   const calls: string[] = []
   on('process.run', (_, e) => {
     const action = e.argv[4] ?? ''
     calls.push([action, ...e.argv.filter(a => a === '--apply')].join(' '))
+    // Windows Store 별칭처럼 실행은 되지만 쓸 수 없는 python3.
+    if (opts.python3Broken && e.argv[0] === 'python3') return { value: { exitCode: 9009, stdout: '', stderr: 'Python was not found', isStdoutTruncated: false, isStderrTruncated: false } }
     if (opts.stderr) return { value: { exitCode: 1, stdout: '', stderr: opts.stderr, isStdoutTruncated: false, isStderrTruncated: false } }
     if (action === 'resolve') return done({ values, sources: {}, writable: opts.writable ?? true, profile_path: '/repo/.claude/x.local.md' })
     const changes = JSON.parse(e.init?.stdin ?? '{}')
@@ -68,3 +70,21 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(result.text).toContain('POSIX')
   })
 }
+
+test('an unusable python3 falls back to python', async ($, on) => {
+  const helper = fakeHelper(on, { values: { codexMode: 'mix' }, python3Broken: true })
+  const result = await $.command.run(RUN)
+  expect(result.text).toContain('pane 을 열었습니다')
+  expect(helper.calls).toEqual(['resolve', 'resolve'])
+})
+
+test('a missing enum key shows (미설정) and saves nothing for it', async ($, on) => {
+  const helper = fakeHelper(on, { values: {} })
+  await $.command.run(RUN)
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+  await ui.select({ key: 'codexMode', value: '__unset__' })
+  expect(helper.calls).toEqual(['resolve'])
+  await ui.select({ key: 'codexMode', value: 'max' })
+  expect(helper.values.codexMode).toBe('max')
+  await ui.unmount()
+})

@@ -16,6 +16,8 @@ export const FIELDS: readonly Field[] = [
 // ---
 
 const PANE = `${PLUGIN}-profile`
+// 파일에 키가 없을 때 Select 가 첫 옵션을 고른 것처럼 보이지 않게 하는 자리 값.
+const UNSET = '__unset__'
 const view = atom({ plugin: 'fe-harness', key: 'view' } as const, {})
 
 // 편집 정본: skills/config/assets/profile.py (config 스킬과 같은 preview → apply 경로).
@@ -35,7 +37,9 @@ async function helper($: EngineInterface, args: readonly string[], stdin?: strin
     if (blocked) throw new Error(JSON.parse(blocked[0]).error)
     // fcntl 은 POSIX 전용이다. Windows 기본 Python 에서는 helper 가 동작하지 않는다.
     if (/fcntl/.test(out.stderr)) throw new Error('profile.py 는 POSIX(macOS·Linux·WSL) Python 이 필요합니다')
-    throw new Error(out.stderr.trim().split('\n').pop() || `exit ${out.exitCode}`)
+    if (/Traceback|profile\.py/.test(out.stderr)) throw new Error(out.stderr.trim().split('\n').pop() || `exit ${out.exitCode}`)
+    // 실행은 됐지만 쓸 수 없는 python(Windows Store 별칭, 설정 안 된 shim)이다. 다음 후보로 넘어간다.
+    last = out.stderr.trim() || `${python} exit ${out.exitCode}`
   }
   throw new Error(`python 을 실행하지 못했습니다: ${last}`)
 }
@@ -50,15 +54,23 @@ async function load($: EngineInterface): Promise<void> {
   }
 }
 
+// value 가 함수면 누른 시점의 값으로 계산한다 (그릴 때 잡은 값은 오래됐을 수 있다).
 export async function save($: EngineInterface, key: string, value: unknown): Promise<void> {
-  const changes = JSON.stringify({ [key]: value })
+  const now = await read($, view)
+  if (now.busy) {
+    // 앞 저장이 끝나기 전에 다음 저장을 하면 sha 불일치(STALE_PROFILE)로 실패한다.
+    $.ui.toast('앞의 저장이 끝난 뒤 다시 시도하세요.')
+    return
+  }
+  const next = typeof value === 'function' ? (value as (current: unknown) => unknown)(now.profile?.values[key]) : value
+  const changes = JSON.stringify({ [key]: next })
   await update($, view, current => ({ ...current, busy: true }))
   try {
     const preview = await helper($, ['edit'], changes)
     if (preview.status !== 'PREVIEW') throw new Error(`예상하지 못한 응답: ${preview.status}`)
     if (preview.changed) {
       await helper($, ['edit', '--apply', '--expected-sha256', String(preview.sha256_before)], changes)
-      $.ui.toast(`${key} = ${JSON.stringify(value)} 저장. 진행 중인 워크플로우는 다음 실행부터 적용됩니다.`)
+      $.ui.toast(`${key} = ${JSON.stringify(next)} 저장. 진행 중인 워크플로우는 다음 실행부터 적용됩니다.`)
     }
   } catch (err) {
     $.ui.toast(`${key} 저장 실패: ${err instanceof Error ? err.message : String(err)}`)
@@ -76,7 +88,7 @@ export const register: Register = on => {
     await $.ui.open({ id: PANE, title: `${PLUGIN} profile` })
     await load($)
     const { profile, error } = await read($, view)
-    return { text: error ? `profile 읽기 실패: ${error}` : `pane 을 열었습니다. ${profile?.path ?? ''}` }
+    return { text: error ? `profile 읽기 실패: ${error}` : `pane 을 열었습니다. ${profile?.path ?? ''}`, isTextDisplayOnly: true }
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
@@ -102,15 +114,16 @@ export const register: Register = on => {
           const value = profile.values[field.key]
           if (field.kind === 'enum') {
             return (
-              <Select key={field.key} label={field.label} options={field.options.map(option => ({ value: option }))}
-                value={typeof value === 'string' ? value : field.options[0] ?? ''} onSelect={picked => save($, field.key, picked)} />
+              <Select key={field.key} label={field.label}
+                options={[...(typeof value === 'string' ? [] : [{ value: UNSET, label: '(미설정)' }]), ...field.options.map(option => ({ value: option }))]}
+                value={typeof value === 'string' ? value : UNSET} onSelect={picked => (picked === UNSET ? undefined : save($, field.key, picked))} />
             )
           }
           if (field.kind === 'bool') {
             const enabled = value !== false
             return (
               <Box key={field.key} flexDirection="row">
-                <Button key={field.key} label={enabled ? 'ON ' : 'OFF'} onPress={() => save($, field.key, !enabled)} />
+                <Button key={field.key} label={enabled ? 'ON ' : 'OFF'} onPress={() => save($, field.key, (current: unknown) => current === false)} />
                 <Text> {field.label}</Text>
               </Box>
             )
