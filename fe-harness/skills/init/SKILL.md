@@ -38,6 +38,7 @@ framework·typescript·testRunner·uiLibrary 선택을 함께 검증한다. comp
 | 8 | ESLint/Prettier 확인 | lint-check |
 | 9 | 컨벤션 선택 | convention-check |
 | 10 | Storybook 사용 여부 | component |
+| 11 | 새 주석 검사 설치 (선택) | convention-check |
 
 ---
 
@@ -247,7 +248,30 @@ mkdir -p .claude/fe-harness/skills .claude/fe-harness/agents
 파일은 전부 선택. start-workflow Phase 11 의 보완점이 자동으로 append 된다.
 ```
 
-### Step 5: 최종 결과
+### Step 5: 새 주석 검사 설치 (선택)
+
+convention-check 의 주석 검사(`check_new_comments.py` — 새 주석 블록 2줄 이하, 주석 안 Spec 추적 ID 금지)를 프로젝트 lint·CI 에도 걸지 묻는다. 규칙을 글이 아니라 검사로 고정하기 위해서다.
+**사용자가 설치를 고를 때만** 파일을 바꾼다. 같은 스크립트나 `lint-comments`·`lint:comments` 가 이미 있으면 묻지 않고 "이미 존재"로 기록한다.
+
+> 1. 설치 (권장) — 아래 항목을 추가하고 diff 를 보여 준다
+> 2. 건너뜀
+
+`{BASE}` = profile `mainBranch`(PR base 브랜치, 기본 `main`). 설치 항목:
+
+1. 스크립트 복사: `${CLAUDE_PLUGIN_ROOT}/skills/convention-check/assets/check_new_comments.py` → `.github/scripts/check_new_comments.py`. 기존 파일은 덮어쓰지 않는다.
+2. lint 연결: `package.json` 에 `"lint:comments": "python3 .github/scripts/check_new_comments.py --base origin/{BASE}"` 를 더하고, 기존 `lint` 스크립트 끝에 ` && {packageManager} run lint:comments` 를 붙인다. `lint` 스크립트가 없으면 `lint:comments` 만 더한다.
+3. CI: PR 에서 도는 `.github/workflows/*` job 이 있으면 lint 근처에 아래 step 을 더하고, 그 job 의 checkout 을 `fetch-depth: 0` 으로 바꾼다 (merge-base 계산에 이력이 필요하다). 해당 job 이 없으면 step 만 안내한다.
+   ```yaml
+   - name: Check new comments
+     if: github.event_name == 'pull_request'
+     env:
+       BASE_SHA: ${{ github.event.pull_request.base.sha }}
+     run: python3 .github/scripts/check_new_comments.py --base "$BASE_SHA"
+   ```
+
+설치 뒤 `python3 .github/scripts/check_new_comments.py --base origin/{BASE}` 를 1회 실행해 결과를 보고한다. 커밋하지 않는다.
+
+### Step 6: 최종 결과
 
 ```markdown
 ## Init 완료
@@ -264,8 +288,9 @@ mkdir -p .claude/fe-harness/skills .claude/fe-harness/agents
 | 8 | TypeScript | true |
 | 9 | Storybook | false |
 | 10 | 컨벤션 | default-conventions, CLAUDE.md |
-| 11 | Codex 모드 | mix |
-| 12 | Codex 위임 모델 | 기본(OpenAI) \| {compact} |
+| 11 | 새 주석 검사 (lint·CI) | 설치 / 건너뜀 / 이미 존재 |
+| 12 | Codex 모드 | mix |
+| 13 | Codex 위임 모델 | 기본(OpenAI) \| {compact} |
 
 설정 파일: `.claude/fe-harness.local.md`
 다음 단계: `/fe-harness:doctor`로 전체 상태를 검증하세요.
