@@ -116,7 +116,7 @@ Go 테스트의 보고 ID는 `go list`로 확인한 패키지 import path를 포
 ## Step 3: 테스트 작성
 
 1. **기존 패턴을 먼저 읽는다.** `{testDirs}` 에서 유사 기능의 테스트를 찾아 네이밍·구조·헬퍼·픽스처 방식을 따른다.
-2. 각 테스트에 대응 ID를 주석으로 남긴다 (예: `// AC-01`, `// EC-03`).
+2. 대응 ID는 주석이 아니라 테스트 이름에 넣는다 (예: `TestCreateUser_AC01_정상`, `t.Run("EC-03 중복 이메일", …)`, JS `it('AC-01 …')`). 기존 이름 관례에 ID만 더한다.
 3. 단언은 **ID가 명시한 관측 결과만** 검증한다. 곁다리 단언을 붙이지 않는다.
 
 ### 스텁 우선 (`--red` 모드)
@@ -200,10 +200,10 @@ Go 테스트의 보고 ID는 `go list`로 확인한 패키지 import path를 포
 
 | Spec ID | 테스트 | 파일 | 분류 | 비고 |
 |---------|--------|------|------|------|
-| AC-01 | example.com/app/user::TestCreateUser_정상 | user_test.go:12 | red_assertion | 미구현 |
-| EC-01 | example.com/app/user::TestCreateUser_중복이메일 | user_test.go:42 | already_satisfied | 기존 구현이 이미 409 반환 |
+| AC-01 | example.com/app/user::TestCreateUser_AC01_정상 | user_test.go:12 | red_assertion | 미구현 |
+| EC-01 | example.com/app/user::TestCreateUser_EC01_중복이메일 | user_test.go:42 | already_satisfied | 기존 구현이 이미 409 반환 |
 | EC-02 | — | — | deferred_e2e | 외부 결제사 타임아웃 — 주입 지점 없음 |
-| RC-01 | example.com/app/order::TestOrder_음수수량 | order_test.go:88 | cannot_compile | 3회 시도 후 되돌림 |
+| RC-01 | example.com/app/order::TestOrder_RC01_음수수량 | order_test.go:88 | cannot_compile | 3회 시도 후 되돌림 |
 
 ### 종합
 - **작성**: N개 (신규 M개 / 수정 K개)

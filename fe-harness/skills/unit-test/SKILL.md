@@ -119,7 +119,7 @@ user-invocable: true
 
 framework·typescript·testRunner를 먼저 적용한다. 아래 React TS 예시는 그 조합에만 적용한다. JS에 interface/type/import type을 넣지 않고, Vue 컴포넌트는 .vue import와 @testing-library/vue render/slot 방식을 사용한다. Vitest는 describe/it/expect/vi/afterEach를 vitest에서, Jest는 해당 API를 @jest/globals에서 명시 import한다. helper의 프레임워크별 예시를 참조하되 기존 프로젝트의 테스트를 무관하게 재작성하지 않는다.
 
-각 대상에 맞는 테스트를 작성한다. Spec 기반 모드에서는 각 테스트에 대응 ID를 주석으로 남긴다 (예: `// AC-01`).
+각 대상에 맞는 테스트를 작성한다. Spec 기반 모드에서는 대응 ID를 주석이 아니라 테스트 이름 앞에 넣는다 (예: `it('AC-01 목록을 렌더한다', …)`).
 
 아래 패턴은 설명용이며 runner API import(`describe`·`it`·`expect`·`vi`)를 생략했다. 실제 파일에는 위 규칙대로 vitest 또는 `@jest/globals`에서 명시 import한다.
 
@@ -247,8 +247,8 @@ FE 특유의 함정:
 
 | Spec ID | 테스트 ID | 파일 | 분류 | 비고 |
 |---------|-----------|------|------|------|
-| AC-01 | `vitest::src/ProductList.test.tsx::ProductList › 목록 렌더` | ProductList.test.tsx:12 | red_assertion | 미구현 |
-| EC-01 | `vitest::src/ProductList.test.tsx::ProductList › 빈 목록 EmptyState` | ProductList.test.tsx:40 | already_satisfied | 기존 구현이 이미 처리 |
+| AC-01 | `vitest::src/ProductList.test.tsx::ProductList › AC-01 목록 렌더` | ProductList.test.tsx:12 | red_assertion | 미구현 |
+| EC-01 | `vitest::src/ProductList.test.tsx::ProductList › EC-01 빈 목록 EmptyState` | ProductList.test.tsx:40 | already_satisfied | 기존 구현이 이미 처리 |
 
 > `테스트 ID`는 `start-workflow/assets/test_failures.py` 식별자와 같은 러너 네이티브 정확 ID(`{runner}::{저장소 루트 상대 파일}::{describe › it}`)다. 호출자가 Test Map·기대 파일에 그대로 옮기므로 표시명으로 줄이지 않는다. `deferred_e2e`는 `—`.
 > 변경 기반 모드에서는 `Spec ID` 열 대신 대상 파일명을 적는다.
