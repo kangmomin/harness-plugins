@@ -153,7 +153,35 @@ projectConventions: {projectConventions}
 
 - `CLAUDE.md`가 없으면 `project` 엔트리는 제외한다.
 
-## Step 7: 프로젝트 오버라이드 디렉토리 생성
+## Step 7: 새 주석 검사 설치 (선택)
+
+convention-check 의 주석 검사(`check_new_comments.py` — 새 주석 블록 2줄 이하, 주석 안 Spec 추적 ID 금지)를 프로젝트 lint·CI 에도 걸지 묻는다. 규칙을 글이 아니라 검사로 고정하기 위해서다.
+**사용자가 설치를 고를 때만** 파일을 바꾼다. 같은 스크립트나 `lint-comments`·`lint:comments` 가 이미 있으면 묻지 않고 "이미 존재"로 기록한다.
+
+> 1. 설치 (권장) — 아래 항목을 추가하고 diff 를 보여 준다
+> 2. 건너뜀
+
+`{BASE}` = profile `mainBranch`(PR base 브랜치, 기본 `main`). 설치 항목:
+
+1. 스크립트 복사: `${CLAUDE_PLUGIN_ROOT}/skills/convention-check/assets/check_new_comments.py` → `.github/scripts/check_new_comments.py`. 기존 파일은 덮어쓰지 않는다.
+2. lint 연결: `Makefile` 이 있으면 아래 타깃을 더하고 기존 `lint` 타깃의 prerequisite 에 `lint-comments` 를 넣는다. 없고 `package.json` 이 있으면 FE 와 같이 `lint:comments` 스크립트를 더한다. 둘 다 없으면 명령만 안내한다.
+   ```make
+   COMMENT_BASE ?= origin/{BASE}
+   lint-comments: ## 새로 추가한 주석 검사 (블록 2줄 이하·Spec ID 금지)
+   	python3 .github/scripts/check_new_comments.py --base $(COMMENT_BASE)
+   ```
+3. CI: PR 에서 도는 `.github/workflows/*` job 이 있으면 lint 근처에 아래 step 을 더하고, 그 job 의 checkout 을 `fetch-depth: 0` 으로 바꾼다 (merge-base 계산에 이력이 필요하다). 해당 job 이 없으면 step 만 안내한다.
+   ```yaml
+   - name: Check new comments
+     if: github.event_name == 'pull_request'
+     env:
+       BASE_SHA: ${{ github.event.pull_request.base.sha }}
+     run: python3 .github/scripts/check_new_comments.py --base "$BASE_SHA"
+   ```
+
+설치 뒤 `python3 .github/scripts/check_new_comments.py --base origin/{BASE}` 를 1회 실행해 결과를 보고한다. 커밋하지 않는다.
+
+## Step 8: 프로젝트 오버라이드 디렉토리 생성
 
 be-harness는 플러그인 원본을 수정하지 않고 프로젝트별로 스킬/에이전트 동작을 조정할 수 있는 **오버라이드 레이어**를 제공한다 (상세: 플러그인 루트 `OVERRIDES.md`).
 
@@ -179,7 +207,7 @@ mkdir -p .claude/be-harness/skills .claude/be-harness/agents
 파일은 전부 선택. start-workflow Phase 12 의 보완점이 자동으로 이곳에 append 된다.
 ```
 
-## Step 8: 최종 결과
+## Step 9: 최종 결과
 
 ```markdown
 ## Init 완료
@@ -188,6 +216,7 @@ mkdir -p .claude/be-harness/skills .claude/be-harness/agents
 |------|------|
 | profile | 생성 / 갱신 / 건너뜀 |
 | convention-check 설정 | 생성 / 건너뜀 / 이미 존재 |
+| 새 주석 검사 (lint·CI) | 설치 / 건너뜀 / 이미 존재 |
 | .claude/be-harness/ 오버라이드 디렉토리 | 생성 / 이미 존재 |
 
 다음 단계:

@@ -85,6 +85,17 @@ python3 -I -B "${CLAUDE_PLUGIN_ROOT}/skills/convention-check/assets/convention_f
 - exit 0: `findings`를 그대로 보고서에 채택한다 (태그·심각도·경로 유지). `unchecked_manifests`만 아래 LLM 절차로 확인한다. `lint_coverage.react_hooks`는 아래 hooks 검사의 건너뜀 여부를 정한다.
 - exit 2 (`BLOCKED:CONVENTION_FACTS`): 아래 LLM 절차 전체로 폴백하고, 보고서에 폴백 사유 1줄을 남긴다. 실패를 위반 0건으로 바꾸지 않는다.
 
+주석 스타일도 스크립트가 판정한다. 새로 추가한 줄만 보고 테스트·생성 파일은 제외한다.
+
+```bash
+python3 -I -B "${CLAUDE_PLUGIN_ROOT}/skills/convention-check/assets/check_new_comments.py" \
+  --scope "{SCOPE_JSON}" --json
+```
+
+- exit 0·1: `findings`(`[COMMENT_STYLE]` — 연속 3줄 이상인 새 주석 블록, 주석 안의 Spec 추적 ID)를 그대로 채택한다. 블록 상한은 `COMMENT_MAX_BLOCK_LINES`(기본 2)다.
+- exit 2 (`BLOCKED:COMMENT_CHECK`): 같은 두 규칙을 LLM이 새 주석에만 적용하고 폴백 사유 1줄을 남긴다.
+- 코드가 하는 일을 되풀이할 뿐인 새 주석은 LLM이 `[COMMENT_STYLE]` WARN으로 보고한다 (default-conventions의 주석 규칙).
+
 ### 컨벤션 검사
 
 설정된 각 컨벤션에 대해 위배 사항을 검사하고 보고한다:
