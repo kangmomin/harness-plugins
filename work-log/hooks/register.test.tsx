@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { age } from './register'
+import { age, isStale, STALE_SECONDS } from './register'
 
 const PANE = {
   plugin: 'work-log',
@@ -63,6 +63,30 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await ui.unmount()
   })
 }
+
+test('isStale covers a missing index and an old one', () => {
+  expect(isStale({ indexExists: false, indexAgeSeconds: null })).toBe(true)
+  expect(isStale({ indexExists: true, indexAgeSeconds: 2 * STALE_SECONDS })).toBe(true)
+  expect(isStale({ indexExists: true, indexAgeSeconds: 60 })).toBe(false)
+})
+
+test('a DEGRADED sync is not reported as success', async ($, on) => {
+  const toasts: string[] = []
+  on('mcp.call', (_, e) => {
+    const body = e.tool === 'wiki_sync' ? { status: 'DEGRADED', errors: [1, 2] } : STATUS
+    return { value: { content: [{ type: 'text', text: JSON.stringify(body) }], isError: false } }
+  })
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.toast', (_, e) => {
+    toasts.push(e.text)
+    return { value: undefined }
+  })
+  await $.command.run(RUN)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.press({ key: 'sync' })
+  expect(toasts).toEqual(['work-log 인덱스 갱신: DEGRADED (오류 2건)'])
+  await ui.unmount()
+})
 
 test('language block is not added twice', async ($, on) => {
   on('prompt.context', () => ({ blocks: [{ name: 'harnessLanguage', text: 'x' }] }))

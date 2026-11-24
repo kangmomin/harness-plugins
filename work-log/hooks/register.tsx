@@ -47,11 +47,22 @@ async function load($: EngineInterface): Promise<WikiStatus | undefined> {
   }
 }
 
+// 인덱스가 없거나 24시간보다 오래됐다. toast 와 pane 이 같은 규칙을 쓴다.
+export function isStale(status: WikiStatus): boolean {
+  return !status.indexExists || (status.indexAgeSeconds ?? 0) > STALE_SECONDS
+}
+
 async function sync($: EngineInterface): Promise<void> {
+  // 누른 시점의 값을 읽는다. 그릴 때 잡은 값으로 판단하면 두 번 눌렀을 때 두 번 호출된다.
+  if ((await read($, view)).busy) return
   await update($, view, current => ({ ...current, busy: true }))
   try {
-    await call($, 'wiki_sync')
-    $.ui.toast('work-log 인덱스를 갱신했습니다.')
+    const result = JSON.parse(await call($, 'wiki_sync'))
+    const errors = Array.isArray(result?.errors) ? result.errors.length : 0
+    // DEGRADED 등은 isError 가 아닌 정상 응답으로 온다.
+    $.ui.toast(result?.status && result.status !== 'OK'
+      ? `work-log 인덱스 갱신: ${result.status} (오류 ${errors}건)`
+      : 'work-log 인덱스를 갱신했습니다.')
   } catch (err) {
     $.ui.toast(`wiki_sync 실패: ${String(err)}`)
   }
@@ -70,10 +81,11 @@ export const register: Register = on => {
     // MCP 서버 기동을 첫 프롬프트 앞에서 기다리지 않는다.
     $.clock.after(5000, () => {
       void load($).then(status => {
-        if (status && !status.needsInit && (status.indexAgeSeconds ?? 0) > STALE_SECONDS) {
-          $.ui.toast(`work-log 인덱스가 ${age(status.indexAgeSeconds)} 것입니다. /${PANE} 에서 동기화하세요.`)
+        if (status && !status.needsInit && isStale(status)) {
+          const when = status.indexExists ? `${age(status.indexAgeSeconds)} 것입니다` : '없습니다'
+          $.ui.toast(`work-log 인덱스가 ${when}. /${PANE} 에서 동기화하세요.`)
         }
-      })
+      }).catch(() => undefined)
     })
     return next(e)
   })
@@ -81,7 +93,7 @@ export const register: Register = on => {
   on('command.run', { command: PANE }, async $ => {
     await $.ui.open({ id: PANE, title: 'work-log' })
     const status = await load($)
-    return { text: status ? `pane 을 열었습니다. 인덱스: ${age(status.indexAgeSeconds)}` : 'work-log MCP 서버에 연결하지 못했습니다.' }
+    return { text: status ? `pane 을 열었습니다. 인덱스: ${age(status.indexAgeSeconds)}` : 'work-log MCP 서버에 연결하지 못했습니다.', isTextDisplayOnly: true }
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
@@ -106,7 +118,7 @@ export const register: Register = on => {
       )
     }
     const counts = Object.entries(status.counts ?? {}).map(([k, v]) => `${k} ${v}`).join(' · ')
-    const stale = (status.indexAgeSeconds ?? 0) > STALE_SECONDS || !status.indexExists
+    const stale = isStale(status)
     return (
       <Box flexDirection="column">
         <Text wrap="truncate">scope: {status.scope ?? '-'}</Text>
@@ -116,7 +128,7 @@ export const register: Register = on => {
         </Text>
         {counts ? <Text dimColor>{counts}</Text> : null}
         {(status.errors?.length ?? 0) > 0 ? <Text color="error">인덱스 오류 {status.errors?.length}건</Text> : null}
-        <Button key="sync" label={busy ? '동기화 중…' : '동기화 (wiki_sync)'} onPress={() => (busy ? undefined : sync($))} />
+        <Button key="sync" label={busy ? '동기화 중…' : '동기화 (wiki_sync)'} onPress={() => sync($)} />
       </Box>
     )
   })
