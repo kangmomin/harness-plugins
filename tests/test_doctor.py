@@ -46,6 +46,24 @@ class DoctorTests(unittest.TestCase):
             self.assertFalse(result['validation_executed'])
             self.assertFalse(any(c['status'] == 'MISSING' for c in result['checks']))
 
+    def test_harness_config_and_gemini_presence(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            rows = {c['key']: c for c in doctor.diagnose(root, 'be', 'claude')['checks']}
+            self.assertEqual('SKIP', rows['harness-config']['status'])
+            self.assertNotIn('gemini', rows)
+            (root / '.claude').mkdir()
+            (root / '.claude/harness.config.json').write_text(json.dumps({'review': {'engine': 'gemini', 'bogus': 1}}))
+            real_which = doctor.shutil.which
+            for executable, expected in [(None, 'WARN'), ('/fixture/gemini', 'AVAILABLE')]:
+                with self.subTest(executable=executable),                      patch.object(doctor.shutil, 'which', side_effect=lambda name: executable if name == 'gemini' else real_which(name)),                      patch.object(doctor.subprocess, 'run') as run:
+                    rows = {c['key']: c for c in doctor.diagnose(root, 'be', 'claude')['checks']}
+                self.assertEqual(expected, rows['gemini']['status'])
+                self.assertFalse(rows['gemini']['required'])
+                self.assertEqual('WARN', rows['harness-config']['status'])
+                self.assertIn('UNKNOWN_KEY:review.bogus', rows['harness-config']['detail'])
+                run.assert_not_called()
+
     def test_ocr_presence_is_optional_and_never_probed(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

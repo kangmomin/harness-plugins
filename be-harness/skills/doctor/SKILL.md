@@ -42,6 +42,8 @@ python3 -I -B "{PLUGIN_ROOT}/skills/config/assets/doctor.py" --domain be --cwd "
 | Codex 호스트 mix/max | 현재 native collaboration 기능 | 외부 Codex MCP는 native 실행의 필수 조건 아님 |
 | Claude 호스트 mix/max | 세션에서 실제 발견한 delegation 도구 | 없으면 WARN과 문서화된 host fallback |
 | OCR (비필수) | `shutil.which('ocr')`로 실행 파일 존재만 확인 | 없으면 WARN과 기존 리뷰 fallback; version/preview/rule 실행·설치 없음 |
+| 공통 설정 `.claude/harness.config.json` (비필수) | `harness_config.py` resolve — 키 검증만 | 없으면 SKIP; 무효·모르는 키는 WARN (실행은 그 키만 기본값으로 계속) |
+| 리뷰 엔진 gemini (비필수) | `shutil.which('gemini')`로 실행 파일 존재만 확인 | 없으면 WARN과 Claude 패널 fallback; 인증·호출 확인 없음 |
 
 `AVAILABLE`은 실행 파일이 있다는 뜻이다. OCR의 AVAILABLE도 delegation 계약·실행 성공이나 리뷰 통과를 보장하지 않는다. 실제 코드 리뷰에서 보조 수집이 실패하면 사유를 남기고 기존 리뷰로 진행한다. 복합 shell 명령은 `UNVERIFIED`로 남긴다. 실제 빌드·타입·lint·unit 결과는 해당 검증 단계가 기록한다. doctor는 `npx`, `npm exec`, `pnpm dlx`, 브라우저 install 등을 실행하지 않는다. 보고서에 **downloads: none / validation_executed: false**를 포함한다.
 

@@ -16,6 +16,10 @@ _spec = importlib.util.spec_from_file_location('harness_profile', Path(__file__)
 _profile = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_profile)
 ProfileError, resolve = _profile.ProfileError, _profile.resolve
+_hc_spec = importlib.util.spec_from_file_location(
+    'harness_config', Path(__file__).resolve().parents[2] / 'start-workflow' / 'assets' / 'harness_config.py')
+_harness_config = importlib.util.module_from_spec(_hc_spec)
+_hc_spec.loader.exec_module(_harness_config)
 
 
 def diagnose(cwd, domain, host, tools=None):
@@ -121,6 +125,18 @@ def diagnose(cwd, domain, host, tools=None):
         row("codex", "DISCOVERED" if available else "WARN", ", ".join(t["name"] for t in available) if available else "delegation capability not discovered; use the documented host fallback")
     else:
         row("host", "UNKNOWN", "pass the actual current host; do not infer a successful tool load")
+
+    # 공통 설정(.claude/harness.config.json): 없으면 기존 동작이라 SKIP. 무효 키는 실행을 막지 않으므로 WARN.
+    shared = _harness_config.resolve(root, values.get("codexMode", "mix"), "profile",
+                                     values.get("e2eEnabled") if domain == "be" else None)
+    if shared["config_path"] is None:
+        row("harness-config", "SKIP", "no .claude/harness.config.json; defaults apply")
+    else:
+        issues = ", ".join(d["code"] + ":" + d["key"] for d in shared["diagnostics"])
+        row("harness-config", "WARN" if issues else "OK", issues or "REVIEW " + shared["flags"]["REVIEW"] + " · STEPS " + shared["flags"]["STEPS"])
+    if "gemini" in shared["reviewers"].values():
+        gemini = shutil.which("gemini")
+        row("gemini", "AVAILABLE" if gemini else "WARN", gemini or "gemini CLI 미설치; 실행 시 Claude 패널 폴백 예정 (인증은 확인하지 않음)")
     failures = {"MISSING", "INVALID", "OUTDATED", "UNKNOWN"}
     status = "ISSUES_FOUND" if any(c["required"] and c["status"] in failures for c in checks) else "CHECKS_INCOMPLETE" if any(c["status"] in {"UNKNOWN", "UNVERIFIED", "WARN"} for c in checks) else "AVAILABLE"
     return dict(status=status, host=host, downloads="none", validation_executed=False, profile=resolved, checks=checks)
