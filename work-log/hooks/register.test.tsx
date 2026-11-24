@@ -10,6 +10,9 @@ const PANE = {
   props: { title: 'work-log', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 20 }, view: {} },
 } as const
 
+// 사람이 /work-log-status 를 입력한 것과 같은 입력.
+const RUN = { command: 'work-log-status', args: '', origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 120 } } as const
+
 const STATUS = { scope: 'global', root: '/vault', indexExists: true, indexAgeSeconds: 120, indexState: 'OK', counts: { canonical: 3 }, errors: [] }
 
 // 엔진 대신 MCP 서버를 둔다. calls 에 호출한 도구 이름을 남긴다.
@@ -35,7 +38,7 @@ test('age formats seconds', () => {
 for (const surface of ['terminal', 'desktop'] as const) {
   test(`pane shows status and sync calls wiki_sync (${surface})`, async ($, on) => {
     const calls = server(on, STATUS)
-    await $.command.run({ command: 'work-log-status' })
+    await $.command.run(RUN)
     const ui = await $.ui.mount({ ...PANE, surface })
     expect((await ui.find({ type: 'Text', text: /인덱스:/ }))?.text).toContain('2분 전')
 
@@ -46,7 +49,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
 
   test(`pane shows init hint when scope is missing (${surface})`, async ($, on) => {
     server(on, { needsInit: true, hint: 'run init' })
-    await $.command.run({ command: 'work-log-status' })
+    await $.command.run(RUN)
     const ui = await $.ui.mount({ ...PANE, surface })
     expect((await ui.find({ type: 'Text', text: /init/ }))?.text).toContain('/work-log:init')
     await ui.unmount()
@@ -54,7 +57,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
 
   test(`pane shows error when MCP fails (${surface})`, async ($, on) => {
     server(on, null)
-    await $.command.run({ command: 'work-log-status' })
+    await $.command.run(RUN)
     const ui = await $.ui.mount({ ...PANE, surface })
     expect((await ui.find({ type: 'Text', text: /not connected/ }))?.text).toContain('not connected')
     await ui.unmount()
