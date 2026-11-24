@@ -5,6 +5,8 @@
 
 > profile 은 **값(settings)** 을 담는다. 스킬/에이전트 **동작**을 프로젝트별로 조정하려면 별도의 **Project Overrides** 레이어를 쓴다 → `OVERRIDES.md` 참조.
 
+> **공통 설정 파일** `.claude/harness.config.json` (be/fe/common 공용): 타 모델 리뷰 on/off·리뷰 지점·리뷰 엔진(`codex`·`gemini`·`claude`)·단계 토글(OCR·E2E·simplify·reflect)을 담는다. 우선순위 = CLI 플래그 > 공통 설정 > 이 profile > 기본값. 편집은 `harness-settings` mod의 `/harness-settings` 또는 직접 수정. 계약: `skills/start-workflow/references/review-config.md`.
+
 ## 파일 위치
 
 ```

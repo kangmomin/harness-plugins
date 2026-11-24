@@ -8,6 +8,18 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-11-24 공통 설정 파일과 설정 mod (#23)
+
+BE 1.9.0 / FE 1.9.0 / common 0.18.0 / minmos 2.6.4 / harness-settings 0.1.0. be/fe/common이 함께 읽는 설정 파일 `.claude/harness.config.json`을 추가했다.
+
+- 타 모델 리뷰 on/off: 전체(`review.enabled`)와 지점별(`review.points.plan`·`quality`). off는 리뷰를 건너뛰지 않고 Claude 패널이 리뷰한다.
+- 리뷰 엔진 `review.engine` = `codex | gemini | claude`. gemini는 gemini CLI를 읽기 전용(`--approval-mode plan`)으로 직접 호출한다. 실패하면 Claude 패널로 폴백한다 (`SKIPPED:GEMINI_*`).
+- 단계 토글 `steps.ocr`·`e2e`·`simplifyLoop`·`reflect`. off 단계는 `SKIPPED:CONFIG`로 기록한다.
+- 우선순위 = CLI 플래그 > 공통 설정 > profile > 기본값. resolver `harness_config.py`(be/fe/common 동일)가 `REVIEW`·`STEPS`를 상태 파일에 고정한다.
+- `harness-settings` mod: `/harness-settings` pane에서 토글하고 파일에 저장한다. 모르는 키는 보존하고, 파싱할 수 없는 파일은 덮어쓰지 않는다.
+- doctor가 설정 파일 키와 gemini 실행 파일 존재를 점검한다.
+- 남은 한계: gemini CLI의 `-o json` 응답 형식(`response` 필드)은 인증된 환경에서 실측하지 않았다. `codexMode: max`의 explore·judge·write 위임은 이 파일이 아니라 profile이 정한다.
+
 ## 2026-11-18 품질 루프 결정적 검사 전환
 
 BE 1.8.0 / FE 1.8.0 / common 0.17.3. 품질 루프에서 lint·스크립트가 판정할 수 있는 일을 LLM에서 떼어냈다. 원칙: 결정적 도구를 먼저 쓰고, LLM은 의미 판단에만 쓴다.
@@ -178,6 +190,7 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 | **fe-harness** | 베이스 | 범용 프론트엔드. React/Next.js 중심 컴포넌트 생성, lint/a11y, 단위/E2E 테스트, PR |
 | **minmos-harness** | be 오버레이 | Post-Math 백엔드 — Apidog 문서 동기화, gRPC/PubSub E2E, PostgreSQL MCP DB 안전 규칙, Post-Math 컨벤션 |
 | **hyeondongs-harness** | fe 오버레이 | hyeondongs 환경 세팅/진단(`.hyeondong-config.json`), 풀스택 전환 시 minmos 백엔드 연계 |
+| **harness-settings** | 설정 mod | 공통 설정 `.claude/harness.config.json`을 `/harness-settings` pane에서 편집 — 타 모델 리뷰 on/off·리뷰 엔진(codex/gemini/claude)·단계 토글 |
 | **work-log** | 기록 관리 | [분류형 전역 vault](work-log/README.md)(권장): projects/<project>/{history,data,docs}, 공유·미분류 자료를 함께 검색하고 소유·분류별 작성. 회의 후 정리(`after-meeting` — STT 전사 오인식 보정·단어장 갱신 뒤 전체 보정본·사람용 요약·AI용 요약 생성). 독립 프로젝트 root·기존 flat·저장소 내 방식도 유지 |
 
 분류형 전역 vault는 전체 root를 유지하고 선택적인 project/category 필터로 조회한다. 소유 프로젝트는
@@ -232,6 +245,7 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 │   └── overlay/            # 앵커 기반 델타 + Post-Math 특화 references
 ├── hyeondongs-harness/     # fe-harness 오버레이 (hyeondongs)
 │   └── overlay/
+├── harness-settings/       # 공통 설정 편집 mod (hooks 모듈)
 ├── docs/                   # 저장소 차원 문서
 └── .claude-plugin/         # Claude Code marketplace 정의
 ```
