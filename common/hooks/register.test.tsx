@@ -47,13 +47,14 @@ function engine(on: On, files: Map<string, string>) {
 }
 
 // 엔진이 대화에 저장하는 두 행(모델의 Bash 호출, 그 결과)을 올린다. common 의 session.append hook 이 읽는다.
-async function bash($: Engine, id: string, command: string, output: string, isError = false) {
+async function bash($: Engine, id: string, command: string, output: string, isError = false, agentId?: string) {
+  const loop = agentId ? { agentId } : {}
   await $.session.append({
-    door: 'response', uuid: `${id}-use`, origin: { kind: 'model', model: 'test' },
+    ...loop, door: 'response', uuid: `${id}-use`, origin: { kind: 'model', model: 'test' },
     message: { type: 'assistant', role: 'assistant', content: [{ type: 'tool_use', id, name: 'Bash', input: { command } }] },
   })
   await $.session.append({
-    door: 'tool-result', uuid: `${id}-result`, origin: { kind: 'tool', tool: 'Bash' },
+    ...loop, door: 'tool-result', uuid: `${id}-result`, origin: { kind: 'tool', tool: 'Bash' },
     message: { type: 'user', role: 'user', content: [{ type: 'tool_result', tool_use_id: id, is_error: isError, content: [{ type: 'text', text: output }] }] },
   })
 }
@@ -70,6 +71,36 @@ test('parseRun reads only workflow_run.py create/resume output', () => {
   expect(parseRun('ls', RUN_JSON)).toBe(null)
   expect(parseRun(COMMAND, 'not json')).toBe(null)
   expect(parseRun(COMMAND.replace('create', 'save-verify-commands'), RUN_JSON)).toBe(null)
+  // 플래그 --resume 은 하위 명령이 아니다.
+  expect(parseRun('python3 workflow_run.py save-verify-commands --resume x', RUN_JSON)).toBe(null)
+  // run_paths() 형식이 아닌 STATE_FILE 은 읽지 않는다.
+  expect(parseRun(COMMAND, JSON.stringify({ STATE_FILE: '/etc/passwd' }))).toBe(null)
+  expect(parseRun(COMMAND, JSON.stringify({ STATE_FILE: 'rel/workflow-state.md' }))).toBe(null)
+  expect(parseRun(COMMAND, JSON.stringify({ STATE_FILE: 'C:\\t\\harness-workflow-a\\workflow-state.md' }))?.stateFile).toContain('workflow-state.md')
+})
+
+test('Remaining Phases 없음 ends the run, even without a Phase table (Verify)', () => {
+  expect(parseState('## Current Phase\nPhase V3\n\n## Remaining Phases\n없음\n').done).toBe(true)
+  expect(parseState('## Remaining Phases\n- 없음\n').done).toBe(true)
+  expect(parseState('## Remaining Phases\n- Phase 8\n').done).toBe(false)
+  expect(isFinished([{ phase: '10', agent: 'r', status: 'PENDING (--reflect 미지정 시 SKIPPED)' }])).toBe(false)
+})
+
+test('a subagent running workflow_run.py does not replace the main run', async ($, on) => {
+  const files = new Map<string, string>()
+  engine(on, files)
+  await bash($, 'm', COMMAND, RUN_JSON)
+  const other = JSON.stringify({ MODE: 'fe', STATE_FILE: '/tmp/harness-workflow-y/workflow-state.md' })
+  await bash($, 's', COMMAND.replace('"be"', '"fe"'), other, false, 'agent-1')
+  expect(await bandText($, 'terminal')).toBe('▶ BE · 준비 중')
+})
+
+test('/clear ends the shown run', async ($, on) => {
+  engine(on, new Map())
+  on('session.end', (_, e) => ({ sessionId: e.sessionId }))
+  await bash($, 'm', COMMAND, RUN_JSON)
+  await $.session.end({ reason: 'clear', sessionId: 's1', resume: { id: 's1' } })
+  expect(await bandText($, 'terminal')).toBe(undefined)
 })
 
 test('runCalls finds only workflow_run.py Bash calls; resultText joins text parts', () => {

@@ -18,7 +18,11 @@ const pending = atom({ plugin: 'common', key: 'pending' } as const, {})
 
 type Block = { readonly type: string; readonly [field: string]: unknown }
 
-const isRunCommand = (command: string) => /workflow_run\.py/.test(command) && /\b(create|resume)\b/.test(command)
+// `workflow_run.py create` 처럼 스크립트 바로 뒤의 하위 명령만 인정한다 (`--resume` 같은 플래그는 제외).
+const isRunCommand = (command: string) => /workflow_run\.py["']?\s+(create|resume)\b/.test(command)
+
+// workflow_run.py run_paths() 가 만드는 절대 경로만 받는다. 다른 파일을 읽지 않게 한다.
+const isStateFile = (path: string) => /^(\/|[A-Za-z]:[\\/])/.test(path) && /[\\/]workflow-state\.md$/.test(path)
 
 // workflow_run.py create/resume 출력(JSON 1개)에서 실행 정보를 꺼낸다. 다른 출력이면 null.
 export function parseRun(command: string, output: string): Run | null {
@@ -28,7 +32,7 @@ export function parseRun(command: string, output: string): Run | null {
   if (start < 0 || end <= start) return null
   try {
     const data = JSON.parse(output.slice(start, end + 1))
-    if (typeof data?.STATE_FILE !== 'string') return null
+    if (typeof data?.STATE_FILE !== 'string' || !isStateFile(data.STATE_FILE)) return null
     return { stateFile: data.STATE_FILE, mode: String(data.MODE ?? ''), runId: String(data.RUN_ID ?? '') }
   } catch {
     return null
@@ -67,8 +71,8 @@ function section(text: string, title: string): string[] {
   return body
 }
 
-// 템플릿: be/fe-harness skills/start-workflow/references/templates.md 의 Current Phase·Phase Assignments.
-export function parseState(text: string): Omit<Progress, 'seen'> {
+// 템플릿: be/fe-harness skills/start-workflow/references/templates.md 의 Current Phase·Phase Assignments·Remaining Phases.
+export function parseState(text: string): Omit<Progress, 'seen'> & { done: boolean } {
   const current = section(text, 'Current Phase').find(line => line.trim() !== '')?.trim() ?? ''
   const rows: PhaseRow[] = []
   for (const line of section(text, 'Phase Assignments')) {
@@ -76,12 +80,14 @@ export function parseState(text: string): Omit<Progress, 'seen'> {
     if (cells.length < 5 || cells[0] === 'Phase' || /^-+$/.test(cells[0] ?? '')) continue
     rows.push({ phase: cells[0] ?? '', agent: cells[1] ?? '', status: cells[cells.length - 1] ?? '' })
   }
-  return { current, rows }
+  // workflow_run.py resume 과 같은 완료 규칙: Remaining Phases 가 `없음`. Analyze/Verify 처럼 표가 없는 모드도 덮는다.
+  const remaining = section(text, 'Remaining Phases').map(line => line.trim()).filter(Boolean).join('\n')
+  return { current, rows, done: remaining === '없음' || remaining === '- 없음' }
 }
 
-// 표가 있고 모든 행이 끝났으면 실행이 끝난 것이다.
+// 완료 규칙이 쓰이지 않은 상태 파일을 위한 보조 규칙: 표가 있고 모든 행이 끝났다.
 export function isFinished(rows: readonly PhaseRow[]): boolean {
-  return rows.length > 0 && rows.every(row => !/PENDING|IN_PROGRESS/.test(row.status))
+  return rows.length > 0 && rows.every(row => !/^(PENDING|IN_PROGRESS)\b/.test(row.status))
 }
 
 export function label(mode: string, current: string): string {
@@ -98,11 +104,13 @@ async function refresh($: EngineInterface): Promise<void> {
     if (previous?.seen) await finish($)
     return
   }
-  const parsed = parseState(await $.fs.read(active.stateFile))
-  if (isFinished(parsed.rows)) {
+  const { done, ...parsed } = parseState(await $.fs.read(active.stateFile))
+  if (done || isFinished(parsed.rows)) {
     await finish($)
     return
   }
+  // 같은 내용이면 쓰지 않는다. 쓰면 band·pane 이 다시 그려진다.
+  if (previous?.seen && JSON.stringify({ current: previous.current, rows: previous.rows }) === JSON.stringify(parsed)) return
   await update($, progress, () => ({ ...parsed, seen: true }))
   const short = parsed.current.match(/Phase\s+([\w.]+)/)?.[1]
   $.ui.status(`wf: ${active.mode.toUpperCase() || 'WF'}${short ? ` P${short}` : ''}`)
@@ -123,6 +131,7 @@ async function observe($: EngineInterface, content: readonly Block[]): Promise<v
     if (found) {
       await update($, run, () => found)
       await update($, progress, () => null)
+      $.ui.status(undefined) // 이전 실행의 status 를 남기지 않는다.
     }
   }
   await refresh($)
@@ -131,6 +140,7 @@ async function observe($: EngineInterface, content: readonly Block[]): Promise<v
 async function finish($: EngineInterface): Promise<void> {
   await update($, run, () => null)
   await update($, progress, () => null)
+  await update($, pending, () => ({}))
   $.ui.status(undefined)
 }
 
@@ -150,8 +160,10 @@ export const register: Register = on => {
   })
 
   // tool.call 을 hook 하면 그 도구의 백그라운드 전환·실시간 출력이 꺼진다. 그래서 저장되는 행만 읽는다.
-  on('session.append', async ($, e, next) => {
+  // main 대화의 모델 응답·도구 결과 행만 본다. subagent 의 시험 실행이 진행 중인 실행을 덮지 않게 한다.
+  on('session.append', { door: ['response', 'tool-result'] }, async ($, e, next) => {
     const stored = await next(e)
+    if (e.agentId) return stored
     try {
       await observe($, e.message.content as readonly Block[])
     } catch {
@@ -160,10 +172,16 @@ export const register: Register = on => {
     return stored
   }).catch(($, e, next) => next(e))
 
+  // /clear 는 새 대화다. 이전 대화의 실행을 표시하지 않는다.
+  on('session.end', async ($, e, next) => {
+    if (e.reason === 'clear') await finish($)
+    return next(e)
+  })
+
   on('command.run', { command: PANE }, async $ => {
     await $.ui.open({ id: PANE, title: 'Workflow progress' })
     const active = await read($, run)
-    return { text: active ? `pane 을 열었습니다. ${active.stateFile}` : '진행 중인 워크플로우가 없습니다.' }
+    return { text: active ? `pane 을 열었습니다. ${active.stateFile}` : '진행 중인 워크플로우가 없습니다.', isTextDisplayOnly: true }
   })
 
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
