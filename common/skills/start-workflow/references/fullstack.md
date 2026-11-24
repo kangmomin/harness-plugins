@@ -31,7 +31,7 @@
 | `--codex {none\|mix\|max}` | | Codex 사용 모드. 이 오케스트레이터가 소비해 be·fe profile `codexMode` 양쪽에 저장한다 (Pre-flight). 정의·호출 계약·실패 정책: `codex-mode.md` |
 | `--codex-models {슬롯}={provider}/{model}[@{effort}] \| default[,…]` | | Codex 위임 모델 슬롯(`review`·`explore`·`judge`·`write`). `codexMode` 확정 직후 이 오케스트레이터가 소비해 존재하는 writable be·fe profile `codexModels`에 병합 저장한다 (`none`이면 N/A). 문법·병합·검증: `codex-mode.md` §2.1 |
 
-`HARD_MODE`와 `PUBLISH_POLICY`는 진입 gate의 유효값을 사용한다. `$ARGUMENTS`에 `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`), `--reflect`가 있으면 `$REFLECT = true` (기본값 `false`).
+`HARD_MODE`와 `PUBLISH_POLICY`는 진입 gate의 유효값을 사용한다. `$ARGUMENTS`에 `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`), `--reflect`가 있으면 `$REFLECT = true` (기본값 = 공통 설정 `STEPS` reflect, 없으면 `false`).
 `--reflect`는 이 오케스트레이터가 **소비**한다 — 하위 도메인 에이전트에 전달하지 않는다 (풀스택은 하위 워크플로우를 중첩 실행하지 않으므로 회고는 Phase 10 한 곳뿐). `--tier {quick|light|standard}`(진입 gate의 값 검증 뒤)·티어 이름 지시·`작업 난이도: 하|중|상`은 무시하고 상태에 `무시됨(FS)`으로 남기며 착수 질문도 하지 않는다 — 풀스택은 계약 변경 자체가 리스크 높음이므로 검증 티어가 항상 `standard`(축소 없음)이며, 도메인 hook에도 standard를 전달한다.
 
 **재개 규칙**: `run-lifecycle.md`의 명시적 재개 검증 성공 후에만 적용한다. 컨텍스트 요약·세션 재개 등으로 CLI 인자를 잃은 뒤 이어갈 때는 `{STATE_FILE}`의 `## Flags`가 **유일한 기준**이다 (`MODE: fs`면 이 문서의 절차를 이어간다). CLI 인자와 충돌하면 기록값이 우선하며 한 줄로 고지한다.
@@ -121,6 +121,7 @@ Spec 또는 계약에 없는 변경이 필요하면: ① 코드를 먼저 바꾸
 - 재개(run-lifecycle 검증 성공)면 `## Flags`의 `CODEX`가 기준 — `--codex`는 무시 + 고지.
 - 신규면 `--codex` > be profile `codexMode` > fe profile `codexMode` > (대화형) 3지선다 질문 / (비대화형) `mix` ephemeral. 명시 입력(`--codex`·질문 응답)은 존재하는 writable `.claude/be-harness.local.md`·`.claude/fe-harness.local.md` **모두**에 동일 값으로 기록한다 (부재·기록 실패 대상은 ephemeral 경고 1줄). 양쪽 값이 다르고 명시 입력이 없으면 be 값을 **이번 실행만** 사용 + 고지. 값은 exact `none|mix|max`로 검증한다. 확정 직후 `--codex-models`도 동형으로 resolve한다 (`codex-mode.md` §2.1 풀스택 — 읽기 = `codexModels` 블록 단위 be → fe → 기본값, 플래그는 슬롯 단위 덮어쓰기, 기록 = writable be·fe 모두; 재개면 `CODEX_MODELS` 기준·플래그 무시, `none`이면 `N/A`; 결과는 `$CODEX_MODELS`).
 - `none`이 아니면 도구 목록에 `mcp__codex__codex` 존재를 확인한다 — 없으면 `$CODEX_RUNTIME = fallback(global:mcp_missing)` + 고지(profile 불변). `max`이고 세션 모델이 opus/fable 계열이 아니면 1줄 고지한다.
+- 이어서 `review-config.md`를 Read해 **공통 설정**(`.claude/harness.config.json`)을 resolve한다 (§1 — `--e2e-enabled`는 be profile 값, `REVIEW`·`STEPS`·`GEMINI_MODEL` → `## Flags`, `STEPS` off 단계 = `SKIPPED:CONFIG`, 재개면 `## Flags` 기준). `REVIEW` `quality`는 `mm.quality-review` hook의 실행 주체를 정한다.
 
 ## Phase 1: 기능 정의 + Feature Matrix (Plan 모드 진입)
 
@@ -169,11 +170,11 @@ Plan 규칙:
 
 설치 overlay의 `phase4.review` hook을 적용하고 폴백 기록/상한을 동일 iteration에 반영한다.
 
-통신 계약 + BE/FE/공용 Plan에 대해 검증 루프를 통과해야 확정된다. **리뷰어 = `codexMode`** (`codex-mode.md` §1·§6 — `mix`/`max`: Codex `review` 슬롯(`$CODEX_MODELS` — 기본 effort 티어링: Simple·Standard → xhigh / Complex·Critical → max), `none`: Claude 3관점 패널).
+통신 계약 + BE/FE/공용 Plan에 대해 검증 루프를 통과해야 확정된다. **리뷰어 = `REVIEW`의 `plan`** (`review-config.md` §2 — `codex`: Codex `review` 슬롯(`$CODEX_MODELS` — 기본 effort 티어링: Simple·Standard → xhigh / Complex·Critical → max), `gemini`: gemini CLI(§3), `claude`: Claude 3관점 패널(`codex-mode.md` §6)).
 
 ```
 for iteration in 1..5:
-  ① Plan 리뷰 (Architect 관점, 리뷰어 = codexMode) — stateless 보완을 위해 매회 전달:
+  ① Plan 리뷰 (Architect 관점, 리뷰어 = REVIEW plan) — stateless 보완을 위해 매회 전달:
      Spec / 통신 계약 v최신 / BE·FE·공용 Plan v최신
      / (N≥2) 이전 iteration Diff 요약 + 기각 피드백·사유
      리뷰 관점: 계약-Plan 추적성, 파일 소유권 충돌, shared artifact owner 명확성,
@@ -249,6 +250,7 @@ Phase 7 시작 전 `{STATE_FILE}`의 상태를 갱신한다. 각 도메인 루�
 - **백엔드 루프**: ① build + `{lintCommand}` + `{testCommand}` (BE `quality-loop.md` Phase 8.1 — lint 실패는 범위 안 파일만 수정) ② `/be-harness:simplify-loop` ③ `/be-harness:convention-check` ④ `/be-harness:e2e-test-loop` ⑤ API 계약 변경 + `apiDocsPath` 존재 시 문서 동기화
 - **프론트엔드 루프**: ① build + type-check ② `/fe-harness:simplify-loop` ③ `/fe-harness:convention-check` ④ `/fe-harness:test-loop` ⑤ lint — FE `agent-prompts.md` Phase 7.6 절차 (Bash 직접 실행, 실패 시에만 수정 위임)
 
+`STEPS` off(`review-config.md` §5): `simplify=off` → 양쪽 ② = `SKIPPED:CONFIG` · `e2e=off` → BE ④ = `SKIPPED:CONFIG`, FE ④ = `test-loop --unit-only` · `ocr=off` → 아래 OCR 수집 생략.
 품질 루프도 공유 index를 사용하므로 BE → FE 순차 실행한다. 빌드/타입 체크는 명령별 exit code를 판정하며 로그 tail 사용 시 Bash `pipefail`을 적용한다.
 MUST: [ocr-review.md](ocr-review.md)를 읽고 실제 Simplify·Convention 호출 직전에 common 오케스트레이터가 writer 종료 후 자기 collector로 최신 scope를 `--ocr` 수집한다. 각 도메인 러너에는 해당 소유 파일·역할의 검증된 groups와 status/uncovered_paths/진단을 전달하고, 러너는 실제 중첩 스킬의 스캔 입력에 인계한다. 수정이 발생하면 다음 리뷰 전에 새 artifact를 수집한다. 적용 group_id·파일·역할 및 미적용 이유를 기존 Phase 근거에 반환·보존한다. 기존 순서·수정 권한·상한은 그대로이며 OCR 실패는 기존 리뷰로 fallback한다.
 각 도메인의 테스트 실패는 해당 도메인 `## Test Baseline`과 대조해 `regression` / `pre_existing` / `new_red` / `flaky`로 분류한다 (`fullstack-tdd.md`의 "Phase 7: 도메인별 회귀 대조").

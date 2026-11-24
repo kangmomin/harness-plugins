@@ -6,7 +6,7 @@
 
 1. 세션 스킬/플러그인 메타데이터로 minmos/hyeondongs 설치와 **실제 root·호출명**을 확인한다. 경로를 추측하지 않는다. 프로젝트의 `.claude/{be-harness|fe-harness}/common.md`, `skills/{name}.md`도 확인한다.
 2. 같은 overlay-source 마커의 프로젝트 복사본은 해당 파일의 설치본보다 우선한다. 각 hook의 `files`를 모아 `workflow_policy.py sources`에 plugin/절대 plugin_root/cwd/files로 전달한다. 반환된 실제 경로와 project_rules를 읽고 같은 소스를 중복 주입하지 않는다. start-workflow 한 파일에 마커가 있다는 이유로 request/e2e/common 등의 별도 파일까지 생략하지 않는다. 프로젝트 사용자 규칙은 보존하며 `hook.id`당 적용 소스는 하나만 기록한다. 복사본에서 참조한 자료의 위치를 찾지 못하면 `BLOCKED:OVERLAY_SOURCE`를 남긴다.
-3. Pre-flight에서는 소스·capability를 읽기 전용으로 확인한다. init/다운로드/import는 진단으로 실행하지 않는다. `facts`는 `request_needed`, `codex_enabled`, `e2e`, `api_change`의 실제 boolean 판정이며 누락을 false로 추측하지 않는다. `capabilities`는 해당 실행에서 확인된 `review`, `http-or-grpc`, `apidog-read`, `apidog-import-authorized` 같은 기능명이다. 실제 tool 이름과 성공/권한 근거를 별도로 기록한다.
+3. Pre-flight에서는 소스·capability를 읽기 전용으로 확인한다. init/다운로드/import는 진단으로 실행하지 않는다. `facts`는 `request_needed`, `codex_enabled`, `e2e`, `api_change`의 실제 boolean 판정이며 누락을 false로 추측하지 않는다. 공통 설정 resolve 후 판정한다: `codex_enabled` = `REVIEW` `plan`이 `codex` · `e2e`는 `STEPS` `e2e=off`면 false. `capabilities`는 해당 실행에서 확인된 `review`, `http-or-grpc`, `apidog-read`, `apidog-import-authorized` 같은 기능명이다. 실제 tool 이름과 성공/권한 근거를 별도로 기록한다.
 4. `workflow_policy.py overlays`에 `selected`(플러그인 식별자 중복 없는 배열), `facts`, `capabilities`를 JSON으로 전달한다. READY hook만 지정 point에서 실행하고, 조건 불일치는 SKIPPED:NOT_APPLICABLE, 필수 기능 누락은 BLOCKED로 기록한다. 누락 영향은 해당 hook에 한정하며 가능한 검증/최종 결정은 계속한다.
 5. 각 도메인 에이전트에는 **자기 hook의 실제 소스 경로·절 제목·point·owner·조건·capability·이전 결과**를 전달한다. 성공/실패/생략·근거를 반환받아 오케스트레이터만 `## Overlay Handoff`를 기록한다. 공유 상태/index 쓰기와 commit은 오케스트레이터 소유다.
 
@@ -22,7 +22,7 @@
 | mm.quality-review | Phase 7 BE 루프 직후 | standard 리뷰 상한 4회; advisor 결과만 반환 |
 | mm.doc-sync | Phase 7 BE 문서 동기화 | API 변경이면 Apidog로 **치환**. `apiDocsPath` 존재 조건을 사용하지 않음. 생성/수정/삭제 분기는 doc-sync 역할 파일을 따름 |
 
-`mm.quality-review` 실제 dispatch 직전에 common 부모 오케스트레이터는 MUST: [ocr-review.md](ocr-review.md)를 읽고 자기 collector로 최신 `--ocr` scope를 준비한다. 현재 scope·규칙 snapshot과 맞는 artifact가 없으면 미사용 시도 디렉터리에 새로 수집하고, advisor에게 BE 소유 파일의 코드 품질 groups·scope identity·두 diff·status/uncovered_paths/진단을 전달한다. advisor가 적용 group_id·파일·미적용 이유를 기존 hook 결과에 함께 반환하도록 프롬프트에 명시한다. minmos overlay에 다른 플러그인의 직접 파일 경로를 요구하지 않는다. OCR 실패는 기존 hook 리뷰로 fallback하며 리뷰 capability·판정·상한·tested_tree 유효 범위는 바꾸지 않는다. Plan hook과 격리 Read-back에는 이 입력을 전달하지 않는다.
+`mm.quality-review` 실행 주체는 `## Flags` `REVIEW`의 `quality`(`review-config.md` §2)다. `STEPS` `ocr=off`면 아래 OCR 수집을 생략한다. 실제 dispatch 직전에 common 부모 오케스트레이터는 MUST: [ocr-review.md](ocr-review.md)를 읽고 자기 collector로 최신 `--ocr` scope를 준비한다. 현재 scope·규칙 snapshot과 맞는 artifact가 없으면 미사용 시도 디렉터리에 새로 수집하고, advisor에게 BE 소유 파일의 코드 품질 groups·scope identity·두 diff·status/uncovered_paths/진단을 전달한다. advisor가 적용 group_id·파일·미적용 이유를 기존 hook 결과에 함께 반환하도록 프롬프트에 명시한다. minmos overlay에 다른 플러그인의 직접 파일 경로를 요구하지 않는다. OCR 실패는 기존 hook 리뷰로 fallback하며 리뷰 capability·판정·상한·tested_tree 유효 범위는 바꾸지 않는다. Plan hook과 격리 Read-back에는 이 입력을 전달하지 않는다.
 
 ## 재검증과 재개
 

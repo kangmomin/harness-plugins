@@ -17,7 +17,7 @@
 | 오케스트레이션 — 항상 Claude | ① 오케스트레이터 ② **스킬 러너** (Codex는 Skill tool을 못 부르므로 스킬 실행은 Claude `general-purpose`; `max`면 내부 리프를 이 계약으로 위임) ③ PR 에이전트 (Assumption Gate 유저 확인 + push 네트워크) | 〃 | 〃 |
 
 - 세 모드 모두 **절차·상한·종료 조건·티어 규칙 불변** — 실행 주체와 리뷰어의 모델·effort만 바뀐다. 검증 티어와 직교한다.
-- **슬롯 라우팅 원칙**: Plan 검증 루프·특화 하네스 품질 리뷰 = `review`, 그 외 읽기 전용 판정 = `judge`, 탐색·요약 = `explore`, 쓰기 = `write`. sandbox는 슬롯에 고정된다 (provider·모델과 무관).
+- **슬롯 라우팅 원칙**: Plan 검증 루프·특화 하네스 품질 리뷰 = `review`, 그 외 읽기 전용 판정 = `judge`, 탐색·요약 = `explore`, 쓰기 = `write`. sandbox는 슬롯에 고정된다 (provider·모델과 무관). 두 리뷰 지점의 실행 주체는 공통 설정 `REVIEW`가 최종 결정한다 — `codex`일 때만 이 표의 `review` 슬롯, `gemini`·`claude`는 `review-config.md` §2.
 - **슬롯 기본값** — profile `codexModels`로 슬롯 단위 교체 (§2.1). 아래 표가 저장소 내 OpenAI 모델 리터럴의 유일한 위치다:
 
 <!-- codex-mode:defaults-begin -->

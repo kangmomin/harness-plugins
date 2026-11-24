@@ -119,6 +119,9 @@ Write tool로 `{STATE_FILE}`을 작성한다:
 - TIER: standard(고정) — 티어 선언(`--tier`·티어 이름 지시·`작업 난이도`)이 있었으면 `선언: 무시됨(FS)`을 덧붙인다
 - CODEX: {none|mix|max}
 - CODEX_MODELS: {review={provider}/{model}@{effort},explore=…,judge=…,write=… | N/A} — 4슬롯 고정 순서·확정 effort(`-` = 키 생략), `CODEX: none`이면 `N/A` (`codex-mode.md` §2.1)
+- REVIEW: plan={codex|gemini|claude},quality={codex|gemini|claude} — 공통 설정 resolve 결과 (`review-config.md` §1)
+- STEPS: ocr={on|off},e2e={on|off},simplify={on|off},reflect={on|off}
+- GEMINI_MODEL: {model | -} — `REVIEW`에 gemini가 있을 때만
 - RUN_ID: {RUN_ID}
 - START_SHA: {START_SHA}
 
@@ -240,6 +243,7 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 ### 1. Pre-Review (Plan)
 - Codex 모드: [none | mix | max] · 모델: [기본 | {CODEX_MODELS}]{ · runtime: fallback({항목}, …)}
+- 리뷰·단계: 리뷰: {REVIEW} · 단계: {STEPS}{ · gemini: fallback({사유})}
 - Codex Feedback: ...
 - Claude Feedback: ...
 - Refinement: ...

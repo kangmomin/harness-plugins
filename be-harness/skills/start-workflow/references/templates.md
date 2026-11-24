@@ -32,6 +32,9 @@ START_SHA=$(git rev-parse HEAD 2>/dev/null || echo 없음)
 - TIER: {quick|light|standard} — 유효 티어 (승격 시 이력 행과 같은 Edit로 갱신, 재개 기준)
 - CODEX: {none|mix|max}
 - CODEX_MODELS: {review={provider}/{model}@{effort},explore=…,judge=…,write=… | N/A} — 4슬롯 고정 순서·확정 effort(`-` = 키 생략), `CODEX: none`이면 `N/A` (`references/codex-mode.md` §2.1)
+- REVIEW: plan={codex|gemini|claude},quality={codex|gemini|claude} — 공통 설정 resolve 결과 (`references/review-config.md` §1)
+- STEPS: ocr={on|off},e2e={on|off},simplify={on|off},reflect={on|off}
+- GEMINI_MODEL: {model | -} — `REVIEW`에 gemini가 있을 때만
 - RUN_ID: {RUN_ID}
 - START_SHA: {START_SHA}
 
@@ -258,6 +261,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py"
 - **난이도**: [N]/10 (산정) → [M]/10 (체감)
 - **검증 티어**: [{T} (선언 {D|없음}, 계산 {C0}) | {이전} → {최종} ({트리거}, 미재실행: {목록})] · Plan 깊이 {P | 구 상태면 `-`}
 - **Codex 모드**: [none | mix | max] · 모델: [기본 | {CODEX_MODELS}]{ · runtime: fallback({항목}, …)}
+- **리뷰·단계**: 리뷰: {REVIEW} · 단계: {STEPS}{ · gemini: fallback({사유})}
 - **PR**: [PR URL]
 
 ### 2. 구현 내역

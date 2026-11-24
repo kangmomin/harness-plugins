@@ -3,7 +3,7 @@
 
 # Codex 품질 리뷰 (Phase 8+)
 
-품질 루프가 완료되면 다음 Phase로 넘어가기 전에 품질 리뷰를 받는다 (리뷰어는 아래 `codexMode`별 실행 주체). 구현 결과 전체를 외부 관점으로 한 번 더 검증하는 단계다.
+품질 루프가 완료되면 다음 Phase로 넘어가기 전에 품질 리뷰를 받는다 (리뷰어는 아래 `REVIEW` `quality`별 실행 주체). 구현 결과 전체를 외부 관점으로 한 번 더 검증하는 단계다.
 
 ## 리뷰 입력
 
@@ -17,12 +17,13 @@ Technical Spec / 확정 Plan / 변경 파일 목록 / 구현 Phase 결과 / 품�
 
 Spec·Plan 대비 구현 누락 / 비즈니스 로직 결함 / 레이어 구조 위반 / 테스트·검증 공백 / 품질 루프가 놓친 단순화·컨벤션 이슈
 
-## 모드별 실행 주체 (`{STATE_FILE}` `## Flags`의 `CODEX`)
+## 실행 주체 (`{STATE_FILE}` `## Flags`의 `REVIEW` `quality` — 베이스 `review-config.md` §2. 구 상태 파일은 `CODEX`가 `none`이면 `claude`, 그 외 `codex`)
 
-| codexMode | 리뷰어 | 비고 |
+| REVIEW quality | 리뷰어 | 비고 |
 |-----------|--------|------|
-| `none` | Claude `general-purpose` 1개 (아래 리뷰 관점 전체) = 정규 경로 | Codex 호출·MCP 확인·`SKIPPED:CODEX_*` 기록 없음 |
-| `mix` / `max` | Codex `review` 슬롯 — 모델·effort는 상태 파일 `## Flags`의 `CODEX_MODELS`(기본값·티어링: codex-mode.md 기본값 표) | `## Codex Runtime` 상태에 `review` 슬롯에 적용되는 `fallback(…)` 항목(global · 그 provider · slot:review)이 있으면 호출 없이 아래 대체 패널 |
+| `claude` | Claude `general-purpose` 1개 (아래 리뷰 관점 전체) = 정규 경로 | Codex·gemini 호출·`SKIPPED:*` 기록 없음 (`codexMode: none`, `review.enabled: false`, `points.quality: false` 모두 여기) |
+| `gemini` | gemini CLI — 호출 계약·실패 정책은 베이스 `review-config.md` §3·§4 | latch 시 아래 대체 패널 + `SKIPPED:GEMINI_*`. 상한·결과 처리는 아래와 동일 |
+| `codex` | Codex `review` 슬롯 — 모델·effort는 상태 파일 `## Flags`의 `CODEX_MODELS`(기본값·티어링: codex-mode.md 기본값 표) | `## Codex Runtime` 상태에 `review` 슬롯에 적용되는 `fallback(…)` 항목(global · 그 provider · slot:review)이 있으면 호출 없이 아래 대체 패널 |
 
 ## 검증 티어별 상한
 
