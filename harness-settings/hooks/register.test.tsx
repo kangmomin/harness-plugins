@@ -20,7 +20,7 @@ const PANE = {
 // 엔진은 상대 경로를 작업 디렉터리 기준 절대 경로로 바꿔 넘기므로 끝부분으로 맞춘다.
 const key = (path: string) => (path.replace(/\\/g, '/').endsWith(PATH) ? PATH : path)
 
-function memoryFs(on: On, initial?: string) {
+function memoryFs(on: On, initial?: string, commands: string[] = []) {
   const files = new Map<string, string>()
   if (initial !== undefined) files.set(PATH, initial)
   on('fs.exists', (_, e) => ({ value: files.has(key(e.path)) }))
@@ -31,6 +31,7 @@ function memoryFs(on: On, initial?: string) {
   })
   on('ui.status', () => ({ value: undefined }))
   on('ui.toast', () => ({ value: undefined }))
+  on('command.list', () => ({ value: commands.map(name => ({ name, description: '', source: 'plugin' as const })) }))
   return files
 }
 
@@ -85,5 +86,27 @@ test('an invalid gemini model is refused', async ($, on) => {
   expect(files.get(PATH)).toBe('{}')
   await ui.input({ key: 'review.gemini.model', text: 'gemini-x-pro' })
   expect(JSON.parse(files.get(PATH) ?? '{}').review.gemini.model).toBe('gemini-x-pro')
+  await ui.unmount()
+})
+
+test('profile buttons show only for installed harness commands and run them', async ($, on) => {
+  memoryFs(on, '{}', ['be-harness-profile'])
+  const ran: string[] = []
+  on('command.run', (_, e) => {
+    ran.push(e.command)
+    return { text: '' }
+  })
+  const ui = await $.ui.mount({ ...PANE, surface: 'desktop' })
+
+  expect(await ui.find({ type: 'Button', key: 'fe-harness-profile' })).toBe(undefined)
+  await ui.press({ key: 'be-harness-profile' })
+  expect(ran).toEqual(['be-harness-profile'])
+  await ui.unmount()
+})
+
+test('no profile section when no harness is installed', async ($, on) => {
+  memoryFs(on, '{}')
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect(await ui.find({ type: 'Text', text: /프로필/ })).toBe(undefined)
   await ui.unmount()
 })
