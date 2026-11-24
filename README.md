@@ -8,6 +8,18 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-11-24 주석 규칙을 검사로 고정
+
+BE 1.11.0 / FE 1.11.0. 에이전트는 기존 코드의 주석을 따라 쓴다. 그래서 주석 규칙을 글이 아니라 결정적 검사로 먼저 고정했다.
+
+- 규칙: 주석은 코드·테스트·lint로 표현할 수 없는 이유만 남긴다. 새 주석 블록은 2줄 이하다. Spec 추적 ID(`AC`/`EC`/`RC`)는 주석에 쓰지 않는다.
+- `check_new_comments.py`(BE/FE 동일): 새로 추가한 줄만 검사한다. Go·TS·JS의 `//`·`/* */`를 본다. 테스트·생성 파일은 제외한다. 블록 상한은 `COMMENT_MAX_BLOCK_LINES`(기본 2).
+- convention-check가 이 스크립트를 실행해 `[COMMENT_STYLE]`로 보고한다. 스크립트가 실패하면 LLM이 같은 규칙을 적용한다.
+- init: 스크립트·`lint-comments`(Makefile) 또는 `lint:comments`(package.json)·CI step 설치를 묻는다. 사용자가 고를 때만 바꾼다.
+- 프롬프트: workflow-implementer와 default-conventions에서 새 주석은 이 규칙이 기존 관례보다 우선한다. 문서 주석은 의무가 아니다.
+- unit-test: 대응 ID를 주석이 아니라 테스트 이름에 넣는다 (`TestX_AC01_…`, `it('AC-01 …')`). Test Map은 에이전트 보고 표로 만들므로 이 변경에 영향을 받지 않는다.
+- 남은 한계: "코드를 되풀이하는 주석" 판정은 여전히 LLM이 한다. 문자열·정규식 리터럴 안의 `//`는 간단한 토크나이저로 구분하므로 드물게 오판할 수 있다.
+
 ## 2026-11-24 mods 전체 적용 (#27)
 
 BE 1.10.0 / FE 1.10.0 / common 0.19.0 / minmos 2.7.0 / work-log 0.6.0 / harness-settings 0.2.0. Claude Code mod(hooks 모듈)를 각 플러그인에 넣었다. 스킬 동작은 바뀌지 않는다.
