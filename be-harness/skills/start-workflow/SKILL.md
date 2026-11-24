@@ -52,7 +52,7 @@ user-invocable: true
 | 위 플래그 없음 | **Build** (기본) | Phase 1 → 12 |
 
 - `--resume`이면 명시된 상태의 `## Run` MODE로 모드를 판별하고 경로 검증을 수행한다. 명시 모드 플래그와 충돌하면 `BLOCKED:RUN_MISMATCH`. `--analyze`와 `--verify`는 상호 배타적이다. 동시 지정은 진입 검사(`references/entry-contract.md`)가 `BLOCKED:MODE_CONFLICT`로 종료하며, 사유와 지원 조합을 안내한다.
-- Build 모드 전용 플래그 (Analyze/Verify 모드에서는 무시 — 구현 Phase를 경유하지 않음): `$HARD_MODE`와 `$PUBLISH_POLICY`는 진입 gate의 `hard`/`publish_policy` 값을 사용한다 · `--no-tdd`면 `$TDD = false` (기본값 `true`) · `--reflect`면 `$REFLECT = true` (기본값 `false` — Phase 11 실행 여부) · `--tier` 값, 티어 이름을 지목한 지시, `작업 난이도: 하|중|상` 또는 착수 질문 응답이면 `$TIER_DECLARED` = 그 값 (기본값 `none` — 해석: `references/verification-tier.md` §1·§1.1).
+- Build 모드 전용 플래그 (Analyze/Verify 모드에서는 무시 — 구현 Phase를 경유하지 않음): `$HARD_MODE`와 `$PUBLISH_POLICY`는 진입 gate의 `hard`/`publish_policy` 값을 사용한다 · `--no-tdd`면 `$TDD = false` (기본값 `true`) · `--reflect`면 `$REFLECT = true` (기본값 = 공통 설정 `STEPS` reflect, 없으면 `false` — Phase 11 실행 여부) · `--tier` 값, 티어 이름을 지목한 지시, `작업 난이도: 하|중|상` 또는 착수 질문 응답이면 `$TIER_DECLARED` = 그 값 (기본값 `none` — 해석: `references/verification-tier.md` §1·§1.1).
 - **범위 지정**: 플래그 뒤 경로가 있으면 분석/검증 범위로 사용한다. 없으면 전체 코드베이스 (profile의 `sourceDirs` 기준).
   예: `--analyze src/book`, `--verify src/book/handler.go`
 
@@ -158,7 +158,7 @@ Codex 호출 실패는 이 규약 대상이 아니다 — `references/codex-mode
 > "`.claude/be-harness.local.md` 가 없습니다. 먼저 `/be-harness:init`을 실행하세요."
 
 **Codex 모드 resolve** (`references/codex-mode.md` §2): 재개면 상태 파일 `## Flags`의 `CODEX`가 기준(`--codex` 무시). 신규면 `--codex` > profile `codexMode` > (대화형) 3지선다 질문 / (비대화형) `mix` ephemeral — 명시 입력만 profile에 기록하고, 값은 exact `none|mix|max`로 검증한다. Build 신규 실행이면 질문 전에 난이도 착수 질문(`references/verification-tier.md` §1.1)의 필요 여부도 판정해, 둘 다 필요하면 한 AskUserQuestion으로 묻고 착수 질문만 필요하면 이 시점에 단독으로 묻는다 (SKIP 사전 경고보다 먼저). 확정 직후 `--codex-models`도 동형으로 resolve한다 (§2.1 — 재개면 `CODEX_MODELS` 기준·플래그 무시, `none`이면 `N/A`, 명시 입력만 profile `codexModels`에 기록, 슬롯 단위 병합 `플래그 > profile > 기본값`; 결과는 `$CODEX_MODELS`).
-`none`이 아니면 도구 목록에 `mcp__codex__codex` 존재를 확인한다 — 없으면 `$CODEX_RUNTIME = fallback(global:mcp_missing)` + 고지(profile 불변). `max`이고 세션 모델이 opus/fable 계열이 아니면 1줄 고지한다.
+`none`이 아니면 도구 목록에 `mcp__codex__codex` 존재를 확인한다 — 없으면 `$CODEX_RUNTIME = fallback(global:mcp_missing)` + 고지(profile 불변). `max`이고 세션 모델이 opus/fable 계열이 아니면 1줄 고지한다. 이어서 `references/review-config.md`를 Read해 **공통 설정**(`.claude/harness.config.json`)을 resolve한다 (§1 — `REVIEW`·`STEPS`·`GEMINI_MODEL` → `## Flags`, `STEPS` off 단계 = `SKIPPED:CONFIG`, 재개면 `## Flags` 기준).
 
 ### 2. SKIP 예정 Phase 사전 경고
 
@@ -169,7 +169,7 @@ profile 값을 근거로 누락 항목이 있으면 어떤 Phase가 SKIP될 것�
 | `{buildCommand}` | 비어있지 않음 | Phase 7 빌드 체크 SKIP (위험: 컴파일 에러 조기 차단 불가) |
 | `{testCommand}` | 비어있지 않음 | Phase 6.1 TDD·회귀 baseline SKIP + Phase 8.1 테스트 SKIP (위험: 회귀 탐지 불가) |
 | `{lintCommand}` | 비어있지 않음 | Phase 8.1 lint SKIP + Phase V2 정적 분석 일부 SKIP (위험: 결정적 규칙 위반을 LLM 스캔에만 의존) |
-| `{e2eEnabled}` & `{runServerCommand}` & `{serverUrl}` | 모두 유효 | Phase 8.6 (e2e-test-loop) SKIP 예정 |
+| `{e2eEnabled}` & `{runServerCommand}` & `{serverUrl}` | 모두 유효 (`STEPS` `e2e=off`면 점검 없이 `SKIPPED:CONFIG`) | Phase 8.6 (e2e-test-loop) SKIP 예정 |
 | `{apiDocsPath}` | 파일 존재 | Phase 9 (문서 동기화) SKIP 예정 |
 | `{makeTestCommand}` | 비어있지 않음 | Phase 8.7 통합 테스트 SKIP |
 
@@ -271,11 +271,11 @@ Spec 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 �
 
 ### Phase 4.3: Plan Verification Loop (최대 {PLAN_MAX}회)
 
-Plan은 검증 루프를 통과해야 확정된다. **리뷰어 = `codexMode`** (`references/codex-mode.md` §1·§6 — `mix`/`max`: Codex `review` 슬롯(`$CODEX_MODELS`), `none`: Claude 3관점 패널). 첫 dispatch 직전에 codex-mode.md를 Read한다.
+Plan은 검증 루프를 통과해야 확정된다. **리뷰어 = `REVIEW`의 `plan`** (`references/review-config.md` §2 — `codex`: Codex `review` 슬롯(`$CODEX_MODELS`), `gemini`: gemini CLI(§3), `claude`: Claude 3관점 패널(`references/codex-mode.md` §6)). 첫 dispatch 직전에 codex-mode.md를 Read한다.
 
 ```
 for iteration in 1..{PLAN_MAX}:
-  ① Plan 리뷰 (Architect 관점, 리뷰어 = codexMode) — stateless 보완을 위해 매회 전달:
+  ① Plan 리뷰 (Architect 관점, 리뷰어 = REVIEW plan) — stateless 보완을 위해 매회 전달:
      Spec 전문 / Plan vN 전문 / 실행 전략 / 난이도 근거
      / (N≥2) 이전 iteration Diff 요약 + 기각 피드백·사유
      리뷰 관점: Spec-Plan 추적성, 레이어 책임 분리, 파일 소유권 충돌,

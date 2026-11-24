@@ -134,7 +134,7 @@ git -C "{GIT_ROOT}" --literal-pathspecs commit --only -F "{MESSAGE_FILE}" -- {�
 
 ## Phase 7: 품질 루프 단계별 프롬프트
 
-7.2·7.3 중 이번 티어에서 실행하는 단계 직전에 MUST: [ocr-review.md](ocr-review.md)를 읽는다. 부모 오케스트레이터가 모든 writer 종료 후 최신 scope를 `--ocr`로 수집하고, 아래 러너에 해당 역할·소유 파일의 검증된 그룹과 진단을 전달한다. 앞 단계가 수정했다면 다음 단계 전에 새 artifact를 수집한다. quick에서는 생략된 스캐너를 위해 OCR 수집·에이전트를 추가하지 않는다. 7.5 Spec-only·7.7 격리 Read-back 입력은 확대하지 않는다.
+7.2·7.3 중 이번 티어에서 실행하는 단계 직전에 (`STEPS` `ocr=off`면 OCR 수집 없이 기존 입력만) MUST: [ocr-review.md](ocr-review.md)를 읽는다. 부모 오케스트레이터가 모든 writer 종료 후 최신 scope를 `--ocr`로 수집하고, 아래 러너에 해당 역할·소유 파일의 검증된 그룹과 진단을 전달한다. 앞 단계가 수정했다면 다음 단계 전에 새 artifact를 수집한다. quick에서는 생략된 스캐너를 위해 OCR 수집·에이전트를 추가하지 않는다. 7.5 Spec-only·7.7 격리 Read-back 입력은 확대하지 않는다.
 
 ### Phase 7.2: Simplify
 

@@ -48,6 +48,8 @@
 | **start-workflow** | `/common:start-workflow` | 개발 워크플로우의 **단일 진입점**. 요청을 분석해 백엔드/프론트엔드/풀스택을 판정하고, 단일 도메인이면 해당 하네스로 위임하고 풀스택이면 계약 기반 병렬 오케스트레이션을 직접 실행. `--reflect`(성찰, 기본 off)·`--tier quick|light|standard`(검증 티어 선언 — 진입 gate가 값 검증)는 단일 도메인에 그대로 전달(풀스택은 `--tier`를 무시하고 항상 standard), 풀스택은 `--reflect`를 직접 소비해 Phase 10 회고 1회 + 종료 시 md Workflow Report 아카이브. `--codex none|mix|max`는 Codex 사용 모드(profile `codexMode` 저장) — 단일 도메인은 통과, 풀스택은 직접 소비해 be·fe profile에 기록. `--codex-models`(슬롯별 위임 모델, profile `codexModels`)도 동일 |
 
 **도메인 플래그**: `--be`(백엔드) · `--fe`(프론트엔드) · `--fs`(풀스택) · `--mm`(백엔드 + minmos 오버레이) · `--hd`(프론트엔드 + hyeondongs 오버레이)
+**공통 설정**: `.claude/harness.config.json`(타 모델 리뷰 on/off·리뷰 엔진 codex/gemini/claude·단계 토글)을 be/fe/풀스택이 함께 읽는다. 편집은 `harness-settings` mod의 `/harness-settings`. 계약: `skills/start-workflow/references/review-config.md`.
+
 **플래그를 생략하면** 프로젝트 신호(`go.mod`, `package.json`, profile 파일 등)와 요청 내용으로 도메인을 판정하고 **확인을 거친 뒤** 실행한다.
 
 단일 도메인 위임 시 절차는 위임 대상 하네스가 정의한다. 풀스택 절차는 `skills/start-workflow/references/fullstack.md` 가 canonical이다.

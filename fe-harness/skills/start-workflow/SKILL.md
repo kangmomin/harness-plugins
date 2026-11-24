@@ -43,7 +43,7 @@ user-invocable: true
 | `--codex {none\|mix\|max}` | | Codex 사용 모드를 지정하고 profile `codexMode`에 저장한다. 미지정 시 profile → 질문(권장 `mix`). 정의·호출 계약·실패 정책: `references/codex-mode.md` |
 | `--codex-models {슬롯}={provider}/{model}[@{effort}] \| default[,…]` | | Codex 위임 모델 슬롯(`review`·`explore`·`judge`·`write`)을 지정하고 profile `codexModels`에 저장한다 (`--codex none`이면 N/A). 문법·병합·검증: `references/codex-mode.md` §2.1 |
 
-`$HARD_MODE`와 `$PUBLISH_POLICY`는 진입 gate의 `hard`/`publish_policy` 값을 사용한다, `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`), `--reflect`가 있으면 `$REFLECT = true` (기본값 `false`), `--tier` 값, 티어 이름을 지목한 지시, `작업 난이도: 하|중|상` 또는 착수 질문 응답이 있으면 `$TIER_DECLARED` = 그 값 (기본값 `none` — 해석: `references/verification-tier.md` §1·§1.1).
+`$HARD_MODE`와 `$PUBLISH_POLICY`는 진입 gate의 `hard`/`publish_policy` 값을 사용한다, `--no-tdd`가 있으면 `$TDD = false` (기본값 `true`), `--reflect`가 있으면 `$REFLECT = true` (기본값 = 공통 설정 `STEPS` reflect, 없으면 `false`), `--tier` 값, 티어 이름을 지목한 지시, `작업 난이도: 하|중|상` 또는 착수 질문 응답이 있으면 `$TIER_DECLARED` = 그 값 (기본값 `none` — 해석: `references/verification-tier.md` §1·§1.1).
 
 | Phase | 일반 모드 | --hard 모드 |
 |-------|----------|------------|
@@ -121,6 +121,7 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 - 재개(run-lifecycle 검증 성공)면 `## Flags`의 `CODEX`가 기준 — `--codex`는 무시 + 고지.
 - 신규면 `--codex` > profile `codexMode` > (대화형) 3지선다 질문 / (비대화형) `mix` ephemeral. 질문 전에 난이도 착수 질문(`references/verification-tier.md` §1.1)의 필요 여부도 판정해, 둘 다 필요하면 한 AskUserQuestion으로 묻고 착수 질문만 필요하면 이 시점에 단독으로 묻는다. 명시 입력만 writable `.claude/fe-harness.local.md`에 기록한다 (레거시 `.hyeondong-config.json`만 있으면 ephemeral + `/fe-harness:init` 안내). 값은 exact `none|mix|max`로 검증한다. 확정 직후 `--codex-models`도 동형으로 resolve한다 (§2.1 — 재개면 `CODEX_MODELS` 기준·플래그 무시, `none`이면 `N/A`, 명시 입력만 profile `codexModels`에 기록, 슬롯 단위 병합 `플래그 > profile > 기본값`; 결과는 `$CODEX_MODELS`).
 - `none`이 아니면 도구 목록에 `mcp__codex__codex` 존재를 확인한다 — 없으면 `$CODEX_RUNTIME = fallback(global:mcp_missing)` + 고지(profile 불변). `max`이고 세션 모델이 opus/fable 계열이 아니면 1줄 고지한다.
+- 이어서 `references/review-config.md`를 Read해 **공통 설정**(`.claude/harness.config.json`)을 resolve한다 (§1 — `REVIEW`·`STEPS`·`GEMINI_MODEL` → `## Flags`, `STEPS` off 단계 = `SKIPPED:CONFIG`, 재개면 `## Flags` 기준).
 
 ## Phase 1: 작업 범위 수집 (Plan 모드 진입)
 
@@ -198,11 +199,11 @@ Spec 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 �
 
 ### Phase 3.3: Plan Verification Loop (최대 {PLAN_MAX}회)
 
-**리뷰어 = `codexMode`** (`references/codex-mode.md` §1·§6 — `mix`/`max`: Codex `review` 슬롯(`$CODEX_MODELS`), `none`: Claude 3관점 패널). 첫 dispatch 직전에 codex-mode.md를 Read한다.
+**리뷰어 = `REVIEW`의 `plan`** (`references/review-config.md` §2 — `codex`: Codex `review` 슬롯(`$CODEX_MODELS`), `gemini`: gemini CLI(§3), `claude`: Claude 3관점 패널(`references/codex-mode.md` §6)). 첫 dispatch 직전에 codex-mode.md를 Read한다.
 
 ```
 for iteration in 1..{PLAN_MAX}:
-  ① Plan 리뷰 (Architect 관점, 리뷰어 = codexMode) — stateless 보완을 위해 매회 전달:
+  ① Plan 리뷰 (Architect 관점, 리뷰어 = REVIEW plan) — stateless 보완을 위해 매회 전달:
      Spec 전문 / Plan vN 전문 / 난이도 산정 근거
      / (N≥2) 이전 iteration Diff 요약 + 기각 피드백·사유
      리뷰 관점: Spec-Plan 추적성, 컴포넌트/훅 책임 경계, 상태 정합성,
@@ -330,6 +331,7 @@ for iteration in 1..{QL_MAX}:
 ```
 
 **light**: 7.2 = `SKIPPED:TIER_LIGHT`, 7.4 = `test-loop --smoke`, 7.7 = `SKIPPED:TIER_LIGHT`. 승격 ③·⑥·⑦(회귀 · E2E 실패 잔존 · 재판정)은 `references/verification-tier.md` §5 — 티어 전환은 아래 종료 조건 평가보다 먼저 적용하고, ⑥·⑦은 새 티어 iteration을 최소 1회 추가한다. 각 iteration 종료 시(T < standard) ⑦을 재판정한다.
+**`STEPS` off** (티어 생략이 우선): `simplify=off` → 7.2 = `SKIPPED:CONFIG` · `e2e=off` → 7.4 = `test-loop --unit-only` (E2E 부분 `SKIPPED:CONFIG`).
 **quick**: 7.2·7.3·7.6·7.7 = `SKIPPED:TIER_QUICK`, 7.4 = `test-loop --unit-only`. `## Quick Test Evidence`가 있으면(승격 후에도 유지) 7.4에 Evidence 종료 증거 게이트, 7.5에 Evidence 대응 확인을 더한다 (`references/verification-tier.md` §4.1).
 `codexMode: max`: 7.5 scope-reviewer는 Codex `judge` 슬롯, 7.7 복원은 `explore` 슬롯, 7.1·7.6 수정과 7.2/7.3/7.4 러너 내부의 수정 리프는 `write` 슬롯으로 위임한다 (러너 프롬프트에 §8 포인터 1줄 — `references/codex-mode.md`).
 
@@ -409,7 +411,7 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 [유저 대화] — Phase 1~3 전체가 단일 EnterPlanMode 컨텍스트
 Phase 1: EnterPlanMode → /request 또는 직접 Technical Spec + 작업 계약 (미결 결정만 확인) + 풀스택 판정
 Phase 2: 티어 선언 확인 (--tier · 작업 난이도 · 착수 질문 — 산정·판정은 3.1 끝)
-Phase 3: Plan 작성 → 난이도·티어·Plan 깊이 판정 → 다관점 1회 보강 → 검증 루프 (리뷰어 = codexMode: Codex `review` 슬롯 | Claude 패널, 최대 {PLAN_MAX}회 — Plan 깊이 quick은 둘 다 SKIP) → 재판정·ExitPlanMode
+Phase 3: Plan 작성 → 난이도·티어·Plan 깊이 판정 → 다관점 1회 보강 → 검증 루프 (리뷰어 = REVIEW plan: Codex `review` 슬롯 | gemini | Claude 패널, 최대 {PLAN_MAX}회 — Plan 깊이 quick은 둘 다 SKIP) → 재판정·ExitPlanMode
 Phase 4: feature 브랜치 + 상태 파일 + implementation-notes.md + 회귀 baseline → "자율 실행 시작"
 
 [자율 실행 — 유저 확인 없이 완주. codexMode max: 리프 에이전트를 Codex 슬롯(`explore`/`judge` 읽기 · `write` 쓰기)으로 위임 — codex-mode.md]

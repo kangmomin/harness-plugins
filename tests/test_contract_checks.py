@@ -18,7 +18,7 @@ class ContractChecksTests(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory(prefix='harness-contracts-')
         cls.addClassCleanup(cls.temp.cleanup)
         cls.root = Path(cls.temp.name)
-        for name in ['be-harness', 'fe-harness', 'common', 'minmos-harness', 'hyeondongs-harness', 'work-log', '.claude-plugin', '.github', 'docs', 'tests']:
+        for name in ['be-harness', 'fe-harness', 'common', 'minmos-harness', 'hyeondongs-harness', 'work-log', 'harness-settings', '.claude-plugin', '.github', 'docs', 'tests']:
             shutil.copytree(ROOT / name, cls.root / name, ignore=shutil.ignore_patterns('node_modules', '__pycache__'))
         if (ROOT / 'README.md').is_file():
             shutil.copyfile(ROOT / 'README.md', cls.root / 'README.md')

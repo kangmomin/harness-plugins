@@ -19,7 +19,7 @@ BE Phase 8.4는 be-harness `review-evidence.md` 계약을 따른다. 추가 품�
 |------|------|----------|------|
 | `Phase 1 (작업 범위 수집)` | 직후 | **E2E 메인 플로우 수집** | 아래 §E2E 메인 플로우 수집 |
 | `Phase 4 (Plan 작성 + 리뷰)` | 내부: Plan Verification Loop | **Codex 실패 폴백 기록** | 아래 §Plan 검증 루프 보강 |
-| `Phase 8 (품질 루프)` | 직후 | **Codex 품질 리뷰** (검증 티어 light면 총 2회 상한, quick이면 SKIP — §검증 티어 연동. 리뷰어는 베이스 `codexMode`를 따른다 — `none`이면 Claude 패널 1개가 정규 리뷰어) | `references/codex-review.md` |
+| `Phase 8 (품질 루프)` | 직후 | **Codex 품질 리뷰** (검증 티어 light면 총 2회 상한, quick이면 SKIP — §검증 티어 연동. 리뷰어는 베이스 공통 설정 `REVIEW`의 `quality`를 따른다 — `claude`면 Claude 패널 1개가 정규 리뷰어) | `references/codex-review.md` |
 | `Phase 12 (최종 보고)` | 내부: Read-back 결정 후, 보완점 분기 전 (`--reflect` 여부와 무관) | **이연 문서 동기화 결정** (Phase 9가 `SKIPPED:DOC_SYNC_DEFERRED`일 때만) | 아래 §quick 문서 동기화 이연 |
 
 ## Phase 치환
@@ -48,7 +48,7 @@ BE Phase 8.4는 be-harness `review-evidence.md` 계약을 따른다. 추가 품�
 
 E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직접 묻는다. git diff 기반 자동 도출만으로는 의도한 주 사용 흐름이 누락될 수 있다.
 
-**모든 Build 모드 작업에서 메인 플로우를 확보한다** (작업 유형과 무관). 요청·대화에 이미 있으면 재질문하지 않고 그 원문을 보관한다. `$TIER_DECLARED = quick`이면 질문하지 않고 `자동 도출 (git diff 기반)`을 보관한다 — 승인 전에 유효 티어 T가 quick보다 높아지면(4.1 §3 상향·선언 변경·4.4 재판정) 4.4 승인 대화에서 1회 묻고, 승인 후 승격이면 자동 도출을 쓴다. Plan 깊이 P만 바뀌면 묻지 않는다. 그 외에 없으면 아직 Plan 모드 대화 중이므로 평문으로 묻는다:
+**모든 Build 모드 작업에서 메인 플로우를 확보한다** (작업 유형과 무관). 단, 공통 설정 `STEPS` `e2e=off`면 묻지 않고 `SKIPPED:CONFIG`를 보관한다. 요청·대화에 이미 있으면 재질문하지 않고 그 원문을 보관한다. `$TIER_DECLARED = quick`이면 질문하지 않고 `자동 도출 (git diff 기반)`을 보관한다 — 승인 전에 유효 티어 T가 quick보다 높아지면(4.1 §3 상향·선언 변경·4.4 재판정) 4.4 승인 대화에서 1회 묻고, 승인 후 승격이면 자동 도출을 쓴다. Plan 깊이 P만 바뀌면 묻지 않는다. 그 외에 없으면 아직 Plan 모드 대화 중이므로 평문으로 묻는다:
 
 > "E2E 테스트 메인 플로우를 알려주세요. 이 작업의 핵심 사용자 시나리오 또는 주요 API 호출 순서를 서술해주세요.
 > 예: `진단지 생성 → 목록 조회 → 단건 수정 → 삭제`
@@ -61,7 +61,7 @@ E2E 테스트가 **검증해야 할 핵심 시나리오**를 사용자에게 직
 
 ## Plan 검증 루프 보강
 
-베이스의 Codex 실패 정책(`codexMode` 계약 §7 — 범위별(전역·provider·슬롯) latch·대표 사유·Claude 패널 폴백·`## Codex Runtime` 기록)을 그대로 따르되, minmos 고유 상태 코드(`SKIPPED:CODEX_*`)를 함께 기록한다. `codexMode: none`이면 이 절은 적용하지 않는다 (패널이 정규 경로, 기록 없음).
+베이스의 Codex 실패 정책(`codexMode` 계약 §7 — 범위별(전역·provider·슬롯) latch·대표 사유·Claude 패널 폴백·`## Codex Runtime` 기록)을 그대로 따르되, minmos 고유 상태 코드(`SKIPPED:CODEX_*`)를 함께 기록한다. `codexMode: none`이거나 해당 지점 `REVIEW`가 `codex`가 아니면 이 절은 적용하지 않는다 (`claude` = 패널이 정규 경로·기록 없음, `gemini` = 베이스 `review-config.md` §4).
 
 | 감지 패턴 | 분류 | 행동 |
 |----------|------|------|
