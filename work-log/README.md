@@ -25,12 +25,15 @@
 | 검색 | `/work-log:search <검색어>` | `$work-log:search <검색어>` |
 | 회의 후 정리 (STT 보정 + 요약) | `/work-log:after-meeting <원본 .txt>` | `$work-log:after-meeting <원본 .txt>` |
 
-## 세션 시작 hook
+## mod (Claude Code 전용)
 
-Claude Code에서는 `hooks/hooks.json`의 SessionStart hook이 세션 시작(startup·resume·clear·compact) 때마다 다음 두 규칙을 컨텍스트에 넣는다. Codex 클라이언트에는 적용되지 않는다.
+`hooks/register.tsx` (`hooks/hooks.json` 의 `modules`). Codex 클라이언트에는 적용되지 않는다.
 
-- Always talk in ASD-STE100 Simplified Technical Korean.
-- Always talk to me like I have ADHD.
+- 커뮤니케이션 규칙: 대화의 첫 메시지 컨텍스트에 다음 두 규칙을 넣는다. common mod 와 같은 `harnessLanguage` 블록이라 둘 다 설치해도 한 번만 들어간다.
+  - Always talk in ASD-STE100 Simplified Technical Korean.
+  - Always talk to me like I have ADHD.
+- `/work-log-status` → pane: `wiki_status` 결과(scope·root·인덱스 나이·counts·오류)와 "동기화" 버튼(`wiki_sync`).
+- 세션 시작 5초 뒤 인덱스가 24시간보다 오래됐으면 toast 1회.
 
 ## 스코프
 

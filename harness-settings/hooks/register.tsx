@@ -23,6 +23,19 @@ const TOGGLES: ReadonlyArray<readonly [string, string, boolean]> = [
   ['steps.reflect', '성찰 (reflect)', false],
 ]
 const ENGINES = ['auto', 'codex', 'gemini', 'claude'] as const
+// 프로필 편집은 profile.py 를 가진 be/fe-harness mod 가 맡는다. 여기서는 설치된 쪽의 pane 만 연다.
+const PROFILE_COMMANDS: ReadonlyArray<readonly [string, string]> = [
+  ['be-harness-profile', 'BE 프로필 편집'],
+  ['fe-harness-profile', 'FE 프로필 편집'],
+]
+
+async function openProfile($: EngineInterface, command: string): Promise<void> {
+  try {
+    await $.command.run({ command })
+  } catch (err) {
+    $.ui.toast(`/${command} 실행 실패: ${err instanceof Error ? err.message : String(err)}`)
+  }
+}
 
 export function getPath(data: Json, path: string): unknown {
   return path.split('.').reduce<unknown>(
@@ -114,6 +127,8 @@ export const register: Register = on => {
     }
     const engine = getPath(data, 'review.engine')
     const model = getPath(data, 'review.gemini.model')
+    const installed = new Set((await $.command.list()).map(command => command.name))
+    const profiles = PROFILE_COMMANDS.filter(([command]) => installed.has(command))
     return (
       <Box flexDirection="column">
         <Text dimColor>{exists ? CONFIG_PATH : `${CONFIG_PATH} (없음 — 첫 변경 때 생성)`}</Text>
@@ -147,6 +162,10 @@ export const register: Register = on => {
           }}
         />
         <Text dimColor>리뷰 OFF = 건너뛰지 않고 Claude 패널이 리뷰합니다.</Text>
+        {profiles.length > 0 ? <Text bold>프로필 (.claude/*-harness.local.md)</Text> : null}
+        {profiles.map(([command, label]) => (
+          <Button key={command} label={label} onPress={() => openProfile($, command)} />
+        ))}
       </Box>
     )
   })

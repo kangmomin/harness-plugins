@@ -123,12 +123,32 @@
 
 자세한 동작 흐름은 각 스킬의 `skills/<name>/SKILL.md` 참고.
 
-## 세션 시작 hook
+## mod (Claude Code 전용)
 
-`hooks/hooks.json`의 SessionStart hook이 세션 시작(startup·resume·clear·compact) 때마다 다음 두 규칙을 컨텍스트에 넣는다.
+`hooks/register.tsx` (`hooks/hooks.json` 의 `modules`).
+
+### 커뮤니케이션 규칙 주입
+
+대화의 첫 메시지 컨텍스트에 `harnessLanguage` 블록으로 다음 두 규칙을 넣는다. 컴팩션 뒤에도 다시 들어간다.
 
 - Always talk in ASD-STE100 Simplified Technical Korean.
 - Always talk to me like I have ADHD.
+
+work-log mod 도 같은 블록을 넣는다. 이름이 같으면 한 번만 들어간다.
+
+### 워크플로우 진행 표시
+
+| 위치 | 내용 |
+|------|------|
+| band (프롬프트 위) | `▶ BE · Phase 8 - 품질 루프` |
+| status line | `wf: BE P8` |
+| `/harness-progress` pane | Phase Assignments 표 (✓ 완료 · ▶ 진행 · · 대기) |
+
+- 감지: main 대화에서 모델이 Bash 로 `workflow_run.py create|resume` 를 실행하면 그 출력의 `STATE_FILE`(절대 경로 `workflow-state.md` 만)을 기억한다. 이후 도구 결과가 올 때마다 상태 파일의 `Current Phase`·`Phase Assignments` 를 다시 읽는다. subagent 의 실행은 보지 않는다.
+- 종료: `Remaining Phases` 가 `없음`(workflow_run.py 와 같은 규칙)이거나, 읽은 적 있는 상태 파일이 사라지거나(아카이브), `/clear` 하면 표시를 지운다.
+- 한계: Plan 을 거절해 상태 파일이 생기지 않은 실행은 `준비 중` 으로 남는다 (`/clear` 또는 새 실행으로 지워진다).
+- be·fe·풀스택·Analyze·Verify 모두 같은 band 1개로 표시한다. 스킬 문서는 바꾸지 않는다.
+- `tool.call` 은 hook 하지 않는다 (도구의 백그라운드 전환을 끄기 때문). Code Mode 한계: [docs/codeact-review.md](../docs/codeact-review.md).
 
 ## Project Overrides
 

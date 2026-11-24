@@ -1,6 +1,6 @@
 {
   "name": "harness-settings",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "harness 공통 설정(.claude/harness.config.json)을 /harness-settings pane 에서 켜고 끈다. 타 모델 리뷰 on/off·리뷰 지점·엔진(codex/gemini/claude)·단계 토글.",
   "types": "./types/index.d.ts"
 }

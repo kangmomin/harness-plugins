@@ -16,6 +16,7 @@ harness 공통 설정 파일 `.claude/harness.config.json` 을 편집하는 Clau
 | Gemini 모델 | `review.gemini.model` (빈 값 = CLI 기본) | 빈 값 |
 | OCR / E2E / simplify-loop / 성찰 | `steps.ocr` / `steps.e2e` / `steps.simplifyLoop` / `steps.reflect` | on / on / on / off |
 
+- pane 하단 "프로필" 행: 설치된 하네스의 profile 편집 pane 을 연다 (`/be-harness-profile`, `/fe-harness-profile`). 편집은 각 하네스의 mod 가 맡는다.
 - 리뷰 off = 건너뛰지 않음. Claude 패널이 리뷰한다.
 - 파일에 있는 다른 키는 보존한다. JSON 파싱이 실패한 파일은 덮어쓰지 않는다.
 - 파일을 직접 고쳐도 된다. 하네스는 다음 워크플로우 Pre-flight 에서 읽는다 (실행 중인 워크플로우는 상태 파일 값을 유지).

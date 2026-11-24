@@ -166,3 +166,26 @@ argument-hint: {인자를 받는 스킬만 — 선택}
 - 후속 스킬이 파싱하는 보고서(Workflow Report, E2E 테스트 결과 등)의 **섹션 머리글은 변경하지 않는다**.
 
 - 실행 경로는 `workflow_run.py`로 생성·검증한 `{RUN_DIR}` 아래에 둔다. 재개는 명시 경로·저장소·모드·RUN_ID 검증을 거치며, 고정 전역 상태 경로를 추가하지 않는다.
+
+## 11. mod (hooks 모듈)
+
+Claude Code 전용 UI·자동 동작은 command hook 이 아니라 **mod** 로 만든다. 스킬과 달리 Codex 등 다른 호스트에서는 동작하지 않으므로, 스킬의 필수 절차를 mod 에 두지 않는다 (표시·편의 기능만).
+
+| 규칙 | 내용 |
+|------|------|
+| 위치 | 해당 플러그인 안: `hooks/hooks.json` = `{ "modules": ["./register.tsx"] }`, `hooks/register.tsx`, `hooks/register.test.tsx`, `types/index.d.ts` (plugin.json `"types"`) |
+| 상태 | `atom` + `$.state` 로만 둔다. 모듈 변수는 reload 에서 사라진다. atom 의 `plugin`·`key` 는 리터럴 |
+| 파일이 정본 | 설정·상태 파일을 읽어 표시한다. 편집은 기존 helper(`profile.py`, `harness_config.py` 규칙)를 그대로 쓴다. 별도 파서·직렬화를 만들지 않는다 |
+| `tool.call` | 감시 목적으로 hook 하지 않는다. 매칭된 도구의 백그라운드 전환·실시간 출력이 꺼진다. 관찰은 `session.append` 에서 `next(e)` 뒤에 한다 |
+| 첫 프롬프트 | `session.start` 에서 느린 호출(MCP·process)을 기다리지 않는다. `$.clock.after` 로 미룬다 |
+| 실패 | 부가 기능은 실패해도 원래 동작을 막지 않는다 (`.catch(($, e, next) => next(e))`). 사용자에게는 원인을 pane·toast 로 표시한다 |
+| 이름 | 변수 이름 `on`·`next`·`$` 를 다시 선언하지 않는다 (모듈이 로드되지 않는다) |
+| 복사본 | 같은 코드를 두 플러그인에 둘 때는 `tests/test_mods.py` 에 일치 검사를 추가한다 |
+
+검증:
+
+```bash
+claude plugin validate <plugin>   # hook·호출·state 목록, 테스트 파일 타입 오류까지 표시
+claude plugin test <plugin>       # hooks/*.test.tsx, terminal·desktop 두 surface 로 반복
+python3 -B -m unittest tests.test_mods
+```
