@@ -2,6 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { PhaseRow, Progress, Run } from '../types'
+import { flushOnEnd, registerMetrics, registerMetricsCommands } from './metrics'
 
 // work-log mod 도 같은 이름·문장을 쓴다. 이름이 같으면 먼저 넣은 쪽만 남는다(중복 주입 방지).
 export const LANGUAGE_BLOCK = {
@@ -10,6 +11,7 @@ export const LANGUAGE_BLOCK = {
 }
 
 const PANE = 'harness-progress'
+// metrics.tsx 도 같은 ref 로 읽는다 (scan 규칙상 atom 은 파일마다 리터럴로 선언한다).
 const run = atom({ plugin: 'common', key: 'run' } as const, null)
 const progress = atom({ plugin: 'common', key: 'progress' } as const, null)
 
@@ -145,6 +147,8 @@ async function finish($: EngineInterface): Promise<void> {
 }
 
 export const register: Register = on => {
+  registerMetrics(on)
+
   on('prompt.context', async ($, e, next) => {
     const result = await next(e)
     if (result.blocks.some(block => block.name === LANGUAGE_BLOCK.name)) return result
@@ -156,6 +160,7 @@ export const register: Register = on => {
       name: PANE,
       description: '진행 중인 start-workflow 의 Phase 표를 pane 으로 연다',
     })
+    await registerMetricsCommands($)
     return next(e)
   })
 
@@ -174,6 +179,8 @@ export const register: Register = on => {
 
   // /clear 는 새 대화다. 이전 대화의 실행을 표시하지 않는다.
   on('session.end', async ($, e, next) => {
+    // workflow 요약을 붙이려고 finish 보다 먼저 기록한다.
+    await flushOnEnd($)
     if (e.reason === 'clear') await finish($)
     return next(e)
   })
