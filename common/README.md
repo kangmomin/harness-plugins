@@ -144,8 +144,9 @@ work-log mod 도 같은 블록을 넣는다. 이름이 같으면 한 번만 들�
 | status line | `wf: BE P8` |
 | `/harness-progress` pane | Phase Assignments 표 (✓ 완료 · ▶ 진행 · · 대기) |
 
-- 감지: 모델이 Bash 로 `workflow_run.py create|resume` 를 실행하면 그 출력의 `STATE_FILE` 을 기억한다. 이후 도구 결과가 올 때마다 상태 파일의 `Current Phase`·`Phase Assignments` 를 다시 읽는다.
-- 종료: 모든 Phase 가 끝났거나, 읽은 적 있는 상태 파일이 사라지면(아카이브) 표시를 지운다.
+- 감지: main 대화에서 모델이 Bash 로 `workflow_run.py create|resume` 를 실행하면 그 출력의 `STATE_FILE`(절대 경로 `workflow-state.md` 만)을 기억한다. 이후 도구 결과가 올 때마다 상태 파일의 `Current Phase`·`Phase Assignments` 를 다시 읽는다. subagent 의 실행은 보지 않는다.
+- 종료: `Remaining Phases` 가 `없음`(workflow_run.py 와 같은 규칙)이거나, 읽은 적 있는 상태 파일이 사라지거나(아카이브), `/clear` 하면 표시를 지운다.
+- 한계: Plan 을 거절해 상태 파일이 생기지 않은 실행은 `준비 중` 으로 남는다 (`/clear` 또는 새 실행으로 지워진다).
 - be·fe·풀스택·Analyze·Verify 모두 같은 band 1개로 표시한다. 스킬 문서는 바꾸지 않는다.
 - `tool.call` 은 hook 하지 않는다 (도구의 백그라운드 전환을 끄기 때문). Code Mode 한계: [docs/codeact-review.md](../docs/codeact-review.md).
 
