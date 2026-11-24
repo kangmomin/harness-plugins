@@ -90,7 +90,7 @@ Post-Math 특화 규칙은 `overlay/` 에 있고, 두 경로로 적용된다 (�
 
 | 항목 | 점검 |
 |------|------|
-| `APIDOG_ACCESS_TOKEN` · `APIDOG_PROJECT_ID` | 설정 여부만 (값은 표시하지 않음) |
+| `APIDOG_ACCESS_TOKEN` · `APIDOG_PROJECT_ID` | 설정 여부만 (값은 표시하지 않음). 선택 항목이라 경고 수·toast 에 넣지 않음 |
 | `secret/.env` · `.conventions.json` · `infra/flyway/migrations` | 존재 |
 | Apidog MCP · PostgreSQL MCP | 세션 도구 목록에 이름이 있는지 |
 

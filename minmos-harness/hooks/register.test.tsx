@@ -42,7 +42,7 @@ for (const surface of ['terminal', 'desktop'] as const) {
   test(`missing items read WARN without showing env values (${surface})`, async ($, on) => {
     engine(on, { env: { APIDOG_PROJECT_ID: 'secret-id' }, files: [], tools: [] })
     const result = await $.command.run(RUN)
-    expect(result.text).toBe('minmos: ⚠6')
+    expect(result.text).toBe('minmos: ⚠5') // 파일 3 + MCP 2. 선택 env(TOKEN)는 세지 않는다
     const ui = await $.ui.mount({ ...PANE, surface })
     expect((await ui.find({ type: 'Text', text: /APIDOG_ACCESS_TOKEN/ }))?.text).toContain('Apidog Push')
     expect(await ui.find({ type: 'Text', text: /secret-id/ })).toBe(undefined)
