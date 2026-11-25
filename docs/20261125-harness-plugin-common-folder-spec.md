@@ -185,15 +185,15 @@
 - ready-for-impl은 더 이상 work-log:edit에 Spec 저장을 위임하지 않는다.
 
 ## Assumption
-- [Assumption] helper 이름 `e2e_functions.py`(e2e), `harness_store.py`(문서·run). 정본은 be-harness, fe·common에 동일 사본 — 근거: `e2e_lock.py` 패턴, execution-policy "be 정본, FE/common 동일 사본"
-- [Assumption] `HARNESS_FUNCTION_DIR`은 `_shared`·`<project>`를 포함하는 폴더 — 근거: D-05
-- [Assumption] 문서 fallback도 `HARNESS_PLUGIN_HOME`을 따른다 (`<base>/work-log/docs`) — 근거: D-05 base 규칙
-- [Assumption] run 폴더는 `<doc root>/.harness-runs/<project>/` 순서 — 근거: D-28·D-29 질문 문구
-- [Assumption] ready-for-impl의 `--out`·specDir 명시값은 helper보다 우선 유지 — 근거: D-26과 같은 "명시값 우선" 원칙
-- [Assumption] minmos는 harness 값 `be`로 필터 — 근거: `minmos-harness/overlay/e2e-test.md`
-- [Assumption] 자동 생성 폴더 권한 0700 — 근거: work-log 캐시 디렉터리 0700
-- [Assumption] `add`는 항상 `<project>/`에 저장 — 근거: D-16 질문 문구
-- [Assumption] 버전은 minor 범프 (be 1.14.0, fe 1.13.0, common 0.23.0, minmos 2.8.0, hyeondongs 3.1.0, work-log 0.7.0) — 근거: 커밋 0763339 패턴
+- helper 이름 `e2e_functions.py`(e2e), `harness_store.py`(문서·run). 정본은 be-harness, fe·common에 동일 사본 — 근거: `e2e_lock.py` 패턴, execution-policy "be 정본, FE/common 동일 사본"
+- `HARNESS_FUNCTION_DIR`은 `_shared`·`<project>`를 포함하는 폴더 — 근거: D-05
+- 문서 fallback도 `HARNESS_PLUGIN_HOME`을 따른다 (`<base>/work-log/docs`) — 근거: D-05 base 규칙
+- run 폴더는 `<doc root>/.harness-runs/<project>/` 순서 — 근거: D-28·D-29 질문 문구
+- ready-for-impl의 `--out`·specDir 명시값은 helper보다 우선 유지 — 근거: D-26과 같은 "명시값 우선" 원칙
+- minmos는 harness 값 `be`로 필터 — 근거: `minmos-harness/overlay/e2e-test.md`
+- 자동 생성 폴더 권한 0700 — 근거: work-log 캐시 디렉터리 0700
+- `add`는 항상 `<project>/`에 저장 — 근거: D-16 질문 문구
+- 버전은 minor 범프 (be 1.14.0, fe 1.13.0, common 0.23.0, minmos 2.8.0, hyeondongs 3.1.0, work-log 0.7.0) — 근거: 커밋 0763339 패턴
 
 ## 미결
 - 없음
