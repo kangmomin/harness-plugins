@@ -1,6 +1,6 @@
 ---
 name: start-workflow
-description: "전체 프론트엔드 개발 워크플로우를 자동화한다 (fe-harness 베이스 + **hyeondongs 오버레이**: .hyeondong-config.json profile 폴백, 풀스택 전환 시 minmos 백엔드 연계). '워크플로우 시작', '화면/컴포넌트 만들어줘(전 과정 자동)' 요청 시 사용."
+description: "프론트엔드 워크플로우를 자동화한다 (fe-harness 베이스 + **hyeondongs 오버레이**: 레거시 config 폴백, 풀스택 시 minmos 연계). '워크플로우 시작' 요청 시 사용."
 allowed-tools: Read, Glob, Bash, Skill
 user-invocable: true
 argument-hint: "<작업 설명 또는 빈 값>"

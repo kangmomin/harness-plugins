@@ -1,6 +1,6 @@
 ---
 name: unit-test
-description: "Spec의 추적 ID(AC/EC/RC)를 근거로 단위 테스트를 필요한 만큼만 작성하고 실행한다. '테스트 작성해줘', '유닛 테스트 돌려줘', 구현 전 실패 테스트를 먼저 만들 때 사용. start-workflow Phase 6.1에서 자동 호출됨."
+description: "Spec 추적 ID(AC/EC/RC)를 근거로 단위 테스트를 작성하고 실행한다. '테스트 작성해줘', '유닛 테스트 돌려줘' 요청 시 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 argument-hint: "[--red] [--init|--doctor] [대상 경로]"
 user-invocable: true
@@ -30,9 +30,7 @@ Spec이 요구하는 동작을 **필요한 만큼만** 검증하는 단위 테�
 | `--init` | 테스트 러너 설정 상태를 점검하고 부재 시 안내한 뒤 종료 |
 | `--doctor` | 전제 조건을 진단해 표로 보고한 뒤 종료 |
 
-## Language Rule
-
-유저와의 모든 대화는 profile의 `{language}` 값(기본 `ko`, 한국어)을 따른다.
+**Language**: 유저와의 모든 대화는 profile의 `{language}` 값(기본 `ko`, 한국어)을 따른다.
 
 ## 전제 조건
 

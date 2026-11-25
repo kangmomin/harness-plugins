@@ -1,6 +1,6 @@
 ---
 name: commit-push
-description: "브랜치 검증/생성 후 /common:commit 절차로 커밋하고 push까지 수행한다. '커밋하고 푸시해줘', '올려줘' 요청 시 사용. 보호 브랜치에 있으면 새 브랜치를 먼저 생성하고, 브랜치명이 컨벤션에 맞지 않으면 재생성한다."
+description: "브랜치를 검증/생성한 뒤 커밋하고 push한다. '커밋하고 푸시해줘', '올려줘' 요청 시 사용."
 user-invocable: true
 ---
 

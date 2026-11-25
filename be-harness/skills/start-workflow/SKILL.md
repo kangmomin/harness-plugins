@@ -1,6 +1,6 @@
 ---
 name: start-workflow
-description: "전체 개발 워크플로우를 자동화한다. Build 모드(기본): 요청 분석 → 구현 → 품질 루프 → PR. Analyze 모드(--analyze): 코드 분석 보고서. Verify 모드(--verify): 보안·성능·버그·안정성 검증. '워크플로우 시작', '기능 구현해줘(전 과정 자동)', '코드 분석/검증해줘' 요청 시 사용."
+description: "백엔드 개발 워크플로우(Spec → 구현 → 품질 루프 → PR)를 자동화한다. --analyze 분석, --verify 검증. '워크플로우 시작', '기능 구현해줘' 요청 시 사용."
 allowed-tools: AskUserQuestion, Read, Write, Edit, Glob, Grep, Bash, Agent, EnterPlanMode, ExitPlanMode, Skill
 argument-hint: <작업 설명> [--tier quick|light|standard] [--codex none|mix|max] [--codex-models {slot}={provider}/{model}[@{effort}],…] | --analyze [경로] | --verify [경로]
 user-invocable: true
@@ -56,9 +56,7 @@ user-invocable: true
 > **모든 모드에서 먼저 MUST**: `references/run-lifecycle.md`를 Read하고 경로 생성 또는 명시적 재개 검증을 완료한다 (Codex resolve·첫 dispatch 전).
 > **Analyze/Verify 모드 진입 시 MUST**: 같은 폴더의 `references/analyze-verify-modes.md`를 Read하고 해당 모드 절차를 따른다. 이하 본문은 Build 모드를 정의한다.
 
-## Language Rule
-
-유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
+**Language**: 유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
 
 ## 상태 추적
 
@@ -470,30 +468,3 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 | `references/quality-loop.md` | Phase 8 진입 시 |
 | `references/api-contract.md` | Phase 4.1 (API 작업 — 계약 초안), 4.4 (계약 승인), 4.5 (FE 이슈), 12 (FE 이슈 보고) |
 | `references/codex-mode.md` | 첫 리뷰어/위임 dispatch 직전 1회 (재개 포함) — Codex 모드 정의·호출 계약·쓰기 안전·Claude 패널·실패 정책 |
-
-## 흐름 요약 (Build)
-
-```
-[유저 대화] — Phase 1~4 전체가 단일 EnterPlanMode 컨텍스트
-Phase 1: EnterPlanMode → /request 또는 직접 Technical Spec + 작업 계약 (미결 결정만 확인)
-Phase 2: 티어 선언 확인 (--tier · 작업 난이도 · 착수 질문 — 산정·판정은 4.1 끝)
-Phase 3: 실행 전략 판정 (sequential / parallel-slices / fullstack → /common:start-workflow --fs 로 전환)
-Phase 4: Plan 작성 → 난이도·티어·Plan 깊이 판정 → 다관점 1회 보강 → 검증 루프 (리뷰어 = codexMode: Codex `review` 슬롯 | Claude 패널, 최대 {PLAN_MAX}회 — Plan 깊이 quick은 둘 다 SKIP) → 재판정·ExitPlanMode
-Phase 4.5: 외부 계약 변경 시 FE 이슈 초안 → 승인 후 frontendRepo에 등록 (API 계약 표는 4.4 승인 화면에서 먼저 승인, API 작업 아니면 SKIP)
-Phase 5: feature 브랜치 + 상태 파일 + implementation-notes.md + 회귀 baseline → "자율 실행 시작"
-
-[자율 실행 — 유저 확인 없이 완주. codexMode max: 리프 에이전트를 Codex 슬롯(`explore`/`judge` 읽기 · `write` 쓰기)으로 위임 — codex-mode.md]
-Phase 6.1: 테스트 우선 (Red) — Spec ID 근거로 실패 테스트 선작성 + 스텁, Red 커밋 (quick: SKIP)
-Phase 6.2: 구현 (Green) — 테스트 파일 수정 금지, baseline 대비 신규 실패 0건까지 (quick: 신규 테스트 동반)
-Phase 7: {buildCommand} 빌드 체크 (실패 시 수정 최대 3회)
-Phase 8: 품질 루프 최대 {QL_MAX}회 (병렬 스캔 8.1~8.4 → 통합 수정 8.5 → e2e 8.6 → 통합 테스트 8.7)
-         light: 8.2 SKIP · 8.6 --smoke · 8.8 SKIP / quick: 8.2·8.3·8.6·8.8 SKIP — 승격은 단방향
-         탈출 조건 = 수정 0건 AND 테스트 판정 PASS (회귀 3분류 대조)
-         루프 종료 후 8.8 Spec 정합 Read-back 1회 (격리 복원 → Diff 판정, 수정 없음)
-Phase 9: API 문서 동기화 (API 변경 시만)
-Phase 10: PR 생성 (--hard: push만)
-Phase 11: 성찰 (--reflect 지정 시만 — 기본 SKIPPED:REFLECT_NOT_REQUESTED)
-
-[유저 대화]
-Phase 12: 슬림 Workflow Report → 유저 결정 (TDD·Read-back·보완점) → md 아카이브 (부록 A/B/C) → 정리
-```

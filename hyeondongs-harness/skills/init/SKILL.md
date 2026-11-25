@@ -1,6 +1,6 @@
 ---
 name: init
-description: "hyeondongs-harness 플러그인의 모든 사전 세팅(.hyeondong-config.json)을 한 번에 진행한다. 플러그인 최초 설정, '초기화해줘', doctor가 MISSING을 보고할 때 사용."
+description: "hyeondongs-harness 사전 세팅(.hyeondong-config.json)을 한 번에 진행한다. 최초 설정, '초기화해줘', doctor 가 MISSING 을 보고할 때 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 ---
@@ -13,9 +13,7 @@ user-invocable: true
 > 이 스킬이 만드는 `.hyeondong-config.json` 은 fe-harness 스킬이 **2순위 profile**로 읽는다 (필드 매핑: fe-harness 루트 `PROFILE.md`).
 > 새 프로젝트는 `/fe-harness:init` 으로 `.claude/fe-harness.local.md` 를 만드는 쪽이 기능이 더 완전하다 (빌드/검증 명령, Git·커밋 컨벤션 포함).
 
-## Language Rule
-
-유저와의 모든 대화는 **한국어**로 진행한다.
+**Language**: 유저와의 모든 대화는 **한국어**로 진행한다.
 
 ---
 

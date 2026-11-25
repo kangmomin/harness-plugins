@@ -1,6 +1,6 @@
 ---
 name: default-conventions
-description: "React/Next.js/TypeScript 프론트엔드 개발 및 리뷰 가이드라인 (컨벤션 참조 문서). convention-check가 검사 기준으로 로드하며, 코드 작성 원칙이 궁금할 때도 사용."
+description: "React/Next.js/TypeScript 개발 컨벤션 참조 문서. convention-check 의 검사 기준이며, 코드 작성 원칙이 궁금할 때 사용."
 user-invocable: true
 ---
 

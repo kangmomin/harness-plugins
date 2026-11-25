@@ -1,6 +1,6 @@
 ---
 name: doc-gen
-description: "지정한 범위(파일/디렉토리/glob/PR/commit range)를 분석해 다이어그램이 포함된 단일 파일 문서(md 또는 html)를 생성한다. '문서 만들어줘', 'PR 요약해줘', '변경 사항 정리 문서', '핵심만 간단히 정리', '둘 다 뽑아줘' 요청 시 사용. --brief(압축)·--twin(md+html 동시) 모드 지원."
+description: "지정한 범위(파일/디렉토리/PR/commit range)를 분석해 다이어그램이 있는 단일 문서(md/html)를 만든다. '문서 만들어줘', 'PR 요약해줘' 요청 시 사용."
 allowed-tools: AskUserQuestion, Read, Glob, Grep, Bash, Write
 argument-hint: "[-md|-html|--twin] [--brief] [선택적 범위]"
 user-invocable: true

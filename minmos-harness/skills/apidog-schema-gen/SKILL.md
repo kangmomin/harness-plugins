@@ -1,6 +1,6 @@
 ---
 name: apidog-schema-gen
-description: "Apidog OAS 엔드포인트 정의에서 request/response JSON 스키마를 추출하고 Go struct와 교차 검증해 누락 필드를 보완하며(선언 dialect·유한 local ref 유지), 선택적으로 OpenAPI 스펙을 Apidog Import API로 push한다. 엔드포인트 스키마 추출·파일 저장, Apidog 명세 push·동기화 요청 시 사용 — 예: 'Apidog에서 스키마 뽑아줘', 'Apidog에 푸시'."
+description: "Apidog OAS 에서 스키마를 추출해 Go struct 와 교차 검증하고, 선택적으로 Apidog 에 push 한다. 'Apidog에서 스키마 뽑아줘', 'Apidog에 푸시' 요청 시 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, WebFetch
 user-invocable: true
 ---
@@ -13,9 +13,7 @@ Apidog MCP 도구는 `mcp__apidog__read_project_oas_*` 패턴으로 세션 도�
 
 모든 경로의 첫 호출 전에 `references/import-contract.md`의 discovery로 `APIDOG_CALLABLES`를 확정한다. 진단과 실제 실행은 같은 project/branch의 실제 호출명을 사용한다.
 
-## Language Rule
-
-유저와의 모든 대화(AskUserQuestion, 안내, 설명, 확인)는 **한국어**로 진행한다.
+**Language**: 유저와의 모든 대화(AskUserQuestion, 안내, 설명, 확인)는 **한국어**로 진행한다.
 
 ## Prerequisites
 

@@ -1,6 +1,6 @@
 ---
 name: component
-description: "컴포넌트 보일러플레이트를 자동 생성한다. '컴포넌트 만들어줘', 새 컴포넌트 스캐폴딩이 필요할 때 사용. .claude/fe-harness.local.md 설정에 따라 스타일, 테스트, Storybook 파일을 함께 생성."
+description: "컴포넌트 보일러플레이트(스타일, 테스트, Storybook 포함)를 생성한다. '컴포넌트 만들어줘', 새 컴포넌트 스캐폴딩이 필요할 때 사용."
 allowed-tools: Read, Write, Glob, Grep, Bash, AskUserQuestion
 argument-hint: <컴포넌트 이름 또는 설명>
 user-invocable: true
@@ -15,9 +15,7 @@ user-invocable: true
 
 `.claude/fe-harness.local.md` 설정에 따라 컴포넌트 보일러플레이트를 생성한다.
 
-## Language Rule
-
-유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
+**Language**: 유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
 
 ---
 

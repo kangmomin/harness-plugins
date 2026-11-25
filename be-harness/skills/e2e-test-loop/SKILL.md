@@ -1,6 +1,6 @@
 ---
 name: e2e-test-loop
-description: "E2E 테스트 → 이슈 수정 → 재테스트를 반복한다 (최대 5회). 종료 시 정직한 자기 점검 md 리포트를 스크립트로 생성한다. 기능 구현 후 'E2E 돌려줘', '테스트 통과할 때까지 고쳐줘' 요청 시 사용. start-workflow 품질 루프에서 자동 호출됨."
+description: "E2E 테스트 → 수정 → 재테스트를 최대 5회 반복한다. 'E2E 돌려줘', '테스트 통과할 때까지 고쳐줘' 요청 시 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent, Skill
 user-invocable: true
 argument-hint: "[--skip-doctor] [--smoke]"
@@ -34,9 +34,7 @@ argument-hint: "[--skip-doctor] [--smoke]"
 | `--no-lock` | | 하위 `e2e-test` 에 그대로 전달해 실행 락을 건너뛴다 (단독 실행/디버깅 전용) |
 | `--smoke` | | 하위 `e2e-test --smoke` 전달(`BASE-01` + `EC-*` 전수만) + `{MAX_ITER}` = 3. 실효 수준은 e2e-test가 Step 2에서 확정한다 (0건·EC 표 없음이면 full 폴백) |
 
-## Language Rule
-
-유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
+**Language**: 유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
 
 ## Step 1: Pre-flight Probe (Fast SKIP Gate)
 

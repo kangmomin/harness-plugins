@@ -1,6 +1,6 @@
 ---
 name: config
-description: "be-harness project profile(.claude/be-harness.local.md)의 설정 값을 조회하고 키 단위로 수정한다. '프로필 설정 확인해줘', '설정 값 바꿔줘', '{키} 값 뭐야', '{키}를 {값}으로 바꿔줘' 요청 시, init 재실행 없이 값 하나만 보거나 고칠 때 사용. 파일 생성·환경 진단은 하지 않는다 (init·doctor 담당)."
+description: "be-harness profile 값을 조회하고 키 단위로 수정한다 (파일 생성은 init, 진단은 doctor). '프로필 설정 확인해줘', '설정 값 바꿔줘' 요청 시 사용."
 allowed-tools: Read, Bash, AskUserQuestion
 user-invocable: true
 argument-hint: "[{키} | {키}={값} …]"

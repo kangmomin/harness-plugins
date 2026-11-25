@@ -1,6 +1,6 @@
 ---
 name: start-workflow
-description: "전체 프론트엔드 개발 워크플로우를 자동화한다. 요청 분석 → 난이도 산정 → Plan 리뷰 → 구현 → 품질 루프 → 컴포넌트/접근성 리뷰 → PR → 성찰까지 일관된 파이프라인. '워크플로우 시작', '화면/컴포넌트 만들어줘(전 과정 자동)' 요청 시 사용."
+description: "프론트엔드 개발 워크플로우(Spec → 구현 → 품질 루프 → 리뷰 → PR)를 자동화한다. '워크플로우 시작', '화면/컴포넌트 만들어줘' 요청 시 사용."
 allowed-tools: AskUserQuestion, Read, Write, Edit, Glob, Grep, Bash, Agent, EnterPlanMode, ExitPlanMode, Skill
 argument-hint: "<작업 설명 또는 빈 값> [--hard] [--no-tdd] [--reflect] [--tier quick|light|standard] [--codex none|mix|max] [--codex-models {slot}={provider}/{model}[@{effort}],…]"
 user-invocable: true
@@ -50,9 +50,7 @@ user-invocable: true
 | Phase 4 브랜치 | feature 브랜치 생성 필수 | **건너뜀** (현재 브랜치 유지) |
 | Phase 9 PR | workflow-pr (PR 생성) | 현재 브랜치에서 바로 push, PR 생략 |
 
-## Language Rule
-
-유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
+**Language**: 유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
 
 ## 상태 추적
 
@@ -404,27 +402,3 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 | `references/tdd.md` | Phase 4 (TDD 판정·baseline), Phase 5 진입 시 |
 | `references/agent-prompts.md` | Phase 5 진입 시 (Phase 5.2~10 프롬프트 — Phase 10은 `--reflect` 시만) |
 | `references/codex-mode.md` | 첫 리뷰어/위임 dispatch 직전 1회 (재개 포함) — Codex 모드 정의·호출 계약·쓰기 안전·Claude 패널·실패 정책 |
-
-## 흐름 요약
-
-```
-[유저 대화] — Phase 1~3 전체가 단일 EnterPlanMode 컨텍스트
-Phase 1: EnterPlanMode → /request 또는 직접 Technical Spec + 작업 계약 (미결 결정만 확인) + 풀스택 판정
-Phase 2: 티어 선언 확인 (--tier · 작업 난이도 · 착수 질문 — 산정·판정은 3.1 끝)
-Phase 3: Plan 작성 → 난이도·티어·Plan 깊이 판정 → 다관점 1회 보강 → 검증 루프 (리뷰어 = REVIEW plan: Codex `review` 슬롯 | gemini | Claude 패널, 최대 {PLAN_MAX}회 — Plan 깊이 quick은 둘 다 SKIP) → 재판정·ExitPlanMode
-Phase 4: feature 브랜치 + 상태 파일 + implementation-notes.md + 회귀 baseline → "자율 실행 시작"
-
-[자율 실행 — 유저 확인 없이 완주. codexMode max: 리프 에이전트를 Codex 슬롯(`explore`/`judge` 읽기 · `write` 쓰기)으로 위임 — codex-mode.md]
-Phase 5.1: 테스트 우선 (Red) — Spec ID 근거로 실패 테스트 선작성 + 스텁, Red 커밋 (quick: SKIP)
-Phase 5.2: 구현 (Green) — workflow-implementer, 테스트 파일 수정 금지 (quick: 신규 테스트 동반)
-Phase 6: {buildCommand}+{typeCheckCommand} 체크 (실패 시 수정 최대 3회)
-Phase 7: 품질 루프 최대 {QL_MAX}회 (7.1 빌드 → 7.2 simplify → 7.3 convention → 7.4 test → 7.5 scope → 7.6 lint)
-         탈출 조건 = 수정 0건 AND 테스트 판정 PASS (회귀 3분류 대조)
-         light: 7.2 SKIP · 7.4 --smoke · 7.7 SKIP / quick: 7.2·7.3·7.6·7.7 SKIP · 7.4 --unit-only — 승격은 단방향
-Phase 8: component-reviewer + a11y-reviewer (병렬, 컴포넌트 변경 시만 — light는 a11y만, quick은 SKIP)
-Phase 9: workflow-pr (--hard: push만)
-Phase 10: 성찰 (--reflect 지정 시만 — 기본 SKIPPED:REFLECT_NOT_REQUESTED)
-
-[유저 대화]
-Phase 11: 슬림 Workflow Report → 유저 결정 (TDD·Read-back·보완점) → md 아카이브 (부록 A/B/C) → 정리
-```

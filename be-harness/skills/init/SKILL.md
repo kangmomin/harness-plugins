@@ -1,6 +1,6 @@
 ---
 name: init
-description: "be-harness 플러그인의 project profile(.claude/be-harness.local.md)을 대화형으로 생성/갱신한다. 플러그인 최초 설정, '초기화해줘', doctor가 MISSING을 보고할 때 사용. Go/Node 프리셋 지원."
+description: "be-harness project profile(.claude/be-harness.local.md)을 대화형으로 만든다. 최초 설정, '초기화해줘', doctor 가 MISSING 을 보고할 때 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 ---
@@ -14,9 +14,7 @@ user-invocable: true
 프로젝트 profile(`.claude/be-harness.local.md`)을 생성/갱신한다.
 모든 be-harness 스킬이 이 profile을 읽어 빌드/테스트/소스 경로를 결정한다.
 
-## Language Rule
-
-유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
+**Language**: 유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
 
 ---
 

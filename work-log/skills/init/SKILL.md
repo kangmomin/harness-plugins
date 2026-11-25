@@ -1,14 +1,12 @@
 ---
 name: init
-description: "work-log 스코프를 설정한다. projects/<project>/{history,data,docs} 분류형 전역 vault(권장), 독립 프로젝트 vault 또는 기존 flat·저장소 내 방식을 선택하고 최초 인덱싱까지 수행. 플러그인 최초 설정, '초기화해줘', doctor가 미설정을 보고할 때 사용."
+description: "work-log 스코프(전역 vault, 프로젝트 vault, 저장소 내)를 설정하고 최초 인덱싱을 한다. 최초 설정, '초기화해줘', doctor 가 미설정을 보고할 때 사용."
 allowed-tools: Bash, Read, Write, Edit, Glob, AskUserQuestion
 ---
 
 # work-log Init
 
-## Language Rule
-
-유저와의 모든 대화는 **한국어**로 진행한다.
+**Language**: 유저와의 모든 대화는 **한국어**로 진행한다.
 
 Claude Code에서는 `/work-log:init`, Codex에서는 `$work-log:init` 로 명시 호출할 수 있다.
 MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시작하는 기본 이름을 기준으로 찾는다.

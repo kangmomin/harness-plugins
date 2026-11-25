@@ -1,6 +1,6 @@
 ---
 name: init
-description: "fe-harness 플러그인의 모든 사전 세팅(.claude/fe-harness.local.md)을 한 번에 진행한다. 플러그인 최초 설정, '초기화해줘', doctor가 MISSING을 보고할 때 사용."
+description: "fe-harness 사전 세팅(.claude/fe-harness.local.md)을 한 번에 진행한다. 최초 설정, '초기화해줘', doctor 가 MISSING 을 보고할 때 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 ---
@@ -18,9 +18,7 @@ user-invocable: true
 
 framework·typescript·testRunner·uiLibrary 선택을 함께 검증한다. component SKILL.md Step 1의 조합 표를 먼저 읽는다. Nuxt는 Vue SFC를 생성하고 JavaScript는 TS 문법을 생성하지 않는다. Nuxt+Jest나 Vue+React 전용 UI를 선택하면 기본 generator 미지원임을 설정 저장 전에 알린다. 기존 프로젝트에서 그 조합을 사용하는 profile을 임의 React/Vitest로 바꾸지 않으며, 검증된 프로젝트 템플릿이 없으면 생성 작업은 BLOCKED다. Vitest globals 설정을 true로 바꾸는 작업은 요구하지 않는다.
 
-## Language Rule
-
-유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
+**Language**: 유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
 
 ---
 

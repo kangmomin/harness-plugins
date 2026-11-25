@@ -53,6 +53,15 @@ class ContractChecksTests(unittest.TestCase):
             errors = self.changed('be-harness/skills/start-workflow/SKILL.md', lambda s: s + addition)
             self.assertTrue(any(expected in error for error in errors))
 
+    def test_description_over_the_always_loaded_budget_fails(self):
+        relative = 'common/skills/commit/SKILL.md'
+        limit = check_contracts.DESCRIPTION_LIMIT
+        def lengthen(size):
+            return lambda s: s.replace('description: "', 'description: "' + 'x' * size, 1)
+        current = len(check_contracts.yaml.safe_load((ROOT / relative).read_text(encoding='utf-8').split('---', 2)[1])['description'])
+        self.assertFalse(any('description too long' in e for e in self.changed(relative, lengthen(limit - current))))
+        self.assertTrue(any('description too long' in e for e in self.changed(relative, lengthen(limit - current + 1))))
+
     def test_phase_and_override_drift_fail(self):
         errors = self.changed('be-harness/skills/start-workflow/references/templates.md', lambda s: s.replace('| 12 | orchestrator', '| 99 | orchestrator'))
         self.assertTrue(any('phase assignment/canonical' in e for e in errors))

@@ -1,6 +1,6 @@
 ---
 name: e2e-test
-description: "기능 추가/수정 후 연관 HTTP API를 실제 요청으로 E2E 테스트한다. 'API 실제로 테스트해줘', 구현 검증이 필요할 때 사용. profile의 runServerCommand/serverUrl 기반, Bash+curl로 요청하고 Python/POSIX 실행 잠금을 사용."
+description: "기능 추가/수정 후 연관 HTTP API를 실제 요청으로 E2E 테스트한다. 'API 실제로 테스트해줘', 구현 검증이 필요할 때 사용."
 allowed-tools: Read, Write, Glob, Grep, Bash, AskUserQuestion
 argument-hint: "<대상 API 설명 또는 엣지 케이스 ID> [--smoke]"
 user-invocable: true
@@ -17,9 +17,7 @@ user-invocable: true
 프로젝트 profile에 지정된 서버를 기동하고, 변경된 API에 실제 HTTP 요청을 보내 응답을 검증한다.
 외부 MCP/전용 CLI에 의존하지 않고 **Bash + curl + profile** 조합만 사용한다.
 
-## Language Rule
-
-유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
+**Language**: 유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
 
 ---
 

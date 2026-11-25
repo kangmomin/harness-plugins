@@ -1,6 +1,6 @@
 ---
 name: api-share-note
-description: "기간 내 생성·수정된 API를 git 라우트 델타(머지 + 미머지 브랜치)로 수집해 대체/동작 변경/신규/미머지로 분류하고, Apidog 링크를 단 고정 형식 공유 노트를 work-log에 저장한다. 다른 팀에 공유할 기간별 API 변경 요약을 요청할 때 사용 — 예: 'API 변경 공유용으로 정리해줘', '어제부터 바뀐 API 정리'."
+description: "기간 내 생성·수정된 API를 git 에서 수집·분류해 Apidog 링크가 있는 공유 노트를 work-log 에 저장한다. 'API 변경 공유용으로 정리해줘' 요청 시 사용."
 allowed-tools: Read, Write, Glob, Grep, Bash, AskUserQuestion, mcp__apidog__read_project_oas_w9of5k, mcp__apidog__refresh_project_oas_w9of5k, mcp__plugin_work-log_work-log__wiki_write, mcp__plugin_work-log_work-log__wiki_resolve
 argument-hint: "[기간 예: 어제부터 | 8/24-8/25 | <baseline-commit>] [--no-save]"
 user-invocable: true
@@ -12,9 +12,7 @@ user-invocable: true
 
 Apidog MCP 도구는 `mcp__apidog__read_project_oas_*` 패턴으로 세션 도구 목록에서 탐색한다 (이 프로젝트 기본: `..._w9of5k`. 프로젝트마다 suffix 가 다르므로 실제 세션 도구 목록 기준으로 찾는다).
 
-## Language Rule
-
-유저와의 모든 대화(AskUserQuestion, 안내, 설명, 확인)는 **한국어**로 진행한다.
+**Language**: 유저와의 모든 대화(AskUserQuestion, 안내, 설명, 확인)는 **한국어**로 진행한다.
 
 ## Prerequisites
 

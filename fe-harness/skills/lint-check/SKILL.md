@@ -1,6 +1,6 @@
 ---
 name: lint-check
-description: "ESLint + TypeScript 타입 검사 + 접근성(a11y) 종합 코드 품질 검사. 커밋/PR 전 점검, '린트 돌려줘', '코드 품질 검사' 요청 시 사용. start-workflow 품질 루프에서 자동 호출됨."
+description: "ESLint, TypeScript 타입 검사, 접근성(a11y)을 종합 검사한다. 커밋/PR 전 점검, '린트 돌려줘', '코드 품질 검사' 요청 시 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 user-invocable: true
 ---
@@ -14,9 +14,7 @@ user-invocable: true
 
 ESLint, TypeScript 타입 검사, 접근성(a11y) 검사를 종합적으로 수행하고 보고한다.
 
-## Language Rule
-
-유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
+**Language**: 유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
 
 ---
 

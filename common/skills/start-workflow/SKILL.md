@@ -1,6 +1,6 @@
 ---
 name: start-workflow
-description: "개발 워크플로우(Spec → Plan → 구현 → 품질 루프 → PR)의 단일 진입점. 요청을 분석해 백엔드/프론트엔드/풀스택을 판정하고 해당 하네스로 위임하거나 풀스택을 직접 오케스트레이션한다. '워크플로우 시작', '기능 구현해줘(전 과정 자동)', '풀스택으로 진행해줘', '코드 분석/검증해줘' 요청 시 사용."
+description: "개발 워크플로우의 단일 진입점. 백엔드/프론트엔드/풀스택을 판정해 위임하거나 풀스택을 직접 진행한다. '워크플로우 시작', '기능 구현해줘', '코드 분석/검증해줘' 요청 시 사용."
 user-invocable: true
 allowed-tools: AskUserQuestion, Read, Write, Edit, Glob, Grep, Bash, Agent, EnterPlanMode, ExitPlanMode, Skill
 argument-hint: "[--be|--fe|--fs] <작업 설명> | --analyze [경로] | --verify [경로]"
@@ -45,9 +45,7 @@ argument-hint: "[--be|--fe|--fs] <작업 설명> | --analyze [경로] | --verify
 | `--codex {none\|mix\|max}` | 그대로 전달 — 해당 하네스가 profile `codexMode`에 저장 | **이 스킬이 소비** — `references/fullstack.md` Pre-flight에서 해석하고 be·fe profile 양쪽에 기록 (`references/codex-mode.md`) |
 | `--codex-models {슬롯}={provider}/{model}[@{effort}],…` | 그대로 전달 — 해당 하네스가 profile `codexModels`에 저장 | **이 스킬이 소비** — Pre-flight에서 `codexMode` 확정 직후 슬롯 resolve(`codexModels` 블록 단위 be → fe → 기본값, 플래그는 슬롯 단위 덮어쓰기), 기록은 writable be·fe 모두 (`references/codex-mode.md` §2.1) |
 
-## Language Rule
-
-유저와의 모든 대화는 한국어로 진행한다 (대상 하네스 profile에 `language`가 있으면 위임 후에는 그 값을 따른다).
+**Language**: 유저와의 모든 대화는 한국어로 진행한다 (대상 하네스 profile에 `language`가 있으면 위임 후에는 그 값을 따른다).
 
 ---
 

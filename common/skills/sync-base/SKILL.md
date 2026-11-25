@@ -1,6 +1,6 @@
 ---
 name: sync-base
-description: "base 브랜치를 현재 브랜치로 merge 해 최신화하고, VERSION 파일이 있으면 patch 범프와 swagger(OpenAPI) version 동기화까지 수행한 뒤 push 한다. 'base 최신화해줘', 'dev 머지해와', '최신화하고 버전 올려줘', '충돌 나기 전에 base 당겨줘' 요청 시 사용."
+description: "base 브랜치를 현재 브랜치로 merge 하고, VERSION 이 있으면 patch 범프까지 한 뒤 push 한다. 'base 최신화해줘', 'dev 머지해와' 요청 시 사용."
 allowed-tools: AskUserQuestion, Bash, Read, Edit, Glob, Skill
 argument-hint: "[base브랜치]"
 user-invocable: true

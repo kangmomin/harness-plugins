@@ -19,6 +19,11 @@ argument-hint: {인자를 받는 스킬만 — 선택}
 - 트리거 키워드에는 사용자가 실제로 입력할 표현(한국어 구문 포함)을 넣는다.
   - 나쁨: `"프로젝트 컨벤션 위배 사항을 검사하고 보고"`
   - 좋음: `"프로젝트 컨벤션 위배 사항을 검사하고 보고한다. 커밋/PR 전 점검, '컨벤션 검사해줘', '규칙 위반 확인' 요청 시 사용."`
+- **길이 상한은 120자다** (`scripts/check_contracts.py` 가 검사한다). `description` 은 그 스킬을 쓰지 않는 세션에도 매번 로드된다.
+  - 기능 요약은 1문장, 트리거 표현은 2개를 기준으로 한다 (많아도 3개).
+  - 쓰지 않는 것: 구현 방법, 플래그 목록, 내부 호출 관계("start-workflow 에서 자동 호출됨"), 본문에 있는 금지 규칙.
+  - 이름이 같은 스킬(doctor, init, start-workflow)은 플러그인 이름이나 대상(백엔드/프론트엔드)으로 구분한다.
+  - 줄인 뒤에는 `trigger` eval 사례로 호출 여부를 다시 확인한다 (`docs/skill-evals.md`).
 
 ## 2. 본문 섹션 순서
 
@@ -124,6 +129,7 @@ argument-hint: {인자를 받는 스킬만 — 선택}
 ## 8. Progressive Disclosure (references 분리)
 
 - SKILL.md 본문은 **목표 ~400줄 / 절대 상한 500줄**. 초과분은 같은 스킬 폴더의 `references/*.md`로 분리한다.
+- **본문에 쓰지 않는 것**: 모델이 이미 아는 내용. 일반적인 조언("명확하게 질문한다"), 도구 자체의 제약을 다시 쓴 문장(AskUserQuestion 의 질문·선택지 수 등), 같은 스킬 안에서 이미 쓴 절차의 요약. 이 저장소·이 프로젝트에만 있는 절차와 판정 기준만 쓴다. 문장을 지울 때는 `docs/skill-evals.md` 의 사례로 전후를 비교한다.
 - **본문에 남기는 것**: 항상 실행되는 제어 흐름 — Phase/Step 순서, 판정 기준, 루프 상한, 상태 코드, 플레이스홀더 정의.
 - **references로 보내는 것**: 특정 분기에서만 필요한 것 — 모드별 상세 절차, 출력 템플릿 원문, 서브에이전트 프롬프트 전문, 도메인 패턴 모음.
 - 참조 지시문은 **강제형 + 읽기 트리거 명시**:
@@ -167,6 +173,8 @@ argument-hint: {인자를 받는 스킬만 — 선택}
 
 - 실행 경로는 `workflow_run.py`로 생성·검증한 `{RUN_DIR}` 아래에 둔다. 재개는 명시 경로·저장소·모드·RUN_ID 검증을 거치며, 고정 전역 상태 경로를 추가하지 않는다.
 
+- **대화 언어는 한 줄로 쓴다.** `## Language Rule` 섹션을 따로 만들지 않고, 제목 아래 목적 문장 다음에 `**Language**: ...` 한 줄을 둔다.
+
 ## 11. mod (hooks 모듈)
 
 Claude Code 전용 UI·자동 동작은 command hook 이 아니라 **mod** 로 만든다. 스킬과 달리 Codex 등 다른 호스트에서는 동작하지 않으므로, 스킬의 필수 절차를 mod 에 두지 않는다 (표시·편의 기능만).
@@ -189,3 +197,10 @@ claude plugin validate <plugin>   # hook·호출·state 목록, 테스트 파일
 claude plugin test <plugin>       # hooks/*.test.tsx, terminal·desktop 두 surface 로 반복
 python3 -B -m unittest tests.test_mods
 ```
+
+## 12. 평가·페이퍼컷·폐기
+
+스킬의 `description` 이나 본문을 줄일 때의 근거(명세, eval 사례, 마찰 기록)와 폐기 절차는 [skill-evals.md](skill-evals.md) 가 정본이다.
+
+- 스킬을 새로 만들면 `{plugin}/evals/{skill}/` 에 `trigger` 사례를 함께 만든다. 행동 사례를 만들 때 `spec.md` 를 쓴다.
+- 스킬이 틀린 지시를 하는 것을 발견하면 SKILL.md 를 고친다. 로컬 기록은 `common/hooks/papercut.py` 가 맡는다.
