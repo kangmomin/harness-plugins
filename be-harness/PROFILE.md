@@ -45,7 +45,9 @@ e2eLockDir: ""             # E2E 실행 락 디렉토리. 비우면 자동 해�
                            # 환경변수 HARNESS_E2E_LOCK_DIR 로도 지정 가능.
 
 # 리포트 출력
-reportDir: ""              # E2E 자기 점검·Workflow Report(md) 저장 디렉토리. 비우면 `.claude/harness-reports`. work-log vault 하위 경로를 지정하면 wiki 인덱싱 대상이 된다
+reportDir: ""              # E2E 자기 점검·Workflow Report(md) 저장 디렉토리. 값을 쓰면 리포트는 그 경로, RUN 상태는 시스템 temp.
+                           # 비우면 harness_store.py 기본 위치: 리포트 <doc root>/<project>/, RUN 상태 <doc root>/.harness-runs/<project>/
+                           # (doc root = $WORK_LOG_ROOT → ~/.harness-plugin/work-log/docs). work-log vault 하위 경로는 wiki 인덱싱 대상이 된다
 
 # 소스 레이아웃
 sourceDirs: ["internal/", "cmd/", "pkg/"]

@@ -19,7 +19,7 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
 
 - **sync 는 vault 에 0 바이트를 쓴다.** 인덱스는 vault 밖(`$XDG_CACHE_HOME/work-log/<vault해시>/index.json`, 기본 `~/.cache`)에 저장된다
 - 기존 문서에 frontmatter 를 주입하지 않는다. 없는 문서는 제목·경로에서 메타를 **추론**해 인덱스에만 기록한다
-- 기본 제외 목록은 `.obsidian`·`.trash`·`.git`·`node_modules`·`.wiki`다. 설정의 비어 있지 않은 `excludes` 배열은 기본 목록을 대체하고, 생략/빈 배열은 기본 목록을 사용한다
+- 기본 제외 목록은 `.obsidian`·`.trash`·`.git`·`node_modules`·`.wiki`다. 설정의 비어 있지 않은 `excludes` 배열은 기본 목록을 대체하고, 생략/빈 배열은 기본 목록을 사용한다. `.harness-runs`(하네스 run 상태 폴더)는 `excludes` 설정과 관계없이 항상 제외한다
 
 ## Step 1: 실제 root 확인 · 동기화 실행
 

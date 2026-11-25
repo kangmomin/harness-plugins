@@ -51,7 +51,8 @@
 별도 독립 중앙 모드는 **각 프로젝트/checkout의 첫 init에서 설정**한다. 미등록 repo를 자동으로 모두
 분류하는 기능이 아니다. 기존 global root는 중앙 base 후보이며 일반 기본값은
 `<기존 vault>/projects` 다. 명시된 `AGENTS.md`·`CLAUDE.md` 저장 경로가 우선한다.
-없는 base는 승인받아 생성해야 한다. 이미 정리된 projects/<project> 폴더를 hash 이름으로 바꾸거나
+없는 base는 승인받아 생성해야 한다(예외: 해석 순서 5번의 기본 경로 `<base>/work-log` 는 설정이 없을 때
+첫 쓰기에서 승인 없이 만든다). 이미 정리된 projects/<project> 폴더를 hash 이름으로 바꾸거나
 그 옆에 중복 vault를 만들기 위한 기능이 아니며, 독립 root를 명시 선택한 경우에만 사용한다.
 
 ```bash
@@ -80,9 +81,15 @@ init은 helper 계산 → 사용자 승인 → mkdir → 같은 helper 재검증
 2. cwd 에서 위로 `.work-log.json` 탐색 (`.git` 경계까지)
 3. `$XDG_CONFIG_HOME/work-log/config.json` (상대경로면 무시하고 `~/.config` 사용)
 4. `~/.claude/work-log.json` (기존 설치 호환 fallback)
-5. 없으면 `needsInit`
+5. 없으면 `<base>/work-log` fallback (`configSource: default:harness-plugin`). `<base>` 는
+   `HARNESS_PLUGIN_HOME`(절대경로일 때만) → `~/.harness-plugin`. 조회(`wiki_status`·`wiki_resolve`·
+   `wiki_read`·`config.js`)는 폴더를 만들지 않고 `pending: true` 와 예정 `root` 를 보고한다.
+   첫 `wiki_write`·`wiki_sync`(CLI는 `config.js --create`)가 0700으로 만든다. 경로가 파일이거나
+   만들 수 없으면 다른 위치로 대체하지 않고 오류다
 
 잘못된 설정은 조용히 무시되지 않는다 — 깨진 JSON·없는 경로는 오류로 멈춘다(fail-closed).
+`WORK_LOG_ROOT`·`HARNESS_PLUGIN_HOME` 이 빈 값·공백·상대경로면 무시하고 `warnings` 에 이름과 사유를 남긴다.
+Windows에서는 `C:\x`·`C:/x`·UNC(`\server\share`)만 절대경로다(`/c/x`·`\x`·`C:x` 는 무시).
 신규 전역 설정은 XDG 경로에 쓰며 기존 Claude 설정은 자동 이동·삭제하지 않는다.
 
 Codex 번들 MCP는 플러그인 디렉토리에서 시작한다. 따라서 프로젝트 `.work-log.json` 이 자동으로
@@ -95,6 +102,23 @@ Claude Code도 MCP cwd가 프로젝트와 다르면 프로젝트 MCP 설정의 e
 설정 완료를 선언하지 않는다(root 비교는 canonical realpath 기준). env fallback의
 `scope: global` 표시만으로 실패로 보지 않는다.
 edit의 중복 검색에서 `INDEX_MISSING` 이면 같은 root를 sync한 뒤 다시 검색한다.
+
+### 하네스 공통 폴더와 함께 쓸 때 (#38)
+
+하네스 helper(`harness_store.py`)는 문서를 `<doc root>/<project>/` 에, run 상태를
+`<doc root>/.harness-runs/<project>/` 에 직접 쓴다. `<doc root>` 는 `WORK_LOG_ROOT` → `<base>/work-log/docs` 다.
+
+- doc root는 `WORK_LOG_ROOT` 만 본다. `.work-log.json`·XDG 설정으로 정한 vault와 연결되지 않는다.
+  이 경우 하네스 문서는 MCP vault 밖에 저장되어 검색되지 않는다. 같이 쓰려면 `WORK_LOG_ROOT` 를 지정한다.
+- `<project>` 는 `remote.origin.url` 마지막 부분 → git common-dir 이름 → (git이 아니면) 폴더 이름이다.
+  해시가 없으므로 이름이 같은 저장소는 같은 폴더를 함께 쓴다.
+- `.harness-runs` 는 자동으로 정리되지 않는다. 필요 없는 run 폴더는 직접 지운다.
+- helper는 파일만 쓴다. 인덱스에는 다음 `wiki_sync` 때 반영된다.
+- vault가 클라우드 동기화 폴더에 있으면 run 상태·리포트도 함께 동기화된다. 비밀값이 들어갈 수 있으므로
+  동기화 범위를 확인한다. helper는 폴더 0700·파일 0600으로 만들지만 비밀값을 가리지 않는다.
+- Windows에서는 run 폴더 경로가 길어서 산출물 경로가 260자를 넘을 수 있다. `LongPathsEnabled` 를 켠다.
+- vault가 저장소 working tree 안에 있고 gitignore 대상이 아니면, 리포트 쓰기가 untracked 파일을 만들어
+  품질 게이트의 fingerprint를 바꾼다(helper가 `warnings` 로 알린다). 이때 RUN_DIR은 시스템 temp로 바뀐다.
 
 ## 분류형 vault 읽기·쓰기
 
@@ -203,6 +227,7 @@ cache를 수동 덮어쓰거나 다른 marketplace 등록을 변경하지 않는
 - 읽기·파싱 오류는 경로별 `errors`와 `DEGRADED`로 보고한다. 해당 파일/하위 폴더의 이전
   엔트리는 `stale: true`로 유지해 삭제 drift를 만들지 않고, 정상 문서는 계속 갱신한다
 - 비어 있지 않은 `excludes` 설정은 기본 제외 목록을 대체한다. 생략/빈 배열은 기본값이다
+- `.harness-runs`(하네스 run 상태 폴더)는 `excludes` 설정과 관계없이 항상 스캔하지 않고, MCP 읽기·쓰기 경로로도 거부한다
 
 ### 캐시와 진단
 

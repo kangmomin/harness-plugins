@@ -10,7 +10,7 @@ Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 
 
 ## 2026-11-25 스킬 description 예산·페이퍼컷·eval 파일럿
 
-BE 1.13.1 / FE 1.12.1 / common 0.23.0 / minmos 2.7.1 / hyeondongs 3.0.4 / work-log 0.6.1. 스킬을 늘리는 대신 줄이고 평가하는 장치를 넣었다 (Uber 의 스킬 평가 글을 참고했다). 정본 문서는 [docs/skill-evals.md](docs/skill-evals.md).
+BE 1.14.1 / FE 1.13.1 / common 0.24.0 / minmos 2.8.1 / hyeondongs 3.1.1 / work-log 0.7.1 스킬을 늘리는 대신 줄이고 평가하는 장치를 넣었다 (Uber 의 스킬 평가 글을 참고했다). 정본 문서는 [docs/skill-evals.md](docs/skill-evals.md).
 
 - description 예산: 스킬 53개의 `description` 을 기능 1문장 + 트리거 2개 기준으로 줄였다 (합계 7,808자 → 4,598자). `scripts/check_contracts.py` 가 120자 상한을 검사한다. `claude plugin details` 기준으로 항상 로드되는 토큰은 6개 플러그인 합계 약 8,200 → 약 5,500 이다.
 - 페이퍼컷: common mod 가 `harnessPapercut` 컨텍스트 블록을 넣는다. 에이전트는 스킬 실행 중 마찰(틀린 지시, 설명과 다른 명령 결과, 우회)을 `common/hooks/papercut.py record` 로 기록한다. 저장소 밖 로컬 JSONL 이며 자동으로 외부에 보내지 않는다. `/common:submit-feedback --papercuts` 가 기록을 제출 항목으로 바꾼다.
@@ -19,6 +19,24 @@ BE 1.13.1 / FE 1.12.1 / common 0.23.0 / minmos 2.7.1 / hyeondongs 3.0.4 / work-l
 - 작성 규칙: `docs/skill-authoring.md` 에 description 상한, "모델이 이미 아는 내용을 쓰지 않는다", 평가·폐기 절(12절)을 추가했다.
 - 검증: 고치기 전과 후에 같은 사례 17개를 실행했고 두 번 모두 17개를 통과했다 (트리거 14, 행동 3). 행동 사례의 스킬 on/off 점수는 전후가 같다 (on 1.00, off 0~0.33).
 - 남은 한계: 본문은 근거가 있는 중복만 지웠다. 큰 스킬(`start-workflow`, `sync-base`, `after-meeting`, `ready-for-impl`)의 문장 단위 축소는 scaffold 가 필요한 행동 사례가 생긴 뒤에 한다. fe/minmos/hyeondongs/work-log 는 eval 사례가 없다. 페이퍼컷 블록은 Claude Code mod 전용이고, 실제 세션에서 에이전트가 기록하는 빈도는 확인 전이다. 에이전트 14개의 `description` 과 참조 문서 스킬의 `disable-model-invocation` 전환은 하지 않았다.
+## 2026-11-25 harness-plugin 공통 폴더 (#38)
+
+BE 1.14.0 / FE 1.13.0 / common 0.23.0 / minmos 2.8.0 / hyeondongs 3.1.0 / work-log 0.7.0. 문서·run 폴더·e2e 공통 스크립트의 위치를 SKILL 지시문이 아니라 helper 코드가 환경변수로 정한다. 설정이 없으면 `~/.harness-plugin/` 아래를 쓴다.
+
+- 경로 규칙: base = `$HARNESS_PLUGIN_HOME` → `~/.harness-plugin`, doc root = `$WORK_LOG_ROOT` → `<base>/work-log/docs`, function root = `$HARNESS_FUNCTION_DIR` → `<base>/function`. env는 trim 후 절대경로일 때만 쓰고, 무시한 env는 `warnings`로 알린다(Windows는 `C:\x`·`C:/x`·UNC만 절대경로).
+- `harness_store.py`(be 정본, fe·common·minmos 사본): `resolve [--ensure]`·`report-dir`·`save-doc [--prefer]`·`find-docs`. 문서는 `<doc root>/<project>/`에 덮어쓰지 않고(`-2` 접미사) 저장한다. `<project>`는 `remote.origin.url` 마지막 부분 → git common-dir 이름 → (git 아님) 폴더 이름이다.
+- run 폴더: `workflow_run.py create`가 `--mode`로 profile `reportDir`를 직접 읽는다. 비었으면 RUN_DIR = `<doc root>/.harness-runs/<project>/…`, REPORT_DIR = `<doc root>/<project>/`. 값이 있으면 RUN_DIR = 시스템 temp, REPORT_DIR = 그 값. 오류는 `BLOCKED:STORE_CONFIG`. resume은 `run.json`에 기록된 REPORT_DIR을 쓴다.
+- `e2e_functions.py`(be 정본, fe 사본): `list`·`run`·`add`. e2e-test Step 1.5가 `<function root>/_shared/`·`<project>/`의 manifest 스크립트를 찾아 인증·시드 준비에 `shell` 없이 실행하고, 재사용 후보는 승인 후 저장한다.
+- work-log: 설정이 없으면 `<base>/work-log`를 쓴다(`configSource: default:harness-plugin`). 조회는 `pending`만 보고하고 첫 `wiki_write`·`wiki_sync`가 폴더를 만든다. `.harness-runs`는 `excludes` 설정과 관계없이 항상 제외한다. MCP manifest가 `HARNESS_PLUGIN_HOME`을 전달한다.
+- ready-for-impl은 `save-doc`, doc-gen은 `resolve --ensure`의 `docDir`, api-share-note는 `wiki_resolve` + `find-docs` 후 `save-doc`, submit-feedback은 `feedback.py prepare --cwd`로 저장 위치를 helper에 맡긴다.
+- Breaking: profile `reportDir` 값이 비었거나 키가 없는 프로젝트만 리포트·run 상태 위치가 저장소 안 `.claude/harness-reports`에서 `<doc root>/<project>/`·`<doc root>/.harness-runs/<project>/`로 바뀐다. 값이 적힌 프로젝트는 그대로다. 진행 중 run은 옮기지 않고 legacy 위치로 재개한다. 새 위치에는 과거 리포트가 없어 `risk_facts` 리포트 이력(티어 B축)이 0부터 시작한다.
+- Breaking: doc-gen 결과가 `<프로젝트>/docs`가 아니라 `<doc root>/<project>/`에 생긴다.
+- Breaking: work-log 설정이 없던 사용자는 `needsInit` 대신 `<base>/work-log` fallback을 쓴다(첫 쓰기 때 생성).
+- Breaking: ready-for-impl은 Spec 저장을 `work-log:edit`에 위임하지 않는다. `--out`·`specDir` 오류 때만 경로를 묻는다.
+- 주의: doc root는 `WORK_LOG_ROOT`만 본다. `.work-log.json`·XDG 설정만 쓰는 사용자는 하네스 문서가 MCP vault 밖에 저장된다. 같이 쓰려면 `WORK_LOG_ROOT`를 지정한다.
+- 주의: `<project>`에 해시가 없어 이름이 같은 저장소는 같은 폴더를 함께 쓴다. `.harness-runs`는 자동으로 정리되지 않는다.
+- 주의: vault가 동기화 폴더면 run 상태·리포트도 동기화된다. 비밀값을 가리지 않으므로(폴더 0700·파일 0600만) 동기화 범위를 확인한다. vault가 저장소 working tree 안이면 리포트가 untracked 파일을 만든다(`warnings`로 알림, RUN_DIR은 temp로 대체).
+- 주의: Windows는 run 폴더 경로가 길어 260자를 넘을 수 있다. `LongPathsEnabled`를 켠다.
 
 ## 2026-11-25 주석 이유 판정을 Why: 접두사로 고정
 
@@ -299,7 +317,7 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 
 오버레이 플러그인이 설치되어 있으면 플래그 없이도 자동 감지된다.
 
-공통 플래그: `--reflect`(성찰 Phase 실행 — 기본 off), `--tier quick|light|standard`(검증 티어 선언 — 자연어 `작업 난이도: 하|중|상`도 같은 선언이며 없으면 착수 시 1회 질문. 기본은 Plan 초안의 사실로 quick/light/standard 자동 판정, 선언은 Plan 깊이의 상한, 금지 조건과 충돌하면 승인 전 선택), `--codex none|mix|max`(Codex 사용 모드 — profile `codexMode`에 저장, 기본 mix. `max`는 서브에이전트까지 Codex 슬롯 모델로 위임해 Claude 토큰 최소화), `--codex-models {슬롯}={provider}/{model}[@{effort}]`(슬롯 `review`·`explore`·`judge`·`write`별 위임 모델 — profile `codexModels` 저장. GLM·Kimi 등 Codex `[model_providers.<id>]`로 정의한 provider 사용 가능), `--hard`, `--no-tdd`. 워크플로우 종료 시 md Workflow Report가 profile `reportDir`에 아카이브된다.
+공통 플래그: `--reflect`(성찰 Phase 실행 — 기본 off), `--tier quick|light|standard`(검증 티어 선언 — 자연어 `작업 난이도: 하|중|상`도 같은 선언이며 없으면 착수 시 1회 질문. 기본은 Plan 초안의 사실로 quick/light/standard 자동 판정, 선언은 Plan 깊이의 상한, 금지 조건과 충돌하면 승인 전 선택), `--codex none|mix|max`(Codex 사용 모드 — profile `codexMode`에 저장, 기본 mix. `max`는 서브에이전트까지 Codex 슬롯 모델로 위임해 Claude 토큰 최소화), `--codex-models {슬롯}={provider}/{model}[@{effort}]`(슬롯 `review`·`explore`·`judge`·`write`별 위임 모델 — profile `codexModels` 저장. GLM·Kimi 등 Codex `[model_providers.<id>]`로 정의한 provider 사용 가능), `--hard`, `--no-tdd`. 워크플로우 종료 시 md Workflow Report가 `{REPORT_DIR}`에 아카이브된다. `{REPORT_DIR}`은 `workflow_run.py create`가 정한다: profile `reportDir` 값이 있으면 그 경로, 비었으면 `<doc root>/<project>/`(doc root = `$WORK_LOG_ROOT` → `~/.harness-plugin/work-log/docs`).
 
 워크플로우 외 스킬은 하네스를 직접 호출한다:
 

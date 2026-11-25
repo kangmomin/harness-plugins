@@ -18,7 +18,8 @@ Apidog MCP 도구는 `mcp__apidog__read_project_oas_*` 패턴으로 세션 도�
 
 - **git 저장소**: 델타 수집의 원천. 필수.
 - **Apidog MCP 서버**: 엔드포인트 링크 매핑용. 권장 — 없으면 링크 없이 경로만 표기하고 계속 진행한다.
-- **work-log 플러그인** (`wiki_write`/`wiki_resolve`): 결과 저장용. 선택 — 없으면 전역 규약 경로에 파일로 저장한다.
+- **문서 저장 helper** (`${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/harness_store.py`): 새 노트 저장·중복 확인용. 필수.
+- **work-log 플러그인** (`wiki_resolve`/`wiki_write`): 기존 문서 검색·갱신용. 선택 — 없으면 helper만 쓴다.
 
 > **MCP 판정**: 실제 MCP tool 호출 성공 = 연결 OK. `.mcp.json` 존재 여부는 단독 기준으로 쓰지 않는다 (상세: `/minmos-harness:doctor`).
 
@@ -97,10 +98,20 @@ git grep -E '\.(GET|POST|PATCH|PUT|DELETE)\(' <ref> -- '*.go'
 
 `--no-save` 가 아니면 저장한다. work-log 도구는 접두사가 다르면 **`wiki_` 로 시작하는 툴**을 세션 도구 목록에서 탐색한다:
 
-1. `wiki_resolve` 로 같은 주제의 기존 문서를 먼저 확인한다 (중복 방지). 있으면 갱신/신규 여부를 유저에게 묻는다.
-2. `wiki_write` 로 저장: `claude/YYYYMMDD-<서비스>-api-changes-share-note.md`
-3. work-log 플러그인이 없으면 전역 규약 경로(`/workspace/work-log/claude/` 등 CLAUDE.md 규약)에 Write 로 저장한다.
+helper 경로는 `${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/harness_store.py`(아래 `{STORE}`)다. 저장 경로를 직접 조립하지 않는다.
+
+1. **중복 확인** — 두 곳을 모두 본다.
+   - `wiki_resolve`(있으면)로 같은 주제의 기존 문서를 찾는다.
+   - `python3 "{STORE}" find-docs --cwd "<저장소 루트>" --contains "api-changes-share-note"` 로 helper 저장 폴더(`docDir`)의 같은 종류 파일을 찾는다.
+   - `wiki_resolve` 결과의 `root`와 `python3 "{STORE}" resolve --cwd "<저장소 루트>"` 의 `docRoot`가 다르면 "work-log MCP root와 문서 저장 root가 달라 새 노트가 MCP 검색에 나오지 않을 수 있음" 경고 1줄을 고지한다.
+2. **갱신 / 신규 질문** — 후보가 있으면 유저에게 묻는다.
+   - 갱신은 `wiki_resolve`로 찾은 문서만 한다: `wiki_write` overwrite로 그 경로에 쓴다.
+   - `find-docs`로만 찾은 문서는 갱신하지 않는다. 신규로 저장한다(같은 이름이면 helper가 `-2` 접미사).
+3. **신규 저장** — 본문을 stdin으로 넘긴다:
+   `python3 "{STORE}" save-doc --cwd "<저장소 루트>" --name "YYYYMMDD-<서비스>-api-changes-share-note.md" <<'NOTE_EOF'` … `NOTE_EOF`.
+   JSON `path`가 저장 경로다. exit 1(`error`)이면 원인을 보고하고 노트 본문을 대화에 출력한다. 다른 위치로 대체하지 않는다.
 4. 상세 스펙 문서가 이미 있으면 `관련: [[...]]` 링크를 넣는다.
+5. `needsSync: true`이면 "work-log 인덱스에는 다음 `wiki_sync` 때 반영됨"을 안내한다(자동 sync하지 않음).
 
 저장 경로와 노트 본문을 유저에게 보고하고 종료한다.
 

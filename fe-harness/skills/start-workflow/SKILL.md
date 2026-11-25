@@ -21,7 +21,7 @@ user-invocable: true
 
 - `{RUN_DIR}`·`{RUN_ID}` = `references/run-lifecycle.md`의 생성·재개 검증 결과
 - `{STATE_FILE}` = `{RUN_DIR}/workflow-state.md` · `{IMPL_NOTES}` = `{RUN_DIR}/implementation-notes.md`
-- `{REPORT_DIR}` = profile의 `reportDir` (없으면 `.claude/harness-reports`)
+- `{REPORT_DIR}` = run-lifecycle create/resume 출력의 `REPORT_DIR` (위치는 helper가 profile `reportDir`로 정함)
 - `{WORK_REPORT}` = `{RUN_DIR}/workflow-report.md`
 - `{PLAN_MAX}` = Phase 3.3 상한 (Plan 깊이 P 기준: standard 5 / light 2 / quick 0) · `{QL_MAX}` = Phase 7 상한 (티어 T 기준: standard 3 / light 2 / quick 2)
 - `{CWD}` = 현재 작업 디렉토리 (프로젝트 루트)

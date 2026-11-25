@@ -1,5 +1,5 @@
 > 이 문서는 `start-workflow` 스킬의 Phase 5(상태 파일·라이브 노트 생성)와 Phase 12(최종 보고·md 아카이브·보완점 적용)에서 로드된다. 단독 실행 금지.
-> `{STATE_FILE}`, `{IMPL_NOTES}`, `{REPORT_DIR}`, `{WORK_REPORT}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다.
+> `{STATE_FILE}`, `{IMPL_NOTES}`, `{REPORT_DIR}`, `{WORK_REPORT}` 등 플레이스홀더 정의는 SKILL.md 본문을 따른다. `{REPORT_DIR}`은 run-lifecycle create/resume 출력값이며 profile에서 다시 읽지 않는다.
 
 # 템플릿 모음
 
@@ -220,7 +220,7 @@ light·quick 티어: 생략 단계(`SKIPPED:TIER_LIGHT`·`SKIPPED:TIER_QUICK`)�
 
 > SKILL.md Phase 12의 "절차 요약" ①~⑤의 상세 규칙이다. 순서를 바꾸지 않는다.
 
-1. **Workflow Report 초안 작성**: Phase 6~11 결과를 종합해 아래 템플릿(섹션 머리글 변경 금지)으로 `{WORK_REPORT}`를 Write tool로 작성하고, 최종 결정 반영 후 갱신한다. 최종 경로·파일명은 5의 스크립트가 정한다 — Claude는 `{REPORT_DIR}` 아래에 직접 쓰지 않는다.
+1. **Workflow Report 초안 작성**: Phase 6~11 결과를 종합해 아래 템플릿(섹션 머리글 변경 금지)으로 `{WORK_REPORT}`를 Write tool로 작성하고, 최종 결정 반영 후 갱신한다. 최종 경로·파일명은 5의 스크립트가 정한다 — Claude는 `{REPORT_DIR}`(run-lifecycle 출력, 기본 `<doc root>/<project>/`) 아래에 직접 쓰지 않는다.
    표 복제 금지: §2는 2~3줄 + "상세: 부록 A", §4의 단계별 건수는 "부록 B `Phase Results`"로 대신한다. §3·§4.1·§8은 유저 결정 근거이므로 그대로 채운다.
    `{IMPL_NOTES}`는 `## 미결 질문` 섹션만 읽는다 — 1건 이상이면 보고서 최상단에 "사용자 확인 필요" 블록을 삽입한다 (다른 섹션은 읽지 않는다. 원문은 부록 C로 보존된다).
    채팅에는 `{WORK_REPORT}` 경로 + §1 + 유저 결정이 필요한 항목(4.1, 8, 미결 질문, `[Assumption]`)만 출력한다. 보고서 전문을 채팅에 복제하지 않는다.

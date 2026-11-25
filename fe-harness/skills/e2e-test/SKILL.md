@@ -94,6 +94,24 @@ E2E 테스트 실행 전, Playwright와 Vitest 간 충돌 가능성을 점검한
    - 브라우저에서 재현 불가능한 케이스(외부 서비스 장애, 시간 경과 필요 등)만 예외로 두고 `UNCOVERED:{사유}`로 리포트에 남긴다. **"검증이 번거롭다"는 예외 사유가 아니다.**
    - Spec에 엣지 케이스 표가 없거나 ID가 없으면 승계를 건너뛰고 리포트에 `대조 기준 없음`으로 표기한다.
 
+### Step 1.5: 공통 스크립트(function) 확인
+
+Playwright 준비(인증 상태 파일·시드 데이터 등)에 쓸 재사용 스크립트를 helper로 찾는다. 경로·manifest를 직접 읽지 않는다.
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e_functions.py" list --cwd "{CWD}" --harness fe
+```
+
+- JSON `scripts[]`(`name`·`path`·`description`·`usage`·`source: shared|project`)를 후보로 보관한다. 위치는 `<function root>/_shared/` + `<function root>/<project>/`이다(function root = `$HARNESS_FUNCTION_DIR` → `~/.harness-plugin/function`).
+- 빈 목록이면 그대로 진행한다. `warnings`(깨진 manifest·이름 충돌·신뢰 검사 실패로 제외한 항목)는 Step 4 리포트에 적고 계속한다.
+- Step 3 테스트 실행 전에 인증 상태·시드 준비와 맞는 후보가 있으면 승인 없이 helper로만 실행한다(호스트의 명령 권한 프롬프트는 그대로). `usage` 문자열을 셸로 실행하지 않는다:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e_functions.py" run --cwd "{CWD}" --harness fe --name "<name>" [--timeout 초] -- <인자...>
+```
+
+결과 JSON `exitCode`가 0이 아니거나 `timedOut: true`면 그 준비를 실패로 보고 기존 준비 방식으로 진행한다. stdout의 토큰·쿠키 값은 테스트 파일·리포트에 복제하지 않는다.
+
 ### Step 2: 테스트 작성
 
 기대 동작은 요구·기준 문서에서 정하고 실제 응답에 맞추어 완화하지 않는다. 권한·소유권에 영향이 있으면 Spec의 일반 사용자 성공·미인증·권한 없음·다른 소유자 조건을 각각 검증한다. 역할 세션이나 자원이 부족한 케이스는 `UNCOVERED:{사유}`로 남기고 관리자 성공으로 대체하지 않는다.
@@ -226,6 +244,15 @@ npx playwright test {테스트 파일들} --reporter=list
 | `FAILURES FOUND` | 실패 1건 이상 |
 
 미커버는 구현 결함이 아니라 **검증 공백**이므로 수정 루프의 트리거가 아니다. 사유와 함께 남겨 호출자가 판단하게 한다.
+
+**공통 스크립트 저장 제안**: 이번 실행에서 새로 만들거나 쓴 준비 스크립트 중 재사용 후보가 있으면 리포트 끝에 후보(파일·제안 name·description·usage)를 보여 주고 저장 여부를 묻는다. 승인한 것만 저장한다:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e_functions.py" add --cwd "{CWD}" --src "<스크립트 파일>" \
+  --name "<name>" --description "<한 줄 설명>" --harness fe --usage "<사용법>"
+```
+
+저장 위치는 항상 `<function root>/<project>/`이며 폴더·manifest가 없으면 helper가 만든다. `.sh`·`.py`·`.js`, 1 MiB 이하, name `^[a-z0-9][a-z0-9._-]{0,63}$`만 허용한다. BE에서도 쓸 수 있으면 `--harness be,fe`. 같은 name·파일이 있으면 helper가 덮어쓰지 않고 오류를 낸다. 비밀값이 들어 있는 스크립트는 제안하지 않는다. 응답을 받을 수 없는 실행이면 묻지 않고 후보만 리포트에 적는다.
 
 ### Step 4.5: 실행 락 해제
 

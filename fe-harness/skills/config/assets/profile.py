@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Bounded harness frontmatter reader/editor. No YAML execution or shell commands."""
 import argparse
-import fcntl
 import hashlib
 import json
 import os
@@ -13,6 +12,12 @@ import stat
 import subprocess
 import sys
 import tempfile
+
+try:
+    import fcntl
+except ImportError:
+    # Why: Windows에는 fcntl이 없다. 읽기 전용 resolve는 잠금 없이 동작해야 한다.
+    fcntl = None
 
 
 class ProfileError(ValueError):
@@ -30,7 +35,7 @@ STRINGS = set("buildCommand testCommand lintCommand typeCheckCommand runServerCo
 ARRAYS = set("sourceDirs testDirs commitPrefixes projectConventions".split())
 SLOTS = ("review", "explore", "judge", "write")
 EFFORTS = ("minimal", "low", "medium", "high", "xhigh", "max", "ultra", "tiered")
-COMMON = dict(language="ko", codexMode="mix", reportDir=".claude/harness-reports",
+COMMON = dict(language="ko", codexMode="mix", reportDir="",
               e2eLockDir="", projectConventions=["CLAUDE.md"])
 PRESETS = {
     "go": dict(buildCommand="go build ./...", testCommand="go test ./...", lintCommand="go vet ./...",
@@ -531,6 +536,8 @@ def run_command(command, cwd, timeout):
 
 
 def apply(path, original, rendered, expected_sha):
+    if fcntl is None:
+        raise ProfileError("LOCK_UNAVAILABLE: fcntl 없음 — 이 플랫폼에서는 profile을 수정하지 않음")
     if hashlib.sha256(original).hexdigest() != expected_sha:
         raise ProfileError("STALE_PROFILE: expected hash differs")
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)

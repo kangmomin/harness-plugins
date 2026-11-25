@@ -61,6 +61,24 @@ user-invocable: true
    - Response 형태 (status code, 주요 필드)
    - 인증 필요 여부
 
+## Step 1.5: 공통 스크립트(function) 확인
+
+인증 토큰 발급·시드 데이터 같은 재사용 스크립트를 helper로 찾는다. 경로·manifest를 직접 읽지 않는다.
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e_functions.py" list --cwd "{CWD}" --harness be
+```
+
+- JSON `scripts[]`(`name`·`path`·`description`·`usage`·`source: shared|project`)를 이번 실행의 후보로 보관한다. 위치는 `<function root>/_shared/` + `<function root>/<project>/`이다(function root = `$HARNESS_FUNCTION_DIR` → `~/.harness-plugin/function`).
+- 빈 목록이면 그대로 진행한다. `warnings`(깨진 manifest·이름 충돌·신뢰 검사 실패로 제외한 항목)는 리포트 `### 환경`에 적고 계속한다.
+- Step 3·Step 5에서 쓸 때는 승인 없이 helper로만 실행한다(호스트의 명령 권한 프롬프트는 그대로). `usage` 문자열을 셸로 실행하지 않는다:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e_functions.py" run --cwd "{CWD}" --harness be --name "<name>" [--timeout 초] -- <인자...>
+```
+
+결과 JSON `exitCode`·`stdout`·`stderr`·`timedOut`을 판정에 쓴다. `exitCode`가 0이 아니거나 `timedOut: true`면 그 function을 실패로 보고 기존 절차(Step 3의 다음 순위 등)로 넘어간다. stdout의 토큰 값은 리포트·Spec에 복제하지 않는다.
+
 ## Step 2: 시나리오 구성
 
 각 API에 대해 아래 시나리오를 구성하고, **모든 시나리오에 ID를 부여한다**. ID는 Step 7 리포트와 커버리지 판정의 대조 키다.
@@ -101,8 +119,9 @@ Spec에 엣지 케이스 표가 없거나 ID가 없으면(구버전 Spec) `EC-*`
 
 1. 환경 변수 (`$E2E_AUTH_TOKEN` 등)가 있으면 사용
 2. profile 본문에 토큰 발급 절차가 적혀 있으면 그에 따름
-3. 프로젝트 `Makefile` 또는 `scripts/` 디렉토리에 토큰 발급 스크립트가 있으면 실행
-4. 위 어느 것도 없으면 사용자에게 한 번 묻는다:
+3. Step 1.5 후보 중 토큰 발급 function(`description`·`usage`로 판단)이 있으면 `run`으로 실행
+4. 프로젝트 `Makefile` 또는 `scripts/` 디렉토리에 토큰 발급 스크립트가 있으면 실행
+5. 위 어느 것도 없으면 사용자에게 한 번 묻는다:
    > "E2E 테스트용 인증 토큰을 어떻게 발급받나요?
    > 1. 발급 명령 입력 → 실행해 토큰 확보
    > 2. 토큰 직접 입력 → 그대로 사용
@@ -179,7 +198,7 @@ curl -sS -o "{E2E_RUN_DIR}/response.json" \
   "{serverUrl}{path}"
 ```
 
-응답을 파일에 저장한 뒤 읽어서 검증한다.
+응답을 파일에 저장한 뒤 읽어서 검증한다. 시나리오에 필요한 시드·준비 작업과 맞는 Step 1.5 function이 있으면 요청 전에 `run`으로 실행한다.
 
 ### 응답 검증
 
@@ -255,6 +274,19 @@ bash "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e-lock.sh" release "{E2E_RE
 미커버는 **구현 결함이 아니라 검증 공백**이므로 수정 루프의 트리거가 아니다. 사유와 함께 리포트에 남겨 호출자가 판단하게 한다. `SMOKE_OMITTED`는 판정에 영향을 주지 않는다(커버리지 데이터).
 
 `- 실행 수준:` 줄은 **항상** 출력한다 — 호출자(e2e-test-loop·start-workflow)가 승격 판단과 리포트 렌더링 인자에 그대로 사용한다.
+
+### 공통 스크립트 저장 제안
+
+이번 실행에서 새로 만들거나 쓴 스크립트(토큰 발급·시드 등) 중 다른 실행에서도 재사용할 후보가 있으면, 요약 줄 앞에 후보(파일·제안 name·description·usage)를 보여 주고 저장 여부를 묻는다. 승인한 것만 저장한다:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/e2e-test/assets/e2e_functions.py" add --cwd "{CWD}" --src "<스크립트 파일>" \
+  --name "<name>" --description "<한 줄 설명>" --harness be --usage "<사용법>"
+```
+
+- 저장 위치는 항상 `<function root>/<project>/`이며 폴더·manifest가 없으면 helper가 만든다. 확장자 `.sh`·`.py`·`.js`, 1 MiB 이하, name `^[a-z0-9][a-z0-9._-]{0,63}$`만 허용한다. FE에서도 쓸 수 있으면 `--harness be,fe`.
+- 같은 name·파일이 있으면 helper가 덮어쓰지 않고 오류를 낸다. 다른 name을 제안하거나 건너뛴다. 비밀값이 들어 있는 스크립트는 저장을 제안하지 않는다.
+- 응답을 받을 수 없는 실행(하위 호출·비대화형)이면 묻지 않고 후보만 리포트 `### 수정 제안`에 적는다.
 
 실패가 있으면 호출자(start-workflow 또는 e2e-test-loop)가 수정 루프를 돌 수 있도록 `"이슈: N건, 수정: Y/N, 미커버: K건, 실행 수준: {smoke|full|full(smoke 미적용: 사유)}"` 형식 요약을 마지막 줄에 포함한다 (기존 파서 호환을 위해 앞의 두 필드 순서와 표기는 고정).
 

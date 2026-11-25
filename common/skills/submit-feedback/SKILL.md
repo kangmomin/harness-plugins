@@ -28,7 +28,7 @@ common mod 는 에이전트가 스킬 실행 중 겪은 마찰을 로컬 저장�
 
 ## 2. 로컬 보존 — 인증·네트워크 점검보다 먼저
 
-`assets/feedback.py prepare`를 사용한다. JSON 입력은 `{payload: 위 입력, artifact_root: 프로젝트의 .claude/{plugin}/feedback-submissions 절대 경로}`다. 실행별 0700 디렉터리에 0600 `payload.json`을 저장하고 fsync한다. 반환된 `artifact`와 `sha256`를 원래 receipt로 보존한다.
+`assets/feedback.py prepare - --cwd "<프로젝트 루트 절대 경로>"`를 사용한다. stdin JSON 입력은 `{payload: 위 입력}`이며 `artifact_root`는 넣지 않는다(넣으면 그 경로가 우선하는 호환용 입력이다). 저장 폴더는 helper가 검사된 `payload.plugin`으로 정한다: `<base>/feedback-submissions/<project>/<plugin>/`(`<base>` = `$HARNESS_PLUGIN_HOME` → `~/.harness-plugin`, 0700, symlink·느슨한 권한·플러그인 소스 거부). 이 스킬은 경로를 조립하지 않는다. 그 아래 실행별 0700 디렉터리에 0600 `payload.json`을 저장하고 fsync한다. 반환된 `artifact`와 `sha256`를 원래 receipt로 보존한다. `{status: BLOCKED, reason}`(exit 2)이면 로컬 저장 실패다.
 
 이 스킬이 로컬 보존의 주체다. 단독 호출과 start-workflow 호출 모두 동일하다. 호출자가 또 저장하도록 신호만 보내지 않는다. 보존본은 제출 증거이며 **활성 common.md/skills/agents override가 아니다**. 로컬 저장이 실패하면 경로·실패를 보고하고 원격 작업을 시작하지 않는다.
 

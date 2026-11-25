@@ -22,7 +22,8 @@ doctor/init으로 env 우선순위·MCP cwd를 확인한다. 최종 프로젝트
 fallback은 재시작 후 root 일치 확인까지 미완료다. 사용자가 기존 flat root로의 전환을 명시적으로 승인했다면
 그 root를 `WORK_LOG_ROOT` 로 CLI에도 동일하게 전달하고, `cfg.root`·`wiki_status.root`·승인한 root의
 일치를 확인한다. 이 경우에만 기존 checkout 설정과의 차이를 허용하며, 승인 없는 env 불일치는 계속 중단한다.
-`scope: global` 표시만으로 실패로 보지 않는다.
+`scope: global` 표시만으로 실패로 보지 않는다. `pending: true`(`configSource: default:harness-plugin`)면
+기본 경로가 아직 없을 뿐이다. 중복 문서는 없고, 첫 `wiki_write` 가 그 폴더를 만든다.
 독립 프로젝트 모드의 미등록 checkout/worktree는 최초 init이 필요하다. 분류형 전역 모드는
 공유 root를 유지한다. 독립 root에서 상위 중앙 vault로 자동 검색 확장하지 않는다.
 기존 flat 이력은 자동 이동하지 않으며 필요하면 명시적으로 기존 flat root를 선택한다.

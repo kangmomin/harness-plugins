@@ -1,0 +1,6 @@
+{
+  "conventions": [
+    { "name": "default-conventions", "source": "plugin", "skill": "be-harness:default-conventions" },
+    { "name": "project", "source": "project", "path": "CLAUDE.md" }
+  ]
+}

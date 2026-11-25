@@ -1,4 +1,4 @@
-<!-- overlay-source: minmos-harness@2.5.1 -->
+<!-- overlay-source: minmos-harness@2.8.0 -->
 
 ## Base
 
@@ -61,6 +61,7 @@ smoke에서도 `BASE-01` + Spec `EC-*` 전수, Status Code 정합성, 로컬 DB 
 - **로컬 DB 전용 실행 (절대 원칙)**: 검증된 격리 테스트 DB만 사용. 호스트 별칭/기존 승인만으로 실제 대상 검증을 대체하지 않는다. 상세는 `references/db-safety.md`.
 - **테스트 데이터 격리**: 신규 생성 증거가 있는 ID만 정리한다. 비소유 FK/불명확한 생성/정리 실패는 리포트에 명시한다.
 - gRPC 응답 status는 HTTP status가 아니라 **gRPC code**로 표기한다.
+- 베이스 Step 1.5(공통 스크립트 `list --harness be`·`run`·저장 제안 `add`)는 그대로 상속한다. 실행 위치는 위 Step 1 직후 프로토콜 분류 다음이다.
 
 > 전체 Post-Math E2E 절차의 원문은 `references/e2e-test-postmath.md` 다. 위 앵커 표와 원문이 충돌하면 **앵커 표가 우선**한다 (원문은 베이스 통합 전 작성된 독립 절차라, 베이스와 겹치는 부분이 있다).
 

@@ -186,6 +186,7 @@ Agent tool:
   effort: [E2E 범위/실패 심각도 기준 선택]
   prompt: |
     프로젝트 루트 {CWD}에서 /be-harness:e2e-test-loop {TIER = light면 `--smoke`} 를 실행하세요.
+    워크플로우 경로: RUN_DIR=`{RUN_DIR}`, REPORT_DIR=`{REPORT_DIR}` (e2e-test-loop의 `{RUN_DIR}`·`{REPORT_DIR}`로 그대로 사용)
     상태 파일 `{STATE_FILE}`을 읽고 Phase 8.6 상태를 갱신하세요.
     남은 Phase: Phase 8.7, 8.8, 9, 10, 11, 12
     배정 model/effort: {model}/{effort}

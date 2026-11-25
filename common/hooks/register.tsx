@@ -35,7 +35,7 @@ type Block = { readonly type: string; readonly [field: string]: unknown }
 const isRunCommand = (command: string) => /workflow_run\.py["']?\s+(create|resume)\b/.test(command)
 
 // workflow_run.py run_paths() 가 만드는 절대 경로만 받는다. 다른 파일을 읽지 않게 한다.
-const isStateFile = (path: string) => /^(\/|[A-Za-z]:[\\/])/.test(path) && /[\\/]workflow-state\.md$/.test(path)
+const isStateFile = (path: string) => /^(\/|[A-Za-z]:[\\/]|\\\\[^\\/?.])/.test(path) && /[\\/]workflow-state\.md$/.test(path)
 
 // workflow_run.py create/resume 출력(JSON 1개)에서 실행 정보를 꺼낸다. 다른 출력이면 null.
 export function parseRun(command: string, output: string): Run | null {

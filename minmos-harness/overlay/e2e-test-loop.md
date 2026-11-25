@@ -1,4 +1,4 @@
-<!-- overlay-source: minmos-harness@2.2.0 -->
+<!-- overlay-source: minmos-harness@2.8.0 -->
 
 ## Base
 
@@ -29,6 +29,6 @@ SKIP 종료 시 복구 안내 문구를 아래로 치환한다:
 ## 추가 규칙
 
 - 리포트 케이스 블록의 `{분류}` 에 gRPC 케이스가 포함되면 status를 **gRPC code**로 표기한다.
-- `{REPORT_DIR}` 는 베이스 정의(profile `reportDir`, 없으면 `.claude/harness-reports`)를 따른다. Post-Math 프로젝트는 보통 저장소 밖 작업 로그 디렉토리를 쓰므로 profile `reportDir`에 그 경로를 지정한다.
+- `{REPORT_DIR}` 는 베이스 정의(워크플로우 안 = 전달받은 값, 단독 = `harness_store.py report-dir` 출력)를 따른다. profile `reportDir`이 비면 `<doc root>/<project>/`(doc root = `$WORK_LOG_ROOT` → `~/.harness-plugin/work-log/docs`)다. Post-Math 프로젝트는 보통 저장소 밖 작업 로그 디렉토리를 쓰므로 `WORK_LOG_ROOT` 또는 profile `reportDir`에 그 경로를 지정한다.
 
 절차·루프 상한(`{MAX_ITER}` — `--smoke` 시 3)·`--smoke` 하위 전달·md 렌더링 규칙은 **베이스를 그대로 따른다.**
