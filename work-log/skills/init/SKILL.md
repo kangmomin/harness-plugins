@@ -28,7 +28,10 @@ MCP의 `cwd` 를 실제 프로젝트로 간주하지 않는다(플러그인 경�
 환경변수를 제거한다. `--project-dir` 에는 Git 환경변수가 가리키는 경로가 아닌 세션 cwd 또는
 사용자가 확인한 실제 프로젝트 경로를 전달하고, 설정 위치는 helper의 `configDir` 로 확정한다.
 
-이미 설정되어 있으면(`needsInit` 이 없으면) 현재 스코프·실제 root·설정 출처를 보여주고
+`configSource` 가 `default:harness-plugin` 이면 `pending` 여부와 관계없이 **미설정·기본 경로** 상태다.
+설정 파일·env 없이 `<base>/work-log`(기본 `~/.harness-plugin/work-log`)를 쓰는 중이거나 쓸 예정이다.
+이 경우 기본 경로를 현재 root로 보여주고 Step 2로 간다.
+그 밖에 이미 설정되어 있으면(`needsInit` 이 없으면) 현재 스코프·실제 root·설정 출처를 보여주고
 **바꿀지 물어본다.** 사용자가 원치 않으면 여기서 끝내되, root 불일치를 완료로 보고하지 않는다.
 전역 설정이 있다는 이유로 독립 프로젝트 root를 선택한 checkout의 최초 init을 생략하지 않는다.
 
@@ -42,6 +45,10 @@ MCP의 `cwd` 를 실제 프로젝트로 간주하지 않는다(플러그인 경�
 | **독립 중앙 프로젝트별** | 중앙 base의 `<projectKey>/`에 이 프로젝트 문서만 모은다. 현재 checkout마다 최초 init 필요 |
 | **기존 전역 flat vault** | 모든 프로젝트가 기존 root를 공유한다. 기존 flat 관례를 그대로 사용 |
 | **저장소 내 work-log** | 기존 `<현재 저장소>/work-log/` 방식. 코드와 함께 버전 관리할 때 선택 |
+| **기본 경로 그대로** | 설정 파일 없이 `<base>/work-log`(기본 `~/.harness-plugin/work-log`, `HARNESS_PLUGIN_HOME`이 절대경로면 그 아래)를 쓴다 |
+
+**기본 경로 그대로**를 고르면 Step 4 설정 파일을 쓰지 않는다. 폴더가 없으면(`pending`) Step 7의
+`wiki_sync` 가 0700으로 만든다. 다른 설정(env·`.work-log.json`·XDG·legacy)이 생기면 그쪽이 우선한다.
 
 각 선택지에 실제 경로를 넣어 보여준다. 분류형 전역 모드는 기존 global root(예: `/workspace/work-log`)를
 그대로 채택하며, `projects/` 또는 개별 프로젝트 폴더를 root로 쓰지 않는다. 신규 쓰기의 소유·분류는
@@ -133,6 +140,7 @@ fallback으로 읽고, 사용자가 설정 변경을 승인했을 때만 새 XDG
 |---|---|
 | 방금 만든 `.work-log.json` 경로이고 실제 root 일치 | 자동 탐지 **동작** |
 | 환경변수이고 실제 root 일치 | fallback **동작** (global 표시도 허용) |
+| `default:harness-plugin` | 기본 경로 **동작**. 기본 경로를 고른 경우만 완료, 다른 선택지면 설정이 적용되지 않음 |
 | 실제 root 불일치 / 미설정 | env 우선순위·cwd 확인 → 현재 클라이언트용 fallback 안내 |
 
 Claude Code에서 자동 탐지가 안 되면 프로젝트 루트 `.mcp.json` 에 다음을 추가하라고 안내한다
