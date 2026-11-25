@@ -20,8 +20,48 @@ test('Codex manifest가 상대 MCP 경로와 환경 전달을 선언한다', () 
   assert.deepEqual(server.args, ['./mcp/server.js']);
   assert.equal(server.cwd, '.');
   assert.deepEqual(server.env_vars, [
-    'WORK_LOG_ROOT', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME',
+    'WORK_LOG_ROOT', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'HARNESS_PLUGIN_HOME',
   ]);
+});
+
+test('fallback 폴더가 없으면 wiki_status는 pending을 보이고 wiki_resolve는 빈 결과를 낸다', (t) => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'work-log-pending-'));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const base = path.join(temp, 'base');
+  const cwd = path.join(temp, 'cwd');
+  fs.mkdirSync(cwd);
+  fs.mkdirSync(path.join(temp, 'home'));
+  const gitConfig = path.join(temp, 'gitconfig');
+  fs.writeFileSync(gitConfig, '');
+  const env = Object.fromEntries(Object.entries(process.env)
+    .filter(([key]) => !key.startsWith('GIT_') && key !== 'WORK_LOG_ROOT'));
+  Object.assign(env, {
+    HARNESS_PLUGIN_HOME: base, HARNESS_FUNCTION_DIR: path.join(temp, 'functions'),
+    HOME: path.join(temp, 'home'), USERPROFILE: path.join(temp, 'home'),
+    XDG_CONFIG_HOME: path.join(temp, 'xdg-config'), XDG_CACHE_HOME: path.join(temp, 'xdg-cache'),
+    GIT_CONFIG_GLOBAL: gitConfig, GIT_CONFIG_NOSYSTEM: '1',
+  });
+  const requests = [['wiki_status', {}], ['wiki_resolve', { query: 'anything' }]];
+  const child = spawnSync(process.execPath, [path.join(pluginRoot, 'mcp/server.js')], {
+    cwd, env, encoding: 'utf8', timeout: 15000,
+    input: requests.map(([name, args], i) => JSON.stringify({
+      jsonrpc: '2.0', id: i + 1, method: 'tools/call', params: { name, arguments: args },
+    })).join('\n') + '\n',
+  });
+  assert.equal(child.status, 0, child.error?.message || child.stderr);
+  const [status, resolved] = child.stdout.trim().split('\n').map(JSON.parse);
+  for (const message of [status, resolved]) {
+    assert.equal(message.error, undefined);
+    assert.notEqual(message.result.isError, true, message.result.content[0].text);
+  }
+  const statusBody = JSON.parse(status.result.content[0].text);
+  assert.equal(statusBody.pending, true);
+  assert.equal(statusBody.root, path.join(base, 'work-log'));
+  const resolveBody = JSON.parse(resolved.result.content[0].text);
+  assert.deepEqual(resolveBody.candidates, []);
+  assert.equal(resolveBody.total, 0);
+  assert.equal(resolveBody.pending, true);
+  assert.equal(fs.existsSync(base), false);
 });
 
 test('저장 후 인덱스 timeout은 저장 성공으로 응답하고 sync만 재시도한다', { timeout: 15000 }, async (t) => {

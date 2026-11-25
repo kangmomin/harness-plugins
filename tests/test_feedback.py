@@ -2,7 +2,9 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -108,3 +110,100 @@ class FeedbackTests(unittest.TestCase):
         path.write_text('## 2026-09-06\n\n**대상**: common:start-workflow\n**요지**: Use exact paths\n')
         self.assertEqual('NO_CHANGES', feedback.apply(receipt, self.root / 'clone')['status'])
         self.assertEqual(1, len(list(path.parent.iterdir())))
+
+
+def isolated_env(tmp):
+    tmp = Path(tmp)
+    for name in ('home', 'functions', 'xdg-config', 'xdg-cache', 'systemp'):
+        (tmp / name).mkdir(exist_ok=True)
+    gitconfig = tmp / 'gitconfig'
+    gitconfig.write_text('')
+    env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_') and k != 'WORK_LOG_ROOT'}
+    env.update(
+        HARNESS_PLUGIN_HOME=str(tmp / 'base'), HARNESS_FUNCTION_DIR=str(tmp / 'functions'),
+        HOME=str(tmp / 'home'), USERPROFILE=str(tmp / 'home'),
+        XDG_CONFIG_HOME=str(tmp / 'xdg-config'), XDG_CACHE_HOME=str(tmp / 'xdg-cache'),
+        TMPDIR=str(tmp / 'systemp'), TEMP=str(tmp / 'systemp'), TMP=str(tmp / 'systemp'),
+        GIT_CONFIG_GLOBAL=str(gitconfig), GIT_CONFIG_NOSYSTEM='1', PYTHONUTF8='1')
+    return env
+
+
+class FeedbackStoreTests(unittest.TestCase):
+    SCRIPT = ROOT / 'common/skills/submit-feedback/assets/feedback.py'
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix='feedback-store-')).resolve()
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.env = isolated_env(self.tmp)
+        self.repo = self.tmp / 'repos' / 'demo-repo'
+        self.repo.mkdir(parents=True)
+        subprocess.run(['git', 'init', '-q'], cwd=self.repo, env=self.env, check=True, capture_output=True)
+        self.item = {'target_type': 'skill', 'target_name': 'start-workflow', 'summary': 'Use exact paths',
+                     'context': 'ctx', 'proposal': 'Keep the full path.', 'generality': '범용'}
+        self.payload = {'plugin': 'be-harness', 'date': '2026-11-25', 'items': [self.item]}
+        self.root = self.tmp / 'base' / 'feedback-submissions' / 'demo-repo' / 'be-harness'
+
+    def prepare(self, data, cwd=None):
+        args = [sys.executable, '-B', str(self.SCRIPT), 'prepare', '-']
+        if cwd is not None:
+            args += ['--cwd', str(cwd)]
+        result = subprocess.run(args, input=json.dumps(data), env=self.env, capture_output=True, text=True,
+                                encoding='utf-8', timeout=60)
+        return result, (json.loads(result.stdout) if result.stdout.strip().startswith('{') else None)
+
+    def test_prepare_with_cwd_saves_under_feedback_root(self):
+        result, data = self.prepare({'payload': self.payload}, self.repo)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertEqual('LOCAL_SAVED', data['status'])
+        artifact = Path(data['artifact']).resolve()
+        self.assertIn(self.root.resolve(), artifact.parents)
+        self.assertTrue(artifact.is_file())
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX 권한 전용 — CI에서 확인')
+    def test_prepare_with_cwd_creates_private_folders(self):
+        result, data = self.prepare({'payload': self.payload}, self.repo)
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        for path in (self.root, Path(data['artifact']).parent):
+            self.assertEqual(0o700, path.stat().st_mode & 0o777)
+
+    def test_traversal_plugin_value_is_blocked(self):
+        for plugin in ('../escape', 'a/b', '..'):
+            with self.subTest(plugin):
+                result, data = self.prepare({'payload': {**self.payload, 'plugin': plugin}}, self.repo)
+                self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+                self.assertEqual('BLOCKED', data and data['status'])
+        self.assertFalse((self.tmp / 'base' / 'escape').exists())
+
+    def test_git_error_is_blocked_as_json(self):
+        broken = self.tmp / 'broken'
+        broken.mkdir()
+        (broken / '.git').write_text('gitdir: missing-git-dir\n')
+        result, data = self.prepare({'payload': self.payload}, broken)
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertEqual('BLOCKED', data and data['status'])
+
+    def test_feedback_root_plugin_source_is_blocked(self):
+        (self.root / '.claude-plugin').mkdir(parents=True)
+        result, data = self.prepare({'payload': self.payload}, self.repo)
+        self.assertEqual(2, result.returncode, result.stdout + result.stderr)
+        self.assertEqual('BLOCKED', data and data['status'])
+
+    @unittest.skipIf(os.name == 'nt', 'POSIX symlink·권한 전용 — CI에서 확인')
+    def test_feedback_root_symlink_or_loose_mode_is_blocked(self):
+        outside = self.tmp / 'outside'
+        outside.mkdir()
+        self.root.parent.mkdir(parents=True)
+        self.root.symlink_to(outside, target_is_directory=True)
+        result, data = self.prepare({'payload': self.payload}, self.repo)
+        self.assertEqual('BLOCKED', data and data['status'])
+        self.assertEqual([], list(outside.iterdir()))
+        self.root.unlink()
+        self.root.mkdir()
+        self.root.chmod(0o777)
+        result, data = self.prepare({'payload': self.payload}, self.repo)
+        self.assertEqual('BLOCKED', data and data['status'])
+
+    def test_artifact_root_input_still_works(self):
+        result, data = self.prepare({'payload': self.payload, 'artifact_root': str(self.tmp / 'legacy-artifacts')})
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn((self.tmp / 'legacy-artifacts').resolve(), Path(data['artifact']).resolve().parents)

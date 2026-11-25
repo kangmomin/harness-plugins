@@ -1,0 +1,18 @@
+[
+  {"input": "C:\\x", "win": true, "posix": false},
+  {"input": "C:/x", "win": true, "posix": false},
+  {"input": "  C:\\x  ", "win": true, "posix": false},
+  {"input": "C:foo", "win": false, "posix": false},
+  {"input": "\\foo", "win": false, "posix": false},
+  {"input": "/c/x", "win": false, "posix": true},
+  {"input": "\\\\srv\\share", "win": true, "posix": false},
+  {"input": "//srv/share", "win": true, "posix": true},
+  {"input": "\\\\?\\C:\\x", "win": false, "posix": false},
+  {"input": "\\\\.\\nul", "win": false, "posix": false},
+  {"input": "/x", "win": false, "posix": true},
+  {"input": "  /x  ", "win": false, "posix": true},
+  {"input": "rel/x", "win": false, "posix": false},
+  {"input": "./x", "win": false, "posix": false},
+  {"input": "", "win": false, "posix": false},
+  {"input": "   ", "win": false, "posix": false}
+]

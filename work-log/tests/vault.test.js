@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fork } from 'node:child_process';
 import { once } from 'node:events';
-import { buildIndex, documentClassification, sha1, splitFrontmatter, writeDoc } from '../mcp/lib/vault.js';
+import { buildIndex, documentClassification, safeResolve, sha1, splitFrontmatter, writeDoc } from '../mcp/lib/vault.js';
 import { rank } from '../mcp/lib/search.js';
 
 function fixture(t) {
@@ -273,4 +273,28 @@ test('미지원 루트 YAML을 overwrite할 때 원본을 변경하지 않는다
     await assert.rejects(writeDoc(cfg, { relPath: 'doc.md', content: 'New body', mode: 'overwrite' }), /YAML/);
     assert.equal(fs.readFileSync(path.join(cfg.root, 'doc.md'), 'utf8'), original);
   }
+});
+
+test('custom excludes에도 .harness-runs는 스캔하지 않고 쓰기를 거부한다', async (t) => {
+  const cfg = { ...fixture(t), excludes: ['drafts'] };
+  fs.mkdirSync(path.join(cfg.root, '.harness-runs', 'demo', 'run-1'), { recursive: true });
+  fs.writeFileSync(path.join(cfg.root, '.harness-runs', 'demo', 'run-1', 'workflow-state.md'), '# state');
+  fs.mkdirSync(path.join(cfg.root, 'drafts'));
+  fs.writeFileSync(path.join(cfg.root, 'drafts', 'draft.md'), '# draft');
+  fs.writeFileSync(path.join(cfg.root, 'keep.md'), '# keep');
+
+  assert.deepEqual(buildIndex(cfg).docs.map((doc) => doc.path), ['keep.md']);
+  assert.throws(() => safeResolve(cfg.root, '.harness-runs/demo/note.md', { forWrite: true }), /\.harness-runs/);
+  assert.throws(() => safeResolve(cfg.root, '.harness-runs/demo/run-1/workflow-state.md'), /\.harness-runs/);
+  await assert.rejects(writeDoc(cfg, { relPath: '.harness-runs/demo/note.md', content: '# no' }), /\.harness-runs/);
+  assert.equal(fs.existsSync(path.join(cfg.root, '.harness-runs', 'demo', 'note.md')), false);
+});
+
+test('custom excludes 폴더의 읽기·쓰기 경로는 지금처럼 허용한다', (t) => {
+  const cfg = { ...fixture(t), excludes: ['drafts'] };
+  fs.mkdirSync(path.join(cfg.root, 'drafts'));
+  fs.writeFileSync(path.join(cfg.root, 'drafts', 'draft.md'), '# draft');
+
+  assert.equal(safeResolve(cfg.root, 'drafts/new.md', { forWrite: true }).rel, path.join('drafts', 'new.md'));
+  assert.equal(safeResolve(cfg.root, 'drafts/draft.md').rel, path.join('drafts', 'draft.md'));
 });

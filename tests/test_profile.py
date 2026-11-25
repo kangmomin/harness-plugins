@@ -150,6 +150,16 @@ class ProfileTests(unittest.TestCase):
             result = profile.resolve(root, "be")
             self.assertEqual({"value": "", "source": "profile"}, result["commands"]["testCommand"])
 
+    @unittest.skipIf(os.name == "nt", "POSIX 전용 — CI에서 확인")
+    def test_report_dir_default_is_empty_for_both_domains(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "package.json").write_text("{}")
+            for domain in ("be", "fe"):
+                result = profile.resolve(root, domain)
+                self.assertEqual("", result["values"]["reportDir"])
+                self.assertEqual("default", result["sources"]["reportDir"])
+
     def test_resolve_fe_primary_ignores_invalid_legacy_and_selected_flags(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

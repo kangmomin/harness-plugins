@@ -13,6 +13,28 @@ import {
   projectVaultPath,
   resolveConfig,
 } from '../mcp/lib/config.js';
+import * as configModule from '../mcp/lib/config.js';
+
+const absPathCases = JSON.parse(fs.readFileSync(
+  fileURLToPath(new URL('../../tests/fixtures/abs-path-cases.json', import.meta.url)), 'utf8'));
+
+function isolatedEnv(root) {
+  const env = Object.fromEntries(Object.entries(process.env)
+    .filter(([key]) => !key.startsWith('GIT_') && key !== 'WORK_LOG_ROOT'));
+  const gitConfig = path.join(root, 'isolated-gitconfig');
+  fs.writeFileSync(gitConfig, '');
+  return {
+    ...env,
+    HARNESS_PLUGIN_HOME: path.join(root, 'isolated-base'),
+    HARNESS_FUNCTION_DIR: path.join(root, 'isolated-functions'),
+    HOME: path.join(root, 'home'),
+    USERPROFILE: path.join(root, 'home'),
+    XDG_CONFIG_HOME: path.join(root, 'isolated-xdg-config'),
+    XDG_CACHE_HOME: path.join(root, 'isolated-xdg-cache'),
+    GIT_CONFIG_GLOBAL: gitConfig,
+    GIT_CONFIG_NOSYSTEM: '1',
+  };
+}
 
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'work-log-config-'));
@@ -142,10 +164,14 @@ test('설정이 없으면 중립 경로가 포함된 init 안내를 반환한다
   const f = fixture(t);
 
   const result = resolveConfig({ cwd: f.cwd, home: f.home, env: f.env });
+  const fallback = path.join(f.home, '.harness-plugin', 'work-log');
 
   assert.equal(result.needsInit, true);
-  assert.equal(result.configSource, null);
-  assert.match(result.hint, new RegExp(f.paths.global.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.equal(result.pending, true);
+  assert.equal(result.configSource, 'default:harness-plugin');
+  assert.equal(result.root, fallback);
+  assert.match(result.hint, /첫 쓰기/);
+  assert.equal(fs.existsSync(fallback), false);
 });
 
 test('잘못된 프로젝트 설정 값은 다른 vault로 fallback하지 않는다', (t) => {
@@ -175,7 +201,7 @@ test('설정 CLI가 공백·한글·URL 예약 문자가 있는 경로에서도 
     const cli = path.join(dir, 'config.js');
     fs.copyFileSync(fileURLToPath(new URL('../mcp/lib/config.js', import.meta.url)), cli);
     const result = spawnSync(process.execPath, [cli], {
-      cwd: f.cwd, env: { ...process.env, WORK_LOG_ROOT: f.vaults.env }, encoding: 'utf8',
+      cwd: f.cwd, env: { ...isolatedEnv(f.root), WORK_LOG_ROOT: f.vaults.env }, encoding: 'utf8',
     });
     assert.equal(result.status, 0, result.stderr);
     assert.equal(JSON.parse(result.stdout).root, f.vaults.env, name);
@@ -208,7 +234,9 @@ test('중앙 프로젝트 경로 계산은 동명 저장소를 분리하고 파�
   assert.equal(a.identity, fs.realpathSync(path.join(f.repo, '.git')));
   assert.match(a.projectKey, /^repo-[a-f0-9]{16}$/);
   assert.deepEqual(fs.readdirSync(f.vaults.global), []);
-  assert.equal(resolveConfig({ cwd: f.cwd, home: f.home, env: f.env }).needsInit, true);
+  const peek = resolveConfig({ cwd: f.cwd, home: f.home, env: f.env });
+  assert.equal(peek.pending, true);
+  assert.equal(peek.configSource, 'default:harness-plugin');
 });
 
 test('상속된 Git 환경변수로 다른 저장소의 vault나 설정 위치를 선택하지 않는다', (t) => {
@@ -305,4 +333,108 @@ test('프로젝트 경로 CLI는 계산만 수행하고 잘못된 옵션을 거�
   const bad = spawnSync(process.execPath, [cli, '--project-vault', f.vaults.global], { encoding: 'utf8' });
   assert.equal(bad.status, 1);
   assert.match(JSON.parse(bad.stdout).error, /사용법/);
+});
+
+test('fallback peek는 폴더가 있으면 그 root를 정상 결과로 반환한다', (t) => {
+  const f = fixture(t);
+  const fallback = path.join(f.home, '.harness-plugin', 'work-log');
+  fs.mkdirSync(fallback, { recursive: true });
+
+  const result = resolveConfig({ cwd: f.cwd, home: f.home, env: f.env });
+
+  assert.equal(result.needsInit, undefined);
+  assert.equal(result.pending, undefined);
+  assert.equal(result.root, fallback);
+  assert.equal(result.configSource, 'default:harness-plugin');
+});
+
+test('fallback create는 설정이 없을 때 기본 work-log 폴더를 만든다', (t) => {
+  const f = fixture(t);
+  const fallback = path.join(f.home, '.harness-plugin', 'work-log');
+
+  const result = resolveConfig({ cwd: f.cwd, home: f.home, env: f.env, fallback: 'create' });
+
+  assert.equal(result.root, fallback);
+  assert.equal(result.configSource, 'default:harness-plugin');
+  assert.equal(fs.statSync(fallback).isDirectory(), true);
+});
+
+test('HARNESS_PLUGIN_HOME 절대경로는 fallback root의 base가 된다', (t) => {
+  const f = fixture(t);
+  const base = path.join(f.root, 'custom-base');
+
+  const result = resolveConfig({
+    cwd: f.cwd, home: f.home, env: { ...f.env, HARNESS_PLUGIN_HOME: base }, fallback: 'create',
+  });
+
+  assert.equal(result.root, path.join(base, 'work-log'));
+  assert.equal(fs.statSync(path.join(base, 'work-log')).isDirectory(), true);
+});
+
+test('기존 설정이 하나라도 있으면 HARNESS_PLUGIN_HOME fallback보다 우선한다', (t) => {
+  const f = fixture(t);
+  const env = { ...f.env, HARNESS_PLUGIN_HOME: path.join(f.root, 'custom-base') };
+  const projectConfig = path.join(f.root, 'repo', '.work-log.json');
+  const select = (current = env) => resolveConfig({ cwd: f.cwd, home: f.home, env: current, fallback: 'create' }).root;
+
+  assert.equal(select({ ...env, WORK_LOG_ROOT: f.vaults.env }), f.vaults.env);
+  writeJson(projectConfig, { scope: 'project', root: f.vaults.project });
+  assert.equal(select(), f.vaults.project);
+  fs.unlinkSync(projectConfig);
+  writeJson(f.paths.global, { scope: 'global', root: f.vaults.global });
+  assert.equal(select(), f.vaults.global);
+  fs.unlinkSync(f.paths.global);
+  writeJson(f.paths.legacy, { scope: 'global', root: f.vaults.legacy });
+  assert.equal(select(), f.vaults.legacy);
+  assert.equal(fs.existsSync(path.join(f.root, 'custom-base')), false);
+});
+
+test('절대경로 판정은 공통 표와 같은 결과를 낸다', () => {
+  assert.equal(typeof configModule.isAbsStrict, 'function');
+  for (const row of absPathCases) {
+    assert.equal(configModule.isAbsStrict(row.input, 'win'), row.win, `win ${JSON.stringify(row.input)}`);
+    assert.equal(configModule.isAbsStrict(row.input, 'posix'), row.posix, `posix ${JSON.stringify(row.input)}`);
+  }
+});
+
+test('빈 값·공백·상대경로 env는 무시하고 이름과 사유를 warnings에 남긴다', (t) => {
+  const f = fixture(t);
+  const fallback = path.join(f.home, '.harness-plugin', 'work-log');
+  for (const value of ['relative/base', './x']) {
+    for (const name of ['HARNESS_PLUGIN_HOME', 'WORK_LOG_ROOT']) {
+      const result = resolveConfig({ cwd: f.cwd, home: f.home, env: { ...f.env, [name]: value } });
+      assert.equal(result.root, fallback, `${name}=${value}`);
+      assert.ok(Array.isArray(result.warnings) && result.warnings.some((w) => w.includes(name)), `${name}=${value}`);
+    }
+  }
+  for (const value of ['', '   ']) {
+    const result = resolveConfig({ cwd: f.cwd, home: f.home, env: { ...f.env, HARNESS_PLUGIN_HOME: value } });
+    assert.equal(result.root, fallback);
+  }
+});
+
+test('없는 WORK_LOG_ROOT와 만들 수 없는 fallback은 다른 위치로 대체하지 않고 실패한다', (t) => {
+  const f = fixture(t);
+  assert.throws(
+    () => resolveConfig({ cwd: f.cwd, home: f.home, env: { ...f.env, WORK_LOG_ROOT: path.join(f.root, 'missing') } }),
+    ConfigError,
+  );
+  const blocked = path.join(f.root, 'base-file');
+  fs.writeFileSync(blocked, 'file');
+  assert.throws(
+    () => resolveConfig({ cwd: f.cwd, home: f.home, env: { ...f.env, HARNESS_PLUGIN_HOME: blocked }, fallback: 'create' }),
+    ConfigError,
+  );
+  assert.equal(fs.existsSync(path.join(f.home, '.harness-plugin')), false);
+});
+
+test('<base>/work-log가 파일이면 peek와 create 모두 실패한다', (t) => {
+  const f = fixture(t);
+  const base = path.join(f.root, 'file-base');
+  fs.mkdirSync(base);
+  fs.writeFileSync(path.join(base, 'work-log'), 'file');
+  const env = { ...f.env, HARNESS_PLUGIN_HOME: base };
+  for (const fallback of ['peek', 'create']) {
+    assert.throws(() => resolveConfig({ cwd: f.cwd, home: f.home, env, fallback }), ConfigError, fallback);
+  }
 });
