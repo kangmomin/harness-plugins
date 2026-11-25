@@ -58,13 +58,15 @@ def _read_json(path):
 
 def _regular(path):
     """symlink 아닌 일반 파일의 lstat, 없으면 None."""
-    try:
-        info = os.lstat(path)
-    except FileNotFoundError:
-        return None
-    if not stat.S_ISREG(info.st_mode):
+    info = store.lstat_or_none(path)
+    if info is not None and not stat.S_ISREG(info.st_mode):
         raise ValueError('일반 파일이 아님(symlink 포함): %s' % Path(path).name)
     return info
+
+
+def _valid_manifest(data):
+    return isinstance(data, dict) and type(data.get('version')) is int and data['version'] == 1 \
+        and isinstance(data.get('scripts'), list)
 
 
 def _entry_problem(folder, entry):
@@ -91,23 +93,22 @@ def _entry_problem(folder, entry):
         return '%s: %s' % (name, exc)
     if info is None:
         return '%s: 스크립트 파일 없음' % name
-    if not store._inside(os.path.realpath(target), os.path.realpath(folder)):
+    if not store.inside(os.path.realpath(target), os.path.realpath(folder)):
         return '%s: 스크립트가 폴더 밖을 가리킴' % name
-    if store._loose(info):
+    if store.is_loose(info):
         return '%s: 다른 사용자가 쓸 수 있는 스크립트' % name
     return None
 
 
 def _folder_entries(folder, label, warnings):
     """한 폴더의 유효 항목. 없음은 조용히, 신뢰·형식 실패는 경고 후 생략."""
-    try:
-        info = os.lstat(folder)
-    except FileNotFoundError:
+    info = store.lstat_or_none(folder)
+    if info is None:
         return []
     if stat.S_ISLNK(info.st_mode) or not stat.S_ISDIR(info.st_mode):
         warnings.append('%s: symlink이거나 폴더가 아니라 생략' % label)
         return []
-    if store._loose(info):
+    if store.is_loose(info):
         warnings.append('%s: 다른 사용자가 쓸 수 있는 폴더라 생략' % label)
         return []
     if store.is_plugin_source(folder):
@@ -118,14 +119,13 @@ def _folder_entries(folder, label, warnings):
         manifest_info = _regular(manifest)
         if manifest_info is None:
             return []
-        if store._loose(manifest_info):
+        if store.is_loose(manifest_info):
             raise ValueError('다른 사용자가 쓸 수 있는 manifest')
         data = _read_json(manifest)
     except (OSError, ValueError) as exc:
         warnings.append('%s/%s 생략: %s' % (label, MANIFEST, exc))
         return []
-    if not isinstance(data, dict) or type(data.get('version')) is not int or data['version'] != 1 \
-            or not isinstance(data.get('scripts'), list):
+    if not _valid_manifest(data):
         warnings.append('%s/%s 생략: version 1과 scripts 배열이 필요함' % (label, MANIFEST))
         return []
     entries, seen = [], {}
@@ -142,9 +142,9 @@ def _folder_entries(folder, label, warnings):
 
 
 def _collect(cwd, env=None, home=None):
-    ctx = store._Context(cwd, env, home)
+    ctx = store.Context(cwd, env, home)
     warnings = ctx.warnings
-    root = Path(ctx.function_root)
+    root = ctx.function_root
     if not root.exists():
         return {}, warnings
     if ctx.tree.contains(root):
@@ -227,8 +227,6 @@ def run_script(cwd, harness, name, args=(), timeout=None, env=None, home=None):
     if not match:
         raise ConfigError('실행할 수 있는 function이 없음: %s' % name)
     path = match[0]['path']
-    if os.path.splitext(path)[1].lower() not in EXTENSIONS:
-        raise ConfigError('허용 확장자는 .sh·.py·.js')
     command = [_interpreter(path), path, *[str(a) for a in args]]
     options = {'start_new_session': True} if os.name != 'nt' else {'creationflags': subprocess.CREATE_NEW_PROCESS_GROUP}
     proc = subprocess.Popen(command, cwd=str(Path(cwd).resolve()), stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
@@ -255,13 +253,11 @@ def _harness_list(value):
     return list(dict.fromkeys(items))
 
 
-def _manifest_names(manifest):
-    info = _regular(manifest)
-    if info is None:
+def _load_manifest(manifest):
+    if _regular(manifest) is None:
         return None
     data = _read_json(manifest)
-    if not isinstance(data, dict) or type(data.get('version')) is not int or data['version'] != 1 \
-            or not isinstance(data.get('scripts'), list):
+    if not _valid_manifest(data):
         raise ConfigError('기존 manifest가 version 1 형식이 아니라 수정하지 않음')
     return data
 
@@ -290,7 +286,7 @@ class _Lock:
 
 def _write_manifest(folder, data):
     temp = folder / ('.manifest-%s.tmp' % secrets.token_hex(8))
-    store._create_exclusive(temp, (json.dumps(data, ensure_ascii=False, indent=2) + '\n').encode('utf-8'))
+    store.create_exclusive(temp, (json.dumps(data, ensure_ascii=False, indent=2) + '\n').encode('utf-8'))
     try:
         for attempt in range(2):
             try:
@@ -324,24 +320,21 @@ def add_script(cwd, src, name, description, harness, usage, env=None, home=None)
     if info.st_size > SOURCE_LIMIT:
         raise ConfigError('--src가 1 MiB를 넘음')
     body = src.read_bytes()
-    ctx = store._Context(cwd, env, home)
+    ctx = store.Context(cwd, env, home)
     project = ctx.project()[0]
-    root = Path(ctx.function_root)
+    root = ctx.function_root
     if ctx.tree.contains(root):
         raise ConfigError('function root가 현재 저장소 working tree 안이라 저장하지 않음')
-    store._ensure_base(root)
-    folder = store._ensure_dir(root / project, ctx.warnings, strict=True)
-    store._reject_plugin_source(folder)
+    store.ensure_base(root)
+    folder = store.ensure_dir(root / project, ctx.warnings, strict=True)
+    store.reject_plugin_source(folder)
     manifest = folder / MANIFEST
-    data = _manifest_names(manifest)
-    if data and any(isinstance(e, dict) and e.get('name') == name for e in data['scripts']):
-        raise ConfigError('같은 name이 이미 있음: %s' % name)
     if os.path.lexists(folder / src.name):
         raise ConfigError('같은 이름의 파일이 이미 있음: %s' % src.name)
     target = store.publish(folder, src.name, body, numbered=False, mode=0o700)
     try:
         with _Lock(folder):
-            data = _manifest_names(manifest) or {'version': 1, 'scripts': []}
+            data = _load_manifest(manifest) or {'version': 1, 'scripts': []}
             if any(isinstance(e, dict) and e.get('name') == name for e in data['scripts']):
                 raise ConfigError('같은 name이 이미 있음: %s' % name)
             data['scripts'].append({'name': name, 'path': src.name, 'description': description,
@@ -350,7 +343,7 @@ def add_script(cwd, src, name, description, harness, usage, env=None, home=None)
     except BaseException:
         os.unlink(target)
         raise
-    return {'name': name, 'path': str(Path(target).resolve()), 'manifest': str(manifest.resolve()),
+    return {'name': name, 'path': str(target.resolve()), 'manifest': str(manifest.resolve()),
             'warnings': ctx.warnings}
 
 

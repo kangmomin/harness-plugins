@@ -142,7 +142,7 @@ def is_plugin_source(path):
             or ((path / 'skills').exists() and (path / '.mcp.json').exists()))
 
 
-def _inside(child, parent):
+def inside(child, parent):
     child, parent = Path(child).resolve(), Path(parent).resolve()
     return child == parent or parent in child.parents
 
@@ -166,31 +166,35 @@ class _Tree:
 
     def contains(self, path):
         top = self.top()
-        return top is not None and _inside(path, top)
+        return top is not None and inside(path, top)
 
 
-def _loose(info):
+def lstat_or_none(path):
+    try:
+        return os.lstat(path)
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        raise ConfigError('경로를 확인할 수 없음: %s (%s)' % (path, exc.strerror)) from None
+
+
+def is_loose(info):
     if os.name == 'nt':
         return False
     return info.st_uid != os.getuid() or bool(info.st_mode & 0o022)
 
 
-def _ensure_dir(path, warnings, strict=False, create=True):
+def ensure_dir(path, warnings, strict=False, create=True):
     """helper가 쓰는 폴더 1단계를 만들거나(0700) 검사한다. symlink·폴더 아님은 거부."""
     path = Path(path)
-    try:
-        info = os.lstat(path)
-    except FileNotFoundError:
-        info = None
-    except OSError as exc:
-        raise ConfigError('폴더를 확인할 수 없음: %s (%s)' % (path, exc.strerror)) from None
+    info = lstat_or_none(path)
     if info is None:
         if not create:
             raise ConfigError('폴더가 없음: %s' % path)
         try:
             os.mkdir(path, 0o700)
         except FileExistsError:
-            return _ensure_dir(path, warnings, strict, create=False)
+            return ensure_dir(path, warnings, strict, create=False)
         except OSError as exc:
             raise ConfigError('폴더를 만들 수 없음: %s (%s)' % (path, exc.strerror)) from None
         if os.name != 'nt':
@@ -200,7 +204,7 @@ def _ensure_dir(path, warnings, strict=False, create=True):
         raise ConfigError('symlink 폴더는 쓰지 않음: %s' % path)
     if not stat.S_ISDIR(info.st_mode):
         raise ConfigError('폴더가 아님: %s' % path)
-    if _loose(info):
+    if is_loose(info):
         if strict:
             raise ConfigError('다른 사용자가 쓸 수 있는 폴더는 쓰지 않음: %s' % path)
         warnings.append('다른 사용자가 쓸 수 있는 폴더: %s' % path)
@@ -211,11 +215,11 @@ def _ensure_chain(top, parts, warnings, strict=False):
     """이미 있는 top 아래로 parts를 1단계씩 만든다(각 단계 symlink 거부)."""
     current = Path(top)
     for part in parts:
-        current = _ensure_dir(current / part, warnings, strict)
+        current = ensure_dir(current / part, warnings, strict)
     return current
 
 
-def _ensure_base(base):
+def ensure_base(base):
     try:
         base.mkdir(parents=True, exist_ok=True, mode=0o700)
     except OSError as exc:
@@ -224,12 +228,12 @@ def _ensure_base(base):
         raise ConfigError('base가 폴더가 아님: %s' % base)
 
 
-def _reject_plugin_source(path):
+def reject_plugin_source(path):
     if is_plugin_source(path):
         raise ConfigError('플러그인 소스 폴더에는 쓰지 않음: %s' % path)
 
 
-class _Context:
+class Context:
     """한 호출의 경로 계산. project·git은 필요할 때만 계산한다."""
 
     def __init__(self, cwd, env=None, home=None):
@@ -258,42 +262,45 @@ class _Context:
             return
         if not self.doc_root.is_dir():
             raise ConfigError('WORK_LOG_ROOT 폴더가 없음: %s' % self.doc_root)
-        _reject_plugin_source(self.doc_root)
+        reject_plugin_source(self.doc_root)
 
     def ensure_doc_root(self):
         """doc root를 쓸 준비. 기본 위치면 base부터 만든다. 다른 위치로 대체하지 않는다."""
         self.check_doc_root()
         if self.doc_root_source == 'default':
-            _ensure_base(self.base)
+            ensure_base(self.base)
             _ensure_chain(self.base, ('work-log', 'docs'), self.warnings)
         return self.doc_root
 
     def ensure_doc_dir(self):
         name = self.project()[0]
         doc_root = self.ensure_doc_root()
-        doc_dir = _ensure_dir(doc_root / name, self.warnings)
-        if not _inside(doc_dir, doc_root):
+        doc_dir = ensure_dir(doc_root / name, self.warnings)
+        if not inside(doc_dir, doc_root):
             raise ConfigError('문서 폴더가 doc root 밖을 가리킴: %s' % doc_dir)
-        _reject_plugin_source(doc_dir)
+        reject_plugin_source(doc_dir)
         if self.tree.contains(doc_dir):
             self.warnings.append('문서 폴더가 현재 저장소 working tree 안에 있음: %s' % doc_dir.resolve())
         return doc_dir
 
 
 def resolve(cwd, env=None, home=None, ensure=False):
-    ctx = _Context(cwd, env, home)
-    ctx.check_doc_root()
+    ctx = Context(cwd, env, home)
+    if ensure:
+        doc_dir = ctx.ensure_doc_dir()
+    else:
+        ctx.check_doc_root()
+        doc_dir = ctx.doc_root / ctx.project()[0]
     name, source = ctx.project()
-    doc_dir = ctx.ensure_doc_dir() if ensure else ctx.doc_root / name
     return {
-        'base': str(ctx.base), 'docRoot': str(Path(ctx.doc_root).resolve()), 'docRootSource': ctx.doc_root_source,
-        'project': name, 'projectSource': source, 'docDir': str(Path(doc_dir).resolve()),
-        'functionRoot': str(Path(ctx.function_root).resolve()), 'functionRootSource': ctx.function_root_source,
+        'base': str(ctx.base), 'docRoot': str(ctx.doc_root.resolve()), 'docRootSource': ctx.doc_root_source,
+        'project': name, 'projectSource': source, 'docDir': str(doc_dir.resolve()),
+        'functionRoot': str(ctx.function_root.resolve()), 'functionRootSource': ctx.function_root_source,
         'feedbackRoot': str(ctx.base / 'feedback-submissions' / name), 'warnings': ctx.warnings,
     }
 
 
-# ---- profile reportDir 파서: profile.py의 DELIM·ROOT·scalar·lex·Document·validate(string)를 그대로 복사 ----
+# Why: profile.py 파서를 독립 설치용으로 그대로 복사함
 ROOT = re.compile(r"^([A-Za-z0-9_-]+):(?=\s|$)")
 DELIM = re.compile(r"^---[ \t]*$")
 
@@ -319,7 +326,7 @@ def scalar(value):
         return float(value.replace("_", ""))
     if value[0] in "|>&*!%@`[{" or re.search(r":(?:\s|$)", value) or re.match(r"[-?:](?:\s|$)", value):
         raise ProfileError("UNSUPPORTED_LAYOUT: scalar")
-    # YAML 1.1 booleans/dates/hex differ between consumers. Require quoting them.
+    # Why: YAML 1.1 booleans/dates/hex differ between consumers. Require quoting them.
     if value.lower() in ("yes", "no", "on", "off", ".nan", ".inf", "-.inf", "+.inf") or re.match(r"[-+]?0[xob]|\d{4}-\d\d-\d\d", value, re.I):
         raise ProfileError("UNSUPPORTED_LAYOUT: ambiguous YAML scalar; quote it")
     return value
@@ -427,7 +434,6 @@ class Document:
         if children:
             raise ProfileError("UNSUPPORTED_LAYOUT: scalar children " + key)
         return scalar(raw)
-# ---- 복사 끝 ----
 
 
 def profile_report_dir(cwd, domain):
@@ -468,10 +474,10 @@ def _report_path(value, cwd, home):
     return Path(os.path.abspath(path))
 
 
-def report_location(cwd, value):
+def report_location(cwd, value, home=None):
     """기록 없는 옛 run의 REPORT_DIR — 만들지 않고 계산만 한다."""
     if value:
-        return str(_report_path(value, Path(cwd).resolve(), Path.home()).resolve())
+        return str(_report_path(value, Path(cwd).resolve(), _home(home)).resolve())
     return str((Path(cwd).resolve() / '.claude' / 'harness-reports').resolve())
 
 
@@ -484,29 +490,29 @@ def _mkdtemp(prefix, parent=None):
 
 def run_location(cwd, value, env=None, home=None, prefix='harness-run-'):
     """REPORT_DIR·RUN_DIR을 정하고 만든다. value가 비면 doc root 기본 위치, 아니면 그 값 + 시스템 temp."""
-    ctx = _Context(cwd, env, home)
+    ctx = Context(cwd, env, home)
     if value:
         report = _report_path(value, ctx.cwd, ctx.home)
-        _reject_plugin_source(report)
+        reject_plugin_source(report)
         try:
             report.parent.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
             raise ConfigError('REPORT_DIR 상위 폴더를 만들 수 없음: %s (%s)' % (report.parent, exc.strerror)) from None
-        _ensure_dir(report, ctx.warnings)
+        ensure_dir(report, ctx.warnings)
         run_dir, source = _mkdtemp(prefix), 'profile'
     else:
         name = ctx.project()[0]
         doc_root = ctx.ensure_doc_root()
-        report = _ensure_dir(doc_root / name, ctx.warnings)
-        _reject_plugin_source(report)
+        report = ensure_dir(doc_root / name, ctx.warnings)
+        reject_plugin_source(report)
         runs = doc_root / RUNS_DIR / name
         if ctx.tree.contains(runs):
             ctx.warnings.append('RUN_DIR 기본 위치가 working tree 안이라 시스템 temp를 씀: %s' % runs.resolve())
             run_dir = _mkdtemp(prefix)
         else:
             parent = _ensure_chain(doc_root, (RUNS_DIR, name), ctx.warnings)
-            _reject_plugin_source(doc_root / RUNS_DIR)
-            _reject_plugin_source(parent)
+            reject_plugin_source(doc_root / RUNS_DIR)
+            reject_plugin_source(parent)
             run_dir = _mkdtemp(prefix, parent)
         source = 'default'
     if ctx.tree.contains(report):
@@ -522,11 +528,11 @@ def feedback_dir(cwd, plugin, env=None, home=None):
     """`<base>/feedback-submissions/<project>/<plugin>` — 0700, symlink·느슨한 권한·플러그인 소스 거부."""
     if not isinstance(plugin, str) or not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_-]*', plugin):
         raise ConfigError('plugin 이름이 한 경로 조각이 아님')
-    ctx = _Context(cwd, env, home)
+    ctx = Context(cwd, env, home)
     name = ctx.project()[0]
-    _ensure_base(ctx.base)
+    ensure_base(ctx.base)
     folder = _ensure_chain(ctx.base, ('feedback-submissions', name, plugin), ctx.warnings, strict=True)
-    _reject_plugin_source(folder)
+    reject_plugin_source(folder)
     return folder
 
 
@@ -545,15 +551,6 @@ def _check_name(name):
         raise ConfigError('리포트 이름은 save-doc으로 저장하지 않음')
 
 
-def _lstat(path):
-    try:
-        return os.lstat(path)
-    except FileNotFoundError:
-        return None
-    except OSError as exc:
-        raise ConfigError('경로를 확인할 수 없음: %s (%s)' % (path, exc.strerror)) from None
-
-
 def _write_all(fd, data):
     with os.fdopen(fd, 'wb') as stream:
         stream.write(data)
@@ -561,7 +558,7 @@ def _write_all(fd, data):
         os.fsync(stream.fileno())
 
 
-def _create_exclusive(path, data, mode=0o600):
+def create_exclusive(path, data, mode=0o600):
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, 'O_BINARY', 0), mode)
     try:
         _write_all(fd, data)
@@ -578,7 +575,7 @@ def publish(folder, name, data, numbered=True, mode=0o600):
     names = [name] + (['%s-%d%s' % (stem, i, ext) for i in range(2, MAX_SUFFIX + 1)] if numbered else [])
     temp = folder / ('.hs-%s.tmp' % secrets.token_hex(8))
     try:
-        _create_exclusive(temp, data, mode)
+        create_exclusive(temp, data, mode)
     except OSError as exc:
         raise ConfigError('임시 파일을 만들 수 없음: %s (%s)' % (folder, exc.strerror)) from None
     linkable = True
@@ -594,7 +591,7 @@ def publish(folder, name, data, numbered=True, mode=0o600):
                 except OSError:
                     linkable = False
             try:
-                return _create_exclusive(target, data, mode)
+                return create_exclusive(target, data, mode)
             except FileExistsError:
                 continue
             except OSError as exc:
@@ -617,18 +614,18 @@ def _prefer_target(cwd, prefer):
         folder, name = path.parent, path.name
     else:
         folder, name = path, None
-    info = _lstat(folder)
+    info = lstat_or_none(folder)
     if info is None:
         raise ConfigError('--prefer 폴더가 없음: %s' % folder)
     if stat.S_ISLNK(info.st_mode):
         raise ConfigError('--prefer에 symlink 폴더는 쓰지 않음: %s' % folder)
     if not stat.S_ISDIR(info.st_mode):
         raise ConfigError('--prefer가 폴더가 아님: %s' % folder)
-    _reject_plugin_source(folder)
+    reject_plugin_source(folder)
     if name is not None:
         if any(ord(c) < 32 for c in name):
             raise ConfigError('--prefer 파일 이름에 제어문자가 있음')
-        if _lstat(path) is not None:
+        if lstat_or_none(path) is not None:
             raise ConfigError('--prefer 파일이 이미 있음: %s' % path)
     return folder, name
 
@@ -637,7 +634,7 @@ def save_doc(cwd, name, body, prefer=None, env=None, home=None):
     data = body.encode('utf-8') if isinstance(body, str) else bytes(body)
     if not data.strip():
         raise ConfigError('본문이 비어 있음')
-    ctx = _Context(cwd, env, home)
+    ctx = Context(cwd, env, home)
     if prefer:
         folder, fixed = _prefer_target(ctx.cwd, prefer)
         if fixed is None:
@@ -647,24 +644,23 @@ def save_doc(cwd, name, body, prefer=None, env=None, home=None):
             path = publish(folder, fixed, data, numbered=False)
     else:
         _check_name(name)
-        ctx.check_doc_root()
         folder = ctx.ensure_doc_dir()
         path = publish(folder, name, data)
-    return {'path': str(Path(path).resolve()), 'needsSync': True, 'warnings': ctx.warnings}
+    return {'path': str(path.resolve()), 'needsSync': True, 'warnings': ctx.warnings}
 
 
 def find_docs(cwd, contains, env=None, home=None):
-    ctx = _Context(cwd, env, home)
+    ctx = Context(cwd, env, home)
     ctx.check_doc_root()
     doc_dir = ctx.doc_root / ctx.project()[0]
     needle = unicodedata.normalize('NFC', contains or '')
-    info = _lstat(doc_dir)
+    info = lstat_or_none(doc_dir)
     files = []
     if info is not None and stat.S_ISDIR(info.st_mode):
         for entry in sorted(os.scandir(doc_dir), key=lambda e: e.name):
             if entry.is_file(follow_symlinks=False) and needle in unicodedata.normalize('NFC', entry.name):
                 files.append(str(Path(entry.path).resolve()))
-    return {'docDir': str(Path(doc_dir).resolve()), 'files': files, 'warnings': ctx.warnings}
+    return {'docDir': str(doc_dir.resolve()), 'files': files, 'warnings': ctx.warnings}
 
 
 class _Parser(argparse.ArgumentParser):
