@@ -22,7 +22,7 @@
       "command": "node",
       "args": ["./mcp/server.js"],
       "cwd": ".",
-      "env_vars": ["WORK_LOG_ROOT", "XDG_CONFIG_HOME", "XDG_CACHE_HOME"]
+      "env_vars": ["WORK_LOG_ROOT", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "HARNESS_PLUGIN_HOME"]
     }
   },
   "interface": {

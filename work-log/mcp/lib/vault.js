@@ -8,7 +8,9 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { cacheDirFor, DEFAULT_EXCLUDES } from './config.js';
+import { ALWAYS_EXCLUDES, cacheDirFor, DEFAULT_EXCLUDES } from './config.js';
+
+const PROTECTED_EXCLUDES = [...DEFAULT_EXCLUDES, ...ALWAYS_EXCLUDES];
 import { markdownLines } from './markdown.js';
 import { ioTransaction } from './io.js';
 
@@ -78,7 +80,7 @@ export function safeResolve(vaultRoot, relPath, { forWrite = false } = {}) {
     throw new Error(`vault 밖의 경로입니다: ${relPath}`);
   }
   const segments = rel.split(path.sep);
-  const hit = segments.find((s) => DEFAULT_EXCLUDES.includes(s));
+  const hit = segments.find((s) => PROTECTED_EXCLUDES.includes(s));
   if (hit) throw new Error(`제외된 폴더입니다 (${hit}): ${relPath}`);
 
   const ext = path.extname(target).toLowerCase();
@@ -373,7 +375,7 @@ export function buildIndex(cfg, { previous = null } = {}) {
   const started = performance.now();
   const { root, excludes = DEFAULT_EXCLUDES } = cfg;
   const errors = [];
-  const files = walk(root, root, excludes, errors);
+  const files = walk(root, root, [...new Set([...excludes, ...ALWAYS_EXCLUDES])], errors);
   let bytesRead = 0, filesRead = 0;
 
   const mdByStem = new Map();  // "dir/stem" -> doc
@@ -647,7 +649,7 @@ export async function writeDoc(cfg, args) {
   if ((args.mode ?? 'create') !== 'append') validateFrontmatter(incoming.frontmatter, incoming.raw);
   safeResolve(cfg.root, args.relPath, { forWrite: true });
   const { value, durability, cleanupWarnings } = await ioTransaction({
-    operation: 'write', root: cfg.root, relPath: args.relPath, mode: args.mode ?? 'create', excludes: DEFAULT_EXCLUDES,
+    operation: 'write', root: cfg.root, relPath: args.relPath, mode: args.mode ?? 'create', excludes: PROTECTED_EXCLUDES,
   }, (existing, rel) => {
     const final = renderDocument(existing, rel, args);
     return { content: final, value: { path: rel, bytes: Buffer.byteLength(final), hash: sha1(Buffer.from(final)), mode: args.mode ?? 'create' } };
