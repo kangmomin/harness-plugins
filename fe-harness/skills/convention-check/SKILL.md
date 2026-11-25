@@ -92,9 +92,9 @@ python3 -I -B "${CLAUDE_PLUGIN_ROOT}/skills/convention-check/assets/check_new_co
   --scope "{SCOPE_JSON}" --json
 ```
 
-- exit 0·1: `findings`(`[COMMENT_STYLE]` — 연속 3줄 이상인 새 주석 블록, 주석 안의 Spec 추적 ID)를 그대로 채택한다. 블록 상한은 `COMMENT_MAX_BLOCK_LINES`(기본 2)다.
-- exit 2 (`BLOCKED:COMMENT_CHECK`): 같은 두 규칙을 LLM이 새 주석에만 적용하고 폴백 사유 1줄을 남긴다.
-- 코드가 하는 일을 되풀이할 뿐인 새 주석은 LLM이 `[COMMENT_STYLE]` WARN으로 보고한다 (default-conventions의 주석 규칙).
+- exit 0·1: `findings`(`[COMMENT_STYLE]` — 연속 3줄 이상인 새 주석 블록, 주석 안의 Spec 추적 ID, `Why:`·`[Assumption]`으로 시작하지 않는 새 주석 — 도구 지시문은 예외)를 그대로 채택한다. 블록 상한은 `COMMENT_MAX_BLOCK_LINES`(기본 2)다.
+- exit 2 (`BLOCKED:COMMENT_CHECK`): 같은 세 규칙을 LLM이 새 주석에만 적용하고 폴백 사유 1줄을 남긴다.
+- 주석이 코드를 되풀이하는지는 판정하지 않는다. `Why:` 접두사가 그 판정을 대신한다.
 
 ### 컨벤션 검사
 

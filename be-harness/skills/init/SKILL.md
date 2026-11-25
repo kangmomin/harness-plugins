@@ -157,7 +157,7 @@ projectConventions: {projectConventions}
 
 ## Step 7: 새 주석 검사 설치 (선택)
 
-convention-check 의 주석 검사(`check_new_comments.py` — 새 주석 블록 2줄 이하, 주석 안 Spec 추적 ID 금지)를 프로젝트 lint·CI 에도 걸지 묻는다. 규칙을 글이 아니라 검사로 고정하기 위해서다.
+convention-check 의 주석 검사(`check_new_comments.py` — 새 주석 블록 2줄 이하, 주석 안 Spec 추적 ID 금지, `Why:`·`[Assumption]` 접두사)를 프로젝트 lint·CI 에도 걸지 묻는다. 규칙을 글이 아니라 검사로 고정하기 위해서다.
 **사용자가 설치를 고를 때만** 파일을 바꾼다. 같은 스크립트나 `lint-comments`·`lint:comments` 가 이미 있으면 묻지 않고 "이미 존재"로 기록한다.
 
 > 1. 설치 (권장) — 아래 항목을 추가하고 diff 를 보여 준다
@@ -169,7 +169,7 @@ convention-check 의 주석 검사(`check_new_comments.py` — 새 주석 블록
 2. lint 연결: `Makefile` 이 있으면 아래 타깃을 더하고 기존 `lint` 타깃의 prerequisite 에 `lint-comments` 를 넣는다. 없고 `package.json` 이 있으면 FE 와 같이 `lint:comments` 스크립트를 더한다. 둘 다 없으면 명령만 안내한다.
    ```make
    COMMENT_BASE ?= origin/{BASE}
-   lint-comments: ## 새로 추가한 주석 검사 (블록 2줄 이하·Spec ID 금지)
+   lint-comments: ## 새로 추가한 주석 검사 (블록 2줄 이하·Spec ID 금지·Why: 접두사)
    	python3 .github/scripts/check_new_comments.py --base $(COMMENT_BASE)
    ```
 3. CI: PR 에서 도는 `.github/workflows/*` job 이 있으면 lint 근처에 아래 step 을 더하고, 그 job 의 checkout 을 `fetch-depth: 0` 으로 바꾼다 (merge-base 계산에 이력이 필요하다). 해당 job 이 없으면 step 만 안내한다.
