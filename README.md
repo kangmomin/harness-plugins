@@ -19,6 +19,18 @@ common 0.21.0. [mattpocock/skills](https://github.com/mattpocock/skills)의 `gri
 - 권장안만 연속으로 수락하면 가장 큰 결정 1건을 한 번 더 확인한다. 범위가 크면 인터뷰 전에 묶음 분할을 먼저 묻는다.
 - 질문 상한은 8회에서 12회로 올렸다. stateless 동작과 상한 없음은 가져오지 않았다. Spec 산출물과 종료 보장이 필요하기 때문이다.
 
+## 2026-11-24 주석 규칙을 검사로 고정
+
+BE 1.11.0 / FE 1.11.0. 에이전트는 기존 코드의 주석을 따라 쓴다. 그래서 주석 규칙을 글이 아니라 결정적 검사로 먼저 고정했다.
+
+- 규칙: 주석은 코드·테스트·lint로 표현할 수 없는 이유만 남긴다. 새 주석 블록은 2줄 이하다. Spec 추적 ID(`AC`/`EC`/`RC`)는 주석에 쓰지 않는다.
+- `check_new_comments.py`(BE/FE 동일): 새로 추가한 줄만 검사한다. Go·TS·JS의 `//`·`/* */`를 본다. 테스트·생성 파일은 제외한다. 블록 상한은 `COMMENT_MAX_BLOCK_LINES`(기본 2).
+- convention-check가 이 스크립트를 실행해 `[COMMENT_STYLE]`로 보고한다. 스크립트가 실패하면 LLM이 같은 규칙을 적용한다.
+- init: 스크립트·`lint-comments`(Makefile) 또는 `lint:comments`(package.json)·CI step 설치를 묻는다. 사용자가 고를 때만 바꾼다.
+- 프롬프트: workflow-implementer와 default-conventions에서 새 주석은 이 규칙이 기존 관례보다 우선한다. 문서 주석은 의무가 아니다.
+- unit-test: 대응 ID를 주석이 아니라 테스트 이름에 넣는다 (`TestX_AC01_…`, `it('AC-01 …')`). Test Map은 에이전트 보고 표로 만들므로 이 변경에 영향을 받지 않는다.
+- 남은 한계: "코드를 되풀이하는 주석" 판정은 여전히 LLM이 한다. 문자열·정규식 리터럴 안의 `//`는 간단한 토크나이저로 구분하므로 드물게 오판할 수 있다.
+
 ## 2026-11-24 커밋 단위 사용량 측정 (#29)
 
 common 0.20.0. 변경(git 커밋)과 Claude 사용 데이터를 연결해 기록한다. 목적: 어떤 방식을 적용하기 전과 후를 숫자로 비교한다.
