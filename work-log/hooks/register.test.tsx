@@ -1,4 +1,4 @@
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 import { age, isStale, pendingText, STALE_SECONDS } from './register'
@@ -83,6 +83,27 @@ test('pendingText names the root that the first write will create', () => {
   expect(pendingText({ pending: true, root: '/r' })).toBe('기본 경로 사용 예정: /r (첫 쓰기 때 생성)')
   expect(pendingText({ pending: true })).toContain('-')
 })
+
+for (const [label, status, expected] of [
+  ['a missing index', { scope: 'global', root: '/vault', indexExists: false, indexAgeSeconds: null }, 1],
+  ['a pending default folder', { pending: true, root: '/home/u/.harness-plugin/work-log', configSource: 'default:harness-plugin' }, 0],
+] as const) {
+  test(`session start toasts ${expected} time(s) for ${label}`, async ($, on) => {
+    const clock = mock.clock(on)
+    const toasts: string[] = []
+    on('mcp.call', () => ({ value: { content: [{ type: 'text', text: JSON.stringify(status) }], isError: false } }))
+    on('command.register', () => ({ value: { command: 'work-log-status' } }))
+    on('ui.toast', (_, e) => {
+      toasts.push(String(e.text ?? e))
+      return { value: undefined }
+    })
+    on('session.start', (_, e) => ({ cwd: e.cwd }))
+    await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+    await clock.advance(5000)
+    await clock.advance(0)
+    expect(toasts.length).toBe(expected)
+  })
+}
 
 test('a DEGRADED sync is not reported as success', async ($, on) => {
   const toasts: string[] = []
