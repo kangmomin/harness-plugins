@@ -1,7 +1,7 @@
 import { expect, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { age, isStale, STALE_SECONDS } from './register'
+import { age, isStale, pendingText, STALE_SECONDS } from './register'
 
 const PANE = {
   plugin: 'work-log',
@@ -55,6 +55,15 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await ui.unmount()
   })
 
+  test(`pane shows the default path while the fallback folder is pending (${surface})`, async ($, on) => {
+    server(on, { pending: true, root: '/home/u/.harness-plugin/work-log', configSource: 'default:harness-plugin', hint: 'first write creates it' })
+    await $.command.run(RUN)
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect((await ui.find({ type: 'Text', text: /기본 경로 사용 예정/ }))?.text).toContain('/home/u/.harness-plugin/work-log')
+    expect(await ui.find({ type: 'Text', text: /인덱스:/ })).toBeUndefined()
+    await ui.unmount()
+  })
+
   test(`pane shows error when MCP fails (${surface})`, async ($, on) => {
     server(on, null)
     await $.command.run(RUN)
@@ -68,6 +77,11 @@ test('isStale covers a missing index and an old one', () => {
   expect(isStale({ indexExists: false, indexAgeSeconds: null })).toBe(true)
   expect(isStale({ indexExists: true, indexAgeSeconds: 2 * STALE_SECONDS })).toBe(true)
   expect(isStale({ indexExists: true, indexAgeSeconds: 60 })).toBe(false)
+})
+
+test('pendingText names the root that the first write will create', () => {
+  expect(pendingText({ pending: true, root: '/r' })).toBe('기본 경로 사용 예정: /r (첫 쓰기 때 생성)')
+  expect(pendingText({ pending: true })).toContain('-')
 })
 
 test('a DEGRADED sync is not reported as success', async ($, on) => {
