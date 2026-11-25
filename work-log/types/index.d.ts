@@ -1,6 +1,8 @@
 // wiki_status 응답 중 pane 이 쓰는 필드. 원본: mcp/server.js wiki_status().
 export type WikiStatus = {
   needsInit?: boolean
+  // Why: 기본 경로 폴더가 아직 없으면 root·hint 만 오고 인덱스 필드는 없다.
+  pending?: boolean
   hint?: string
   scope?: string
   root?: string
