@@ -19,6 +19,13 @@ EXAMPLE_LINKS = {
 }
 MIGRATION_TABLES = {'minmos-harness/README.md', 'hyeondongs-harness/README.md'}
 HISTORICAL_DOCS = ('doc-gen-', 'harness-audit-', 'harness-remediation-')
+# Documented behavior that only exists as skill instructions: each file must name the helper call or state.
+DOC_CONTRACTS = {
+    'work-log/skills/doctor/SKILL.md': ('default:harness-plugin',),
+    'work-log/skills/init/SKILL.md': ('default:harness-plugin', '.harness-plugin/work-log'),
+    'common/skills/ready-for-impl/SKILL.md': ('harness_store.py save-doc',),
+    'common/skills/doc-gen/SKILL.md': ('harness_store.py resolve', '--ensure'),
+}
 
 
 def manifest_paths(directory, data, require):
@@ -183,10 +190,25 @@ def check(root):
     groups += [[f'{p}/skills/e2e-test/assets/e2e_lock.py' for p in ('be-harness', 'fe-harness')]]
     groups += [[f'{p}/skills/convention-check/assets/{name}' for p in ('be-harness', 'fe-harness')] for name in ('convention_facts.py', 'check_new_comments.py')]
     groups += [[f'{p}/skills/simplify-loop/references/workflow-script.md' for p in ('be-harness', 'fe-harness')]]
+    store = sw + 'assets/harness_store.py'
+    groups += [[f'{p}/{store}' for p in ('be-harness', 'fe-harness', 'common', 'minmos-harness')]]
+    groups += [[f'{p}/skills/e2e-test/assets/e2e_functions.py' for p in ('be-harness', 'fe-harness')]]
     for group in groups:
         require(all((root / p).is_file() for p in group), 'missing parity member: ' + ', '.join(group))
         if all((root / p).is_file() for p in group):
             require(len({(root / p).read_bytes() for p in group}) == 1, 'parity mismatch: ' + ', '.join(group))
+    # Helpers load harness_store.py by a fixed relative path (spec_from_file_location), not sys.path.
+    imports = [(f'{p}/skills/e2e-test/assets/e2e_functions.py', f'{p}/{store}') for p in ('be-harness', 'fe-harness')]
+    imports += [('common/skills/submit-feedback/assets/feedback.py', 'common/' + store)]
+    for caller, target in imports:
+        require((root / caller).is_file() and (root / target).is_file(), 'missing helper import target: ' + caller + ' -> ' + target)
+    for runner in sorted(root.glob('*/' + sw + 'assets/workflow_run.py')):
+        require(runner.with_name('harness_store.py').is_file(), 'harness_store.py not co-located: ' + runner.relative_to(root).as_posix())
+    for relative, needles in DOC_CONTRACTS.items():
+        path = root / relative
+        text = path.read_text(encoding='utf-8') if path.is_file() else ''
+        for needle in needles:
+            require(needle in text, relative + ': contract text missing: ' + needle)
     return errors
 
 
