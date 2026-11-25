@@ -5,6 +5,9 @@
   1) 새 주석 블록은 연속 N줄 이하다 (기본 2 — COMMENT_MAX_BLOCK_LINES 또는 --max-block).
      `/*`·`/**`·`*/` 만 있는 줄은 세지 않고 블록도 끊지 않는다 (빈 `//` 줄은 센다). 지시문(//go:·//nolint·// eslint-… 등)은 블록을 끊는다.
   2) 주석에 Spec 추적 ID(AC-nn·EC-nn·RC-nn)를 쓰지 않는다 — 테스트 이름에 둔다.
+  3) 새 주석 단위(`/* */` 하나, 연속된 `//` 줄 묶음, 줄 끝 주석)의 첫 본문은 `Why:` 또는 `[Assumption]` 으로 시작한다.
+     "코드로 알 수 없는 이유인가"를 접두사로 고정해 LLM 판정을 없앤다. 단위당 1건, 그 단위의 첫 새 줄에 보고한다.
+     예외: Go exported 선언 바로 위에서 그 이름으로 시작하는 문서 주석(`// Load ...`).
 입력: --base REF  = git merge-base(REF, HEAD) → 작업 트리 diff (레포 설치·CI·pre-commit 용)
       --scope F|- = workflow_scope.py JSON (convention-check 용, 범위를 다시 계산하지 않는다)
 제외: 테스트(*_test.go·*.test.*·*.spec.*·__tests__/·e2e/ 등), 생성 파일(*.pb.go·*.gen.*·머리말 `Code generated`/`@generated`),
@@ -30,10 +33,15 @@ SKIP_SUFFIXES = ('_test.go', '.pb.go', '.pb.gw.go', '_gen.go', '_string.go', '.d
 GENERATED_HEADER = re.compile(r'Code generated .* DO NOT EDIT|@generated|auto-generated', re.I)
 DIRECTIVE = re.compile(r'^(?:go:|nolint|export |line |extern |/\s*<reference)'
                        r'|^\s*(?:eslint|@ts-|prettier-ignore|biome-ignore|istanbul |c8 |v8 |@vite-ignore'
-                       r'|webpack|[#@]__PURE__|@jsx|@refresh|global |jshint|tslint)')
+                       r'|webpack|[#@]__PURE__|@jsx|@refresh|global |jshint|tslint'
+                       r'|nolint|\+build|lint:ignore|lint:file-ignore|#nosec|#?(?:end)?region\b'
+                       r'|@type\b|@vitest-environment|@jest-environment|@flow\b|@license|@preserve)')
 SPEC_ID = re.compile(r'(?<![A-Za-z])(?:AC|EC|RC)-\d')
+REASON_PREFIX = re.compile(r'^(?:Why:|\[Assumption\])')
+GO_EXPORTED_DECL = re.compile(r'^(?:func\s+(?:\([^)]*\)\s*)?|type\s+|var\s+|const\s+)([A-Z]\w*)')
 MSG_BLOCK = '주석 블록은 {max}줄 이하다 — 이유만 남기고 나머지는 코드·테스트로 옮긴다'
 MSG_SPEC_ID = '주석에 Spec 추적 ID 를 쓰지 않는다 — 테스트 이름에 둔다'
+MSG_REASON = '새 주석은 Why: 또는 [Assumption] 으로 시작한다 — 코드로 알 수 없는 이유만 남긴다'
 
 
 class CheckError(ValueError):
@@ -56,15 +64,25 @@ def target(path, text):
     return not GENERATED_HEADER.search('\n'.join(text.split('\n', 10)[:10]))
 
 
+def strip_body(piece):
+    return piece.strip().lstrip('*').strip()
+
+
+def is_directive(piece):
+    return bool(DIRECTIVE.search(piece) or DIRECTIVE.search(strip_body(piece)))
+
+
 def classify(text, go):
-    """줄마다 (종류, 주석 본문) — 종류: comment·delim·directive·code·blank. 문자열 안의 // 는 주석이 아니다."""
-    out, state = [], None
-    for line in text.split('\n'):
+    """줄마다 (종류, 주석 본문) — 종류: comment·delim·directive·code·blank. 문자열 안의 // 는 주석이 아니다.
+    주석 단위 목록도 돌려준다: `/* */` 하나, 또는 코드 없는 줄에 연속된 `//` 묶음 하나. texts = [(줄 번호, 조각)]."""
+    out, state, units = [], None, []
+    for number, line in enumerate(text.split('\n'), 1):
         segments, code, slashes, j, n = [], False, False, 0, len(line)
         while j < n:
             if state == 'block':
                 end = line.find('*/', j)
                 segments.append(line[j:] if end < 0 else line[j:end])
+                units[-1]['texts'].append((number, segments[-1]))
                 if end < 0:
                     break
                 state, j = None, end + 2
@@ -79,10 +97,18 @@ def classify(text, go):
                 j += 1
                 continue
             if line.startswith('//', j):
-                segments.append(line[j + 2:])
+                piece = line[j + 2:]
+                segments.append(piece)
                 slashes = True
+                prev = units[-1] if units else None
+                if (not code and prev and prev['group'] and prev['texts'][-1][0] == number - 1
+                        and not is_directive(piece) and not is_directive(prev['texts'][0][1])):
+                    prev['texts'].append((number, piece))
+                else:
+                    units.append(dict(group=not code, texts=[(number, piece)]))
                 break
             if line.startswith('/*', j):
+                units.append(dict(group=False, texts=[]))
                 state, j = 'block', j + 2
                 continue
             if ch in '"\'`':
@@ -102,11 +128,32 @@ def classify(text, go):
         else:
             kind = 'comment' if body or slashes else 'delim'
         out.append((kind, body if kind != 'directive' else ''))
-    return out
+    return out, units
+
+
+def go_doc_comment(unit, body, lines):
+    """Why: revive·staticcheck 가 exported 심볼 문서 주석을 `// Name ...` 형식으로 요구해 Why: 접두사와 충돌한다."""
+    following = unit['texts'][-1][0]
+    decl = GO_EXPORTED_DECL.match(lines[following]) if following < len(lines) else None
+    return bool(decl) and re.match(re.escape(decl[1]) + r'(?![A-Za-z0-9_])', body) is not None
+
+
+def reason_violations(path, units, numbers, lines):
+    """규칙 3: 새 본문 줄이 있는 주석 단위는 첫 본문이 Why:·[Assumption] 이어야 한다. 단위당 1건."""
+    found = []
+    for unit in units:
+        bodies = [(n, strip_body(piece)) for n, piece in unit['texts'] if strip_body(piece)]
+        added = [n for n, _ in bodies if n in numbers]
+        if not added or is_directive(unit['texts'][0][1]) or is_directive(bodies[0][1]):
+            continue
+        if REASON_PREFIX.match(bodies[0][1]) or (path.endswith('.go') and go_doc_comment(unit, bodies[0][1], lines)):
+            continue
+        found.append((path, min(added), MSG_REASON))
+    return found
 
 
 def violations(path, text, numbers, max_block):
-    kinds = classify(text, path.endswith('.go'))
+    kinds, units = classify(text, path.endswith('.go'))
     found, run, last = [], 0, None
     for number in sorted(numbers):
         if number < 1 or number > len(kinds):
@@ -123,7 +170,7 @@ def violations(path, text, numbers, max_block):
             run, last = 0, None
         if body and SPEC_ID.search(body):
             found.append((path, number, MSG_SPEC_ID))
-    return found
+    return found + reason_violations(path, units, numbers, text.split('\n'))
 
 
 def unquote(name):

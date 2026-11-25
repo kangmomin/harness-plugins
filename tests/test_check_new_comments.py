@@ -59,21 +59,21 @@ class CheckNewCommentsTests(unittest.TestCase):
         self.assertEqual(self.run_base(), (0, ''))
 
     def test_two_line_block_passes_and_third_line_fails(self):
-        self.append('p.go', '\n// 하나\n// 둘\nfunc B() {}\n')
+        self.append('p.go', '\n// Why: 하나\n// 둘\nfunc B() {}\n')
         self.assertEqual(self.run_base()[0], 0)
-        self.append('p.go', '\n// 하나\n// 둘\n// 셋\nfunc C() {}\n')
+        self.append('p.go', '\n// Why: 하나\n// 둘\n// 셋\nfunc C() {}\n')
         code, out = self.run_base()
         self.assertEqual(code, 1)
         self.assertIn('p.go:15: 주석 블록은 2줄 이하다', out)
 
     def test_empty_slash_line_counts(self):
-        self.append('p.go', '\n// 하나\n//\n// 둘\nfunc B() {}\n')
+        self.append('p.go', '\n// Why: 하나\n//\n// 둘\nfunc B() {}\n')
         code, out = self.run_base()
         self.assertEqual(code, 1)
         self.assertIn('p.go:11: 주석 블록은 2줄 이하다', out)
 
     def test_max_block_from_env_and_flag(self):
-        self.append('p.go', '\n// 하나\n// 둘\n// 셋\nfunc B() {}\n')
+        self.append('p.go', '\n// Why: 하나\n// 둘\n// 셋\nfunc B() {}\n')
         self.assertEqual(self.run_base('--max-block', '3')[0], 0)
         env = {'COMMENT_MAX_BLOCK_LINES': '3', 'PATH': '/usr/bin:/bin'}
         self.assertEqual(self.run_base(env=env)[0], 0)
@@ -87,7 +87,7 @@ class CheckNewCommentsTests(unittest.TestCase):
         self.assertNotIn('p.go:11:', out)
 
     def test_directives_do_not_count(self):
-        self.append('p.go', '\n// 하나\n// 둘\n//nolint:errcheck\n//go:generate x\nfunc B() {}\n')
+        self.append('p.go', '\n// Why: 하나\n// 둘\n//nolint:errcheck\n//go:generate x\nfunc B() {}\n')
         self.assertEqual(self.run_base()[0], 0)
 
     def test_test_and_generated_files_are_excluded(self):
@@ -103,9 +103,9 @@ class CheckNewCommentsTests(unittest.TestCase):
         self.assertEqual(self.run_base(), (0, ''))
 
     def test_ts_block_comments_and_strings(self):
-        self.append('src/a.ts', '/**\n * 하나\n * 둘\n */\nconst s = `// AC-9`\n/* eslint-disable */\n')
+        self.append('src/a.ts', '/**\n * Why: 하나\n * 둘\n */\nconst s = `// AC-9`\n/* eslint-disable */\n')
         self.assertEqual(self.run_base()[0], 0)
-        self.append('src/a.ts', '/*\n * 하나\n * 둘\n * 셋\n */\nconst t = 1 /* EC-3 */\n')
+        self.append('src/a.ts', '/*\n * Why: 하나\n * 둘\n * 셋\n */\nconst t = 1 /* EC-3 */\n')
         code, out = self.run_base()
         self.assertEqual(code, 1)
         self.assertIn('src/a.ts:14: 주석 블록은 2줄 이하다', out)
@@ -117,7 +117,7 @@ class CheckNewCommentsTests(unittest.TestCase):
         self.assertEqual(self.run_base()[0], 1)
 
     def test_scope_mode_json_includes_owned_untracked(self):
-        self.write('owned.go', 'package p\n\n// 하나\n// 둘\n// 셋\n')
+        self.write('owned.go', 'package p\n\n// Why: 하나\n// 둘\n// 셋\n')
         self.append('p.go', '\nvar x = 1 // AC-01\n')
         data = scope.scope(self.root, self.start, ['owned.go'])
         result = subprocess.run([sys.executable, '-I', '-B', str(SCRIPT), '--scope', '-', '--json'],
@@ -125,6 +125,46 @@ class CheckNewCommentsTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stderr)
         findings = {(f['tag'], f['path'], f['line']) for f in json.loads(result.stdout)['findings']}
         self.assertEqual(findings, {('COMMENT_STYLE', 'owned.go', 5), ('COMMENT_STYLE', 'p.go', 9)})
+
+    def reason_lines(self, out):
+        return [line.split(':')[1] for line in out.splitlines() if 'Why: 또는 [Assumption]' in line]
+
+    def test_reason_prefix_required_for_new_comments(self):
+        self.append('p.go', '\n// Why: PG가 5초 뒤 끊는다\nfunc B() {}\n\n// [Assumption] 정렬 추가\nfunc C() {}\n'
+                            'var y = 2 // Why: 외부 한도\n')
+        self.assertEqual(self.run_base(), (0, ''))
+        self.append('p.go', '\n// i를 1 증가시킨다\n// 둘째 줄\nfunc D() {}\nvar z = 3 // 설명\n'
+                            '\n/**\n * 문서 주석\n */\nfunc E() {}\n\n// TODO: 나중에\n')
+        code, out = self.run_base()
+        self.assertEqual(code, 1)
+        self.assertEqual(self.reason_lines(out), ['16', '19', '22', '26'])
+
+    def test_go_doc_comment_named_after_exported_decl_is_allowed(self):
+        self.append('p.go', '\n// Load는 설정을 읽는다.\nfunc Load() {}\n// Save saves.\nfunc (s *S) Save() {}\n'
+                            '// Loader 다른 이름\nfunc Load2() {}\n// load 소문자\nfunc load() {}\n')
+        self.assertEqual(self.reason_lines(self.run_base()[1]), ['13', '15'])
+
+    def test_line_added_inside_legacy_block_is_judged_by_block_head(self):
+        self.write('p.go', LEGACY_GO.replace('// 주석\n', '// 주석\n// Why: 새 줄\n'))
+        code, out = self.run_base()
+        self.assertEqual(code, 1)
+        self.assertEqual(self.reason_lines(out), ['6'])
+        self.write('p.go', LEGACY_GO.replace('// 긴\n', '// 긴\n//\n'))
+        self.assertEqual(self.reason_lines(self.run_base()[1]), [])
+
+    def test_reason_units_follow_comment_boundaries(self):
+        self.write('src/b.ts', '/* Why: a\n * b */ foo()\n'
+                               'foo() /* Why: c\n   d */\n'
+                               '//\n// Why: 빈 첫 줄\n'
+                               'defer() //nolint:errcheck\n'
+                               "import(/* webpackChunkName: \"a\" */ './a')\n"
+                               "/** @type {import('next').NextConfig} */\n"
+                               '// @vitest-environment jsdom\n')
+        self.git('add', 'src/b.ts')
+        self.assertEqual(self.reason_lines(self.run_base()[1]), [])
+        self.write('src/c.ts', '/* Why: a */\n/* 둘째 블록 */\nfoo(/* Why: a */ b) // 메모\n')
+        self.git('add', 'src/c.ts')
+        self.assertEqual(self.reason_lines(self.run_base()[1]), ['2', '3'])
 
     def test_bad_input_is_blocked(self):
         result = subprocess.run([sys.executable, '-I', '-B', str(SCRIPT), '--base', 'missing-ref', '--root', str(self.root)],

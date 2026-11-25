@@ -8,6 +8,16 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-11-25 주석 이유 판정을 Why: 접두사로 고정
+
+BE 1.13.0 / FE 1.12.0 / common 0.22.1. 11-24 주석 규칙의 남은 한계("코드를 되풀이하는 주석" 판정은 LLM이 한다)를 결정적 검사로 바꿨다.
+
+- 규칙 3: 새 주석 단위의 첫 본문은 `Why:` 또는 `[Assumption]`으로 시작한다. 단위는 `/* */` 하나, 연속된 `//` 줄 묶음, 줄 끝 주석이다. 단위당 1건, 첫 새 줄에 `[COMMENT_STYLE]`로 보고한다.
+- 예외: 도구 지시문(`//go:`, `//nolint`, `eslint-disable`, `@type`, `#nosec` 등). Go exported 선언 바로 위에서 그 이름으로 시작하는 문서 주석(`// Load ...`)은 Go lint 관례와 충돌하지 않게 허용한다.
+- convention-check의 LLM 되풀이 판정 WARN을 없앴다. 스크립트 실패(exit 2) 때만 LLM이 같은 세 규칙을 적용한다.
+- Assumption 정리(`resolve-assumption`, `commit-push` Step 3.3): 코드로 알 수 없는 이유가 남으면 태그를 `Why:`로 바꾸고, 아니면 주석을 지운다. `Why:`는 확정 마커가 아니다.
+- 남은 한계: init으로 이미 복사한 `.github/scripts/check_new_comments.py`는 덮어쓰지 않으므로 규칙 3이 적용되지 않는다. 기존 줄 끝 주석이 있는 코드 줄을 고치면 그 주석도 새 주석으로 본다.
+
 ## 2026-11-25 Plan 후 API 계약 확정 (#35)
 
 BE 1.12.0 / FE 1.11.1 / common 0.22.0. 순서: Plan → API 계약 승인 → (FE 이슈) → Red 테스트 → 구현 → 빌드 체크 → 품질 루프·테스트. 4.5 뒤의 절차는 바뀌지 않는다.

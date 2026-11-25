@@ -250,7 +250,7 @@ mkdir -p .claude/fe-harness/skills .claude/fe-harness/agents
 
 ### Step 5: 새 주석 검사 설치 (선택)
 
-convention-check 의 주석 검사(`check_new_comments.py` — 새 주석 블록 2줄 이하, 주석 안 Spec 추적 ID 금지)를 프로젝트 lint·CI 에도 걸지 묻는다. 규칙을 글이 아니라 검사로 고정하기 위해서다.
+convention-check 의 주석 검사(`check_new_comments.py` — 새 주석 블록 2줄 이하, 주석 안 Spec 추적 ID 금지, `Why:`·`[Assumption]` 접두사)를 프로젝트 lint·CI 에도 걸지 묻는다. 규칙을 글이 아니라 검사로 고정하기 위해서다.
 **사용자가 설치를 고를 때만** 파일을 바꾼다. 같은 스크립트나 `lint-comments`·`lint:comments` 가 이미 있으면 묻지 않고 "이미 존재"로 기록한다.
 
 > 1. 설치 (권장) — 아래 항목을 추가하고 diff 를 보여 준다
