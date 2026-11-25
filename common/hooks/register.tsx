@@ -10,6 +10,17 @@ export const LANGUAGE_BLOCK = {
   text: 'Always talk in ASD-STE100 Simplified Technical Korean.\nAlways talk to me like I have ADHD.',
 }
 
+// 스킬 실행 중 겪은 마찰을 에이전트가 스스로 기록하게 한다 (papercut.py 가 정본, 로컬 전용).
+// 부가 기능이다. mod 가 없는 호스트에서는 기록이 없을 뿐이고 스킬 절차는 그대로다.
+export const papercutBlock = (root: string) => ({
+  name: 'harnessPapercut',
+  text: [
+    'While running a harness skill (common, be-harness, fe-harness, minmos-harness, hyeondongs-harness, work-log): if a skill instruction was wrong, a skill command ended differently than the skill says, or you needed a workaround, record it once after the task. Do not ask the user. Do not include secrets.',
+    `echo '{"plugin":"","skill":"","goal":"","command":"","expected":"","actual":"","workaround":"","proposal":""}' | python3 -I -B "${root.split('\\').join('/')}/hooks/papercut.py" record --cwd .`,
+    'Fill every field you know (plugin, skill, goal, actual are required). Use `python` if `python3` is missing.',
+  ].join('\n'),
+})
+
 const PANE = 'harness-progress'
 // metrics.tsx 도 같은 ref 로 읽는다 (scan 규칙상 atom 은 파일마다 리터럴로 선언한다).
 const run = atom({ plugin: 'common', key: 'run' } as const, null)
@@ -151,8 +162,9 @@ export const register: Register = on => {
 
   on('prompt.context', async ($, e, next) => {
     const result = await next(e)
-    if (result.blocks.some(block => block.name === LANGUAGE_BLOCK.name)) return result
-    return { ...result, blocks: [...result.blocks, LANGUAGE_BLOCK] }
+    const papercut = papercutBlock($.plugin.root)
+    const missing = [LANGUAGE_BLOCK, papercut].filter(added => !result.blocks.some(block => block.name === added.name))
+    return missing.length ? { ...result, blocks: [...result.blocks, ...missing] } : result
   })
 
   on('session.start', async ($, e, next) => {

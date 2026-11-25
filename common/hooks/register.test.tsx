@@ -2,7 +2,7 @@ import { expect, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { isFinished, label, parseRun, parseState, resultText, runCalls } from './register'
+import { isFinished, label, papercutBlock, parseRun, parseState, resultText, runCalls } from './register'
 
 const STATE = 'C:/tmp/harness-workflow-x/workflow-state.md'
 const RUN_JSON = JSON.stringify({ CWD: '/repo', MODE: 'be', RUN_ID: 'abc', STATE_FILE: STATE })
@@ -153,14 +153,19 @@ test('a workflow_run.py call that errored starts no run', async ($, on) => {
   expect(await bandText($, 'terminal')).toBe(undefined)
 })
 
-test('language block is appended after the engine blocks', async ($, on) => {
+test('language and papercut blocks are appended after the engine blocks', async ($, on) => {
   on('prompt.context', () => ({ blocks: [{ name: 'currentDate', text: 'today' }] }))
   const added = await $.prompt.context({ blocks: [] })
-  expect(added.blocks.map(block => block.name)).toEqual(['currentDate', 'harnessLanguage'])
+  expect(added.blocks.map(block => block.name)).toEqual(['currentDate', 'harnessLanguage', 'harnessPapercut'])
 })
 
 test('language block is not added twice (work-log mod added it first)', async ($, on) => {
   on('prompt.context', () => ({ blocks: [{ name: 'harnessLanguage', text: 'x' }] }))
   const added = await $.prompt.context({ blocks: [] })
-  expect(added.blocks.map(block => block.name)).toEqual(['harnessLanguage'])
+  expect(added.blocks.map(block => block.name)).toEqual(['harnessLanguage', 'harnessPapercut'])
+})
+
+test('papercut block names the helper of this plugin with forward slashes', () => {
+  const block = papercutBlock('C:\\plugins\\common')
+  expect(block.text.includes('"C:/plugins/common/hooks/papercut.py" record --cwd .')).toBe(true)
 })
