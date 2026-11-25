@@ -1,4 +1,4 @@
-<!-- overlay-source: hyeondongs-harness@3.0.0 -->
+<!-- overlay-source: hyeondongs-harness@3.1.0 -->
 
 ## Base
 
@@ -16,7 +16,7 @@
 
 필드 매핑(프레임워크·UI 라이브러리·상태관리·테스트/E2E 러너·패키지 매니저)의 canonical은 `fe-harness` 루트 `PROFILE.md` 다. 오버레이는 매핑을 재정의하지 않는다.
 
-> `.claude/fe-harness.local.md` 가 기능적으로 더 완전하다 (빌드/검증 명령, 서버, Git·커밋 컨벤션, `reportDir` 포함). 새 프로젝트는 `/fe-harness:init` 을 권장한다.
+> `.claude/fe-harness.local.md` 가 기능적으로 더 완전하다 (빌드/검증 명령, 서버, Git·커밋 컨벤션, `reportDir` 포함 — `reportDir`은 비우면 helper 기본 위치). 새 프로젝트는 `/fe-harness:init` 을 권장한다.
 
 ## 추가 규칙
 

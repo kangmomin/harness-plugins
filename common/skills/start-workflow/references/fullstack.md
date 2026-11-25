@@ -331,7 +331,7 @@ Phase 8 완료 후 `assets/workflow_policy.py fullstack`에 최신 `be/fe/contra
 
 ## Phase 11: 최종 보고 + 정리 (항상 실행)
 
-`{REPORT_DIR}` = be profile(`.claude/be-harness.local.md`)의 `reportDir` → 없으면 fe profile(`.claude/fe-harness.local.md`)의 `reportDir` → 없으면 `.claude/harness-reports`.
+`{REPORT_DIR}` = `run-lifecycle.md` create/resume 출력의 `REPORT_DIR` (helper가 `--mode fs`로 be profile `reportDir` → 비면 fe profile `reportDir` → 둘 다 비면 `<doc root>/<project>/` 순으로 정함). BE ④ `e2e-test-loop` 등 하위 스킬에 `{RUN_DIR}`과 함께 이 값을 전달한다.
 
 1. **보고서 초안 Write**: `contract-templates.md`의 "최종 보고 형식"(📋 Task Report 머리글 1~6)대로 `{WORK_REPORT}`를 작성한다. `### 6. 회고`는 Phase 10이 `DONE`이면 보완점 항목(도메인 분류 · 반영 방식 결정 · submit-feedback PR URL / SKIP 사유, 없으면 `없음`)을, 그 외에는 `SKIPPED:REFLECT_NOT_REQUESTED` 한 줄을 적는다. 상태 파일의 표를 복제하지 않는다 — 상세는 아카이브 부록(상태 파일 전문)이 담는다.
 2. **미해결 결정** (4.1 항목이 있을 때만, TDD 여부 무관): 결정을 받는 즉시 `{STATE_FILE}`의 `## Final Decisions`에 한 줄 append (항목 | 결정 | 시각). 재개 시 기록된 항목은 다시 묻지 않는다.

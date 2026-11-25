@@ -19,7 +19,7 @@ argument-hint: "[--skip-doctor] [--smoke]"
 
 - `{E2E_RESULTS}` = `{E2E_RUN_DIR}/e2e-results.json` (result-contract.md v1 정본)
 - `{RUN_REPORT}` = `{E2E_RUN_DIR}/e2e-run-report.md` (루프 중 누적하는 원시 기록)
-- `{REPORT_DIR}` = profile의 `reportDir` (없으면 `.claude/harness-reports`)
+- `{REPORT_DIR}` = 워크플로우 안에서는 전달받은 `{REPORT_DIR}`(run-lifecycle 출력), 단독 실행이면 `run-context.md`의 `harness_store.py report-dir` 출력 `reportDir`
 - `{EXECUTED_ITERATIONS}` = 실제 케이스를 실행하고 기록한 회차 수 (신규 실행은 0, 재개 시 기존 기록에서 복원). 하위 호출 횟수와 구분한다.
 - `{MAX_ITER}` = 5 (`--smoke` 시 3)
 - `{RENDERER}` = `${CLAUDE_PLUGIN_ROOT}/skills/e2e-test-loop/assets/render_e2e_report.py`

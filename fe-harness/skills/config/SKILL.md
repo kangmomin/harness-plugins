@@ -30,7 +30,7 @@ argument-hint: "[{키} | {키}={값} …]"
 |------|----|--------|
 | enum | `preset` (node) · `language` (ko \| en) · `codexMode` (none \| mix \| max) · `testRunner` (vitest \| jest) · `e2eRunner` (playwright \| cypress \| none) · `packageManager` (pnpm \| yarn \| npm \| bun) · `componentPattern` (feature-based \| atomic \| flat) | trim 후 exact — 빈 값 무효 |
 | bool | `typescript` `storybook` `e2eIsolatedWorktree` | true \| false exact |
-| string | `framework` `uiLibrary` `stateManagement` `buildCommand` `testCommand` `lintCommand` `typeCheckCommand` `e2eCommand` `e2eResetCommand` `runServerCommand` `serverUrl` `e2eLockDir` `reportDir` `mainBranch` `featureBranchPrefix` `hotfixBranchPrefix` `commitCoAuthor` | 자유 문자열 — 빈 문자열 유효 (framework·uiLibrary·stateManagement는 PROFILE.md 주석의 목록 권장, init "기타" 허용) |
+| string | `framework` `uiLibrary` `stateManagement` `buildCommand` `testCommand` `lintCommand` `typeCheckCommand` `e2eCommand` `e2eResetCommand` `runServerCommand` `serverUrl` `e2eLockDir` `reportDir` `mainBranch` `featureBranchPrefix` `hotfixBranchPrefix` `commitCoAuthor` | 자유 문자열 — 빈 문자열 유효 (reportDir 빈 값 = harness_store.py 기본 위치 <doc root>/<project>/) (framework·uiLibrary·stateManagement는 PROFILE.md 주석의 목록 권장, init "기타" 허용) |
 | array | `sourceDirs` `testDirs` `commitPrefixes` `projectConventions` | JSON 문자열 배열 (원소 안의 쉼표 허용) — 빈 배열 유효 |
 | block | `codexModels` | codex-mode.md §2.1 compact — 슬롯별 레코드 |
 <!-- config:keys-end -->

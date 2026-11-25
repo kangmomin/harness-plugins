@@ -13,7 +13,9 @@
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_run.py" create --cwd "{CWD}" --mode "{RUN_MODE}"
 ```
 
-JSON 출력의 `CWD`, `RUN_ID`, `RUN_DIR`, `STATE_FILE`, `IMPL_NOTES`, `WORK_REPORT`, `RESULTS_FILE` 절대 경로를 이번 실행의 유일한 값으로 보관한다. `{RUN_DIR}/run.json`은 변경하지 않는다. 경로를 셸 코드로 eval하지 않는다.
+JSON 출력의 `CWD`, `RUN_ID`, `RUN_DIR`, `STATE_FILE`, `IMPL_NOTES`, `WORK_REPORT`, `RESULTS_FILE`, `REPORT_DIR` 절대 경로를 이번 실행의 유일한 값으로 보관한다. `{RUN_DIR}/run.json`은 변경하지 않는다. 경로를 셸 코드로 eval하지 않는다.
+위치는 같은 폴더의 `harness_store.py`가 정한다. helper가 `--mode`로 profile `reportDir`를 직접 읽는다(be·analyze·verify → be profile, fe → fe profile, fs → be 값이 비어 있지 않으면 be, 아니면 fe). 문서는 profile 값을 읽거나 넘기지 않는다. 값이 비었거나 없으면 `RUN_DIR` = `<doc root>/.harness-runs/<project>/` 아래, `REPORT_DIR` = `<doc root>/<project>/`이다. 값이 있으면 `RUN_DIR` = 시스템 temp, `REPORT_DIR` = 그 값(상대값은 `{CWD}` 기준)이다. `<doc root>` = `$WORK_LOG_ROOT` → `~/.harness-plugin/work-log/docs`.
+출력 `warnings`(예: 경로가 working tree 안, 느슨한 권한)는 사용자에게 그대로 고지한다. 경로·profile·git 오류는 exit 1 `BLOCKED:STORE_CONFIG`(stderr 1줄)이며 다른 위치로 대체하지 않고 원인을 고지한 뒤 중단한다.
 첫 검증 전에 같은 디렉터리의 [result-contract.md](result-contract.md)를 읽고 RESULTS_FILE을 초기화한다. 모든 하위 에이전트/스킬에 필요한 실제 경로를 전달한다. baseline·iteration 로그도 `{RUN_DIR}` 아래에 저장한다. 격리 Read-back에는 이 경로를 전달하지 않는다.
 상태 본문을 처음 생성할 때 아래 헤더를 포함한다. `RUN_ID`는 재생성하지 않고 `START_SHA`만 구현 직전 기존 Phase에서 수집한다.
 
@@ -33,6 +35,7 @@ JSON 출력의 `CWD`, `RUN_ID`, `RUN_DIR`, `STATE_FILE`, `IMPL_NOTES`, `WORK_REP
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_run.py" resume --cwd "{CWD}" --mode "{RUN_MODE}" --state "{STATE_FILE}"
 ```
 
+resume은 `run.json`에 기록된 `REPORT_DIR`을 반환한다(env·profile이 바뀌어도 같은 값). 기록이 없는 옛 run은 현재 profile 값, 없으면 legacy `<CWD>/.claude/harness-reports`를 계산해 `warnings`와 함께 반환한다. 옛 run을 새 위치로 옮기지 않는다.
 Verify 재개는 live profile을 읽기 전에 위 helper를 실행하고 반환된 VERIFY_COMMANDS.commands의 명령 4종을 사용한다.
 검증 성공 뒤에만 상태의 Flags·Codex Runtime을 재사용하고 기록된 미완료 Phase부터 계속한다. 상태/노트를 새 템플릿으로 덮어쓰지 않는다.
 검증은 실제 작업 디렉토리(서로 다른 worktree 구별), 모드, RUN_ID, RUN_DIR, 상태 파일명, 미완료 여부를 대조한다.

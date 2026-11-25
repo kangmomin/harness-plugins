@@ -1,4 +1,4 @@
-<!-- overlay-source: hyeondongs-harness@3.0.0 -->
+<!-- overlay-source: hyeondongs-harness@3.1.0 -->
 
 ## Base
 
@@ -20,6 +20,6 @@ hyeondongs 프로젝트는 Post-Math 백엔드(minmos)와 짝을 이루므로, �
 
 ## 추가 규칙
 
-- 리포트 경로는 베이스의 `{REPORT_DIR}`(profile `reportDir`, 없으면 `.claude/harness-reports`)를 따른다. `.hyeondong-config.json` 에는 이 필드가 없으므로 기본값이 적용된다.
+- 리포트 경로는 베이스의 `{REPORT_DIR}`(run-lifecycle create/resume 출력)를 따른다. `.hyeondong-config.json` 에는 `reportDir` 필드가 없으므로 fe profile 값이 없으면 기본 위치 `<doc root>/<project>/`가 적용된다.
 
 그 외 Phase 절차·품질 루프·TDD·리뷰 구성은 **베이스를 그대로 따른다.**
