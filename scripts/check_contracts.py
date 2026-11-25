@@ -19,7 +19,7 @@ EXAMPLE_LINKS = {
 }
 MIGRATION_TABLES = {'minmos-harness/README.md', 'hyeondongs-harness/README.md'}
 HISTORICAL_DOCS = ('doc-gen-', 'harness-audit-', 'harness-remediation-')
-# Documented behavior that only exists as skill instructions: each file must name the helper call or state.
+# Why: documented behavior that only exists as skill instructions: each file must name the helper call or state.
 DOC_CONTRACTS = {
     'work-log/skills/doctor/SKILL.md': ('default:harness-plugin',),
     'work-log/skills/init/SKILL.md': ('default:harness-plugin', '.harness-plugin/work-log'),
@@ -197,7 +197,7 @@ def check(root):
         require(all((root / p).is_file() for p in group), 'missing parity member: ' + ', '.join(group))
         if all((root / p).is_file() for p in group):
             require(len({(root / p).read_bytes() for p in group}) == 1, 'parity mismatch: ' + ', '.join(group))
-    # Helpers load harness_store.py by a fixed relative path (spec_from_file_location), not sys.path.
+    # Why: helpers load harness_store.py by a fixed relative path (spec_from_file_location), not sys.path.
     imports = [(f'{p}/skills/e2e-test/assets/e2e_functions.py', f'{p}/{store}') for p in ('be-harness', 'fe-harness')]
     imports += [('common/skills/submit-feedback/assets/feedback.py', 'common/' + store)]
     for caller, target in imports:

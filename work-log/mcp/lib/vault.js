@@ -9,10 +9,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { ALWAYS_EXCLUDES, cacheDirFor, DEFAULT_EXCLUDES } from './config.js';
-
-const PROTECTED_EXCLUDES = [...DEFAULT_EXCLUDES, ...ALWAYS_EXCLUDES];
 import { markdownLines } from './markdown.js';
 import { ioTransaction } from './io.js';
+
+const PROTECTED_EXCLUDES = [...DEFAULT_EXCLUDES, ...ALWAYS_EXCLUDES];
 
 const MD = '.md';
 
