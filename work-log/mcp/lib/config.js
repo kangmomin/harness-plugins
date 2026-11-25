@@ -9,7 +9,6 @@
  *   2. cwd 에서 위로 올라가며 .work-log.json 탐색 (.git 경계까지 포함해 확인 후 정지)
  *   3. $XDG_CONFIG_HOME/work-log/config.json (기본 ~/.config/work-log/config.json)
  *   4. ~/.claude/work-log.json (기존 설치 호환)
- *   5. 없음 -> needsInit
  */
 
 import fs from 'node:fs';
@@ -21,7 +20,28 @@ import { spawnSync } from 'node:child_process';
 
 export const CONFIG_BASENAME = '.work-log.json';
 export const DEFAULT_EXCLUDES = ['.obsidian', '.trash', '.git', 'node_modules', '.wiki'];
+// Why: run 상태 폴더는 사용자 excludes 설정과 관계없이 검색·쓰기 대상이 아니다.
+export const ALWAYS_EXCLUDES = ['.harness-runs'];
+export const DEFAULT_SOURCE = 'default:harness-plugin';
 const CONFIG_MISSING = Symbol('config missing');
+const WIN_ABS = /^(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/?.])/;
+
+/** Why: Windows 의 `/x`·`C:foo` 는 현재 드라이브·폴더에 따라 위치가 바뀌므로 절대경로로 보지 않는다. */
+export function isAbsStrict(value, platform = process.platform === 'win32' ? 'win' : 'posix') {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  return platform === 'win' ? WIN_ABS.test(trimmed) : trimmed.startsWith('/');
+}
+
+function envPath(env, name, warnings) {
+  const raw = env[name];
+  if (typeof raw !== 'string' || raw.trim() === '') return null;
+  if (!isAbsStrict(raw)) {
+    warnings.push(`${name} 무시: 절대경로가 아님`);
+    return null;
+  }
+  return path.resolve(raw.trim());
+}
 
 /** 클라이언트 중립 전역 설정과 기존 Claude 설정의 위치를 계산한다. */
 export function globalConfigPaths({ env = process.env, home = os.homedir() } = {}) {
@@ -152,17 +172,18 @@ function walkUp(startDir) {
  * vault 루트를 해석한다.
  * @returns {{scope,root,excludes,configSource,cwd}} 또는 {needsInit:true,...}
  */
-export function resolveConfig({ cwd = process.cwd(), env = process.env, home = os.homedir() } = {}) {
-  const base = { cwd, home };
+export function resolveConfig({ cwd = process.cwd(), env = process.env, home = os.homedir(), fallback = 'peek' } = {}) {
+  const warnings = [];
+  const base = { cwd, home, warnings };
 
   // 1. 환경변수 — 빈 문자열/공백/상대경로는 unset 취급.
   //    .mcp.json 의 ${WORK_LOG_ROOT:-} 는 unset 일 때 빈 문자열로 도착한다.
-  const envRoot = (env.WORK_LOG_ROOT || '').trim();
-  if (envRoot && path.isAbsolute(envRoot)) {
+  const envRoot = envPath(env, 'WORK_LOG_ROOT', warnings);
+  if (envRoot) {
     return {
       ...base,
       scope: 'global',
-      root: validateRoot(path.resolve(envRoot), 'env:WORK_LOG_ROOT'),
+      root: validateRoot(envRoot, 'env:WORK_LOG_ROOT'),
       excludes: DEFAULT_EXCLUDES,
       configSource: 'env:WORK_LOG_ROOT',
     };
@@ -181,13 +202,44 @@ export function resolveConfig({ cwd = process.cwd(), env = process.env, home = o
   const legacy = fromConfigFile(configPaths.legacy);
   if (legacy) return { ...base, ...legacy };
 
-  // 5. 미설정
+  // Why: 설정이 없어도 <base>/work-log 에 기록하게 한다. 조회만으로는 폴더를 만들지 않는다(첫 쓰기 때 생성).
+  const root = path.join(envPath(env, 'HARNESS_PLUGIN_HOME', warnings) ?? path.join(home, '.harness-plugin'), 'work-log');
+  if (!fallbackExists(root)) {
+    if (fallback !== 'create') {
+      return {
+        ...base,
+        needsInit: true,
+        pending: true,
+        root,
+        configSource: DEFAULT_SOURCE,
+        hint: `기본 경로 사용 예정 — 첫 쓰기 때 생성: ${root}`,
+      };
+    }
+    try {
+      fs.mkdirSync(root, { recursive: true, mode: 0o700 });
+    } catch (e) {
+      throw new ConfigError(`기본 work-log 폴더를 만들 수 없습니다: ${root} (${e.message})`, DEFAULT_SOURCE);
+    }
+  }
   return {
     ...base,
-    needsInit: true,
-    configSource: null,
-    hint: `설정이 없습니다. init 스킬을 실행하거나 ${configPaths.global} 를 만드세요.`,
+    scope: 'global',
+    root: validateRoot(root, DEFAULT_SOURCE),
+    excludes: DEFAULT_EXCLUDES,
+    configSource: DEFAULT_SOURCE,
   };
+}
+
+function fallbackExists(root) {
+  let st;
+  try {
+    st = fs.statSync(root);
+  } catch (e) {
+    if (e.code === 'ENOENT') return false;
+    throw new ConfigError(`기본 work-log 경로를 확인할 수 없습니다: ${root} (${e.message})`, DEFAULT_SOURCE);
+  }
+  if (!st.isDirectory()) throw new ConfigError(`기본 work-log 경로가 디렉토리가 아닙니다: ${root}`, DEFAULT_SOURCE);
+  return true;
 }
 
 export function projectVaultPath({ baseRoot, projectDir }) {
@@ -278,11 +330,13 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   try {
     const args = process.argv.slice(2);
     let cfg;
-    if (args.length) {
+    if (args.length === 1 && args[0] === '--create') {
+      cfg = resolveConfig({ fallback: 'create' });
+    } else if (args.length) {
       if (args.length !== 4 ||
           !['--project-vault', '--project-dir'].includes(args[0]) ||
           !['--project-vault', '--project-dir'].includes(args[2]) || args[0] === args[2]) {
-        throw new ConfigError('사용법: config.js --project-vault <중앙 base 절대경로> --project-dir <프로젝트 절대경로>', 'cli');
+        throw new ConfigError('사용법: config.js [--create] | config.js --project-vault <중앙 base 절대경로> --project-dir <프로젝트 절대경로>', 'cli');
       }
       const options = { [args[0]]: args[1], [args[2]]: args[3] };
       cfg = projectVaultPath({ baseRoot: options['--project-vault'], projectDir: options['--project-dir'] });

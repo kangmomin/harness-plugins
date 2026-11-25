@@ -57,12 +57,13 @@ user-invocable: true
 
 ## Step 4: 저장 및 보고
 
-1. 완성한 Markdown을 실행 소유 임시 파일에 저장한다. 기존 docs 파일을 중간 원본으로 덮지 않는다.
+1. 완성한 Markdown을 실행 소유 임시 파일에 저장한다. 기존 문서 파일을 중간 원본으로 덮지 않는다.
 2. `assets/package-lock.json`의 고정 runtime(mermaid/markdown-it/puppeteer)이 설치됐는지 확인한다. 없으면 필요한 설치를 명시하고 `npm ci --prefix <현재 스킬의 assets 절대 경로>`로 준비한다. 이 설치는 최초 의존성·Chromium 다운로드를 수행할 수 있다. 진단 단계에서 자동 다운로드하지 않는다.
-3. `node <현재 스킬의 assets/docgen.mjs> <원문.md> <프로젝트/docs> md|html|twin`을 실행한다. 경로는 현재 세션에서 발견한 실제 스킬 위치를 사용하고 각각 인자로 전달한다.
+3. 출력 폴더를 helper(`harness_store.py resolve --ensure`)로 정한다: `python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/harness_store.py" resolve --cwd "<프로젝트 루트>" --ensure`. `--ensure`가 `docDir`(`<doc root>/<project>/`, doc root = `$WORK_LOG_ROOT` → `~/.harness-plugin/work-log/docs`)를 0700으로 만들고 검사한다. JSON `docDir`만 출력 폴더로 쓰고 `warnings`는 고지한다. exit 1(`error`)이면 다른 폴더로 대체하지 않고 `FAIL`로 보고한다. `<프로젝트>/docs`를 직접 조립하지 않는다.
+   그다음 `node <현재 스킬의 assets/docgen.mjs> <원문.md> <docDir> md|html|twin`을 실행한다. 경로는 현재 세션에서 발견한 실제 스킬 위치를 사용하고 각각 인자로 전달한다.
 4. renderer가 모든 Mermaid를 strict 모드로 정적 SVG로 만든 뒤, `doc-gen-{epoch}-{UUID}.{md|html}`을 exclusive write한다. twin은 동일 basename 두 파일이며 기존 파일과 충돌하면 덮지 않는다. 두 번째 파일 실패 시 이번 실행이 만든 첫 파일만 소유 inode를 확인해 정리한다.
 5. twin 정합 검사는 전체 Markdown→HTML 변환을 비교한다. 본문·코드·표 값·링크·각 Mermaid 원문과 SVG 대응이 대상이다. 헤더/블록 개수만으로 PASS하지 않는다. 결과 파일을 수정했다면 다시 변환·검증한다.
-6. 반환된 절대 경로, 다이어그램 수, 검증 결과와 핵심 내용을 보고한다. 임시 원문은 소유 경로만 정리한다. 실패·부분 정리 경고를 DONE으로 바꾸지 않는다.
+6. 반환된 절대 경로, 다이어그램 수, 검증 결과와 핵심 내용을 보고한다. work-log 인덱스에는 다음 `wiki_sync` 때 반영된다. 임시 원문은 소유 경로만 정리한다. 실패·부분 정리 경고를 DONE으로 바꾸지 않는다.
 
 `HARNESS_DOCGEN_NO_SANDBOX=1`은 Chromium sandbox를 제공하지 않는 격리 테스트 컨테이너에서만 명시적으로 사용한다. 일반 사용자 환경에서는 browser sandbox가 기본이다. 생성된 HTML을 읽을 때는 Node·Chromium·인터넷이 필요 없다.
 

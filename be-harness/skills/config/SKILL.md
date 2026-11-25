@@ -29,7 +29,7 @@ argument-hint: "[{키} | {키}={값} …]"
 |------|----|--------|
 | enum | `preset` (go \| node \| custom) · `language` (ko \| en) · `codexMode` (none \| mix \| max) | trim 후 exact — 빈 값 무효 |
 | bool | `e2eEnabled` | true \| false exact |
-| string | `buildCommand` `testCommand` `lintCommand` `typeCheckCommand` `makeTestCommand` `runServerCommand` `serverUrl` `apiDocsPath` `frontendRepo` `e2eLockDir` `reportDir` `mainBranch` `featureBranchPrefix` `hotfixBranchPrefix` `commitCoAuthor` | 자유 문자열 — 빈 문자열 유효 |
+| string | `buildCommand` `testCommand` `lintCommand` `typeCheckCommand` `makeTestCommand` `runServerCommand` `serverUrl` `apiDocsPath` `frontendRepo` `e2eLockDir` `reportDir` `mainBranch` `featureBranchPrefix` `hotfixBranchPrefix` `commitCoAuthor` | 자유 문자열 — 빈 문자열 유효 (reportDir 빈 값 = harness_store.py 기본 위치 <doc root>/<project>/) |
 | array | `sourceDirs` `testDirs` `commitPrefixes` `projectConventions` | JSON 문자열 배열 (원소 안의 쉼표 허용) — 빈 배열 유효 |
 | block | `codexModels` | codex-mode.md §2.1 compact — 슬롯별 레코드 |
 <!-- config:keys-end -->

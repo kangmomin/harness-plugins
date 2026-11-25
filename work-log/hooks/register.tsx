@@ -47,6 +47,11 @@ async function load($: EngineInterface): Promise<WikiStatus | undefined> {
   }
 }
 
+// Why: 기본 경로 폴더는 첫 쓰기 때 만든다. 그 전에는 인덱스가 없는 것이 정상이다.
+export function pendingText(status: WikiStatus): string {
+  return `기본 경로 사용 예정: ${status.root ?? '-'} (첫 쓰기 때 생성)`
+}
+
 // 인덱스가 없거나 24시간보다 오래됐다. toast 와 pane 이 같은 규칙을 쓴다.
 export function isStale(status: WikiStatus): boolean {
   return !status.indexExists || (status.indexAgeSeconds ?? 0) > STALE_SECONDS
@@ -81,7 +86,7 @@ export const register: Register = on => {
     // MCP 서버 기동을 첫 프롬프트 앞에서 기다리지 않는다.
     $.clock.after(5000, () => {
       void load($).then(status => {
-        if (status && !status.needsInit && isStale(status)) {
+        if (status && !status.needsInit && !status.pending && isStale(status)) {
           const when = status.indexExists ? `${age(status.indexAgeSeconds)} 것입니다` : '없습니다'
           $.ui.toast(`work-log 인덱스가 ${when}. /${PANE} 에서 동기화하세요.`)
         }
@@ -93,7 +98,8 @@ export const register: Register = on => {
   on('command.run', { command: PANE }, async $ => {
     await $.ui.open({ id: PANE, title: 'work-log' })
     const status = await load($)
-    return { text: status ? `pane 을 열었습니다. 인덱스: ${age(status.indexAgeSeconds)}` : 'work-log MCP 서버에 연결하지 못했습니다.', isTextDisplayOnly: true }
+    const detail = status?.pending ? pendingText(status) : `인덱스: ${age(status?.indexAgeSeconds)}`
+    return { text: status ? `pane 을 열었습니다. ${detail}` : 'work-log MCP 서버에 연결하지 못했습니다.', isTextDisplayOnly: true }
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
@@ -113,6 +119,14 @@ export const register: Register = on => {
       return (
         <Box flexDirection="column">
           <Text color="warning">스코프가 설정되지 않았습니다. /work-log:init 을 실행하세요.</Text>
+          {status.hint ? <Text dimColor>{status.hint}</Text> : null}
+        </Box>
+      )
+    }
+    if (status.pending) {
+      return (
+        <Box flexDirection="column">
+          <Text wrap="truncate">{pendingText(status)}</Text>
           {status.hint ? <Text dimColor>{status.hint}</Text> : null}
         </Box>
       )

@@ -1,7 +1,7 @@
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { age, isStale, STALE_SECONDS } from './register'
+import { age, isStale, pendingText, STALE_SECONDS } from './register'
 
 const PANE = {
   plugin: 'work-log',
@@ -55,6 +55,15 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await ui.unmount()
   })
 
+  test(`pane shows the default path while the fallback folder is pending (${surface})`, async ($, on) => {
+    server(on, { pending: true, root: '/home/u/.harness-plugin/work-log', configSource: 'default:harness-plugin', hint: 'first write creates it' })
+    await $.command.run(RUN)
+    const ui = await $.ui.mount({ ...PANE, surface })
+    expect((await ui.find({ type: 'Text', text: /기본 경로 사용 예정/ }))?.text).toContain('/home/u/.harness-plugin/work-log')
+    expect(await ui.find({ type: 'Text', text: /인덱스:/ })).toBeUndefined()
+    await ui.unmount()
+  })
+
   test(`pane shows error when MCP fails (${surface})`, async ($, on) => {
     server(on, null)
     await $.command.run(RUN)
@@ -69,6 +78,32 @@ test('isStale covers a missing index and an old one', () => {
   expect(isStale({ indexExists: true, indexAgeSeconds: 2 * STALE_SECONDS })).toBe(true)
   expect(isStale({ indexExists: true, indexAgeSeconds: 60 })).toBe(false)
 })
+
+test('pendingText names the root that the first write will create', () => {
+  expect(pendingText({ pending: true, root: '/r' })).toBe('기본 경로 사용 예정: /r (첫 쓰기 때 생성)')
+  expect(pendingText({ pending: true })).toContain('-')
+})
+
+for (const [label, status, expected] of [
+  ['a missing index', { scope: 'global', root: '/vault', indexExists: false, indexAgeSeconds: null }, 1],
+  ['a pending default folder', { pending: true, root: '/home/u/.harness-plugin/work-log', configSource: 'default:harness-plugin' }, 0],
+] as const) {
+  test(`session start toasts ${expected} time(s) for ${label}`, async ($, on) => {
+    const clock = mock.clock(on)
+    const toasts: string[] = []
+    on('mcp.call', () => ({ value: { content: [{ type: 'text', text: JSON.stringify(status) }], isError: false } }))
+    on('command.register', () => ({ value: { command: 'work-log-status' } }))
+    on('ui.toast', (_, e) => {
+      toasts.push(String(e.text ?? e))
+      return { value: undefined }
+    })
+    on('session.start', (_, e) => ({ cwd: e.cwd }))
+    await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+    await clock.advance(5000)
+    await clock.advance(0)
+    expect(toasts.length).toBe(expected)
+  })
+}
 
 test('a DEGRADED sync is not reported as success', async ($, on) => {
   const toasts: string[] = []

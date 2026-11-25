@@ -27,7 +27,7 @@
 
 | 스킬 | 호출 | 설명 |
 |------|------|------|
-| **doc-gen** | `/common:doc-gen` | 지정한 범위(파일/디렉토리/glob/PR/commit range)를 분석해 다이어그램이 포함된 단일 파일 문서(`-md`/`-html`, `--twin`으로 동시 생성+정합 검증, `--brief`로 압축 모드)로 정리. 저장 전 Mermaid lint 자체 점검 |
+| **doc-gen** | `/common:doc-gen` | 지정한 범위(파일/디렉토리/glob/PR/commit range)를 분석해 다이어그램이 포함된 단일 파일 문서(`-md`/`-html`, `--twin`으로 동시 생성+정합 검증, `--brief`로 압축 모드)로 정리. 저장 전 Mermaid lint 자체 점검. 저장 폴더는 `harness_store.py resolve --ensure`의 `docDir`(`<doc root>/<project>/`) |
 
 ### 커밋 / Push / PR 워크플로우
 
@@ -60,7 +60,7 @@
 
 | 스킬 | 호출 | 설명 |
 |------|------|------|
-| **ready-for-impl** | `/common:ready-for-impl` | 구현 전에 주제별 인터뷰 라운드(목표·범위 → 동작·인터페이스 → 데이터·상태 → 예외·권한 → 비기능 → 완료·검증)로 요구사항을 확정한다. 한 번에 묻는 질문끼리는 서로 의존하지 않고, 범위가 크면 인터뷰 전에 묶음 분할을 먼저 묻는다. 결과로 작업 계약과 `AC`/`EC`/`RC`(풀스택 `F`) 추적 ID를 갖춘 Spec md를 저장. 코드를 수정하지 않으며 결과 Spec은 `start-workflow` Phase 1의 상세 Spec 분기로 그대로 인계 |
+| **ready-for-impl** | `/common:ready-for-impl` | 구현 전에 주제별 인터뷰 라운드(목표·범위 → 동작·인터페이스 → 데이터·상태 → 예외·권한 → 비기능 → 완료·검증)로 요구사항을 확정한다. 한 번에 묻는 질문끼리는 서로 의존하지 않고, 범위가 크면 인터뷰 전에 묶음 분할을 먼저 묻는다. 결과로 작업 계약과 `AC`/`EC`/`RC`(풀스택 `F`) 추적 ID를 갖춘 Spec md를 `harness_store.py save-doc`으로 저장(`--out` → 오버라이드 `specDir` → `<doc root>/<project>/`, 덮어쓰지 않고 `-2` 접미사). 코드를 수정하지 않으며 결과 Spec은 `start-workflow` Phase 1의 상세 Spec 분기로 그대로 인계 |
 
 ### 하네스 무관 스킬
 
@@ -69,7 +69,7 @@
 | 스킬 | 호출 | 설명 |
 |------|------|------|
 | **how-to-use** | `/common:how-to-use` | 설치된 모든 harness 플러그인의 스킬 목록·사용법 안내. 플래그로 특정 하네스만 좁히기 가능 |
-| **submit-feedback** | `/common:submit-feedback` | 수집된 범용 보완점을 플러그인 레포 `community-feedback/` 에 PR 제출. 대상 플러그인은 플래그·보완점 경로·프로젝트 구조 순으로 판별 |
+| **submit-feedback** | `/common:submit-feedback` | 수집된 범용 보완점을 플러그인 레포 `community-feedback/` 에 PR 제출. 대상 플러그인은 플래그·보완점 경로·프로젝트 구조 순으로 판별. 로컬 보존본은 `<base>/feedback-submissions/<project>/<plugin>/` |
 
 ## 사용 예시
 

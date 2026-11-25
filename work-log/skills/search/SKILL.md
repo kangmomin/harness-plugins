@@ -37,7 +37,8 @@ doctor로 진단하고, 최종 프로젝트 root의 `WORK_LOG_ROOT` fallback 및
 사용자가 기존 flat root로의 전환을 명시적으로 승인했다면 그 root를 `WORK_LOG_ROOT` 로 CLI에도
 동일하게 전달하고, `cfg.root`·`wiki_status.root`·승인한 root의 일치를 확인한다. 이 경우에만 기존
 checkout 설정과의 차이를 허용하며, 승인 없는 env 불일치는 검색을 중단한다.
-`scope: global` 표시만으로 실패로 보지 않는다. 독립 프로젝트 모드의 미등록 checkout/worktree는
+`scope: global` 표시만으로 실패로 보지 않는다. `wiki_status` 가 `pending: true` 면 기본 경로(`<base>/work-log`)가
+아직 없으므로 검색 결과가 없다고 보고한다(첫 쓰기 때 생성). 독립 프로젝트 모드의 미등록 checkout/worktree는
 init을 안내한다. 분류형 전역 모드는 공유 root 안에서 분류 필터를 사용한다.
 
 검색 결과가 비어도 상위 중앙 vault나 다른 프로젝트·옛 flat 이력으로 자동 확장하지 않는다.
@@ -93,7 +94,8 @@ raw JSON·SQL·CSV·첨부가 필요하면 확인한 vault 내부의 실제 경�
 ## MCP 미연결 시 폴백
 
 MCP 미연결로 툴 호출이 실패하면 **조용히 포기하지 말고** 실제 프로젝트에서 해석한
-`cfg.root` 안에서만 grep 으로 대체하되, 그 사실을 알린다. root 불일치 오류를 우회하거나
+`cfg.root` 안에서만 grep 으로 대체하되, 그 사실을 알린다. `config.js` 출력이 `pending: true` 면
+폴더가 아직 없으므로 grep 대체를 생략하고 결과 없음으로 보고한다. root 불일치 오류를 우회하거나
 상위 중앙 vault로 넓히지 않는다. 아래 명령은 확인한 실제 프로젝트 디렉토리에서 실행한다:
 
 ```bash

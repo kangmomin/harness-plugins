@@ -111,7 +111,7 @@ const TOOLS = [
     name: 'wiki_status',
     description:
       '읽기 전용 진단 툴이다. 스코프가 설정되지 않아도 오류 없이 { needsInit: true, hint, cwd, configSource, server, safeIO } 를 반환하므로 ' +
-      '다른 wiki_ 툴보다 먼저 호출해도 된다. 설정돼 있으면 scope, root, indexPath, indexExists, indexAgeSeconds, generatedAt, counts, ' +
+      '다른 wiki_ 툴보다 먼저 호출해도 된다. 설정이 없고 기본 경로(<base>/work-log)가 아직 없으면 { pending: true, root, hint } 를 반환한다(첫 wiki_write·wiki_sync 가 만든다). 설정돼 있으면 scope, root, indexPath, indexExists, indexAgeSeconds, generatedAt, counts, ' +
       'indexState(OK·DEGRADED 또는 INDEX_MISSING 등 재생성 사유), errors, scan 을 함께 반환한다. safeIO.available 이 false 이면 wiki_write·wiki_sync 가 동작하지 않는다.',
     inputSchema: { type: 'object', additionalProperties: false, properties: {} },
   },
@@ -120,9 +120,9 @@ const TOOLS = [
 /* ────────────────────────────── 툴 구현 ────────────────────────────── */
 
 /** 스코프는 매 호출마다 재해석한다 (init 후 서버 재시작 없이 반영되어야 한다). */
-function requireConfig() {
-  const cfg = resolveConfig();
-  if (cfg.needsInit) {
+function requireConfig(fallback = 'peek') {
+  const cfg = resolveConfig({ fallback });
+  if (cfg.needsInit && !cfg.pending) {
     const e = new Error(
       'work-log 스코프가 설정되지 않았습니다. init 스킬을 실행하세요.\n' + cfg.hint
     );
@@ -146,6 +146,7 @@ const HANDLERS = {
   wiki_status() {
     const cfg = resolveConfig();
     const base = { cwd: cfg.cwd, configSource: cfg.configSource, server: SERVER_INFO.version, safeIO: ioCapability() };
+    if (cfg.pending) return text({ ...base, pending: true, root: cfg.root, hint: cfg.hint, warnings: cfg.warnings });
     if (cfg.needsInit) return text({ ...base, needsInit: true, hint: cfg.hint });
 
     const { index: idx, reason } = readIndexState(cfg.root);
@@ -173,7 +174,7 @@ const HANDLERS = {
   },
 
   async wiki_sync() {
-    const cfg = requireConfig();
+    const cfg = requireConfig('create');
     const { index, drift } = await syncIndex(cfg);
     return text({
       root: cfg.root,
@@ -189,12 +190,18 @@ const HANDLERS = {
 
   wiki_resolve(args) {
     const cfg = requireConfig();
+    if (cfg.pending) return text({ root: cfg.root, candidates: [], total: 0, pending: true });
     const idx = loadIndex(cfg);
     return text({ root: cfg.root, ...rank(idx, args) });
   },
 
   wiki_read(args) {
     const cfg = requireConfig();
+    if (cfg.pending) {
+      const e = new Error(`문서가 없습니다 (기본 work-log 폴더가 아직 없음): ${args.path}`);
+      e.userFacing = true;
+      throw e;
+    }
     const { abs, rel, ext } = safeResolve(cfg.root, args.path);
 
     if (ext === '.html') {
@@ -227,7 +234,7 @@ const HANDLERS = {
   },
 
   async wiki_write(args) {
-    const cfg = requireConfig();
+    const cfg = requireConfig('create');
     const res = await writeDoc(cfg, {
       relPath: args.path,
       content: args.content,

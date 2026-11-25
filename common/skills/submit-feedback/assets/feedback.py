@@ -3,6 +3,7 @@
 import argparse
 from datetime import date
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -66,10 +67,24 @@ def section(data, item):
             f"**조건**: {item['condition']}\n\n### 컨텍스트\n{item['context']}\n\n### 제안\n{item['proposal']}\n")
 
 
-def prepare(data, artifact_root):
+def feedback_root(cwd, plugin):
+    """같은 플러그인 start-workflow/assets/harness_store.py가 정한 `<base>/feedback-submissions/<project>/<plugin>`."""
+    path = Path(__file__).resolve().parents[2] / 'start-workflow' / 'assets' / 'harness_store.py'
+    spec = importlib.util.spec_from_file_location('harness_store', path)
+    store = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(store)
+    return store.feedback_dir(Path(cwd).resolve(), plugin)
+
+
+def prepare(data, artifact_root=None, cwd=None):
     data = normalize(data)
-    root = Path(artifact_root)
-    root.mkdir(parents=True, exist_ok=True)
+    if artifact_root is not None:
+        root = Path(artifact_root)
+        root.mkdir(parents=True, exist_ok=True)
+    elif cwd is not None:
+        root = feedback_root(cwd, data['plugin'])
+    else:
+        raise ValueError('artifact_root or --cwd required')
     run = Path(tempfile.mkdtemp(prefix='feedback-', dir=root))
     encoded = (json.dumps(data, ensure_ascii=False, indent=2) + '\n').encode()
     # Private durable artifact is separate from active overrides. Never apply a
@@ -158,11 +173,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('action', choices=['prepare', 'apply', 'outcome'])
     parser.add_argument('input', help='JSON file or -')
+    parser.add_argument('--cwd', help='prepare: save under the harness feedback root for this repository')
     args = parser.parse_args()
     try:
         data = json.load(sys.stdin) if args.input == '-' else json.loads(Path(args.input).read_text())
         if args.action == 'prepare':
-            result = prepare(data['payload'], data['artifact_root'])
+            result = prepare(data['payload'], data.get('artifact_root'), args.cwd)
         elif args.action == 'apply':
             result = apply(data['receipt'], data['checkout'])
         else:

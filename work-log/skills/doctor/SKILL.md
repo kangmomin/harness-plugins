@@ -28,7 +28,8 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
 |------|------|
 | 응답 옴 | MCP **OK** |
 | 툴 자체가 없음 | MCP **MISSING** → Step 4 |
-| 응답에 `needsInit: true` | MCP OK, 스코프 **미설정** → init 스킬 안내 |
+| 응답에 `pending: true` | MCP OK, 설정 없음 → **기본 경로 사용 예정**(`configSource: default:harness-plugin`, `root`). 첫 `wiki_write`·`wiki_sync`가 폴더를 만든다. init은 선택 |
+| 응답에 `needsInit: true` (`pending` 없음) | MCP OK, 스코프 **미설정** → init 스킬 안내 |
 
 ## Step 2: 응답 해석
 
@@ -36,7 +37,7 @@ MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시�
 |------|------|
 | `scope` / `root` | 의도한 vault를 가리키는가. 구조화된 전역 vault는 전체 root를 유지하는가 |
 | `server` | 새 project/category 기능은 0.3.2부터 지원. 소스 수정만으로 설치본이 갱신됐다고 판단하지 않는다 |
-| `configSource` | 어느 설정이 이겼는가 — 환경변수 / 프로젝트 / XDG 전역 / legacy 설정 |
+| `configSource` | 어느 설정이 이겼는가 — 환경변수 / 프로젝트 / XDG 전역 / legacy 설정 / `default:harness-plugin`(설정 없음, `<base>/work-log` fallback 사용) |
 | `cwd` | MCP 서버의 작업 디렉토리. 프로젝트 스코프 자동 탐지가 되는지 판단하는 근거 |
 | `indexExists` | false 면 sync 스킬 필요 |
 | `indexAgeSeconds` | 24시간(86400) 초과면 "오래됨" 경고 + sync 권장 |
@@ -106,7 +107,7 @@ Codex는 지원되는 소스 설치/연결 절차를 확인하고 재시작을 �
 | 항목 | 상태 | 비고 |
 |------|------|------|
 | MCP 서버 | OK / MISSING | |
-| 스코프 | global / project / 미설정 | root 경로 |
+| 스코프 | global / project / 기본 경로(fallback) / 기본 경로 사용 예정(pending) / 미설정 | root 경로 |
 | 설정 출처 | | configSource |
 | 인덱스 | 있음(N분 전) / 없음 | 문서 수 |
 | Node | v24.x | >=18 필요 |

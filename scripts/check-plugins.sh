@@ -4,6 +4,7 @@
 #   4) python3 -m py_compile (assets/*.py)  5) HTML 리포트 문구 잔재 0건
 #   6) codex-mode.md 공통 블록 parity(sync-codex-mode.py --check) · defaults 마커 구조 · 모델/effort 리터럴 범위 · codexMode/codexModels·슬롯 토큰·플래그 존재 · 구 문구 잔재 0건
 #   7) config 스킬: PROFILE.md ↔ config SKILL.md 키 parity(양방향, config:keys 마커 1쌍)
+#   8) 옛 기본 경로(.claude/harness-reports) 잔재 0건 (스킬·references·overlay, legacy 설명 줄 제외)
 # 사용: bash scripts/check-plugins.sh   (exit 0 = 전부 통과)
 set -u
 cd "$(dirname "$0")/.."
@@ -124,6 +125,11 @@ for p in be-harness fe-harness; do
   if [ -n "$miss" ]; then bad "$cf: PROFILE.md 키가 마커 안에 없음: $miss"; fi
   if [ -n "$extra" ]; then bad "$cf: 마커 안 토큰이 PROFILE.md 프론트매터에 없음: $extra"; fi
 done
+
+# 8) 옛 기본 run/리포트 경로 잔재 — 스킬·references·overlay만 (README·docs/ 제외). legacy 설명 줄은 허용.
+res=$(grep -rn --include='*.md' '\.claude/harness-reports' be-harness fe-harness common minmos-harness hyeondongs-harness work-log 2>/dev/null \
+  | grep -v 'community-feedback/' | grep -E '/SKILL\.md:|/references/|/overlay/' | grep -v 'legacy' || true)
+if [ -n "$res" ]; then bad "옛 기본 경로(.claude/harness-reports) 잔재 — 경로는 harness_store.py가 정한다:"; say "$res"; fi
 
 # Active links/calls, host frontmatter, product manifests, phases/overrides and new helper parity.
 if ! python3 -B scripts/check_contracts.py; then bad "active contract validation failed"; fi
