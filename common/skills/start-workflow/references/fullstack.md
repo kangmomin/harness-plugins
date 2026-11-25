@@ -186,7 +186,7 @@ for iteration in 1..5:
 
 | 종료 조건 | 결과 |
 |----------|------|
-| 리뷰어 `APPROVE` | **PROCEED** → ExitPlanMode로 Plan 확정 |
+| 리뷰어 `APPROVE` | **PROCEED** → 통신 계약·Plan 승인(아래) → ExitPlanMode로 Plan 확정 |
 | 사용자가 명시적으로 루프 종료 지시 | **USER-INTERRUPTED** → 잔존 이슈 기록 후 진행 |
 | Claude 패널 실패 (유효 verdict 3개 미달 — codex-mode.md §6) | **CODEX-UNAVAILABLE** → 사유 기록 후 진행. Codex 호출 실패 자체는 §7대로 패널 폴백이며 이 코드가 아니다 |
 | 5회 도달, 미APPROVE | **BLOCKED:MAX_ITERATIONS** → 아래 선택지 제시 |
@@ -197,7 +197,8 @@ for iteration in 1..5:
 
 안전장치: 동일 이슈 3회 반복 지적 → 사용자 판단 위임 / 변경 0건 iteration → 즉시 중단·보고.
 
-루프 종료 후 완료 조건·티어·원격 효과를 포함한 Plan을 공유한다. 같은 Spec·Plan·대상·효과의 기존 승인을 재사용하고 미승인 변경만 구체적으로 승인받는다. `ExitPlanMode`로 Plan을 확정하며 호스트 필수 승인은 따른다. 상태 파일에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
+루프 종료 후 `ExitPlanMode` 전의 승인 화면에서 **통신 계약을 별도 항목으로 먼저** 보여 준다: 최종 Integration Contract(`CT-nn` 표)의 승인 / 수정 / 중단을 받는다 (Plan 승인과 같은 절차 — 따로 한 번 더 묻지 않는다). 수정이면 No Silent Contract Drift대로 Phase 2(해당 조항만) → 3 → 4.1~4.3(영향받는 Plan) → 4.4 루프를 다시 거치고, 바뀐 조항만 재승인받는다. 이 재진입은 4.4 루프 상한·안전장치를 공유한다. 승인 시각은 Plan과 함께 보관했다가 Phase 5에서 `Plan Verification Summary`에 기록한다. FE를 같은 실행에서 구현하므로 FE 레포 이슈는 만들지 않는다 (BE 단일 도메인 Phase 4.5와 다른 점).
+이어서 완료 조건·티어·원격 효과를 포함한 Plan을 공유한다. 같은 Spec·Plan·대상·효과의 기존 승인을 재사용하고 미승인 변경만 구체적으로 승인받는다. `ExitPlanMode`로 Plan을 확정하며 호스트 필수 승인은 따른다. 상태 파일에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
 
 ## Phase 5: 브랜치 + 상태 파일
 

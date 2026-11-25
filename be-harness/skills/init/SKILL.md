@@ -75,6 +75,7 @@ user-invocable: true
 - `serverUrl` (기본 http://localhost:8080 또는 :3000)
 - `e2eEnabled` (기본 true)
 - `apiDocsPath` (선택)
+- `frontendRepo` (선택, `owner/repo` — API 외부 계약이 바뀌면 start-workflow가 승인 후 이 레포에 FE 이슈를 만든다. 비우면 만들지 않는다)
 
 ### Group C — 디렉토리/Git
 
@@ -118,6 +119,7 @@ runServerCommand: "{runServerCommand}"
 serverUrl: "{serverUrl}"
 e2eEnabled: {e2eEnabled}
 apiDocsPath: "{apiDocsPath}"
+frontendRepo: "{frontendRepo}"
 
 sourceDirs: {sourceDirs}
 testDirs:   {testDirs}

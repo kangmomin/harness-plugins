@@ -80,6 +80,7 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 | 2 | orchestrator | 현재 세션 | 현재 세션 | DONE |
 | 3 | orchestrator | 현재 세션 | 현재 세션 | DONE |
 | 4 | review agents + orchestrator | 난이도 기준 | 난이도 기준 | DONE |
+| 4.5 | orchestrator | 현재 세션 | 현재 세션 | DONE 또는 SKIPPED:NO_API_CHANGE (FE 이슈 결과는 `## API Contract`) |
 | 5 | orchestrator | 현재 세션 | 현재 세션 | IN_PROGRESS |
 | 6.1 | unit-test agent (Red) | 난이도 기준 | 난이도 기준 | PENDING |
 | 6.2 | workflow-implementer/general-purpose | 난이도 기준 | 난이도 기준 | PENDING |
@@ -144,6 +145,13 @@ Phase 5 - 자율 실행 시작 (agent: orchestrator, model: 현재 세션, effor
 
 ## Plan Verification Log
 [Phase 4.3 검증 루프의 Iteration Diff Log — Phase 5 ①에서 복사]
+
+## API Contract
+[Phase 4.4 계약 승인·4.5 FE 이슈 결과 — Phase 5 ①에서 복사 (`references/api-contract.md` §5). API 작업이 아니면 `SKIPPED:NO_API_CHANGE` 한 줄]
+- 계약 표: [사용자가 승인한 최종 표]
+- 승인: [시각 | 수정 후 재승인 시각]
+- FE 이슈: [DONE {URL} | SKIPPED:NO_EXTERNAL_CHANGE | SKIPPED:FRONTEND_REPO_EMPTY | SKIPPED:USER_DECLINED | SKIPPED:GH_UNAVAILABLE({오류 1줄})]
+- FE 이슈 초안: [`{RUN_DIR}/fe-issue.md` 경로. 변경 없음이면 `-`]
 
 ## Readback Diff
 [Phase 8.8 결과. Phase 8.8 실행 전에는 `미실행`, light면 `SKIPPED:TIER_LIGHT`, quick이면 `SKIPPED:TIER_QUICK`]
@@ -263,6 +271,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/start-workflow/assets/workflow_archive.py"
 - **Codex 모드**: [none | mix | max] · 모델: [기본 | {CODEX_MODELS}]{ · runtime: fallback({항목}, …)}
 - **리뷰·단계**: 리뷰: {REVIEW} · 단계: {STEPS}{ · gemini: fallback({사유})}
 - **PR**: [PR URL]
+- **API 계약·FE 이슈**: [승인 {N}건 · FE 이슈 {URL | `SKIPPED:*` — 초안 `{RUN_DIR}/fe-issue.md`, 수동 등록 안내} | `SKIPPED:NO_API_CHANGE`]
 
 ### 2. 구현 내역
 - **변경 파일 / 커밋**: [N]개 / [M]개 — 목록은 부록 A

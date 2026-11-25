@@ -8,6 +8,17 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-11-25 Plan 후 API 계약 확정 (#35)
+
+BE 1.12.0 / FE 1.11.1 / common 0.22.0. 순서: Plan → API 계약 승인 → (FE 이슈) → Red 테스트 → 구현 → 빌드 체크 → 품질 루프·테스트. 4.5 뒤의 절차는 바뀌지 않는다.
+
+- API 작업이면 Plan에 `## API Contract` 표(endpoint·auth·req/res·에러·호환성·근거 AC/EC)를 넣는다. Phase 4.4 승인 화면(ExitPlanMode 전)에서 이 표를 별도 항목으로 먼저 승인받는다. 같은 승인 절차라 두 번 묻지 않는다.
+- 신규 Phase 4.5: 외부 계약 변경(신규·삭제·필드·타입·status·에러 코드 변경)이 있으면 FE 이슈 초안을 보여 준다. 승인하면 profile `frontendRepo`(owner/repo)에 `gh issue create`로 등록한다. 초안·URL은 `{RUN_DIR}/fe-issue.md`에 바로 기록하고, 같은 제목의 열린 이슈가 있으면 새로 만들지 않는다. 빈 값·거절·`gh` 실패는 `SKIPPED:*`로 기록하고 계속한다. API 작업이 아니면 `SKIPPED:NO_API_CHANGE`.
+- 이슈 URL은 상태 파일 `## API Contract`, PR 본문, 최종 보고에 남는다. 등록하지 못하면 보고서가 초안 경로와 수동 등록을 안내한다.
+- profile 키 `frontendRepo`(BE)를 추가했다. `profile.py`는 BE/FE 공용 사본이라 FE는 patch 범프만 했다.
+- common FS: Phase 4.4 승인 화면에서 Integration Contract를 별도 항목으로 먼저 승인받는다. 수정이면 Phase 2 → 3 → 4.1~4.4를 다시 거친다. FE를 같은 실행에서 구현하므로 FE 이슈는 만들지 않는다.
+- 남은 한계: 계약 표와 코드의 일치는 기존 Read-back(8.8)·E2E가 간접으로만 확인한다. doctor는 `frontendRepo` 접근 권한을 점검하지 않는다.
+
 ## 2026-11-24 ready-for-impl 인터뷰 보강 (#31)
 
 common 0.21.0. [mattpocock/skills](https://github.com/mattpocock/skills)의 `grill-me`(본체 `grilling`) 인터뷰 방식에서 장점을 `ready-for-impl`로 옮겼다.

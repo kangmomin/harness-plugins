@@ -19,11 +19,9 @@ user-invocable: true
 
 - `{RUN_DIR}`·`{RUN_ID}` = `references/run-lifecycle.md`의 생성·재개 검증 결과
 - `{STATE_FILE}` = `{RUN_DIR}/workflow-state.md` · `{IMPL_NOTES}` = `{RUN_DIR}/implementation-notes.md`
-- `{REPORT_DIR}` = profile의 `reportDir` (없으면 `.claude/harness-reports`)
-- `{WORK_REPORT}` = `{RUN_DIR}/workflow-report.md`
+- `{REPORT_DIR}` = profile의 `reportDir` (없으면 `.claude/harness-reports`) · `{WORK_REPORT}` = `{RUN_DIR}/workflow-report.md`
 - `{PLAN_MAX}` = Phase 4.3 상한 (Plan 깊이 P 기준: standard 5 / light 2 / quick 0) · `{QL_MAX}` = Phase 8 상한 (티어 T 기준: standard 3 / light 2 / quick 2)
-- `{CWD}` = 현재 작업 디렉토리 (프로젝트 루트)
-- `{buildCommand}` 등 profile 변수 = Pre-flight에서 로드
+- `{CWD}` = 현재 작업 디렉토리 (프로젝트 루트) · `{buildCommand}` 등 profile 변수 = Pre-flight에서 로드
 
 ## 진입 검사 (모든 모드)
 
@@ -53,8 +51,7 @@ user-invocable: true
 
 - `--resume`이면 명시된 상태의 `## Run` MODE로 모드를 판별하고 경로 검증을 수행한다. 명시 모드 플래그와 충돌하면 `BLOCKED:RUN_MISMATCH`. `--analyze`와 `--verify`는 상호 배타적이다. 동시 지정은 진입 검사(`references/entry-contract.md`)가 `BLOCKED:MODE_CONFLICT`로 종료하며, 사유와 지원 조합을 안내한다.
 - Build 모드 전용 플래그 (Analyze/Verify 모드에서는 무시 — 구현 Phase를 경유하지 않음): `$HARD_MODE`와 `$PUBLISH_POLICY`는 진입 gate의 `hard`/`publish_policy` 값을 사용한다 · `--no-tdd`면 `$TDD = false` (기본값 `true`) · `--reflect`면 `$REFLECT = true` (기본값 = 공통 설정 `STEPS` reflect, 없으면 `false` — Phase 11 실행 여부) · `--tier` 값, 티어 이름을 지목한 지시, `작업 난이도: 하|중|상` 또는 착수 질문 응답이면 `$TIER_DECLARED` = 그 값 (기본값 `none` — 해석: `references/verification-tier.md` §1·§1.1).
-- **범위 지정**: 플래그 뒤 경로가 있으면 분석/검증 범위로 사용한다. 없으면 전체 코드베이스 (profile의 `sourceDirs` 기준).
-  예: `--analyze src/book`, `--verify src/book/handler.go`
+- **범위 지정**: 플래그 뒤 경로가 있으면 분석/검증 범위로 사용한다. 없으면 전체 코드베이스 (profile의 `sourceDirs` 기준). 예: `--analyze src/book`, `--verify src/book/handler.go`
 
 > **모든 모드에서 먼저 MUST**: `references/run-lifecycle.md`를 Read하고 경로 생성 또는 명시적 재개 검증을 완료한다 (Codex resolve·첫 dispatch 전).
 > **Analyze/Verify 모드 진입 시 MUST**: 같은 폴더의 `references/analyze-verify-modes.md`를 Read하고 해당 모드 절차를 따른다. 이하 본문은 Build 모드를 정의한다.
@@ -68,15 +65,13 @@ user-invocable: true
 신규 실행의 Phase 5에서만 `{STATE_FILE}`을 만들고 (검증된 재개는 덮어쓰기 금지), Phase 진입/완료 때마다 갱신한다 (오케스트레이터도 Phase owner로 기록).
 상태 파일은 `Run` / `Flags` / `Current Phase` / `Phase Assignments` / `Remaining Phases` / `Verification Tier` / `Codex Runtime` / `Phase Results` 섹션을 항상 포함한다 (템플릿: `references/templates.md`).
 
-- 에이전트 생성 전: 해당 Phase를 `IN_PROGRESS`로 갱신
-- 완료 후: `DONE` / `SKIPPED:{사유}` / `BLOCKED:{사유}` 와 결과 기록
+- 에이전트 생성 전: 해당 Phase를 `IN_PROGRESS`로 갱신 · 완료 후: `DONE` / `SKIPPED:{사유}` / `BLOCKED:{사유}` 와 결과 기록
 - 모든 에이전트 프롬프트에 상태 파일 경로, 현재 Phase, 남은 Phase, 배정 model/effort를 포함
 - `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·CODEX_MODELS·RUN_ID·START_SHA)는 컨텍스트 요약·세션 재개로 CLI 인자를 잃은 뒤 이어갈 때 **유일한 기준** — CLI 인자와 충돌하면 기록값 우선 + 고지. `run-lifecycle.md`의 재개 검증 성공이 선행 조건이며, `RUN_ID`는 Pre-flight에서 한 번만 생성한다.
 
 ### Model / Effort 선택 규칙
 
-Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `effort`를 명시한다. 호스트 Agent 도구가 `effort` 인자를 받지 않고 에이전트 frontmatter에도 `effort:`가 없으면 서브에이전트는 세션 effort를 상속한다 — 이때 `effort`는 배정 기록이지 적용값이 아니며, `CLAUDE_CODE_EFFORT_LEVEL` 환경변수는 `/model`·`/effort` 선택보다 우선해 값을 고정한다.
-환경별 모델명이 다르면 같은 등급의 사용 가능한 최신 모델로 치환한다.
+Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `effort`를 명시한다. 호스트 Agent 도구가 `effort` 인자를 받지 않고 에이전트 frontmatter에도 `effort:`가 없으면 서브에이전트는 세션 effort를 상속한다 — 이때 `effort`는 배정 기록이지 적용값이 아니며, `CLAUDE_CODE_EFFORT_LEVEL` 환경변수는 `/model`·`/effort` 선택보다 우선해 값을 고정한다. 환경별 모델명이 다르면 같은 등급의 사용 가능한 최신 모델로 치환한다.
 
 등급표 적용 전 **작업 성격을 먼저 판정**한다 — 탐색·이해 작업에 상위 모델을 쓰지 않는 것이 컨텍스트 절감의 핵심이다:
 
@@ -93,15 +88,14 @@ Agent 생성 시 작업 복잡도·난이도·작업량에 맞춰 `model`과 `ef
 | Complex | 난이도 7-8, 다중 레이어/API/DB/계약 영향 | opus | high |
 | Critical | 난이도 9-10, 보안/데이터 마이그레이션/대규모 리팩토링 | opus | xhigh |
 
-읽기 전용 리뷰는 기본 `Standard`, 보안/데이터 정합성/계약 변경 검토는 `Complex` 이상.
-코드 수정 에이전트는 담당 파일 수와 실패 반복 횟수에 따라 한 단계 높일 수 있다.
+읽기 전용 리뷰는 기본 `Standard`, 보안/데이터 정합성/계약 변경 검토는 `Complex` 이상. 코드 수정 에이전트는 담당 파일 수와 실패 반복 횟수에 따라 한 단계 높일 수 있다.
 검증·리뷰의 **판정**을 탐색·이해 작업으로 분류해 강등하지 않는다 (검출력 보존. 유일한 예외: 사망 복구 2차 재시도의 1단계 강등 — "축소 실행 내역"으로 고지).
 등급표는 Claude 경로에만 적용한다 — `codexMode: max`의 실행 주체·모델(Codex 슬롯 — 기본 OpenAI luna·sol)과 리뷰어 effort는 `references/codex-mode.md`가 정의한다.
 
 ## 자율 실행 규칙
 
 ```
-[유저 대화] Phase 1~4 : Spec, 난이도, 전략, Plan+리뷰
+[유저 대화] Phase 1~4 : Spec, 난이도, 전략, Plan+리뷰, API 계약 승인(4.4), FE 이슈(4.5)
 [상태 저장] Phase 5   : 브랜치 + 상태 파일 + 회귀 baseline 수집
 [자율 실행] Phase 6~11: 서브 에이전트 순차/병렬 위임 — 묻지 않고 자동 실행
 [유저 대화] Phase 12  : 최종 보고 + 보완점 적용
@@ -135,8 +129,7 @@ Codex 호출 실패는 이 규약 대상이 아니다 — `references/codex-mode
 
 ### Implementation Notes (라이브 판단 기록)
 
-자율 실행 중 발생하는 **설계 결정·편차·트레이드오프·미결 질문**을 코드와 분리해 `{IMPL_NOTES}`에 실시간으로 누적한다.
-유저는 자율 실행 중에도 파일을 직접 열어 비동기로 피드백할 수 있고, Phase 12에서 Workflow Report 부록 C로 원문이 보존된다.
+자율 실행 중 발생하는 **설계 결정·편차·트레이드오프·미결 질문**을 코드와 분리해 `{IMPL_NOTES}`에 실시간으로 누적한다. 유저는 자율 실행 중에도 파일을 직접 열어 비동기로 피드백할 수 있고, Phase 12에서 Workflow Report 부록 C로 원문이 보존된다.
 
 핵심 규칙 (파일 초기화 템플릿·4-섹션 구조: `references/templates.md`):
 
@@ -150,7 +143,7 @@ Codex 호출 실패는 이 규약 대상이 아니다 — `references/codex-mode
 신규 실행은 `.claude/be-harness.local.md`를 Read하여 아래 값을 추출한다. Verify 재개는 live profile 조회 전에 run-lifecycle의 resume으로 VERIFY_COMMANDS를 검증·복원하고 명령 4종을 다시 해석하지 않는다:
 
 `{buildCommand}`, `{testCommand}`, `{lintCommand}`, `{typeCheckCommand}`, `{makeTestCommand}`,
-`{runServerCommand}`, `{serverUrl}`, `{e2eEnabled}`, `{apiDocsPath}`,
+`{runServerCommand}`, `{serverUrl}`, `{e2eEnabled}`, `{apiDocsPath}`, `{frontendRepo}`,
 `{sourceDirs}`, `{testDirs}`, `{mainBranch}`, `{featureBranchPrefix}`, `{hotfixBranchPrefix}`,
 `{commitPrefixes}`, `{commitCoAuthor}`, `{projectConventions}`, `{language}`
 
@@ -243,6 +236,7 @@ Spec 아래에 구현 계획을 추가하여 **Spec+Plan 단일 산출물**로 �
 - 구현 순서 (파일 단위), 각 파일 변경 내용 요약
 - **최종 코드 구조**: 중복 로직이 예상되면 최종 구조(테이블 드리븐, 공통 함수 추출 등)를 Plan 단계에서 확정 — 구현 후 리팩토링 커밋 방지
 - 의존 관계, 예상 리스크
+- **API 계약 초안** (작업 유형이 API 생성/수정/삭제일 때만): `## API Contract` 표 — 형식은 `references/api-contract.md` §2 (Read 후 작성)
 
 **parallel-slices 추가 요구사항**: Plan에 `## Slices` 섹션을 명시한다 (Slice별 제목/파일 범위/설명, 최대 3개).
 슬라이스 간 파일 범위가 겹치면 `sequential`로 전략을 변경한다.
@@ -303,7 +297,11 @@ for iteration in 1..{PLAN_MAX}:
 
 ### Phase 4.4: Plan 확정
 
-최종 Plan으로 티어 T와 Plan 깊이 P를 재판정해 승인 기준선 R0를 확정한다 (상향만 — P가 올라 건너뛴 4.2·4.3은 새 P로 실행 후 복귀, T만 오르면 재실행 없음, `references/verification-tier.md` §2·§2.1·§3). 작업 계약의 완료 조건·티어·원격 효과를 Plan과 함께 공유하고 같은 Spec·Plan·대상·효과의 기존 승인을 확인한다. 일치하면 추가 확인 질문 없이 재사용하고, 미승인 변경만 구체적으로 승인받는다. 루프 종료 후 `ExitPlanMode`를 실행하며 호스트가 요구하는 승인은 따른다. 상태 파일 하단에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
+최종 Plan으로 티어 T와 Plan 깊이 P를 재판정해 승인 기준선 R0를 확정한다 (상향만 — P가 올라 건너뛴 4.2·4.3은 새 P로 실행 후 복귀, T만 오르면 재실행 없음, `references/verification-tier.md` §2·§2.1·§3). 작업 계약의 완료 조건·티어·원격 효과를 Plan과 함께 공유하고 같은 Spec·Plan·대상·효과의 기존 승인을 확인한다. 일치하면 추가 확인 질문 없이 재사용하고, 미승인 변경만 구체적으로 승인받는다. API 작업이면 이 승인 화면에서 `## API Contract` 표를 별도 항목으로 먼저 승인받는다 (`references/api-contract.md` §3). 루프 종료 후 `ExitPlanMode`를 실행하며 호스트가 요구하는 승인은 따른다. 상태 파일 하단에 `Plan Verification Summary`(Total Iterations / Convergence / 잔존 이슈)를 기록한다.
+
+### Phase 4.5: FE 이슈 (API 계약 변경 시)
+
+> Phase 4.5 진입 시 MUST: `references/api-contract.md`를 Read하고 따른다. API 작업이 아니면 `SKIPPED:NO_API_CHANGE`. 4.4에서 승인한 계약 표에 외부 계약 변경이 있으면 FE 이슈 초안을 보여 주고 승인 후 profile `frontendRepo`에 등록한다 (초안·URL은 `{RUN_DIR}/fe-issue.md`에 바로 기록, 중복 검사 후 생성, 빈 값·거절·실패는 기록만 하고 계속). 이후 Phase는 바뀌지 않는다.
 
 ## Phase 5: 브랜치 + 상태 파일 + Baseline + 자율 실행 시작
 
@@ -314,7 +312,7 @@ for iteration in 1..{PLAN_MAX}:
 **상태 파일 생성**:
 
 > Phase 5 진입 시 MUST: 같은 폴더의 `references/templates.md`를 Read하고
-> ① "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다. Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, 실행 전략, (parallel-slices 시) Slices, **Phase 4.3의 `Plan Verification Log`**를 복사해 넣고, `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·CODEX_MODELS·RUN_ID·START_SHA)·`## Verification Tier`·`## Codex Runtime`(`$CODEX_RUNTIME` 값 그대로 — `active`로 초기화하지 않음)을 기록한다 (`CODEX_MODELS` = `$CODEX_MODELS` 확정값 — `tiered`는 Phase 4.1에서 동결한 난이도로 확정).
+> ① "상태 파일 템플릿"대로 `{STATE_FILE}`을 생성한다. Spec 전문, 정상 흐름·엣지 케이스 목록, 확정 Plan 전문, 실행 전략, (parallel-slices 시) Slices, **Phase 4.3의 `Plan Verification Log`**, Phase 4.4·4.5의 API 계약 결과(`## API Contract`)를 복사해 넣고, `## Flags`(MODE·HARD_MODE·TDD·REFLECT·TIER·CODEX·CODEX_MODELS·RUN_ID·START_SHA)·`## Verification Tier`·`## Codex Runtime`(`$CODEX_RUNTIME` 값 그대로 — `active`로 초기화하지 않음)을 기록한다 (`CODEX_MODELS` = `$CODEX_MODELS` 확정값 — `tiered`는 Phase 4.1에서 동결한 난이도로 확정).
 > ② "Implementation Notes 라이브 파일 초기화" 템플릿대로 `{IMPL_NOTES}`를 생성한다 (신규 실행만 생성, 재개 시 보존).
 
 **회귀 Baseline 수집 (TDD 활성 시)**:
@@ -452,7 +450,7 @@ scope 마감은 references/review-evidence.md의 check-scope와 check-current --
 | 코드 | 의미 |
 |------|------|
 | `DONE` / `IN_PROGRESS` / `PENDING` | Phase 진행 상태 |
-| `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 (예: `SKIPPED:PROFILE_EMPTY`, `SKIPPED:USER_OPT_OUT`, `SKIPPED:NO_TEST_BASIS`, `SKIPPED:REFLECT_NOT_REQUESTED`, `SKIPPED:TIER_LIGHT`, `SKIPPED:TIER_QUICK`, `SKIPPED:PLAN_QUICK`, `SKIPPED:BUDGET_PRESERVED`, `SKIPPED:AGENT_DIED`) |
+| `SKIPPED:{사유}` | 조건 미충족으로 건너뜀 (예: `SKIPPED:PROFILE_EMPTY`, `SKIPPED:USER_OPT_OUT`, `SKIPPED:NO_TEST_BASIS`, `SKIPPED:REFLECT_NOT_REQUESTED`, `SKIPPED:TIER_LIGHT`, `SKIPPED:TIER_QUICK`, `SKIPPED:PLAN_QUICK`, `SKIPPED:BUDGET_PRESERVED`, `SKIPPED:AGENT_DIED`, `SKIPPED:NO_API_CHANGE`, `SKIPPED:NO_EXTERNAL_CHANGE`, `SKIPPED:FRONTEND_REPO_EMPTY`, `SKIPPED:USER_DECLINED`, `SKIPPED:GH_UNAVAILABLE`) |
 | `BLOCKED:{사유}` | 진행 불가 — 사용자 개입 필요 (예: `BLOCKED:BUILD_FAIL`, `BLOCKED:MAX_ITERATIONS`, `BLOCKED:NO_VALID_RED`, `BLOCKED:REGRESSION_AT_RED`, `BLOCKED:TEST_NOT_GREEN`, `BLOCKED:AGENT_DIED`) |
 | `PASS` / `WARN` / `FAIL` | Verify 모드 판정, 테스트 판정, Read-back 판정 |
 
@@ -470,6 +468,7 @@ TDD 진단 분류(`red_assertion`·`already_satisfied`·`cannot_compile`·`defer
 | `references/tdd.md` | Phase 5 (TDD 판정·baseline), Phase 6 진입 시 |
 | `references/agent-prompts.md` | Phase 6 진입 시 (Phase 6.2/7/9/10/11 프롬프트) + 에이전트 사망 시 (공통 규약 — 미로드면 즉시 Read) |
 | `references/quality-loop.md` | Phase 8 진입 시 |
+| `references/api-contract.md` | Phase 4.1 (API 작업 — 계약 초안), 4.4 (계약 승인), 4.5 (FE 이슈), 12 (FE 이슈 보고) |
 | `references/codex-mode.md` | 첫 리뷰어/위임 dispatch 직전 1회 (재개 포함) — Codex 모드 정의·호출 계약·쓰기 안전·Claude 패널·실패 정책 |
 
 ## 흐름 요약 (Build)
@@ -480,6 +479,7 @@ Phase 1: EnterPlanMode → /request 또는 직접 Technical Spec + 작업 계약
 Phase 2: 티어 선언 확인 (--tier · 작업 난이도 · 착수 질문 — 산정·판정은 4.1 끝)
 Phase 3: 실행 전략 판정 (sequential / parallel-slices / fullstack → /common:start-workflow --fs 로 전환)
 Phase 4: Plan 작성 → 난이도·티어·Plan 깊이 판정 → 다관점 1회 보강 → 검증 루프 (리뷰어 = codexMode: Codex `review` 슬롯 | Claude 패널, 최대 {PLAN_MAX}회 — Plan 깊이 quick은 둘 다 SKIP) → 재판정·ExitPlanMode
+Phase 4.5: 외부 계약 변경 시 FE 이슈 초안 → 승인 후 frontendRepo에 등록 (API 계약 표는 4.4 승인 화면에서 먼저 승인, API 작업 아니면 SKIP)
 Phase 5: feature 브랜치 + 상태 파일 + implementation-notes.md + 회귀 baseline → "자율 실행 시작"
 
 [자율 실행 — 유저 확인 없이 완주. codexMode max: 리프 에이전트를 Codex 슬롯(`explore`/`judge` 읽기 · `write` 쓰기)으로 위임 — codex-mode.md]

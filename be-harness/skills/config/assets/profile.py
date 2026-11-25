@@ -49,7 +49,8 @@ def schema(domain):
     result.update({k: "array" for k in ARRAYS})
     result.update(language=ENUMS["language"], codexMode=ENUMS["codexMode"], codexModels="block")
     if domain == "be":
-        result.update(preset=("go", "node", "custom"), e2eEnabled="bool", makeTestCommand="string", apiDocsPath="string")
+        result.update(preset=("go", "node", "custom"), e2eEnabled="bool", makeTestCommand="string", apiDocsPath="string",
+                      frontendRepo="string")
     elif domain == "fe":
         result.update(ENUMS)
         result.update(preset=("node",), typescript="bool", storybook="bool", framework="string",

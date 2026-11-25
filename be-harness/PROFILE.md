@@ -38,6 +38,8 @@ runServerCommand: ""       # 로컬 서버 기동 커맨드 (백그라운드 실
 serverUrl: "http://localhost:8080"
 e2eEnabled: true           # false면 e2e-test, e2e-test-loop 스킵
 apiDocsPath: ""            # OpenAPI/Swagger 스펙 파일 경로. 없으면 생략.
+frontendRepo: ""           # FE 레포(owner/repo). API 외부 계약이 바뀌면 start-workflow Phase 4.5가 승인 후 이 레포에 이슈를 만든다.
+                           # 비우면 이슈 초안만 보고서에 남긴다.
 e2eLockDir: ""             # E2E 실행 락 디렉토리. 비우면 자동 해석
                            # (공통 기본값 /tmp/harness-e2e-locks; 같은 socket 자원의 모든 실행에서 동일 경로).
                            # 환경변수 HARNESS_E2E_LOCK_DIR 로도 지정 가능.
