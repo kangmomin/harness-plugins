@@ -218,6 +218,7 @@ Agent tool:
     남은 Phase: Phase 11, 12
     배정 model/effort: {model}/{effort}
     PR URL을 반드시 보고하세요.
+    상태 파일 `## API Contract`에 FE 이슈 URL이 있으면 PR 본문에 `FE 이슈: {URL}` 1줄을 넣으세요.
     Assumption Gate에 걸리면 push/PR 없이 BLOCKED:ASSUMPTION_UNRESOLVED와 태그 목록을 보고하세요.
 ```
 
