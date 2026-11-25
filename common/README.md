@@ -69,7 +69,7 @@
 | 스킬 | 호출 | 설명 |
 |------|------|------|
 | **how-to-use** | `/common:how-to-use` | 설치된 모든 harness 플러그인의 스킬 목록·사용법 안내. 플래그로 특정 하네스만 좁히기 가능 |
-| **submit-feedback** | `/common:submit-feedback` | 수집된 범용 보완점을 플러그인 레포 `community-feedback/` 에 PR 제출. 대상 플러그인은 플래그·보완점 경로·프로젝트 구조 순으로 판별. 로컬 보존본은 `<base>/feedback-submissions/<project>/<plugin>/` |
+| **submit-feedback** | `/common:submit-feedback` | 수집된 범용 보완점과 페이퍼컷 기록(`--papercuts`)을 플러그인 레포 `community-feedback/` 에 PR 제출. 대상 플러그인은 플래그·보완점 경로·프로젝트 구조 순으로 판별. 로컬 보존본은 `<base>/feedback-submissions/<project>/<plugin>/` |
 
 ## 사용 예시
 

@@ -1,8 +1,8 @@
 ---
 name: submit-feedback
-description: "harness 플러그인 사용 중 수집된 범용 보완점을 플러그인 레포(kangmomin/harness-plugins)의 community-feedback 영역에 PR로 제출한다. '피드백 보내줘', '보완점 PR 올려줘' 요청 시 사용. 원격 제출 전 로컬에 먼저 보존하며, 제출이 실패해도 로컬 보존본은 남는다."
+description: "harness 플러그인의 보완점과 페이퍼컷 기록을 플러그인 레포에 PR 로 제출한다. '피드백 보내줘', '보완점 PR 올려줘' 요청 시 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
-argument-hint: "[--be|--fe|--mm|--hd] <보완점 항목 JSON> 또는 대화 컨텍스트에서 수집"
+argument-hint: "[--be|--fe|--mm|--hd] [--papercuts] <보완점 항목 JSON> 또는 대화 컨텍스트에서 수집"
 user-invocable: true
 ---
 
@@ -17,6 +17,14 @@ user-invocable: true
 현재 세션의 실제 plugin metadata와 upstream manifest에서 대상 plugin·repo·default branch를 확인한다. `--be|--fe|--mm|--hd`는 확인된 논리 역할 필터로 사용한다. 여러 plugin이면 각각 처리한다. 대상이 모호하면 내용 정리까지 진행하고 대상만 확인받는다.
 
 입력은 `{plugin, date: YYYY-MM-DD, items:[...]}`다. 각 항목은 `target_type: skill|agent|common`, 단일 경로 성분인 `target_name`, `summary`, `context`, `proposal`, `generality: 범용|특정 조건|프로젝트 한정`, 선택 `condition`을 가진다. 사내 용어·시크릿·개인 정보가 있는 본문은 외부 제출 전 범용화해 구체적인 diff로 검토한다. 프로젝트 한정 항목은 외부 제출에서 제외한다.
+
+### 페이퍼컷 저장소에서 수집 (`--papercuts`)
+
+common mod 는 에이전트가 스킬 실행 중 겪은 마찰을 로컬 저장소에 기록하게 한다. `--papercuts` 가 있거나 사용자가 그 기록의 제출을 요청하면, 대상 plugin 마다 이 스킬 폴더 기준 `../../hooks/papercut.py export --cwd . --plugin {plugin}` 을 실행해 `payload` 를 받는다. 기록이 없으면 `NO_CHANGES` 로 끝낸다.
+
+- 같은 스킬의 비슷한 항목은 하나로 묶고 건수와 묶인 `id` 를 `context` 에 적는다. 제출할 항목은 사용자가 고른다.
+- `generality` 는 비어 있다. 항목마다 사용자에게 확인해 채운다. `proposal` 이 빈 항목은 제안을 작성하거나 제외한다.
+- 제출 결과가 `SUBMITTED` 또는 `ALREADY_SUBMITTED` 이면 그 항목에 묶인 모든 `id` 를 `papercut.py mark --cwd . --ids {id,...}` 로 목록에서 뺀다. 사용자가 제외했거나 `프로젝트 한정` 인 항목도 같은 명령으로 닫는다. 그 밖의 결과면 기록을 그대로 둔다.
 
 ## 2. 로컬 보존 — 인증·네트워크 점검보다 먼저
 

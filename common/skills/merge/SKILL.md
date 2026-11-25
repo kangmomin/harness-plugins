@@ -1,6 +1,6 @@
 ---
 name: merge
-description: "현재 브랜치 또는 지정한 PR을 머지한다. 머지 전 doc-gen으로 PR 요약을 생성해 컨펌받고 머지 방식(일반/스쿼시/리베이스)을 선택한다. '머지해줘', 'PR 머지', '#42 머지' 요청 시 사용."
+description: "현재 브랜치 또는 지정한 PR을 요약 확인 뒤 머지한다. '머지해줘', 'PR 머지', '#42 머지' 요청 시 사용."
 allowed-tools: AskUserQuestion, Bash, Read, Skill
 argument-hint: "[PR번호]"
 user-invocable: true

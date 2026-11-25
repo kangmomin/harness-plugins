@@ -1,14 +1,12 @@
 ---
 name: doctor
-description: "work-log 플러그인 상태를 진단한다. MCP 연결·스코프 설정·인덱스 신선도를 점검. '진단해줘', 'work-log 왜 안 돼', 검색이 실패하거나 설정이 의심될 때 사용."
+description: "work-log 플러그인 상태(MCP 연결, 스코프, 인덱스)를 진단한다. 'work-log 왜 안 돼', 검색이 실패하거나 설정이 의심될 때 사용."
 allowed-tools: Bash, Read
 ---
 
 # work-log Doctor
 
-## Language Rule
-
-유저와의 모든 대화는 **한국어**로 진행한다.
+**Language**: 유저와의 모든 대화는 **한국어**로 진행한다.
 
 Claude Code에서는 `/work-log:doctor`, Codex에서는 `$work-log:doctor` 로 명시 호출할 수 있다.
 MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시작하는 기본 이름을 기준으로 찾는다.

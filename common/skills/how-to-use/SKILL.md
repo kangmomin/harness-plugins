@@ -1,6 +1,6 @@
 ---
 name: how-to-use
-description: "설치된 harness 플러그인의 스킬 목록과 사용법을 안내한다. '어떤 스킬 있어?', '사용법 알려줘', '뭐 할 수 있어?', 플러그인을 처음 쓸 때 사용. 특정 하네스만 보려면 대상 플래그를 붙인다."
+description: "설치된 harness 플러그인의 스킬 목록과 사용법을 안내한다. '어떤 스킬 있어?', '사용법 알려줘' 요청 시 사용."
 user-invocable: true
 allowed-tools: AskUserQuestion, Read, Glob, Bash, Skill
 argument-hint: "[--be|--fe|--mm|--hd] [스킬명]"

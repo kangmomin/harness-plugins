@@ -1,14 +1,12 @@
 ---
 name: edit
-description: "work-log 에 문서를 작성하거나 기존 문서를 수정한다. '작업 기록 남겨줘', 'work-log 에 정리해줘', '이 내용 문서로 저장', 회의록·결정 사항·보고서를 vault 에 남길 때 사용. 기존 문서의 frontmatter 를 보존하고 비파괴 규칙을 지킨다."
+description: "work-log 에 문서를 작성하거나 기존 문서를 수정한다. '작업 기록 남겨줘', 'work-log 에 정리해줘', '이 내용 문서로 저장' 요청 시 사용."
 allowed-tools: Bash, Read, Grep, AskUserQuestion
 ---
 
 # work-log 문서 작성 · 수정
 
-## Language Rule
-
-유저와의 모든 대화는 **한국어**로 진행한다.
+**Language**: 유저와의 모든 대화는 **한국어**로 진행한다.
 
 Claude Code에서는 `/work-log:edit`, Codex에서는 `$work-log:edit` 로 명시 호출할 수 있다.
 MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시작하는 기본 이름을 기준으로 찾는다.

@@ -1,6 +1,6 @@
 ---
 name: default-conventions
-description: "be-harness 메인테이너 개인 개발 컨벤션 (사내 공통 컨벤션 아님, 컨벤션 참조 문서). convention-check가 검사 기준으로 로드하며, 코드 작성 원칙이 궁금할 때도 사용. 프로젝트별 세부 컨벤션은 CLAUDE.md 또는 profile의 projectConventions에서 로드한다."
+description: "be-harness 메인테이너 개인 개발 컨벤션 참조 문서 (사내 공통 아님). convention-check 의 검사 기준이며, 코드 작성 원칙이 궁금할 때 사용."
 user-invocable: true
 ---
 

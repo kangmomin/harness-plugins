@@ -1,6 +1,6 @@
 ---
 name: doctor
-description: "minmos-harness 플러그인의 모든 의존성 상태(MCP·secret·도구)를 한 번에 진단한다. 워크플로우가 SKIP을 내거나 설정이 의심될 때, '환경 진단해줘' 요청 시 사용. MCP 판정 원칙의 canonical."
+description: "minmos-harness 의존성(MCP·secret·도구) 상태를 진단한다. 워크플로우가 SKIP 을 내거나 '환경 진단해줘' 요청 시 사용."
 allowed-tools: Read, Glob, Grep, Bash
 user-invocable: true
 ---
@@ -9,9 +9,7 @@ user-invocable: true
 
 플러그인이 정상 동작하기 위한 모든 의존성을 한 번에 점검하고, 문제가 있으면 해결 방법을 안내한다.
 
-## Language Rule
-
-유저와의 모든 대화는 **한국어**로 진행한다.
+**Language**: 유저와의 모든 대화는 **한국어**로 진행한다.
 
 ---
 

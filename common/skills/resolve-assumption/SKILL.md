@@ -1,6 +1,6 @@
 ---
 name: resolve-assumption
-description: "코드·커밋 메시지에 남은 `[Assumption]` 추론 태그를 항목별로 하나씩 확인받아 해소한다. 'assumption 해소해줘', '추론 태그 정리해줘', '가정한 것들 확인해줘', push 전에 미리 태그를 정리하고 싶을 때 사용. 승인된 항목은 태그만 삭제하며 '확정' 같은 대체 워딩을 남기지 않는다."
+description: "코드·커밋 메시지의 `[Assumption]` 태그를 항목별로 확인받아 해소한다. 'assumption 해소해줘', '추론 태그 정리해줘' 요청 시 사용."
 user-invocable: true
 allowed-tools: Bash, Read, Edit, Grep, Glob, AskUserQuestion, Skill
 argument-hint: "[경로|--worktree|--branch|--commits]"

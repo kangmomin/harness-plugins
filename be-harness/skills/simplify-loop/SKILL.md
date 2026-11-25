@@ -1,6 +1,6 @@
 ---
 name: simplify-loop
-description: "변경 코드의 단순화 후보를 4관점 리뷰 Workflow 루프로 수렴할 때까지 반복 적용한다 (최대 10회, Workflow tool 미지원 시 빌트인 /simplify 반복 폴백). 구현 직후 코드 단순화 정리, '심플리파이 돌려줘', '코드 간소화' 요청 시 사용. start-workflow 품질 루프에서 자동 호출됨."
+description: "변경 코드의 단순화 후보를 리뷰 루프로 수렴할 때까지 반복 적용한다. 구현 직후 '심플리파이 돌려줘', '코드 간소화' 요청 시 사용."
 user-invocable: true
 ---
 

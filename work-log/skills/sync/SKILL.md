@@ -1,6 +1,6 @@
 ---
 name: sync
-description: "work-log vault 를 재스캔해 문서 인덱스를 갱신하고 drift 리포트를 보고한다. '인덱스 갱신해줘', 'work-log 동기화', 새 문서를 추가한 뒤 검색이 안 될 때, 문서 정리 상태를 점검할 때 사용. 기존 문서 파일은 절대 수정하지 않는다."
+description: "work-log vault 를 재스캔해 문서 인덱스를 갱신하고 drift 를 보고한다. '인덱스 갱신해줘', 'work-log 동기화', 새 문서가 검색되지 않을 때 사용."
 allowed-tools: Bash, Read
 ---
 
@@ -10,9 +10,7 @@ vault 를 전체 재스캔해 인덱스를 다시 만들고, 무엇이 바뀌었
 
 쓰기/sync는 Linux/macOS의 Python 3.9 이상을 사용한다. `wiki_status.safeIO`가 unavailable이면 원인을 보고한다. 인덱스 잠금은 mtime으로 탈취하지 않으며, timeout을 풀기 위해 `index.lock`을 삭제하지 않는다. 업그레이드 전 같은 vault의 구버전 MCP 서버를 모두 종료한다.
 
-## Language Rule
-
-유저와의 모든 대화는 **한국어**로 진행한다.
+**Language**: 유저와의 모든 대화는 **한국어**로 진행한다.
 
 Claude Code에서는 `/work-log:sync`, Codex에서는 `$work-log:sync` 로 명시 호출할 수 있다.
 MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시작하는 기본 이름을 기준으로 찾는다.

@@ -12,6 +12,8 @@ from agent_contract import validate as validate_agent
 
 SKILL_FIELDS = {'name', 'description', 'allowed-tools', 'argument-hint', 'user-invocable',
                 'disable-model-invocation', 'model', 'context', 'agent', 'metadata', 'license', 'compatibility'}
+# description 은 스킬을 쓰지 않는 세션에도 매번 로드된다. 그래서 길이를 제한한다 (docs/skill-authoring.md 1절).
+DESCRIPTION_LIMIT = 120
 EXCLUDED_DIRS = {'node_modules', '__pycache__', 'community-feedback', '.git'}
 EXAMPLE_LINKS = {
     'common/skills/start-workflow/references/contract-templates.md': {'범위 밖'},
@@ -138,6 +140,7 @@ def check(root):
                     require(not set(meta) - SKILL_FIELDS, relative + ': unsupported skill fields')
                     require(meta.get('name') == path.parent.name, relative + ': skill name mismatch')
                     require(isinstance(meta.get('description'), str) and bool(meta['description'].strip()), relative + ': description missing')
+                    require(len(str(meta.get('description') or '')) <= DESCRIPTION_LIMIT, relative + ': description too long (limit ' + str(DESCRIPTION_LIMIT) + ')')
             if path.parent.name == 'agents':
                 try:
                     validate_agent(path)

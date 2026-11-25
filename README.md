@@ -8,6 +8,17 @@ Technical Spec 작성, Plan 리뷰, 테스트 선작성(TDD), 구현, 품질 루
 
 Spec에는 대상·기준 문서·완료 조건·승인 범위를 짧은 작업 계약으로 남긴다. 같은 승인과 결정을 인계하고, 필수 검증 이후 추가 리뷰는 새 근거가 있을 때 수행한다. 테스트 기대값과 역할별 권한 조건은 현재 요구에서 정한다. 공통 기준은 [작업 계약과 실행 원칙](be-harness/skills/start-workflow/references/execution-policy.md)에 있으며 BE/FE/common 패키지에 동일하게 포함된다.
 
+## 2026-11-25 스킬 description 예산·페이퍼컷·eval 파일럿
+
+BE 1.14.1 / FE 1.13.1 / common 0.24.0 / minmos 2.8.1 / hyeondongs 3.1.1 / work-log 0.7.1 스킬을 늘리는 대신 줄이고 평가하는 장치를 넣었다 (Uber 의 스킬 평가 글을 참고했다). 정본 문서는 [docs/skill-evals.md](docs/skill-evals.md).
+
+- description 예산: 스킬 53개의 `description` 을 기능 1문장 + 트리거 2개 기준으로 줄였다 (합계 7,808자 → 4,598자). `scripts/check_contracts.py` 가 120자 상한을 검사한다. `claude plugin details` 기준으로 항상 로드되는 토큰은 6개 플러그인 합계 약 8,200 → 약 5,500 이다.
+- 페이퍼컷: common mod 가 `harnessPapercut` 컨텍스트 블록을 넣는다. 에이전트는 스킬 실행 중 마찰(틀린 지시, 설명과 다른 명령 결과, 우회)을 `common/hooks/papercut.py record` 로 기록한다. 저장소 밖 로컬 JSONL 이며 자동으로 외부에 보내지 않는다. `/common:submit-feedback --papercuts` 가 기록을 제출 항목으로 바꾼다.
+- eval 파일럿: `{plugin}/evals/{skill}/` 에 명세(`spec.md`)와 `claude plugin eval` 사례를 둔다. common 은 트리거 10개·행동 2개, be-harness 는 트리거 4개·행동 1개다. CI 에는 넣지 않는다 (모델 실행 비용).
+- 본문: be/fe `start-workflow` 의 `흐름 요약`(Phase 본문과 중복)을 지웠다. `## Language Rule` 섹션 25곳을 `**Language**:` 한 줄로 바꿨다. `ready-for-impl` 에서 AskUserQuestion 도구 제약을 다시 쓴 구절을 지웠다.
+- 작성 규칙: `docs/skill-authoring.md` 에 description 상한, "모델이 이미 아는 내용을 쓰지 않는다", 평가·폐기 절(12절)을 추가했다.
+- 검증: 고치기 전과 후에 같은 사례 17개를 실행했고 두 번 모두 17개를 통과했다 (트리거 14, 행동 3). 행동 사례의 스킬 on/off 점수는 전후가 같다 (on 1.00, off 0~0.33).
+- 남은 한계: 본문은 근거가 있는 중복만 지웠다. 큰 스킬(`start-workflow`, `sync-base`, `after-meeting`, `ready-for-impl`)의 문장 단위 축소는 scaffold 가 필요한 행동 사례가 생긴 뒤에 한다. fe/minmos/hyeondongs/work-log 는 eval 사례가 없다. 페이퍼컷 블록은 Claude Code mod 전용이고, 실제 세션에서 에이전트가 기록하는 빈도는 확인 전이다. 에이전트 14개의 `description` 과 참조 문서 스킬의 `disable-model-invocation` 전환은 하지 않았다.
 ## 2026-11-25 harness-plugin 공통 폴더 (#38)
 
 BE 1.14.0 / FE 1.13.0 / common 0.23.0 / minmos 2.8.0 / hyeondongs 3.1.0 / work-log 0.7.0. 문서·run 폴더·e2e 공통 스크립트의 위치를 SKILL 지시문이 아니라 helper 코드가 환경변수로 정한다. 설정이 없으면 `~/.harness-plugin/` 아래를 쓴다.
@@ -338,6 +349,7 @@ Claude Code marketplace 정의는 `.claude-plugin/marketplace.json` 에 있다.
 ## 참고 문서
 
 - `docs/skill-authoring.md`: 스킬 작성 표준 (모든 플러그인 SKILL.md의 기준)
+- `docs/skill-evals.md`: 스킬 명세·eval 사례·페이퍼컷 기록·폐기 절차
 - `docs/overlay.md`: 오버레이 규약 (앵커 기반 Phase 삽입, 두 적용 경로, 승격 기준)
 - `docs/codeact-review.md`: CodeAct(Code Mode) 적용 검토와 mod 영향
 - `common/README.md`: 진입점 + 공용 스킬

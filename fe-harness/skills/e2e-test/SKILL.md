@@ -16,9 +16,7 @@ user-invocable: true
 
 Playwright 기반으로 사용자 시나리오를 E2E 테스트한다.
 
-## Language Rule
-
-유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
+**Language**: 유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
 
 ---
 

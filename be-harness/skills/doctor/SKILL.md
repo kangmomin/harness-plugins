@@ -1,6 +1,6 @@
 ---
 name: doctor
-description: "be-harness 환경 상태를 진단한다. profile 유효성, 명령 실행 가능성, Git 상태, convention 설정을 점검. 워크플로우가 SKIP을 내거나 설정이 의심될 때, '환경 진단해줘' 요청 시 사용."
+description: "be-harness 환경(profile, 명령, Git, 컨벤션 설정)을 진단한다. 워크플로우가 SKIP 을 내거나 '환경 진단해줘' 요청 시 사용."
 allowed-tools: Read, Glob, Grep, Bash
 user-invocable: true
 ---

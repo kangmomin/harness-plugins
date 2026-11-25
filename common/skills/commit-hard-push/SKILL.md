@@ -1,6 +1,6 @@
 ---
 name: commit-hard-push
-description: "보호 브랜치 제한 없이 /commit 진행 후 현재 브랜치에 그대로 push한다. main 등 보호 브랜치에 직접 push해야 할 때, '그냥 현재 브랜치에 올려줘' 요청 시 사용."
+description: "보호 브랜치 제한 없이 커밋하고 현재 브랜치에 그대로 push한다. main 에 직접 push 해야 할 때, '그냥 현재 브랜치에 올려줘' 요청 시 사용."
 user-invocable: true
 ---
 

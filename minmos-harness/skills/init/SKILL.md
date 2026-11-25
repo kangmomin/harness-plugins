@@ -1,6 +1,6 @@
 ---
 name: init
-description: "minmos-harness 플러그인의 모든 사전 세팅(MCP·secret·훅)을 한 번에 진행한다. 플러그인 최초 설정, '초기화해줘', doctor가 MISSING을 보고할 때 사용."
+description: "minmos-harness 사전 세팅(MCP·secret·훅)을 한 번에 진행한다. 최초 설정, '초기화해줘', doctor 가 MISSING 을 보고할 때 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 ---
@@ -9,9 +9,7 @@ user-invocable: true
 
 플러그인에서 사용하는 모든 외부 의존성을 한 번에 세팅한다.
 
-## Language Rule
-
-유저와의 모든 대화는 **한국어**로 진행한다.
+**Language**: 유저와의 모든 대화는 **한국어**로 진행한다.
 
 ---
 

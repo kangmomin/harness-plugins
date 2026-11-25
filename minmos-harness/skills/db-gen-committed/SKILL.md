@@ -1,6 +1,6 @@
 ---
 name: db-gen-committed
-description: "db-gen으로 migration 파일을 생성하고 자동으로 committed 상태로 변환한다. '마이그레이션 만들어줘(커밋 상태로)', 신규 테이블/컬럼 추가 시 사용. db-tools 플러그인 선행 설치 필요."
+description: "db-gen 으로 migration 파일을 만들고 committed 상태로 바꾼다 (db-tools 플러그인 필요). '마이그레이션 만들어줘', 테이블/컬럼 추가 시 사용."
 user-invocable: true
 ---
 

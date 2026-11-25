@@ -1,6 +1,6 @@
 ---
 name: request
-description: "작업 유형별(생성/수정/검토/디버깅) 단계적 질문을 통해 실행 가능한 Technical Spec을 생성한다. 'API 만들어줘', '스펙 정리해줘', 요구사항이 모호해 명세가 필요할 때 사용. start-workflow Phase 1에서 자동 호출됨."
+description: "단계적 질문으로 백엔드 작업의 Technical Spec 을 만든다. 'API 만들어줘', '스펙 정리해줘', 요구사항이 모호할 때 사용."
 allowed-tools: AskUserQuestion, Read, Glob, Grep, Agent
 argument-hint: <기능 설명 또는 요청>
 user-invocable: true

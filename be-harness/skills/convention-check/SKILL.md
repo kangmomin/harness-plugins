@@ -1,6 +1,6 @@
 ---
 name: convention-check
-description: "프로젝트 컨벤션 위배 사항을 검사하고 보고한다 (보고 전용 — 코드를 수정하지 않음). 커밋/PR 전 점검, '컨벤션 검사해줘' 요청 시 사용. --init으로 적용 컨벤션 선택, --doctor로 설정 진단."
+description: "프로젝트 컨벤션 위반을 검사하고 보고한다 (코드는 수정하지 않는다). 커밋/PR 전 점검, '컨벤션 검사해줘' 요청 시 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 ---

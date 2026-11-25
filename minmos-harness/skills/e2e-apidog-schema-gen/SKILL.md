@@ -1,6 +1,6 @@
 ---
 name: e2e-apidog-schema-gen
-description: "E2E 테스트 결과(요청/응답 실측)를 기반으로 Apidog 명세의 응답 케이스를 추가하고 스키마를 보정한다. e2e-test 실행 후 'Apidog 명세 보정해줘', 'E2E 결과로 문서 갱신' 요청 시 사용."
+description: "E2E 테스트 실측 결과로 Apidog 명세의 응답 케이스를 추가하고 스키마를 보정한다. 'Apidog 명세 보정해줘', 'E2E 결과로 문서 갱신' 요청 시 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, WebFetch
 argument-hint: <API 경로 또는 'all'>
 user-invocable: true
@@ -13,9 +13,7 @@ E2E 테스트에서 수집된 **실제 요청/응답 데이터**를 기반으로
 
 최초 호출 전 `../apidog-schema-gen/references/import-contract.md`의 discovery로 `APIDOG_CALLABLES`를 확정한다. `--skip-doctor`와 Phase 5 직접 실행도 discovery/대상 고정/validation/freeze/read-back을 생략하지 않는다.
 
-## Language Rule
-
-유저와의 모든 대화는 **한국어**로 진행한다.
+**Language**: 유저와의 모든 대화는 **한국어**로 진행한다.
 
 ---
 

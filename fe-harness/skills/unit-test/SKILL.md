@@ -1,6 +1,6 @@
 ---
 name: unit-test
-description: "컴포넌트/훅/유틸 단위 테스트를 작성하고 실행한다. Spec이 있으면 추적 ID(AC/EC) 기반으로 필요한 만큼만, 없으면 변경 파일 기반으로 작성. '테스트 작성해줘', '유닛 테스트 돌려줘' 요청 시 사용. start-workflow Phase 5.1에서 --red로 자동 호출됨."
+description: "컴포넌트/훅/유틸 단위 테스트를 작성하고 실행한다 (Spec 이 있으면 추적 ID 기반). '테스트 작성해줘', '유닛 테스트 돌려줘' 요청 시 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 argument-hint: "[--red] [--init|--doctor] [대상 경로]"
 user-invocable: true
@@ -25,9 +25,7 @@ user-invocable: true
 | `--init` | 테스트 러너 설정 점검 |
 | `--doctor` | 전제 조건 진단 |
 
-## Language Rule
-
-유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
+**Language**: 유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
 
 ---
 

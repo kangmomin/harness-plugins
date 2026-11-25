@@ -1,6 +1,6 @@
 ---
 name: test-loop
-description: "단위 테스트 + E2E 테스트를 실행하고, 실패 시 수정 후 재실행을 반복한다 (최대 5회). '테스트 통과할 때까지 고쳐줘' 요청 시 사용. start-workflow 품질 루프에서 자동 호출됨."
+description: "단위 테스트와 E2E 테스트를 실행하고, 실패하면 수정 후 재실행을 최대 5회 반복한다. '테스트 통과할 때까지 고쳐줘' 요청 시 사용."
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion
 user-invocable: true
 argument-hint: "[--smoke] [--unit-only] [--no-lock]"
@@ -18,9 +18,7 @@ argument-hint: "[--smoke] [--unit-only] [--no-lock]"
 단위 테스트와 E2E 테스트를 실행하고, 실패 시 코드를 수정한 후 재실행한다.
 최대 5회 반복하며, 모든 테스트가 통과하면 조기 종료한다.
 
-## Language Rule
-
-유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
+**Language**: 유저와의 모든 대화는 profile의 `language` 값(기본 `ko`, 한국어)을 따른다.
 
 ## 모드
 

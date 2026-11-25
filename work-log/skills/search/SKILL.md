@@ -1,14 +1,12 @@
 ---
 name: search
-description: "work-log 문서를 검색해 관련 문서를 찾고 인용한다. '이전에 이거 정리한 문서 있나?', 'work-log 에서 찾아줘', '그 회의록 어디 있지?', 지난 작업 기록을 참조해야 할 때 사용. 후보 랭킹 → 본문 1개만 읽기의 2단 절차로 토큰을 아낀다."
+description: "work-log 문서를 검색해 관련 문서를 찾고 인용한다. 'work-log 에서 찾아줘', '그 회의록 어디 있지?', 지난 작업 기록을 참조할 때 사용."
 allowed-tools: Bash, Read, Grep, Glob
 ---
 
 # work-log 검색
 
-## Language Rule
-
-유저와의 모든 대화는 **한국어**로 진행한다.
+**Language**: 유저와의 모든 대화는 **한국어**로 진행한다.
 
 Claude Code에서는 `/work-log:search`, Codex에서는 `$work-log:search` 로 명시 호출할 수 있다.
 MCP 툴의 전체 이름은 클라이언트마다 다르므로 접두사에 의존하지 말고 `wiki_` 로 시작하는

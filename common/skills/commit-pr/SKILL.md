@@ -1,6 +1,6 @@
 ---
 name: commit-pr
-description: "커밋, 브랜치 생성, push, PR 오픈까지 전체 워크플로우를 수행한다. 'PR 올려줘', '커밋하고 PR까지', 'ready로 열어줘', 'version 올리고 PR 열어줘' 요청 시 사용. 기본은 draft PR이며 --ready로 ready 생성, --bump-only로 VERSION 범프 전용 PR을 만든다."
+description: "커밋, 브랜치 생성, push, PR 오픈까지 수행한다 (기본 draft). 'PR 올려줘', '커밋하고 PR까지', 'version 올리고 PR 열어줘' 요청 시 사용."
 argument-hint: "[--ready] [--bump-only]"
 user-invocable: true
 ---

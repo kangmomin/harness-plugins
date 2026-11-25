@@ -1,6 +1,6 @@
 ---
 name: after-meeting
-description: "회의가 끝난 뒤 STT 전사(.txt)를 정리한다. 오인식을 단어장 기준으로 보정해 전체 보정본(.md)을 만들고, 애매한 항목을 사용자에게 확인해 단어장에 반영한 뒤, 짧은 사람용 요약(.md)과 아젠다별 AI용 요약(.md)을 만든다. 원본 .txt 는 수정하지 않는다. '회의 끝났어 정리해줘', '회의록 요약해줘', '회의록 보정해줘', 'STT 오인식 해소', '전사 정리해줘', '회의록 단어장 만들어줘' 요청 시 사용."
+description: "회의 STT 전사(.txt)의 오인식을 단어장 기준으로 보정하고 사람용·AI용 요약을 만든다. '회의 끝났어 정리해줘', '회의록 요약해줘', '회의록 보정해줘' 요청 시 사용."
 user-invocable: true
 allowed-tools: Bash, Read, Write, Grep, AskUserQuestion
 argument-hint: <원본 .txt 경로|파일명> [--dict <단어장 경로>] [--new-dict [<경로>]] [--project <키>] [--shared-dict <경로>]... [--no-ask]
@@ -13,9 +13,7 @@ argument-hint: <원본 .txt 경로|파일명> [--dict <단어장 경로>] [--new
 
 보정이 끝나면 최종 보정 본문으로 요약 문서 2개를 만든다: 아젠다별로 나눈 상세한 AI용 요약과, 그 내용을 600~1,300자로 줄인 사람용 요약(핵심·액션 아이템·확인 필요). 산출물은 **문서 3개**다: 전체 보정본 · 사람용 요약 · AI용 요약. **원본 `.txt` 는 수정하지 않는다.**
 
-## Language Rule
-
-유저와의 모든 대화는 **한국어**로 진행한다.
+**Language**: 유저와의 모든 대화는 **한국어**로 진행한다.
 
 Claude Code에서는 `/work-log:after-meeting`, Codex에서는 `$work-log:after-meeting` 로 명시 호출할 수 있다.
 MCP 툴의 전체 이름은 클라이언트마다 다르므로 `wiki_` 로 시작하는 기본 이름을 기준으로 찾는다.

@@ -1,6 +1,6 @@
 ---
 name: start-workflow
-description: "전체 개발 워크플로우를 자동화한다 (be-harness 베이스 + **minmos 오버레이**: E2E 메인 플로우 수집, Codex 품질 리뷰, Apidog 문서 동기화, Post-Math 컨벤션). Build 모드(기본) / Analyze 모드(--analyze) / Verify 모드(--verify). '워크플로우 시작', '기능 구현해줘(전 과정 자동)' 요청 시 사용."
+description: "백엔드 워크플로우를 자동화한다 (be-harness 베이스 + **minmos 오버레이**: E2E 수집, Codex 리뷰, Apidog 동기화). --analyze, --verify 지원. '워크플로우 시작'."
 allowed-tools: Read, Glob, Bash, Skill
 user-invocable: true
 argument-hint: "<작업 설명> | --analyze [경로] | --verify [경로]"

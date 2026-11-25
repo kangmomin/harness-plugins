@@ -1,6 +1,6 @@
 ---
 name: request
-description: "작업 유형별(화면 생성·수정/컴포넌트 생성·수정/API 연동·수정) 단계적 질문과 레이아웃 컨펌을 통해 실행 가능한 Technical Spec을 생성한다. '화면/컴포넌트 만들어줘', '스펙 정리해줘', 요구사항이 모호할 때 사용. start-workflow Phase 1에서 자동 호출됨."
+description: "단계적 질문과 레이아웃 컨펌으로 프론트엔드 작업의 Technical Spec 을 만든다. '화면/컴포넌트 만들어줘', '스펙 정리해줘' 요청 시 사용."
 allowed-tools: AskUserQuestion, Read, Glob, Grep, Agent
 argument-hint: <기능 설명 또는 요청>
 user-invocable: true
