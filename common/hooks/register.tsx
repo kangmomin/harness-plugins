@@ -10,8 +10,8 @@ export const LANGUAGE_BLOCK = {
   text: 'Always talk in ASD-STE100 Simplified Technical Korean.\nAlways talk to me like I have ADHD.',
 }
 
-// 스킬 실행 중 겪은 마찰을 에이전트가 스스로 기록하게 한다 (papercut.py 가 정본, 로컬 전용).
-// 부가 기능이다. mod 가 없는 호스트에서는 기록이 없을 뿐이고 스킬 절차는 그대로다.
+// Why: 에이전트는 스킬의 틀린 지시를 우회하고 끝낸다. 기록이 없으면 스킬이 고쳐지지 않는다.
+// mod 가 없는 호스트에서는 기록만 없다. 스킬 절차는 같다 (papercut.py 가 정본, 로컬 전용).
 export const papercutBlock = (root: string) => ({
   name: 'harnessPapercut',
   text: [
